@@ -1,0 +1,616 @@
+<title>El coet multiplicador</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: the night pond of the other games. One centred column: the launch lane on top, then the field of stars (the multiplication
+   as a rectangle cut by digits) and the desk (the written operation and a keypad of big keys). Two fixed canvases paint the sky behind
+   and the sparks in front. The rules are written for a phone held upright; the media queries at the end put field and desk side by side. */
+:root {
+  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
+  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D; --sun: #F7C64E; --bad: #FF6B5E; --mint: #7CF5B0;
+  --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 14px 24px; overflow-x: hidden;
+  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
+  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#sky { z-index: 0; }
+#fx { z-index: 5; }
+#app { position: relative; z-index: 1; max-width: 620px; min-height: calc(100dvh - 38px); margin-inline: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+#app.wide { max-width: 940px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .sheet, .piece, .side, .tok, .fly { font-family: var(--display); }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.link { display: inline-block; background: none; border: 0; padding: 11px 0; margin-block: -7px; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.kicker { color: var(--muted); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 {
+  margin: 0; font-size: clamp(2rem, 7vw, 3rem); line-height: 1; font-weight: 800; text-wrap: balance;
+  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
+  filter: drop-shadow(0 0 18px rgb(110 230 255 / 0.35));
+}
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--glass); border: 1px solid var(--edge); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#st { color: var(--sun); letter-spacing: 0.1em; }
+.status.tip { font: 700 1rem/1.35 var(--body); max-width: 54ch; min-height: 2.7em; text-wrap: pretty; scroll-margin-top: 10px; }
+.status.go { color: var(--mint); text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
+.status.oops { color: var(--bad); }
+.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; margin-block: -6px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.levels::-webkit-scrollbar { display: none; }
+.levels button { flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; border: 1px solid var(--edge); background: var(--glass); font: 800 1rem/1 var(--display); }
+.levels button.done { background: #1E6B4A; border-color: var(--mint); }
+.levels button[aria-current] { background: var(--sun); color: #2A1C00; border-color: #fff; }
+.levels button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* the launch lane: --p is the share of the steps done; fuel and rocket follow it towards the planet */
+.lane { position: relative; width: 100%; max-width: 560px; height: 40px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.fuel { position: absolute; inset: 5px auto 5px 5px; width: calc((100% - 84px) * var(--p) + 22px); border-radius: 999px; background: linear-gradient(90deg, rgb(247 198 78 / 0), var(--sun)); transition: width 0.5s cubic-bezier(0.4, 0, 0.3, 1); }
+.rk { position: absolute; top: 0; left: calc((100% - 84px) * var(--p)); width: 38px; height: 38px; transform: rotate(90deg); transition: left 0.5s cubic-bezier(0.4, 0, 0.3, 1), transform 0.9s, opacity 0.9s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
+.rk svg { display: block; width: 100%; height: 100%; }
+.rk .flame { transform-origin: 32px 48px; animation: flame 0.18s ease-in-out infinite alternate; }
+.planet { position: absolute; right: 5px; top: 4px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, hsl(var(--ph) 90% 82%), hsl(var(--ph) 70% 48%) 55%, hsl(var(--ph) 70% 20%)); box-shadow: 0 0 14px hsl(var(--ph) 90% 60% / 0.7); }
+.lane.won .rk { left: calc(100% - 40px); transform: rotate(90deg) scale(0.2); opacity: 0; }
+.lane.won .planet { animation: beacon 0.8s ease-in-out 3; }
+
+.split { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px 28px; justify-content: center; align-items: center; }
+/* the field: the multiplication as a rectangle, one piece per pair of digits; --h is the colour of its strip */
+.field { width: min(100%, 480px); padding: 12px; border-radius: 26px; border: 1px solid var(--edge);
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
+.rect { display: grid; gap: 6px; }
+.side { display: grid; place-items: center; padding: 0 4px; font-weight: 800; font-size: 1.15rem; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+.piece {
+  min-width: 0; min-height: 54px; padding: 4px 2px; border-radius: 14px; display: grid; place-content: center; font-weight: 800; font-size: 0.95rem; line-height: 1.1; white-space: nowrap;
+  color: hsl(var(--h) 70% 82%); border: 2px solid hsl(var(--h) 60% 45% / 0.6); font-variant-numeric: tabular-nums;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.5) 1px, transparent 1.6px) 0 0 / 15px 15px, linear-gradient(160deg, hsl(var(--h) 46% 24%), hsl(var(--h) 52% 12%));
+  transition: background 0.3s, box-shadow 0.3s, color 0.3s;
+}
+.piece b { font-size: 1.3rem; }
+.piece.now { border-color: var(--sun); animation: beacon 1s ease-in-out infinite; }
+.piece.done { color: #04131C; border-color: hsl(var(--h) 100% 88%); background: linear-gradient(160deg, hsl(var(--h) 95% 74%), hsl(var(--h) 85% 52%)); box-shadow: 0 0 22px hsl(var(--h) 100% 60% / 0.5); }
+.c0 { color: #6FE3FF; }
+.c1 { color: #FF8FD0; }
+/* section 1: a grid of tokens, each worth 10, 100 or 1000 */
+.tokens { display: grid; grid-template-columns: repeat(var(--tc), 1fr); gap: 5px; max-width: calc(var(--tc) * 66px); margin-inline: auto; }
+.tok { aspect-ratio: 1; min-width: 0; border-radius: 22%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: clamp(0.7rem, 3.2vw, 1.05rem); line-height: 1; color: var(--ink);
+  background: linear-gradient(160deg, hsl(190 60% 38%), hsl(190 60% 18%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 3px 0 rgb(0 0 0 / 0.35); transition: background 0.3s, color 0.3s; }
+.tokens.counted .tok { background: linear-gradient(160deg, hsl(190 95% 62%), hsl(190 85% 40%)); color: #04131C; }
+.tokens.lit .tok { background: linear-gradient(160deg, #FFE08A, #E0A21C); color: #2A1C00; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 3px 0 rgb(0 0 0 / 0.35), 0 0 12px rgb(247 198 78 / 0.6); }
+.cap { margin-top: 10px; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+
+/* the desk: the operation as it is written on paper, the question being asked, and the keys */
+.desk { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+.sheet { display: grid; grid-template-columns: repeat(var(--w), 36px); justify-content: center; font-weight: 800; font-size: 1.9rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.sheet span { height: 40px; display: grid; place-items: center; border-radius: 10px; }
+.sheet .sg { color: var(--muted); }
+.sheet .cy { height: 22px; font-size: 1.05rem; color: var(--sun); }
+.sheet .ln { grid-column: 1 / -1; height: 3px; margin: 4px 0; border-radius: 2px; background: var(--ink); }
+.sheet .next { box-shadow: inset 0 0 0 2px var(--sun); background: rgb(247 198 78 / 0.12); animation: beacon 1s ease-in-out infinite; }
+.sheet .bad { color: var(--bad); box-shadow: inset 0 0 0 2px var(--bad); animation: shake 0.35s; }
+.sheet.eqs { display: flex; flex-direction: column; gap: 4px; font-size: 1.5rem; color: var(--muted); }
+.sheet.eqs b { color: var(--sun); }
+.askrow { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ask { display: flex; align-items: center; gap: 0.3em; font-weight: 800; font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask i { font-style: normal; color: var(--sun); }
+.in { min-width: 2.6ch; height: 46px; padding: 0 10px; border-radius: 12px; border: 2px solid var(--sun); background: rgb(247 198 78 / 0.12); display: inline-grid; place-items: center; }
+.in.shake { border-color: var(--bad); animation: shake 0.35s; }
+/* on a phone the keys stay at the bottom of the screen while the field and the sheet scroll above them */
+.keys { position: sticky; bottom: 0; z-index: 2; width: calc(100% + 24px); margin: 0 -12px -12px; padding: 10px 12px 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.key {
+  height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.del { background: none; color: var(--muted); }
+.key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+.btn {
+  border: 0; border-radius: 999px; padding: 0.4em 1.6em; font-size: 1.4rem; font-weight: 800;
+  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55);
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--pad-dark); }
+.btn.soft { flex: none; min-height: 44px; padding: 0.3em 1em; background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
+.btn.soft:active { box-shadow: 0 1px 0 #10242F; }
+/* a result on its way from where it was worked out to where it is written */
+.fly { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; font-weight: 800; font-size: 1.9rem; line-height: 1; color: #fff; text-shadow: 0 0 14px currentColor; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.fly.cy { color: var(--sun); }
+
+.panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94%, 400px); z-index: 3;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px 14px 16px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); animation: panel 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.panel h2 { margin: 0; font-size: 1.7rem; line-height: 1.1; font-weight: 800; text-wrap: balance; }
+.panel .lead { font-size: 1.05rem; text-wrap: pretty; }
+.panel .score { font: 800 2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.panel .won { font-size: 2.6rem; line-height: 1; color: var(--sun); letter-spacing: 0.1em; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+
+/* the vertical menu of sections */
+.secs { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; }
+.sec { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 12px 16px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); }
+.sec:not(:disabled):hover { background: rgb(79 181 98 / 0.22); border-color: var(--mint); }
+.sec:disabled { opacity: 0.5; cursor: not-allowed; }
+.sec-n { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--pad); color: var(--on-pad); font: 800 1.5rem/1 var(--display); }
+.sec.all .sec-n { background: var(--sun); color: #2A1C00; }
+.sec-t { display: flex; flex-direction: column; min-width: 0; }
+.sec-t b { font: 800 1.35rem/1.15 var(--display); }
+.sec-t span { font-size: 0.95rem; color: var(--muted); }
+.sec-p { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-weight: 800; font-size: 0.9rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pips i.ok { background: var(--sun); }
+
+@keyframes slide { to { background-position: -200% 0; } }
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes flame { to { transform: scaleY(0.6); } }
+@keyframes panel { from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; } }
+@keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+/* a tablet or a laptop: the field and the desk side by side */
+@media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; }
+  .split { flex-direction: row; align-items: flex-start; }
+  .field { flex: 1 1 0; }
+  .desk { flex: 1 1 0; max-width: 400px; padding: 16px; }
+  .keys { position: static; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+  .piece { min-height: 78px; font-size: 1.05rem; }
+  .piece b { font-size: 1.5rem; }
+}
+@media (min-width: 700px) and (min-height: 861px) { #app.wide h1 { display: block; } }
+/* with a mouse the round level buttons can be smaller */
+@media (min-width: 700px) and (pointer: fine) { .levels button { width: 34px; height: 34px; } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .rk .flame, .piece.now, .sheet .next, .sheet .bad, .in.shake, .panel, .lane.won .planet { animation: none; }
+  .fuel, .rk, .piece, .tok { transition: none; }
+  .piece.now, .sheet .next { box-shadow: 0 0 16px 5px var(--sun); }
+}
+</style>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<main id="app">
+  <div class="top"><span><a class="link" id="toG" href="index.html">← Tots els jocs</a><button class="link" id="toS" hidden>← Seccions</button></span><button class="link" id="so"></button></div>
+  <header><p class="kicker" id="kick"></p><h1>El coet multiplicador</h1></header>
+  <section id="game"></section>
+</main>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+/* LOGIC-START */
+// Six sections of ten levels. A level is one multiplication, a × b, and the way it is worked:
+//   'zeros'   one piece: the product without its zeros, then with them
+//   'pieces'  the rectangle cut by digits: one product per piece, then the pieces added in a column
+//   'guided'  the school algorithm, typing each small product whole; the game writes its last digit and carries the rest
+//   'free'    the school algorithm, one written digit at a time
+const lv = (mode, list) => list.map(([a, b]) => ({ a, b, mode }));
+const SECTIONS = [
+  { name: 'Zeros màgics', sub: 'Multiplicar per desenes i centenes',
+    levels: lv('zeros', [[3, 20], [4, 30], [6, 40], [7, 200], [5, 300], [20, 30], [40, 60], [30, 200], [50, 400], [70, 800]]) },
+  { name: 'Trossejar', sub: 'Un número gran, tros a tros',
+    levels: lv('pieces', [[23, 3], [42, 4], [56, 7], [123, 3], [214, 6], [342, 5], [406, 7], [538, 6], [764, 8], [987, 9]]) },
+  { name: 'En columna', sub: "Escric una xifra i me'n porto una altra",
+    levels: [...lv('guided', [[32, 3], [27, 3], [48, 6], [123, 3], [236, 4], [458, 7]]), ...lv('free', [[324, 6], [507, 8], [689, 7], [978, 9]])] },
+  { name: 'Dues files', sub: "Per què hi ha dues files i d'on surt el zero",
+    levels: [...lv('pieces', [[12, 13], [23, 14], [34, 25], [46, 37]]), ...lv('guided', [[21, 32], [34, 56], [47, 63], [78, 45]]), ...lv('free', [[56, 34], [89, 76]])] },
+  { name: '3 × 2 amb ajuda', sub: 'Tres xifres per dues, pas a pas',
+    levels: lv('guided', [[123, 12], [213, 24], [324, 35], [245, 46], [406, 53], [538, 27], [672, 48], [759, 64], [806, 79], [947, 86]]) },
+  { name: 'Missió final', sub: 'Tres xifres per dues, sense ajuda',
+    levels: lv('free', [[132, 23], [254, 36], [318, 47], [467, 52], [583, 64], [609, 78], [745, 39], [826, 95], [968, 87], [999, 99]]) }
+];
+const LEVELS = SECTIONS.flatMap(s => s.levels);
+const digitsOf = n => [...String(n)].reverse().map(Number);   // units first
+const zerosOf = n => String(n).length - String(n).replace(/0+$/, '').length;
+// one piece per pair of digits that are not zero, in the order they are asked: the strip of the units first, each strip from the left
+function pieces(a, b) {
+  const out = [];
+  digitsOf(b).forEach((d, bi) => digitsOf(a).forEach((x, ai) => { if (x && d) out.push({ ai, bi, x, d, av: x * 10 ** ai, bv: d * 10 ** bi, val: x * d * 10 ** (ai + bi) }); }));
+  return out.sort((p, q) => p.bi - q.bi || q.ai - p.ai);
+}
+// adding numbers in a column: one step per digit of the total, from the right
+function sumSteps(vals) {
+  const total = vals.reduce((s, v) => s + v, 0), out = [];
+  let carry = 0;
+  for (let col = 0; col < String(total).length; col++) {
+    const adds = vals.filter(v => v >= 10 ** col).map(v => Math.floor(v / 10 ** col) % 10), v = adds.reduce((s, n) => s + n, 0) + carry;
+    out.push({ kind: 'digit', part: 'sum', row: 'sum', col, want: v % 10, adds, carry, v, out: Math.floor(v / 10) });
+    carry = Math.floor(v / 10);
+  }
+  return out;
+}
+// The steps of a level, in order. kind 'val' wants a whole number typed and confirmed, kind 'digit' wants one key.
+// row and col say where the result is written (col 0 is the units); out is what is carried to the next column.
+function plan({ a, b, mode }) {
+  const A = digitsOf(a), B = digitsOf(b), steps = [];
+  if (mode === 'zeros') {
+    const z = zerosOf(a) + zerosOf(b), core = a * b / 10 ** z;
+    return [{ kind: 'val', part: 'core', want: core, z }, { kind: 'val', part: 'full', want: a * b, z, core }];
+  }
+  if (mode === 'pieces') {
+    const ps = pieces(a, b);
+    ps.forEach((p, i) => steps.push({ kind: 'val', part: 'piece', row: 'p' + i, want: p.val, ...p }));
+    return steps.concat(sumSteps(ps.map(p => p.val)));
+  }
+  B.forEach((d, bi) => {
+    let carry = 0;
+    for (let col = 0; col < bi; col++) steps.push({ kind: 'digit', part: 'zero', row: 'r' + bi, col, want: 0, d, bi });
+    A.forEach((x, ai) => {
+      const v = x * d + carry, last = ai === A.length - 1, base = { row: 'r' + bi, col: ai + bi, x, d, ai, bi, carry, v, last, out: last ? 0 : Math.floor(v / 10) };
+      if (mode === 'guided') steps.push({ kind: 'val', part: 'prod', want: v, ...base });
+      else {
+        steps.push({ kind: 'digit', part: 'mul', want: v % 10, ...base });
+        if (last && v > 9) steps.push({ kind: 'digit', part: 'top', want: Math.floor(v / 10), ...base, col: ai + bi + 1 });
+      }
+      carry = Math.floor(v / 10);
+    });
+  });
+  if (B.length > 1) steps.push(...sumSteps(B.map((d, bi) => a * d * 10 ** bi)));
+  return steps;
+}
+// slips are wrong answers plus hints asked
+const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
+/* LOGIC-END */
+
+const KEY = 'coet-multiplicador';
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+// secs counts the levels done in each section; stars keeps the best of each level
+let prog = { so: true, secs: SECTIONS.map(() => 0), stars: LEVELS.map(() => 0) };
+try {
+  const d = JSON.parse(localStorage.getItem(KEY));
+  if (d) prog = { so: d.so !== false,
+    secs: prog.secs.map((_, i) => Math.min(10, Math.max(0, (Array.isArray(d.secs) && d.secs[i]) | 0))),
+    stars: prog.stars.map((_, i) => Math.min(3, Math.max(0, (Array.isArray(d.stars) && d.stars[i]) | 0))) };
+} catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
+
+// every new screen cancels the running one through this token
+let tok = { on: true };
+function fresh() { tok.on = false; tok = { on: true }; return tok; }
+
+/* ---------- sound ---------- */
+let ac;
+function tone(f, at = 0, dur = 0.34, vol = 0.15, type = 'sine') {
+  if (!prog.so) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + at;
+    [[f, vol, type], [f * 2, vol * 0.3, 'triangle']].forEach(([fr, v, ty]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty; o.frequency.value = fr;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+    });
+  } catch (e) {}
+}
+const chime = (notes, gap = 0.08) => notes.forEach((f, i) => tone(f, i * gap, 0.4, 0.12));
+
+/* ---------- canvases: drifting glow and fireflies behind, sparks and rings in front ---------- */
+const FX = (() => {
+  const sky = $('#sky'), fx = $('#fx'), a = sky.getContext('2d'), b = fx.getContext('2d');
+  const parts = [], rings = [], flies = [], sprites = new Map();
+  let W = 0, H = 0, hue = 165, target = 165, last = 0;
+  function sprite(h) {
+    h = ((Math.round(h / 12) * 12) % 360 + 360) % 360;
+    let s = sprites.get(h);
+    if (!s) {
+      s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, `hsl(${h} 100% 75%)`); gr.addColorStop(1, `hsl(${h} 100% 55% / 0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); sprites.set(h, s);
+    }
+    return s;
+  }
+  function resize() {
+    const D = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
+    if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
+    if (RM) drawSky(0, 1);
+  }
+  function drawSky(now, dt) {
+    a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
+    hue += (target - hue) * Math.min(1, dt * 1.5);
+    const R = Math.max(W, H) * 0.6;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.4 * Math.sin(now * 0.00011 * (i + 1) + i * 2.1)), y = H * (0.5 + 0.38 * Math.cos(now * 0.00013 * (i + 1.3) + i));
+      const g = a.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, `hsl(${hue + i * 42} 85% 48% / 0.24)`); g.addColorStop(1, `hsl(${hue + i * 42} 85% 48% / 0)`);
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+    }
+    if (RM) return;
+    const img = sprite(62);
+    for (const f of flies) {
+      f.a += rand(-1.2, 1.2) * dt; f.x += Math.cos(f.a) * f.s * dt; f.y += Math.sin(f.a) * f.s * dt;
+      if (f.x < -20) f.x = W + 20; else if (f.x > W + 20) f.x = -20;
+      if (f.y < -20) f.y = H + 20; else if (f.y > H + 20) f.y = -20;
+      a.globalAlpha = 0.15 + 0.75 * Math.sin(now * 0.0016 + f.p) ** 2;
+      a.drawImage(img, f.x - f.z, f.y - f.z, f.z * 2, f.z * 2);
+    }
+    a.globalAlpha = 1;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    drawSky(now, dt);
+    b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H); b.globalCompositeOperation = 'lighter';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= 0.96; p.vy = p.vy * 0.96 + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = p.life / p.max, z = p.z * (0.35 + 0.65 * k);
+      b.globalAlpha = Math.min(1, k * 1.6); b.drawImage(sprite(p.h), p.x - z, p.y - z, z * 2, z * 2);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+      const k = 1 - r.life / r.max;
+      b.globalAlpha = 1 - k; b.strokeStyle = `hsl(${r.h} 100% 72%)`; b.lineWidth = 4 * (1 - k) + 1;
+      b.beginPath(); b.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 3), 0, 6.283); b.stroke();
+    }
+    b.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  function burst(x, y, h, n, power, g = 140) {
+    if (RM) return;
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, 6.283), v = power * rand(0.35, 1.5), life = rand(0.45, 1.05);
+      parts.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, g, life, max: life, z: rand(4, 11), h: h + rand(-22, 22) });
+    }
+  }
+  function ring(x, y, h, r0, r1, life = 0.6) { if (!RM) rings.push({ x, y, h, r0, r1, life, max: life }); }
+  // fireworks over the upper half of the screen
+  function celebrate(n = 9) {
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const x = W * rand(0.12, 0.88), y = H * rand(0.12, 0.6), h = rand(0, 360);
+      burst(x, y, h, 46, 330, 220); ring(x, y, h, 6, 120, 0.8); tone(pick([784, 880, 1047, 1175, 1319]), 0, 0.3, 0.05);
+    }, k * 170);
+  }
+  addEventListener('resize', resize); resize();
+  if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
+  return { burst, ring, celebrate, mood(h) { target = h; if (RM) drawSky(0, 1); } };
+})();
+
+/* ---------- screens ---------- */
+const ROCKET = `<svg viewBox="0 0 64 64" aria-hidden="true"><path class="flame" d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></svg>`;
+const KEYS = `<div class="keys">${[1, 2, 3, 4, 5, 'del', 6, 7, 8, 9, 0, 'ok'].map(k =>
+  `<button class="key${k > -1 ? '' : ' ' + k}" data-k="${k}"${k === 'del' ? ' aria-label="Esborra"' : k === 'ok' ? ' aria-label="Comprova"' : ''}>${k === 'del' ? '⌫' : k === 'ok' ? '✓' : k}</button>`).join('')}</div>`;
+const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!', 'Combustible carregat!'];
+const HURRAY = ['Enlairament!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Bon viatge!'];
+// one sky colour and one planet per section; the strip of the units is blue and the strip of the tens is pink, on the field and on the desk
+const HUES = [165, 205, 262, 318, 28, 48], STRIP = [190, 318];
+const zeros = z => z === 1 ? 'un zero' : `${z} zeros`;
+const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+const mid = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
+
+// the link to the page of all games only exists where this page is served under its own file name, next to the others
+const HUB = /coet-multiplicador\.html$/.test(location.pathname);
+function show(kicker, playing) {
+  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
+}
+$('#toS').onclick = () => seccions();
+function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
+$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+
+// the keys on the screen and a real keyboard both end up here
+let keyFn = null;
+addEventListener('keydown', e => {
+  if (!keyFn || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : /^\d$/.test(e.key) ? e.key : null;
+  if (k) { e.preventDefault(); keyFn(k); }
+});
+
+const secOpen = s => s === 0 || prog.secs[s - 1] >= 10;
+function seccions() {
+  fresh(); keyFn = null; show('Multiplicar', false); FX.mood(HUES[0]);
+  const root = $('#game');
+  root.innerHTML = `<p class="status tip">Tria una secció. A cada una el coet aprèn un tros de la multiplicació.</p>
+    <nav class="secs" aria-label="Seccions">${SECTIONS.map((s, i) => { const n = prog.secs[i], st = prog.stars.slice(i * 10, i * 10 + 10).reduce((x, y) => x + y, 0);
+      return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${secOpen(i) ? '' : ' disabled'}>
+      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${secOpen(i) ? s.sub : 'Acaba la secció anterior per obrir-la'}</span></span>
+      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10${st ? ` · ★ ${st}` : ''}</span></button>`; }).join('')}</nav>`;
+  root.querySelector('.secs').onclick = e => { const b = e.target.closest('.sec'); if (b && !b.disabled) level(+b.dataset.s, Math.min(prog.secs[+b.dataset.s], 9)); };
+  root.querySelector('.sec:not(:disabled)').focus({ preventScroll: true });
+}
+
+/* ---------- one level: the steps of plan() asked one by one ---------- */
+function level(sec, idx) {
+  const t = fresh(); show(`Secció ${sec + 1} · ${SECTIONS[sec].name}`, true); FX.mood(HUES[sec]);
+  const root = $('#game'), L = LEVELS[sec * 10 + idx], { a, b, mode } = L, steps = plan(L);
+  const A = digitsOf(a), B = digitsOf(b), W = Math.max(String(a * b).length, A.length), ps = mode === 'zeros' ? [] : pieces(a, b);
+  const za = zerosOf(a), zb = zerosOf(b), da = a / 10 ** za, db = b / 10 ** zb, unit = 10 ** (za + zb);
+  // what is written on the sheet so far, by 'row:column', and the cells that glow or shake
+  const cells = {}, marks = {}, eqs = [];
+  let k = 0, slips = 0, help = 0, buf = '', busy = false;
+
+  const cols = A.map((x, ai) => ({ x, ai })).filter(c => c.x).reverse();
+  const field = mode === 'free' ? '' : mode === 'zeros'
+    ? `<div class="field"><div class="tokens" id="toks" style="--tc:${db}">${`<i class="tok">${unit}</i>`.repeat(da * db)}</div><p class="cap">${da} files de ${db} peces · cada peça val ${unit}</p></div>`
+    : `<div class="field"><div class="rect" style="grid-template-columns:auto ${cols.map(c => [1, 1.2, 1.5][c.ai] + 'fr').join(' ')}"><span class="side">×</span>${cols.map(c => `<span class="side">${c.x * 10 ** c.ai}</span>`).join('')}
+      ${B.map((d, bi) => `<span class="side c${bi}">${d * 10 ** bi}</span>` + cols.map(c => `<div class="piece" data-p="${c.ai},${bi}" style="--h:${STRIP[bi]}"><span>${c.x * 10 ** c.ai} × ${d * 10 ** bi}</span></div>`).join('')).join('')}</div></div>`;
+  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${idx + 1} · ${a} × ${b}</span><span class="chip" id="st"></span></div>
+    <nav class="levels" aria-label="Nivells">${SECTIONS[sec].levels.map((_, i) => `<button data-n="${i}" class="${i < prog.secs[sec] ? 'done' : ''}"${i === idx ? ' aria-current="true"' : ''}${i > prog.secs[sec] ? ' disabled title="Supera el nivell anterior"' : ''}>${i + 1}</button>`).join('')}</nav>
+    <div class="lane" id="lane" style="--p:0;--ph:${HUES[sec]}" aria-hidden="true"><i class="fuel"></i><span class="rk">${ROCKET}</span><i class="planet"></i></div>
+    <p class="status tip" id="tip" role="status" aria-live="polite"></p>
+    <div class="split" id="split">${field}<div class="desk"><div class="sheet${mode === 'zeros' ? ' eqs' : ''}" id="sheet"></div>
+      <div class="askrow"><p class="ask" id="ask"></p><button class="btn soft" id="hintb">Pista</button></div>${KEYS}</div></div>`;
+  const sheet = $('#sheet'), lane = $('#lane');
+  { const nav = root.querySelector('.levels'), n = nav.getBoundingClientRect(), c = nav.querySelector('[aria-current]').getBoundingClientRect(); nav.scrollLeft += c.left - n.left - (n.width - c.width) / 2; }
+  const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+  const cell = key => sheet.querySelector(`[data-k="${key}"]`);
+  const pieceEl = st => root.querySelector(`.piece[data-p="${st.ai},${st.bi}"]`);
+  const write = (row, col, n) => [...String(n)].reverse().forEach((ch, i) => { cells[row + ':' + (col + i)] = ch; });
+
+  if (mode === 'guided' || mode === 'free') { write('a', 0, a); write('b', 0, b); }
+  function drawSheet() {
+    if (mode === 'zeros') { sheet.innerHTML = eqs.map(e => `<p>${e}</p>`).join(''); return; }
+    const line = (id, cls = '', sign = '') => `<span class="sg ${cls}">${sign}</span>` + Array.from({ length: W }, (_, i) => {
+      const key = id + ':' + (W - 1 - i); return `<span class="${cls} ${marks[key] || ''}" data-k="${key}">${cells[key] ?? ''}</span>`; }).join('');
+    const LN = '<i class="ln"></i>';
+    sheet.style.setProperty('--w', W + 1);
+    sheet.innerHTML = mode === 'pieces'
+      ? line('sc', 'cy') + ps.map((p, i) => line('p' + i, 'c' + p.bi, i === ps.length - 1 ? '+' : '')).join('') + LN + line('sum')
+      : line('mc', 'cy') + line('a') + line('b', '', '×') + LN + (B.length > 1 ? line('sc', 'cy') + line('r0', 'c0') + line('r1', 'c1', '+') + LN + line('sum') : line('r0', 'c0'));
+  }
+  function donePiece(st) {
+    const el = pieceEl(st); if (!el) return;
+    el.classList.remove('now'); el.classList.add('done'); el.innerHTML = `<span>${st.x * 10 ** st.ai} × ${st.d * 10 ** st.bi}</span><b>${st.x * st.d * 10 ** (st.ai + st.bi)}</b>`;
+  }
+  // the cells where the answer of a step will be written
+  const targets = st => st.kind === 'digit' ? [st.row + ':' + st.col] : st.part === 'prod' ? [st.row + ':' + st.col, ...(st.last && st.v > 9 ? [st.row + ':' + (st.col + 1)] : [])] : [];
+
+  const carried = n => n === 1 ? ' més 1 que portaves' : ` més ${n} que portaves`;
+  function tipFor(st) {
+    switch (st.part) {
+      case 'core': return `Primer sense zeros: ${da} × ${db}. Són ${da} files de ${db} peces.`;
+      case 'full': return `Cada peça val ${unit}. Escriu ${st.core} i torna-hi a posar ${st.z === 1 ? 'el zero' : `els ${st.z} zeros`}.`;
+      case 'piece': { const z = st.ai + st.bi; return z ? `Tros ${st.av} × ${st.bv}. Truc dels zeros: fes ${st.x} × ${st.d} i afegeix-hi ${zeros(z)}.` : `Tros ${st.av} × ${st.bv}: aquest surt de la taula del ${st.d}.`; }
+      case 'zero': return `Ara toca el ${st.d}, que és a les desenes i val ${st.d * 10}. Per això la fila comença amb un zero: escriu-lo!`;
+      case 'prod': return (st.ai === 0 && st.bi === 0 ? `Comencem per la dreta: ${st.d} × ${st.x}.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
+        + (st.last && st.v > 9 ? " És l'última: s'escriu el número sencer." : '');
+      case 'mul': return st.ai === 0 && st.bi === 0 ? 'Multiplica de dreta a esquerra i escriu només la xifra de la casella que brilla. La que et portes s\'apunta sola a dalt.'
+        : st.ai === 0 ? `Ara multiplica pel ${st.d}, també de dreta a esquerra.` : 'Segueix cap a l\'esquerra. No t\'oblidis de la que portes!';
+      case 'top': return 'I la que portaves, al davant.';
+      default: return st.col ? 'Segueix sumant la columna que brilla.' : mode === 'pieces' ? 'Ara suma tots els trossos, columna a columna, començant per la dreta.' : 'Ara suma les dues files, columna a columna, començant per la dreta.';
+    }
+  }
+  // what to say after a wrong answer or a hint: first what to work out, then the whole sum
+  function explain(st, deep) {
+    const mul = `${st.d} × ${st.x}`;
+    switch (st.part) {
+      case 'core': return deep ? `${da} × ${db} = ${st.want}. Compta les peces: ${da} files de ${db}.` : `Mira les peces: hi ha ${da} files de ${db}. Quantes són?`;
+      case 'full': return deep ? `${st.core} peces de ${unit} són ${st.want}: ${st.core} i ${zeros(st.z)}.` : `Són ${st.core} peces, i cada una val ${unit}.`;
+      case 'piece': { const z = st.ai + st.bi; return deep ? `${st.x} × ${st.d} = ${st.x * st.d}${z ? `, i amb ${zeros(z)}: ${st.val}` : ''}.` : z ? `Primer ${st.x} × ${st.d}, i després ${zeros(z)}.` : `Repassa la taula del ${st.d}: ${st.x} × ${st.d}.`; }
+      case 'zero': return 'Aquesta fila comença amb un 0, perquè ara multipliquem per desenes.';
+      case 'prod': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}.` : `Pensa-hi bé: ${mul}${st.carry ? carried(st.carry) : ''}.`;
+      case 'mul': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}. S'escriu el ${st.v % 10}${st.v > 9 ? ` i te'n portes ${Math.floor(st.v / 10)}` : ''}.` : `En aquesta casella: ${mul}${st.carry ? carried(st.carry) : ''}. Escriu-ne només l'última xifra.`;
+      case 'top': return `${mul}${st.carry ? carried(st.carry) : ''} fan ${st.v}. El ${st.want} que et portes va al davant.`;
+      default: { const sum = st.adds.join(' + ') + (st.carry ? ` + ${st.carry} que portaves` : ''); return deep ? `${sum} = ${st.v}. S'escriu el ${st.want}${st.out ? ` i te'n portes ${st.out}` : ''}.` : `Suma la columna que brilla: ${sum}.`; }
+    }
+  }
+
+  function drawAsk(st) {
+    const box = '<output class="in" id="in" aria-label="La teva resposta"></output>';
+    $('#ask').innerHTML = st.kind === 'digit' ? '' : st.part === 'core' ? `${da} × ${db} = ${box}` : st.part === 'full' ? `${a} × ${b} = ${box}`
+      : st.part === 'piece' ? `${st.av} × ${st.bv} = ${box}` : `${st.d} × ${st.x}${st.carry ? ` <i>+ ${st.carry}</i>` : ''} = ${box}`;
+  }
+  // gets the next step ready: its cells glow, its piece of the field glows, its question and its tip are shown
+  function arm() {
+    const st = steps[k]; buf = ''; help = 0;
+    for (const key in marks) delete marks[key];
+    targets(st).forEach(key => { marks[key] = 'next'; });
+    // the carries of one row of the multiplication do not belong to the next one
+    if (st.part === 'zero' || st.part === 'sum' || st.ai === 0) for (const key in cells) if (key.startsWith('mc:')) delete cells[key];
+    root.querySelectorAll('.piece.now').forEach(e => e.classList.remove('now'));
+    if (st.part !== 'zero' && st.part !== 'sum') pieceEl(st)?.classList.add('now');
+    drawSheet(); drawAsk(st); tip(tipFor(st));
+    // on a phone the cell being asked can be off screen or under the keys: bring the tip, the field and the sheet back
+    const see = sheet.querySelector('.next') || $('#ask'), r = see.getBoundingClientRect(), keys = root.querySelector('.keys');
+    if (r.top < 0 || r.bottom > innerHeight - (getComputedStyle(keys).position === 'sticky' ? keys.offsetHeight : 0)) $('#tip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
+  }
+  const stars = () => { $('#st').textContent = starRow(starsFor(slips)); };
+
+  async function fly(txt, from, to, cls = '') {
+    if (RM || !from || !to) return;
+    const p = mid(from), q = mid(to), e = document.createElement('b');
+    e.className = 'fly ' + cls; e.textContent = txt; document.body.append(e);
+    e.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%) scale(1.3)`; void e.offsetWidth;
+    e.style.transform = `translate(${q.x}px, ${q.y}px) translate(-50%, -50%)`;
+    await sleep(520); e.remove();
+  }
+  const spark = (el, h = 48) => { if (el) { const p = mid(el); FX.burst(p.x, p.y, h, 14, 120); } };
+
+  // a right answer lands where it is written; resolves when the next step can be asked
+  async function land(st) {
+    let msg = '', wait = 220;
+    if (mode === 'zeros') {
+      eqs.push(st.part === 'core' ? `${da} × ${db} = <b>${st.want}</b>` : `${a} × ${b} = <b>${st.want}</b>`);
+      $('#toks').classList.add(st.part === 'core' ? 'counted' : 'lit'); spark($('#toks'), 190);
+      msg = st.part === 'core' ? `${st.want} peces!` : ''; wait = 700;
+    } else if (st.part === 'piece') {
+      const el = pieceEl(st); donePiece(st); spark(el, STRIP[st.bi]);
+      await fly(st.val, el, cell(st.row + ':0'), 'c' + st.bi);
+      write(st.row, 0, st.val); msg = pick(BRAVO); wait = 500;
+    } else if (st.part === 'prod') {
+      const src = $('#in'), put = st.last ? st.v : st.v % 10; donePiece(st);
+      await Promise.all([fly(put, src, cell(st.row + ':' + st.col), 'c' + st.bi), st.out ? fly(st.out, src, cell('mc:' + (st.ai + 1)), 'cy') : 0]);
+      write(st.row, st.col, put); if (st.out) cells['mc:' + (st.ai + 1)] = st.out;
+      msg = st.out ? `${st.v}: escric el ${st.v % 10} i me'n porto ${st.out}.` : st.v > 9 ? `${st.v}: és l'última, l'escric sencer.` : `Escric el ${st.v}.`; wait = 1000;
+    } else {
+      cells[st.row + ':' + st.col] = st.want;
+      if (st.out) cells[st.part === 'sum' ? 'sc:' + (st.col + 1) : 'mc:' + (st.ai + 1)] = st.out;
+    }
+    if (!t.on) return;
+    for (const key in marks) delete marks[key];
+    drawSheet(); drawAsk({ kind: 'digit' }); if (st.row) spark(cell(st.row + ':' + st.col));
+    // a row of the multiplication just finished: say what it is worth, which is its strip of the field
+    if (B.length > 1 && st.last && (st.part === 'prod' || st.part === 'top' || (st.part === 'mul' && st.v < 10))) {
+      msg = st.bi ? `Segona fila: ${a} × ${st.d * 10} = ${a * st.d * 10}.` : `Primera fila: ${a} × ${st.d} = ${a * st.d}.`; wait = 1700;
+    }
+    if (msg) tip(msg, 'go');
+    await sleep(wait);
+  }
+
+  function wrong(st, n) {
+    slips++; help++; stars(); tone(150, 0, 0.45, 0.16, 'triangle'); tip('Ui! ' + explain(st, help > 1), 'oops');
+    if (st.kind === 'val') { buf = ''; const o = $('#in'); o.textContent = ''; o.className = 'in'; void o.offsetWidth; o.className = 'in shake'; return; }
+    // the wrong digit shows in its cell for a moment
+    const key = st.row + ':' + st.col; busy = true; cells[key] = n; marks[key] = 'bad'; drawSheet();
+    setTimeout(() => { if (!t.on) return; delete cells[key]; marks[key] = 'next'; drawSheet(); busy = false; }, 600);
+  }
+
+  async function answer(n) {
+    const st = steps[k];
+    if (n !== st.want) return wrong(st, n);
+    busy = true; tone(784, 0, 0.14, 0.08);
+    await land(st); if (!t.on) return;
+    k++; lane.style.setProperty('--p', k / steps.length);
+    if (k === steps.length) return win();
+    busy = false; arm();
+  }
+
+  async function win() {
+    const n = starsFor(slips), i = sec * 10 + idx, end = idx === 9, last = end && sec === SECTIONS.length - 1;
+    keyFn = null; if (idx + 1 > prog.secs[sec]) prog.secs[sec] = idx + 1;
+    prog.stars[i] = Math.max(prog.stars[i], n); save();
+    root.querySelectorAll('.piece.now').forEach(e => e.classList.remove('now'));
+    tip(`${a} × ${b} = ${a * b}. ${pick(HURRAY)}`, 'go'); lane.classList.add('won'); chime([523, 659, 784, 1047, 1319]); FX.celebrate(end ? 16 : 8);
+    await sleep(1200); if (!t.on) return;
+    $('#split').insertAdjacentHTML('beforeend', `<div class="panel"><h2>${last ? 'Missió complerta!' : end ? 'Secció superada!' : pick(HURRAY)}</h2>
+      <p class="score">${a} × ${b} = ${a * b}</p><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
+      <p class="lead">${last ? 'Ja saps multiplicar números de tres xifres per números de dues, com els grans.' : end ? `Has obert la secció ${sec + 2}: ${SECTIONS[sec + 1].name}.` : n === 3 ? 'Ni un sol error!' : 'Si hi tornes sense errors ni pistes, tindràs les tres estrelles.'}</p>
+      <button class="btn" id="nx">${last ? 'Torna a les seccions' : end ? 'Secció següent' : 'Nivell següent'}</button>${n < 3 ? '<button class="link" id="ag">Torna-hi</button>' : ''}</div>`);
+    const p = root.querySelector('.panel'); p.scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
+    $('#nx').focus({ preventScroll: true });
+    $('#nx').onclick = () => last ? seccions() : end ? level(sec + 1, 0) : level(sec, idx + 1);
+    if (n < 3) $('#ag').onclick = () => level(sec, idx);
+  }
+
+  keyFn = key => {
+    if (busy) return;
+    const st = steps[k];
+    if (st.kind === 'digit') { if (key > -1) answer(+key); return; }
+    if (key === 'ok') { if (buf) answer(+buf); return; }
+    buf = key === 'del' ? buf.slice(0, -1) : (buf + key).slice(0, 6);
+    const o = $('#in'); o.className = 'in'; o.textContent = buf; tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05);
+  };
+  root.querySelector('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
+  $('#hintb').onclick = () => { if (busy || !keyFn) return; slips++; help++; stars(); tip(explain(steps[k], help > 1)); };
+  root.querySelector('.levels').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) level(sec, +b.dataset.n); };
+  stars(); arm();
+}
+
+soBtn();
+seccions();
+</script>
