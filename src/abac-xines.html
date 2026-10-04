@@ -61,7 +61,7 @@ h1 {
    the slot they sit in, counted from the top of their deck. A bead that counts is lit like a lantern. */
 .stage { position: relative; width: 100%; display: grid; justify-items: center; }
 .abacus {
-  --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 9.6)), 44px);
+  --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px);
   position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); padding: 14px 14px 8px; border-radius: 26px;
   background: linear-gradient(160deg, #9A5A36, #5A2A18 55%, #35160D); border: 1px solid rgb(255 214 160 / 0.4);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 -6px 12px rgb(0 0 0 / 0.35);
@@ -71,7 +71,7 @@ h1 {
 .rod { --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; display: flex; flex-direction: column; }
 .rod::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: linear-gradient(90deg, #6E5220, #F7C64E 45%, #6E5220); }
 .deck { position: relative; }
-.deck.hi { height: calc(var(--u) * 3 + 8px); }
+.deck.hi { height: calc(var(--u) * 2 + 8px); }
 .deck.lo { height: calc(var(--u) * 6 + 8px); }
 .beam { position: relative; z-index: 1; height: 12px; background: linear-gradient(#C07A48, #6B321C); box-shadow: 0 2px 4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.35); }
 .beam::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 6px var(--sun); }
@@ -82,7 +82,7 @@ h1 {
   box-shadow: inset 0 -3px 5px rgb(0 0 0 / 0.45), 0 2px 3px rgb(0 0 0 / 0.5);
 }
 .bead::before { content: ""; position: absolute; inset: 12% 22% 56%; border-radius: 50%; background: linear-gradient(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0)); }
-/* the heaven beads are amber on every rod: they are the ones worth five */
+/* the heaven bead is amber on every rod: it is the one worth five */
 .deck.hi .bead { --h: 44; --c: hsl(44 100% 62%); }
 .bead.on {
   background: radial-gradient(ellipse at 50% 32%, #fff 0, hsl(var(--h) 100% 80%) 26%, hsl(var(--h) 98% 56%) 80%);
@@ -148,7 +148,7 @@ h1 {
 @media (min-width: 700px) {
   .status.tip { font-size: 1.1rem; }
   #app.wide h1 { display: block; }
-  .abacus { --u: clamp(22px, calc((100dvh - 500px) / 9.6), 44px); }
+  .abacus { --u: clamp(22px, calc((100dvh - 500px) / 8.6), 44px); }
   .chip { padding-inline: 14px; }
   .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
 }
@@ -161,7 +161,7 @@ h1 {
 @media (max-height: 700px) {
   body { padding-bottom: 14px; }
   #app.wide h1 { display: none; }
-  .abacus { --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 9.6)), 44px); }
+  .abacus { --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px); }
 }
 /* a phone on its side: the abacus takes the whole height on the right, the rest stacks on the left */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -170,7 +170,7 @@ h1 {
   #joc.lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; justify-items: center; align-content: start; }
   #joc.lvl > * { grid-column: 1; }
   #joc.lvl .stage { grid-column: 2; grid-row: 1 / span 6; width: auto; align-self: start; }
-  .abacus { --u: clamp(18px, calc((100dvh - 150px) / 9.6), 44px); width: calc(var(--n) * var(--u) * 2.5 + 28px); }
+  .abacus { --u: clamp(18px, calc((100dvh - 150px) / 8.6), 44px); width: calc(var(--n) * var(--u) * 2.5 + 28px); }
 }
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }
@@ -189,13 +189,13 @@ h1 {
 
 <script>
 /* LOGIC-START */
-// A Chinese abacus, the suanpan. Each rod has five earth beads under the beam, worth 1 each, and two heaven beads over it, worth 5 each.
-// A bead only counts while it touches the beam. A rod is { lo, hi }: how many earth beads are up and how many heaven beads are down.
-// rods[0] is the units. A rod can hold up to 15, which is what makes room for carrying: fill it first, then exchange.
+// A Chinese abacus. Each rod has five earth beads under the beam, worth 1 each, and one heaven bead over it, worth 5.
+// A bead only counts while it touches the beam. A rod is { lo, hi }: how many earth beads are up and whether the heaven bead is down (1 or 0).
+// rods[0] is the units. A rod can hold up to 10: a full rod is exchanged for one earth bead on its left.
 const rodVal = r => r.lo + 5 * r.hi;
 const valueOf = rods => rods.reduce((a, r, p) => a + rodVal(r) * 10 ** p, 0);
-// the tidy way to show a number: no rod with five earth beads or two heaven beads up
-const tidy = rods => rods.every(r => r.lo < 5 && r.hi < 2);
+// the tidy way to show a number: no rod with five earth beads up
+const tidy = rods => rods.every(r => r.lo < 5);
 const write = (v, n) => Array.from({ length: n }, (_, p) => { const d = Math.floor(v / 10 ** p) % 10; return { lo: d % 5, hi: d >= 5 ? 1 : 0 }; });
 // touching a bead moves it together with the ones between it and the beam; j counts the beads of a deck from the beam
 function tap(rods, p, deck, j) { const out = rods.map(r => ({ ...r })); out[p][deck] = j < out[p][deck] ? j : j + 1; return out; }
@@ -226,24 +226,32 @@ function plan(q) {
 
 // One touch towards target, the way the abacus is worked: from the highest column down, adding or taking what is missing.
 // Returns { p, deck, to, why } (set rods[p][deck] to `to`), or null when the abacus shows target in its tidy form. why is
-// 'add' or 'take' for a plain move, 'five' and 'ten' for the two exchanges, 'borrow' for taking one from a higher column, and
-// 'more' or 'less' for the trick with the heaven bead: adding d as 5 - (5 - d), or taking it the same way. The trick starts
-// with the earth beads, so the column never goes past what it needs and the next hint finds the 5 still to be moved.
+// 'add' or 'take' for a plain move, 'five' and 'ten' for the two exchanges, 'borrow' for taking one from a higher column,
+// 'more' or 'less' for the trick with the heaven bead: adding d as 5 - (5 - d), or taking it the same way, and 'carry' for
+// adding d where it does not fit, as 10 - (10 - d). The tricks start with the earth beads, so the column never goes past
+// what it needs and the next hint finds the 5 or the 10 still to be moved.
 function nextMove(rods, target) {
   const diff = target - valueOf(rods), n = rods.length;
   if (!diff) {
-    const p = rods.findIndex(r => r.hi === 2 || r.lo === 5);
+    const p = rods.findIndex(r => r.lo === 5);
     if (p < 0) return null;
-    return rods[p].hi === 2 ? { p, deck: 'hi', to: 0, why: 'ten' } : { p, deck: 'lo', to: 0, why: 'five' };
+    // a full column becomes one earth bead on the left: the heaven bead goes first, and the five earth beads follow below
+    return rods[p].hi ? { p, deck: 'hi', to: 0, why: 'ten' } : { p, deck: 'lo', to: 0, why: 'five' };
   }
-  const abs = Math.abs(diff), p = Math.min(String(abs).length - 1, n - 1), d = Math.min(15, Math.floor(abs / 10 ** p)), r = rods[p];
+  const abs = Math.abs(diff), p = Math.min(String(abs).length - 1, n - 1), d = Math.min(10, Math.floor(abs / 10 ** p)), r = rods[p];
   if (diff > 0) {
-    if (d >= 5 && !r.hi) return { p, deck: 'hi', to: 1, why: 'add' };
-    // filling the fifth earth bead is fine when it completes a five, but never as a way to add a whole five
-    if (r.lo + d <= 4 || (r.lo && r.lo + d === 5)) return { p, deck: 'lo', to: r.lo + d, why: 'add' };
-    if (r.hi < 2) return d >= 5 ? { p, deck: 'hi', to: r.hi + 1, why: 'add' } : { p, deck: 'lo', to: r.lo + d - 5, why: 'more', d };
-    // a full column: its two heaven beads become one earth bead on the left
-    return { p, deck: 'hi', to: 0, why: 'ten' };
+    const v = rodVal(r), k = 10 - d;
+    if (v + d < 10 || (v + d === 10 && r.lo < 5)) {
+      if (d >= 5 && !r.hi) return { p, deck: 'hi', to: 1, why: 'add' };
+      // the fifth earth bead only goes up to complete a five or to fill the column
+      if (r.lo + d <= 5) return { p, deck: 'lo', to: r.lo + d, why: 'add' };
+      return { p, deck: 'lo', to: r.lo + d - 5, why: 'more', d };
+    }
+    // it does not fit: take 10 - d from this column, and the next move puts one bead on the left
+    if (!r.hi) return { p, deck: 'lo', to: r.lo - k, why: k === 5 ? 'ten' : 'carry', d };
+    // not enough earth beads to take: add the ones over five first, and then the five is the one that does not fit
+    if (k < 5 && r.lo < k) return { p, deck: 'lo', to: r.lo + d - 5, why: 'add' };
+    return k % 5 ? { p, deck: 'lo', to: r.lo - k % 5, why: 'carry', d } : { p, deck: 'hi', to: 0, why: 'carry', d };
   }
   const take = (p, d, why) => {
     const r = rods[p];
@@ -328,17 +336,17 @@ const SECTIONS = [
   ] },
   { name: "Me'n porto una", sub: "Quan una columna s'omple, es fa un canvi", levels: [
     { name: "El canvi de deu", q: '5+5', show: 1,
-      tip: "Baixa l'altra bola de dalt: dues boles de dalt fan 10. I 10 és una bola de baix de la columna de les desenes. Fes el canvi!",
-      hints: ["Puja les dues boles de dalt i, a canvi, puja una bola de baix a les desenes.", "10 s'escriu amb un 1 a les desenes i un 0 a les unitats."] },
-    { name: "Dos canvis seguits", q: '8+2', show: 1,
-      tip: "Puja 2 boles de baix. Després endreça: primer el canvi de cinc, i després el canvi de deu.",
-      hints: ["Cinc de baix es canvien per una de dalt.", "Dues de dalt es canvien per una de baix de la columna de l'esquerra."] },
+      tip: "Puja les cinc boles de baix: amb la de dalt fan 10, i la columna queda plena. I 10 és una bola de baix de la columna de les desenes. Fes el canvi!",
+      hints: ["Buida la columna de les unitats i, a canvi, puja una bola de baix a les desenes.", "10 s'escriu amb un 1 a les desenes i un 0 a les unitats."] },
+    { name: "La columna plena", q: '8+2', show: 1,
+      tip: "Puja 2 boles de baix. Ara la columna és plena: fes el canvi de deu.",
+      hints: ["Una columna plena val 10: es canvia per una bola de baix de la columna de l'esquerra.", "Quan el número de sota surt vermell, la columna demana un canvi."] },
     { name: "Set i vuit", q: '7+8', show: 1,
-      tip: "Suma 8 a les unitats amb les boles que queden: 5 i 3. Després endreça la columna amb canvis.",
-      hints: ["Una columna pot aguantar fins a 15: fes servir totes les boles.", "Quan el número de sota surt vermell, la columna demana un canvi."] },
+      tip: "A les unitats no hi caben 8 més. Un truc: 8 és 10 menys 2. Treu 2 boles de baix i puja una bola a les desenes.",
+      hints: ["Treure'n 2 i sumar-ne 10 és el mateix que sumar-ne 8.", "Al final hi ha d'haver una desena i la bola de dalt de les unitats: 15."] },
     { name: "Nou i nou", q: '9+9', show: 1,
-      tip: "Quan una columna és plena i encara has de sumar, fes el canvi de deu i continua.",
-      hints: ["Suma'n 5 primer. Després, canvia les dues boles de dalt per una desena.", "Encara en falten 4 per sumar: 5 menys 1."] },
+      tip: "El mateix truc: 9 és 10 menys 1. Treu una bola de les unitats i puja'n una a les desenes.",
+      hints: ["A les unitats no hi caben 9 més.", "Treure'n 1 i sumar-ne 10 és el mateix que sumar-ne 9."] },
     { name: "Me'n porto una", q: '28+14',
       tip: "Suma les desenes i després les unitats. Si les unitats passen de 9, canvia'n 10 per una desena: això és «portar-ne una».",
       hints: ["Primer 1 a les desenes. Després 4 a les unitats.", "8 i 4 fan 12: 10 se'n van a les desenes i 2 es queden."] },
@@ -398,8 +406,8 @@ const SECTIONS = [
       tip: "4 i 4 i 4. Suma de quatre en quatre, tres vegades.",
       hints: ["4, 8… i quin ve després?", "Quan passis de 9, fes el canvi de deu."] },
     { name: "De cinc en cinc", q: '4x5', show: 1,
-      tip: "Sumar 5 és fàcil a l'àbac: una bola de dalt cada vegada. No t'oblidis dels canvis!",
-      hints: ["Dues boles de dalt fan 10: canvia-les per una desena.", "5, 10, 15 i 20."] },
+      tip: "Sumar 5 és fàcil a l'àbac: la bola de dalt. I si ja és a la barra, puja les cinc de baix i fes el canvi de deu.",
+      hints: ["Una columna plena val 10: canvia-la per una desena.", "5, 10, 15 i 20."] },
     { name: "El camí curt", q: '6x2',
       tip: "6 × 2 fa el mateix que 2 × 6. Tria el camí curt: 6 i 6.",
       hints: ["Escriu un 6: la bola de dalt i una de baix.", "Suma-n'hi 6 més i fes els canvis."] },
@@ -618,7 +626,8 @@ const WHY = {
   more: d => `Per sumar-ne ${d} aquí no hi ha prou boles de baix. Un truc: ${d} és 5 menys ${5 - d}. Treu-ne ${5 - d} de baix i després baixa la bola de dalt.`,
   less: d => `Per treure'n ${d} aquí no hi ha prou boles de baix. Un truc: ${d} és 5 menys ${5 - d}. Posa'n ${5 - d} de baix i després puja la bola de dalt.`,
   five: () => "Cinc boles de baix valen el mateix que una de dalt. Fes el canvi: baixa'n cinc i posa'n una de dalt.",
-  ten: () => "Dues boles de dalt fan 10. Fes el canvi: puja-les i posa una bola de baix a la columna de l'esquerra.",
+  ten: () => "Una columna plena val 10. Fes el canvi: buida-la i puja una bola de baix a la columna de l'esquerra.",
+  carry: d => `Aquí no hi caben ${d} més. Un truc: ${d} és 10 menys ${10 - d}. Treu-ne ${10 - d} d'aquesta columna i després puja una bola de baix a la columna de l'esquerra.`,
   borrow: () => "A la dreta no n'hi ha prou per treure. Demana una bola a aquesta columna: val 10 de les de la seva dreta."
 };
 
@@ -638,7 +647,7 @@ function nivell(sec, idx) {
     <p class="task" id="task"></p>
     <div class="stage" id="stage"><div class="abacus${reading ? ' locked' : ''}" id="ab" role="group" aria-label="Àbac" style="--n:${n}">
       <div class="well">${rods.map((_, i) => { const p = n - 1 - i, bead = (deck, j) => `<button class="bead" data-p="${p}" data-deck="${deck}" data-j="${j}"></button>`;
-        return `<div class="rod" data-p="${p}" style="--h:${HUES[p]}"><div class="deck hi">${bead('hi', 1)}${bead('hi', 0)}</div><div class="beam"></div><div class="deck lo">${[0, 1, 2, 3, 4].map(j => bead('lo', j)).join('')}</div></div>`; }).join('')}</div>
+        return `<div class="rod" data-p="${p}" style="--h:${HUES[p]}"><div class="deck hi">${bead('hi', 0)}</div><div class="beam"></div><div class="deck lo">${[0, 1, 2, 3, 4].map(j => bead('lo', j)).join('')}</div></div>`; }).join('')}</div>
       <div class="foot" aria-hidden="true">${rods.map((_, i) => `<span style="--h:${HUES[n - 1 - i]}"><b></b><i>${PLACE[n - 1 - i]}</i></span>`).join('')}</div></div></div>
     ${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
       : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}`;
@@ -654,10 +663,10 @@ function nivell(sec, idx) {
   function draw() {
     for (const b of beads) {
       const p = +b.dataset.p, hi = b.dataset.deck === 'hi', j = +b.dataset.j, on = j < rods[p][b.dataset.deck];
-      // earth beads that count sit against the beam above them, heaven beads against the beam below
-      b.style.setProperty('--s', hi ? (on ? 2 : 1) - j : on ? j : j + 1);
+      // earth beads that count sit against the beam above them, the heaven bead against the beam below
+      b.style.setProperty('--s', hi ? +on : on ? j : j + 1);
       b.classList.toggle('on', on); b.classList.remove('next');
-      b.setAttribute('aria-label', `Bola ${hi ? 'de dalt' : 'de baix'} ${j + 1}, columna ${COL[p]}${on ? ', toca la barra' : ''}`);
+      b.setAttribute('aria-label', `Bola ${hi ? 'de dalt' : `de baix ${j + 1}`}, columna ${COL[p]}${on ? ', toca la barra' : ''}`);
       b.tabIndex = reading || done ? -1 : 0;
     }
     cols.forEach(c => c.classList.toggle('glow', !!mark && mark.p === +c.dataset.p));
@@ -688,9 +697,9 @@ function nivell(sec, idx) {
     if (v === pl.goal && tidy(rods)) return win();
     if (v !== pl.goal) return oops(`Ara l'àbac marca ${v}, i encara no és el resultat. Si no saps com seguir, prem Pista.`);
     // the right number with a column left overfull: point at it
-    const p = rods.findIndex(r => r.hi === 2 || r.lo === 5);
+    const p = rods.findIndex(r => r.lo === 5);
     mark = { p }; draw();
-    oops("El nombre és correcte, però l'àbac està desendreçat. " + (rods[p].hi === 2 ? "Dues boles de dalt es canvien per una de baix de la columna de l'esquerra." : 'Cinc boles de baix es canvien per una de dalt.'));
+    oops("El nombre és correcte, però l'àbac està desendreçat. " + (rods[p].hi ? "Una columna plena es canvia per una bola de baix de la columna de l'esquerra." : 'Cinc boles de baix es canvien per una de dalt.'));
   }
   // The first hint lights the column to work on and says what to think about. Asked again with the abacus untouched,
   // the bead to touch turns gold and the move is spelled out.
