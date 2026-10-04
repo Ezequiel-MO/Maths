@@ -126,8 +126,8 @@ h1 {
 #mem { display: contents; }
 #coet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
 .status.tip { font: 700 1rem/1.35 var(--body); max-width: 54ch; min-height: 2.7em; text-wrap: pretty; scroll-margin-top: 10px; }
-/* one row that scrolls sideways, fading at both ends */
-.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+/* one row that scrolls sideways, fading at both ends; its padding only leaves room for the focus ring */
+.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; margin-block: -6px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
 .levels::-webkit-scrollbar { display: none; }
 .levels button { flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; border: 1px solid var(--edge); background: var(--glass); font: 800 1rem/1 var(--display); }
 .levels button.done { background: #1E6B4A; border-color: #7CF5B0; }
@@ -145,7 +145,7 @@ h1 {
 .rocket { position: absolute; left: 0; top: 0; width: var(--cs); height: var(--cs); z-index: 3; pointer-events: none; transition: transform 0.32s cubic-bezier(0.4, 0, 0.3, 1), opacity 0.3s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
 .rocket svg { display: block; width: 100%; height: 100%; }
 .rocket .flame { transform-origin: 32px 48px; animation: flame 0.18s ease-in-out infinite alternate; }
-.prog { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); text-align: left; }
+.prog { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); text-align: left; }
 .fn { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .fname { flex: none; width: 2ch; font: 800 1.3rem/1 var(--display); color: var(--sun); }
 .slots, .pal, .brush, .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -167,9 +167,34 @@ h1 {
 .btn.soft { background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
 .btn.soft:active { box-shadow: 0 1px 0 #10242F; }
 .prog .btn { min-height: 44px; font-size: 1.15rem; padding: 0.35em 1em; }
-.prog .row { order: 1; position: sticky; bottom: 0; z-index: 2; justify-content: center; margin: 0 -14px -14px; padding: 10px 14px 12px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.prog .row .btn { flex: 1 1 auto; padding-inline: 0.5em; font-size: 1.05rem; white-space: nowrap; }
+.prog .row { order: 1; position: sticky; bottom: 0; z-index: 2; flex-wrap: nowrap; margin: 0 -12px -12px; padding: 10px 12px 12px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
 .stackline { min-height: 1.7em; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
 .stackline b { display: inline-block; margin: 0 2px; padding: 0 8px; border-radius: 8px; background: #2A4B5C; color: var(--sun); font-family: var(--display); }
+/* hints: lights run along the tiles to visit next, and the slot to look at pulses */
+.cell.trail::before { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: #fff; box-shadow: 0 0 14px 5px #fff; opacity: 0; animation: trail 2s ease-in-out infinite; animation-delay: calc(var(--d) * 1ms); }
+.slot { position: relative; }
+.slot.next { border: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
+.slot.think { border-color: #FFB347; animation: wobble 0.9s ease-in-out infinite; }
+.slot.think::after { content: "?"; position: absolute; top: -10px; right: -9px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #FFB347; color: #2A1C00; font-size: 0.9rem; }
+.cmd.glow, .brush button.glow { border-color: var(--sun); animation: beacon 1s ease-in-out infinite; }
+/* the vertical menu of sections */
+.secs { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; }
+.sec { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 12px 16px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); }
+.sec:not(:disabled):hover { background: rgb(79 181 98 / 0.22); border-color: #7CF5B0; }
+.sec:disabled { opacity: 0.5; cursor: not-allowed; }
+.sec-n { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--pad); color: var(--on-pad); font: 800 1.5rem/1 var(--display); }
+.sec.all .sec-n { background: var(--sun); color: #2A1C00; }
+.sec-t { display: flex; flex-direction: column; min-width: 0; }
+.sec-t b { font: 800 1.35rem/1.15 var(--display); }
+.sec-t span { font-size: 0.95rem; color: var(--muted); }
+.sec-p { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-weight: 800; font-size: 0.9rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pips i.ok { background: var(--sun); }
+@keyframes trail { 0%, 55%, 100% { opacity: 0; transform: scale(0.4); } 18% { opacity: 0.95; transform: scale(1); } }
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes wobble { 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
 @keyframes flame { to { transform: scaleY(0.6); } }
 
 @keyframes slide { to { background-position: -200% 0; } }
@@ -188,11 +213,12 @@ h1 {
 @media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
   .status.tip { font-size: 1.1rem; }
   .split { flex-direction: row; }
-  .split .stage { width: min(480px, max(250px, calc(100dvh - 330px)), calc(100% - 328px)); aspect-ratio: 1; }
+  .split .stage { width: min(480px, max(250px, calc(100dvh - var(--chrome2, 330px))), calc(100% - 328px)); aspect-ratio: 1; }
   .split .board { position: absolute; min-height: 0; }
   .prog { flex: 1 1 300px; width: auto; max-width: 420px; padding: 16px; }
   .slot, .cmd { width: 46px; height: 46px; }
-  .prog .row { order: 0; position: static; justify-content: flex-start; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+  .prog .row .btn { flex: none; padding-inline: 1em; font-size: 1.15rem; }
+  .prog .row { order: 0; position: static; flex-wrap: wrap; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
 }
 @media (min-width: 700px) {
   :root { --chrome: 310px; }
@@ -203,15 +229,20 @@ h1 {
 }
 /* with a mouse the small buttons can be smaller, which keeps the rocket game on one laptop screen */
 @media (min-width: 700px) and (pointer: fine) {
-  .levels button { width: 36px; height: 36px; }
-  .brush button { min-height: 36px; }
+  .levels button { width: 34px; height: 34px; }
+  .brush button, .prog .btn { min-height: 0; }
+}
+/* a short window: the rocket game drops the big title and gives that height to the board */
+@media (max-height: 700px) {
+  :root { --chrome2: 270px; }
+  body { padding-bottom: 14px; }
+  #app.wide h1 { display: none; }
 }
 /* a phone on its side: the memory board takes the whole height on the right, the rest stacks on the left; the rocket's board follows the program as it scrolls */
 @media (orientation: landscape) and (max-height: 520px) {
   .split { align-items: flex-start; }
   .split .stage { position: sticky; top: 8px; }
   h1 { font-size: 2rem; }
-  #app.wide h1 { display: none; }
   .status:not(.tip) { font-size: 1.5rem; }
   #app:not(.wide) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr repeat(4, auto) 1fr; gap: 10px 24px; justify-items: center; max-width: 900px; }
   #app:not(.wide) .top { grid-area: 1 / 1; margin: 0; }
@@ -222,8 +253,10 @@ h1 {
   #app:not(.wide) .stage { grid-area: 1 / 2 / -1 / 2; width: min(calc(100dvh - 38px), 50vw); }
 }
 @media (prefers-reduced-motion: reduce) {
-  h1, .lives i, .cell.star::after, .rocket .flame, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
+  h1, .lives i, .cell.star::after, .rocket .flame, .slot.next, .slot.think, .cmd.glow, .brush button.glow, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
   .tile { transition: none; }
+  .cell.trail::before { animation: none; opacity: 0.85; }
+  .slot.next, .cmd.glow, .brush button.glow { box-shadow: 0 0 16px 5px var(--sun); }
   .banner { animation: bannerCalm 1.9s both; }
   @keyframes bannerCalm { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }
 }
@@ -266,50 +299,173 @@ const hueOf = (r, c, n) => Math.round(140 + (n - 1 - r + c) / (2 * (n - 1)) * 20
 const PENTA = [0, 2, 4, 7, 9];
 const noteOf = (r, c, n) => { const k = n - 1 - r + c; return 261.63 * 2 ** ((12 * Math.floor(k / 5) + PENTA[k % 5]) / 12); };
 
-// game 2. Map letters are tile colours (b blue, g green, p pink), a capital carries a star, a dot is water.
-// start is [x, y, direction] with 0 up, 1 right, 2 down, 3 left; slots is the size of F1, F2.
-const LEVELS = [
-  { name: 'Endavant', map: ['bBBB'], start: [0, 0, 1], slots: [3], cmds: 'f',
-    tip: "El coet fa les ordres de F1, d'una en una. ↑ vol dir endavant, cap on mira el coet.", hints: ["Compta les caselles que hi ha entre el coet i l'última estrella. Cada ↑ el fa avançar una casella.", "Segueix el camí amb el dit i digues cada pas en veu alta. Cada pas és una ordre."] },
-  { name: 'Girs', map: ['..B', '..b', 'bbB'], start: [0, 2, 1], slots: [5], cmds: 'fLR',
-    tip: 'Ara cal girar. ↶ gira a l\'esquerra i ↷ gira a la dreta, sense avançar.', hints: ["Fes de coet: segueix el camí amb el dit. A cada casella pregunta't: aquí avanço o giro?", "Girar no fa avançar. Posa't al lloc del coet: l'esquerra i la dreta són les seves, no les teves."] },
-  { name: 'Torna a començar', map: ['bbBbbBbB'], start: [0, 0, 1], slots: [2], cmds: 'f1',
-    tip: 'El camí és llarg i només tens 2 caselles! Si poses F1 dins de F1, la funció torna a començar.', hints: ["Totes les caselles del camí demanen el mateix. Quina és l'ordre que es repeteix tota l'estona?", "No cal escriure la mateixa ordre moltes vegades. Escriu-la un cop i, al final, digues a F1 que torni a començar."] },
-  { name: "L'escala", map: ['....B', '...Bb', '..Bb.', '.Bb..', 'bb...'], start: [0, 4, 1], slots: [5], cmds: 'fLR1',
-    tip: 'Una escala! Escriu un sol esglaó i fes que es repeteixi.', hints: ["Mira només el primer esglaó. Quins passos fa el coet per pujar-lo i quedar mirant com al principi?", "Tots els esglaons són iguals. Si en saps pujar un, guarda l'última casella per tornar a començar."] },
-  { name: 'Colors', map: ['....B', '....b', '....b', 'bbBbp'], start: [0, 3, 1], slots: [3], cmds: 'fLR1', conds: 'p',
-    tip: 'Tria un color abans de posar una ordre: només es farà quan el coet sigui damunt d\'aquell color.', hints: ["Gairebé sempre el coet només ha d'avançar. A quina casella ha de fer una cosa diferent? De quin color és?", "Una ordre amb color se salta a totes les altres caselles. Així pots posar un gir que només passi a la cantonada."] },
-  { name: 'La serp', map: ['....B', '....b', '..pBg', '..b..', 'bbg..'], start: [0, 4, 1], slots: [4], cmds: 'fLR1', conds: 'gp',
-    tip: "Dos colors, dues ordres: al verd gira cap a un costat i al rosa cap a l'altre.", hints: ["Ves a cada casella de color i pregunta't: aquí, cap on ha de girar el coet? Cada color té la seva resposta.", "Les ordres de color no es molesten entre elles: al verd només es fa la verda i al rosa només la rosa."] },
-  { name: 'La volta', map: ['pbBp', 'b..B', 'B..b', 'bbBp'], start: [0, 3, 1], slots: [3], cmds: 'fLR1', conds: 'p',
-    tip: 'Fes tota la volta. Les cantonades són roses: què ha de fer el coet quan hi arriba?', hints: ["On passa alguna cosa especial en aquest camí? Mira de quin color són les cantonades.", "Això ja ho has fet abans: avançar sempre i girar només en un color. El programa pot ser molt curt encara que el camí sigui llarg."] },
-  { name: 'El tobogan', map: ['bbg..', '..b..', '..pBg', '....b', '....B'], start: [0, 0, 1], slots: [4], cmds: 'fLR1', conds: 'gp',
-    tip: "Ara el camí baixa. Fixa't bé cap a quin costat ha de girar el coet a cada color.", hints: ["No copiïs el nivell de la serp: aquí els girs van al revés. Posa't al lloc del coet a la casella verda: cap on vol anar?", "Gira el cap per mirar igual que el coet. La seva dreta canvia segons cap on mira."] },
-  { name: 'Mitja volta', map: ['BbbbBbp'], start: [2, 0, 1], slots: [4], cmds: 'fLR1', conds: 'p',
-    tip: 'Hi ha una estrella darrere del coet! Al final del passadís cal fer mitja volta: dos girs seguits.', hints: ["El coet no sap anar enrere. Com pots fer que miri cap a l'altre costat fent servir només girs?", "Un gir és un quart de volta. Quants en calen per fer mitja volta? Fes-los només a la casella on s'acaba el camí."] },
-  { name: "L'ajudant", map: ['...B', '...b', '...b', 'bbbB'], start: [0, 3, 1], slots: [3, 3], cmds: 'fLR2',
-    tip: 'Ara tens una ajudant: F2. Quan F1 la crida, F2 fa les seves ordres i després F1 continua.', hints: ["El camí té dos trossos iguals. Quin és el tros que es repeteix? Aquesta és la feina de F2.", "F1 és qui mana: diu «fes el tros», després fa el que cal entre tros i tros, i torna a dir «fes el tros»."] },
-  { name: 'El pont', map: ['BbB', 'b.b', 'b.B'], start: [0, 2, 0], slots: [5, 2], cmds: 'fLR2',
-    tip: 'Pots cridar F2 tantes vegades com vulguis. Aquí cal fer tres trossos iguals.', hints: ["Busca el tros que es repeteix: quantes caselles fa cada costat del pont?", "F2 fa un costat. F1 només ha de dir quan toca fer un costat i quan toca girar."] },
-  { name: 'Tres esglaons', map: ['...B', '..Bb', '.Bb.', 'bb..'], start: [0, 3, 1], slots: [3, 4], cmds: 'fLR2',
-    tip: "F2 també pot girar. Ensenya-li a pujar un esglaó i crida-la tres vegades.", hints: ["Com al nivell de l'escala, pensa en un sol esglaó. Ara aquest esglaó pot viure dins de F2.", "Quan F2 acaba, el coet ha de quedar mirant igual que al començament. Així F2 es pot tornar a cridar i fa el mateix."] },
-  { name: "L'escala llarga", map: ['.....B', '....Bb', '...Bb.', '..Bb..', '.Bb...', 'bb....'], start: [0, 5, 1], slots: [2, 4], cmds: 'fLR12',
-    tip: "Massa esglaons per cridar F2 un per un! Fes que F1 cridi F2 i després torni a començar.", hints: ["F2 ja sap pujar un esglaó. Quantes vegades caldria cridar-la? Massa! Recorda com es repetia una ordre al nivell 3.", "F1 pot ser molt curta: fes un esglaó i torna a començar."] },
-  { name: 'Esglaons grans', map: ['......B', '......b', '....Bbb', '....b..', '..Bbb..', '..b....', 'bbb....'], start: [0, 6, 1], slots: [5, 2], cmds: 'fLR12',
-    tip: 'Aquests esglaons fan dues caselles. F2 pot ser «avança dues caselles».', hints: ["Cada esglaó té un tros pla i un tros que puja, i tots dos són igual de llargs. Quin tros pot fer F2?", "F1 descriu un esglaó sencer fent servir F2 i els girs. Després torna a començar."] },
-  { name: 'Canvi de carril', map: ['bbp....', '..b....', '..Bbp..', '....b..', '....BbB'], start: [0, 0, 1], slots: [3, 4], cmds: 'fLR12', conds: 'p',
-    tip: 'A les caselles roses cal baixar al carril de sota. Crida F2 només quan el coet sigui al rosa.', hints: ["Primer pensa què ha de fer el coet per baixar de carril i quedar mirant endavant. Això és la feina de F2.", "Després pensa quan cal baixar: només en un color. La resta del temps, el coet simplement avança."] },
-  { name: 'Les arrels', map: ['bbbb', 'BBBB'], start: [0, 0, 1], slots: [3, 6], cmds: 'fLR12',
-    tip: 'Sota de cada casella hi ha una estrella. Fes que F2 baixi a buscar-la, torni a pujar i quedi mirant endavant.', hints: ["Pensa en una sola casella: baixar, agafar l'estrella i tornar a pujar. Recorda com es fa una mitja volta.", "Quan F2 acabi, el coet ha de ser a dalt i mirant endavant, com abans de començar. Llavors F1 només ha d'avançar i repetir."] },
-  { name: 'El quadrat', map: ['BbbB', 'b..b', 'b..b', 'bBbB'], start: [0, 3, 0], slots: [3, 3], cmds: 'fLR12',
-    tip: 'Un quadrat sense colors! Ensenya a F2 a fer un costat i fes que F1 el repeteixi girant.', hints: ["Un quadrat té quatre costats iguals. Què es repeteix? Fer un costat i girar.", "F2 fa el costat. F1 no ha de comptar els costats: en fa un, gira i torna a començar."] },
-  { name: 'Les branques', map: ['BBBBB', 'bbbbb'], start: [0, 1, 1], slots: [5, 4], cmds: 'fLR12',
-    tip: 'Com les arrels, però ara F2 només té 4 caselles: els girs que no hi caben han d\'anar a F1.', hints: ["És el mateix viatge que a les arrels, però cap amunt i amb una F2 més petita. Quina part del viatge és «anar i tornar» i quina és «preparar-se»?", "F2 pot fer només l'anar i tornar. Els girs d'abans i de després els pot fer F1."] },
-  { name: 'Només al rosa', map: ['.B.BB..', 'bpbppbB'], start: [0, 1, 1], slots: [3, 6], cmds: 'fLR12', conds: 'p',
-    tip: 'Només hi ha estrelles damunt de les caselles roses. Crida F2 només quan el coet sigui al rosa.', hints: ["Fes-te dues preguntes: què cal fer per agafar una estrella de dalt i tornar? I a quines caselles cal fer-ho?", "La primera resposta és F2. La segona és un color: F1 crida F2 només allà, i a totes les caselles avança."] },
-  { name: 'Recursivitat', map: ['...b..', '...bbB', '...b..', '...b..', 'bbbp..'], start: [0, 4, 1], slots: [4, 4], cmds: 'fLR12', conds: 'bp',
-    tip: 'Cal pujar tantes caselles com n\'has avançat. Quan F2 es crida a si mateixa a mig camí, les ordres del darrere queden guardades i es fan després.', hints: ["El coet ha de pujar tantes caselles com n'ha avançat, però no sap comptar. El truc: cada vegada que F2 es crida a si mateixa abans d'acabar, li queda una ordre guardada per a després.", "Pensa F2 així: avança; si encara ets al blau, torna a començar; quan arribis al rosa, gira. L'última casella de F2 és l'ordre que queda guardada a cada crida: quina ha de ser? F1 fa la resta del camí."] }
+// game 2: five sections of ten levels. Map letters are tile colours (b blue, g green, p pink), a capital carries a star, a dot is water.
+// start is [x, y, direction] with 0 up, 1 right, 2 down, 3 left. sol is a reference program, F1|F2, each order optionally
+// prefixed by its colour: it sizes the functions and feeds the hints.
+const SECTIONS = [
+  { name: "Primers passos", sub: "Ordres en fila i girs", levels: [
+    { name: "Endavant", map: ["bBBB"], start: [0, 0, 1], cmds: 'f', sol: 'f f f',
+      tip: "El coet fa les ordres de F1, d'una en una. ↑ vol dir endavant, cap on mira el coet.",
+      hints: ["Compta les caselles que hi ha entre el coet i l'última estrella. Cada ↑ el fa avançar una casella.", "Segueix el camí amb el dit i digues cada pas en veu alta. Cada pas és una ordre."] },
+    { name: "Cap amunt", map: ["B", "b", "B", "b", "b"], start: [0, 4, 0], cmds: 'f', sol: 'f f f f',
+      tip: "Ara el coet mira cap amunt. ↑ sempre vol dir «endavant»: cap on mira el coet.",
+      hints: ["Compta les caselles fins a l'última estrella.", "Encara que el coet miri cap a un altre costat, l'ordre és la mateixa d'abans."] },
+    { name: "Cap a l'esquerra", map: ["BbbBb"], start: [4, 0, 3], cmds: 'f', sol: 'f f f f',
+      tip: "El coet mira cap a l'esquerra. Quina ordre el fa avançar?",
+      hints: ["El coet no sap on és l'esquerra de la pantalla: només sap anar endavant.", "Compta les caselles i posa una ordre per a cada una."] },
+    { name: "Primer gir", map: [".B", "bb"], start: [0, 1, 1], cmds: 'fLR', sol: 'f L f',
+      tip: "El camí gira! ↶ fa girar el coet cap a la seva esquerra, sense moure'l de casella.",
+      hints: ["Segueix el camí amb el dit: primer avança, després gira, després torna a avançar.", "Girar no fa avançar. Després de girar encara cal una ordre per moure's."] },
+    { name: "A la dreta", map: ["bb", ".b", ".B"], start: [0, 0, 1], cmds: 'fLR', sol: 'f R f f',
+      tip: "Ara cal girar cap a l'altre costat: ↷ gira a la dreta del coet.",
+      hints: ["Posa't al lloc del coet, mirant cap on mira ell. Cap a quina mà queda el camí?", "Després del gir, compta quantes caselles falten fins a l'estrella."] },
+    { name: "Girs", map: ["..B", "..b", "bbB"], start: [0, 2, 1], cmds: 'fLR', sol: 'f f L f f',
+      tip: "Ara cal girar. ↶ gira a l'esquerra i ↷ gira a la dreta, sense avançar.",
+      hints: ["Fes de coet: segueix el camí amb el dit. A cada casella pregunta't: aquí avanço o giro?", "Girar no fa avançar. Posa't al lloc del coet: l'esquerra i la dreta són les seves, no les teves."] },
+    { name: "Ziga-zaga", map: [".bB", "bb."], start: [0, 1, 1], cmds: 'fLR', sol: 'f L f R f',
+      tip: "Un gir cap a cada costat. Pensa-ho pas a pas.",
+      hints: ["Segueix el camí amb el dit i digues en veu alta: endavant, gira, endavant…", "Després del primer gir el coet mira cap amunt. Cap on ha de girar per tornar a mirar a la dreta?"] },
+    { name: "La U", map: ["bB", "bB"], start: [0, 1, 0], cmds: 'fLR', sol: 'f R f R f',
+      tip: "El coet ha de fer mitja volta passant per dalt.",
+      hints: ["Cada cop que el camí canvia de direcció cal un gir. Quants canvis de direcció hi ha?", "Els dos girs són cap al mateix costat."] },
+    { name: "Darrere teu!", map: ["Bbb"], start: [2, 0, 1], cmds: 'fLR', sol: 'L L f f',
+      tip: "L'estrella és darrere del coet, i el coet no sap anar enrere!",
+      hints: ["Com pots fer que el coet miri cap a l'altre costat fent servir només girs?", "Un gir és un quart de volta. Quants en calen per fer-ne mitja?"] },
+    { name: "El caragol", map: [".Bb", "..b", "bbB"], start: [0, 2, 1], cmds: 'fLR', sol: 'f f L f f L f',
+      tip: "Un camí llarg que es cargola. Ves a poc a poc: una ordre per a cada pas.",
+      hints: ["Divideix el camí en trossos rectes. Entre tros i tros hi ha un gir.", "Si el coet cau, mira quina ordre estava fent: en falta una o en sobra una abans del gir?"] }
+  ] },
+  { name: "Repeticions", sub: "F1 torna a començar", levels: [
+    { name: "Torna a començar", map: ["bbBbbBbB"], start: [0, 0, 1], cmds: 'f1', sol: 'f 1',
+      tip: "El camí és llarg i només tens 2 caselles! Si poses F1 dins de F1, la funció torna a començar.",
+      hints: ["Totes les caselles del camí demanen el mateix. Quina és l'ordre que es repeteix tota l'estona?", "No cal escriure la mateixa ordre moltes vegades. Escriu-la un cop i, al final, digues a F1 que torni a començar."] },
+    { name: "Amunt sense parar", map: ["B", "b", "b", "B", "b", "b", "b"], start: [0, 6, 0], cmds: 'f1', sol: 'f 1',
+      tip: "El mateix truc, cap amunt: una ordre i F1 torna a començar.",
+      hints: ["Quina ordre es repeteix a totes les caselles?", "L'última casella de F1 pot dir «torna a començar»."] },
+    { name: "La roda", map: ["BB", "bb"], start: [0, 1, 1], cmds: 'fLR1', sol: 'f L 1',
+      tip: "També es pot repetir un gir. Què fa el coet a cada cantonada?",
+      hints: ["Mira un sol tros: avançar una casella i girar. Després tot torna a ser igual.", "Escriu el que passa en una cantonada i fes que F1 torni a començar."] },
+    { name: "El quadrat petit", map: ["BbB", "b.b", "bbB"], start: [0, 2, 1], cmds: 'fLR1', sol: 'f f L 1',
+      tip: "Un quadrat! Cada costat fa dues caselles.",
+      hints: ["Què fa el coet en un costat sencer, fins que queda a punt per al següent?", "Un costat és avançar i girar al final. Després, tornar a començar."] },
+    { name: "L'escala", map: ["....B", "...Bb", "..Bb.", ".Bb..", "bb..."], start: [0, 4, 1], cmds: 'fLR1', sol: 'f L f R 1',
+      tip: "Una escala! Escriu un sol esglaó i fes que es repeteixi.",
+      hints: ["Mira només el primer esglaó. Quins passos fa el coet per pujar-lo i quedar mirant com al principi?", "Tots els esglaons són iguals. Si en saps pujar un, guarda l'última casella per tornar a començar."] },
+    { name: "Escala avall", map: ["bb...", ".Bb..", "..Bb.", "...Bb", "....B"], start: [0, 0, 1], cmds: 'fLR1', sol: 'f R f L 1',
+      tip: "Aquesta escala baixa. Fixa't bé cap on gira el coet a cada esglaó.",
+      hints: ["Mira només el primer esglaó: quins passos fa el coet fins a quedar mirant com al principi?", "Els girs van al revés que a l'escala que puja."] },
+    { name: "Esglaons amples", map: ["......B", "....Bbb", "..Bbb..", "bbb...."], start: [0, 3, 1], cmds: 'fLR1', sol: 'f f L f R 1',
+      tip: "Els esglaons són més llargs: dues caselles planes i una cap amunt.",
+      hints: ["Un esglaó sencer: quantes caselles endavant abans de girar?", "Quan acabis un esglaó, el coet ha de mirar com al principi. Llavors, F1."] },
+    { name: "Esglaons alts", map: ["..B", "..b", ".Bb", ".b.", "bb."], start: [0, 4, 1], cmds: 'fLR1', sol: 'f L f f R 1',
+      tip: "Ara els esglaons són alts: una casella plana i dues cap amunt.",
+      hints: ["Segueix un esglaó amb el dit i compta: quantes caselles puja?", "El tros que canvia respecte a l'altra escala és el de pujar."] },
+    { name: "Ziga-zaga gran", map: ["....B", "....b", "..Bbb", "..b..", "bbb.."], start: [0, 4, 1], cmds: 'fLR1', sol: 'f f L f f R 1',
+      tip: "Trossos de dues caselles, ara cap a la dreta, ara cap amunt.",
+      hints: ["Busca el tros que es repeteix: comença quan el coet mira a la dreta i acaba quan hi torna a mirar.", "Cada tros recte fa dues caselles. Entre tros i tros, un gir."] },
+    { name: "El castell", map: [".bB.bB.", "bbbbbbB"], start: [0, 1, 1], cmds: 'fLR1', sol: 'f L f R f R f L f 1',
+      tip: "Els merlets d'un castell: pujar, passar per dalt, baixar i seguir. És llarg, però es repeteix!",
+      hints: ["Segueix un sol merlet amb el dit, fins que el coet torna a ser a baix mirant a la dreta.", "Per pujar gires cap a un costat i per baixar cap a l'altre. Compta bé els girs: n'hi ha quatre a cada merlet."] }
+  ] },
+  { name: "Colors", sub: "Ordres que només es fan en un color", levels: [
+    { name: "Colors", map: ["....B", "....b", "....b", "bbBbp"], start: [0, 3, 1], cmds: 'fLR1', conds: 'p', sol: 'f pL 1',
+      tip: "Tria un color abans de posar una ordre: només es farà quan el coet sigui damunt d'aquell color.",
+      hints: ["Gairebé sempre el coet només ha d'avançar. A quina casella ha de fer una cosa diferent? De quin color és?", "Una ordre amb color se salta a totes les altres caselles. Així pots posar un gir que només passi a la cantonada."] },
+    { name: "Al rosa, a la dreta", map: ["bbBbp", "....b", "....b", "....B"], start: [0, 0, 1], cmds: 'fLR1', conds: 'p', sol: 'f pR 1',
+      tip: "La casella rosa marca la cantonada. Aquesta vegada el camí gira cap a l'altre costat.",
+      hints: ["Gairebé sempre el coet només avança. Què ha de fer diferent al rosa?", "Tria el color rosa abans de posar el gir."] },
+    { name: "La volta", map: ["pbBp", "b..B", "B..b", "bbBp"], start: [0, 3, 1], cmds: 'fLR1', conds: 'p', sol: 'f pL 1',
+      tip: "Fes tota la volta. Les cantonades són roses: què ha de fer el coet quan hi arriba?",
+      hints: ["On passa alguna cosa especial en aquest camí? Mira de quin color són les cantonades.", "Això ja ho has fet abans: avançar sempre i girar només en un color. El programa pot ser molt curt encara que el camí sigui llarg."] },
+    { name: "L'espiral", map: ["pbBbp", "b...b", "pbB.B", "....b", "bbbbp"], start: [0, 4, 1], cmds: 'fLR1', conds: 'p', sol: 'f pL 1',
+      tip: "Una espiral! Sembla difícil, però mira de quin color són totes les cantonades.",
+      hints: ["Totes les cantonades demanen el mateix gir?", "El programa pot ser molt curt: avançar sempre, girar només en un color, i tornar a començar."] },
+    { name: "La serp", map: ["....B", "....b", "..pBg", "..b..", "bbg.."], start: [0, 4, 1], cmds: 'fLR1', conds: 'gp', sol: 'f gL pR 1',
+      tip: "Dos colors, dues ordres: al verd gira cap a un costat i al rosa cap a l'altre.",
+      hints: ["Ves a cada casella de color i pregunta't: aquí, cap on ha de girar el coet? Cada color té la seva resposta.", "Les ordres de color no es molesten entre elles: al verd només es fa la verda i al rosa només la rosa."] },
+    { name: "El tobogan", map: ["bbg..", "..b..", "..pBg", "....b", "....B"], start: [0, 0, 1], cmds: 'fLR1', conds: 'gp', sol: 'f gR pL 1',
+      tip: "Ara el camí baixa. Fixa't bé cap a quin costat ha de girar el coet a cada color.",
+      hints: ["No copiïs el nivell de la serp: aquí els girs van al revés. Posa't al lloc del coet a la casella verda: cap on vol anar?", "Gira el cap per mirar igual que el coet. La seva dreta canvia segons cap on mira."] },
+    { name: "El camí verd", map: ["..bgG", "..g..", "ggp.."], start: [0, 2, 1], cmds: 'fLR1', conds: 'bp', sol: 'f pL bR 1',
+      tip: "Ara el camí és verd, i les cantonades són rosa i blau. El blau també és un color que pots triar.",
+      hints: ["Ves a cada cantonada i pregunta't cap on ha de girar el coet. Quin color té cada una?", "Cal una ordre per a cada color de cantonada."] },
+    { name: "Mitja volta", map: ["BbbbBbp"], start: [2, 0, 1], cmds: 'fLR1', conds: 'p', sol: 'f pR pR 1',
+      tip: "Hi ha una estrella darrere del coet! Al final del passadís cal fer mitja volta: dos girs seguits.",
+      hints: ["El coet no sap anar enrere. Com pots fer que miri cap a l'altre costat fent servir només girs?", "Un gir és un quart de volta. Quants en calen per fer mitja volta? Fes-los només a la casella on s'acaba el camí."] },
+    { name: "Les golfes", map: [".P.P.", "bgbgB"], start: [0, 1, 1], cmds: 'fLR1', conds: 'gp', sol: 'f gL pR pR 1',
+      tip: "Les estrelles són a dalt, en unes golfes sense sortida. El verd marca on cal pujar.",
+      hints: ["Què ha de fer el coet al verd? I què ha de fer al rosa, on s'acaba el camí?", "Quan el coet torna a baixar, torna a trepitjar el verd. Mira cap on mira llavors: el mateix gir li va bé!"] },
+    { name: "El laberint", map: ["...B.b", "...pbg", ".....b", "bbpbBg", "..b...", "bbgbb."], start: [0, 5, 1], cmds: 'fLR1', conds: 'gp', sol: 'f gL pR 1',
+      tip: "Un laberint amb camins que no porten enlloc. Els colors et diuen on girar.",
+      hints: ["No et deixis enganyar pels camins sense sortida: el coet només gira on hi ha color.", "Ves a una casella verda i a una de rosa. Cap on ha de girar el coet en cada una?"] }
+  ] },
+  { name: "L'ajudant", sub: "Una segona funció, F2", levels: [
+    { name: "Dues vegades", map: ["bbBbB"], start: [0, 0, 1], cmds: 'f2', sol: '2 2|f f',
+      tip: "Aquesta és F2, una ajudant. Quan F1 la crida, F2 fa les seves ordres.",
+      hints: ["Aquí F1 només pot cridar F2. Què li has d'ensenyar a fer, a F2?", "Si F2 avança dues caselles, quantes vegades cal cridar-la?"] },
+    { name: "L'ajudant", map: ["...B", "...b", "...b", "bbbB"], start: [0, 3, 1], cmds: 'fLR2', sol: '2 L 2|f f f',
+      tip: "F1 pot fer coses entre crida i crida. Aquí, entre dos trossos iguals, cal girar.",
+      hints: ["El camí té dos trossos iguals. Quin és el tros que es repeteix? Aquesta és la feina de F2.", "F1 és qui mana: diu «fes el tros», després fa el que cal entre tros i tros, i torna a dir «fes el tros»."] },
+    { name: "El pont", map: ["BbB", "b.b", "b.B"], start: [0, 2, 0], cmds: 'fLR2', sol: '2 R 2 R 2|f f',
+      tip: "Pots cridar F2 tantes vegades com vulguis. Aquí cal fer tres trossos iguals.",
+      hints: ["Busca el tros que es repeteix: quantes caselles fa cada costat del pont?", "F2 fa un costat. F1 només ha de dir quan toca fer un costat i quan toca girar."] },
+    { name: "Dos graons", map: ["..bB", ".Bb.", "bb.."], start: [0, 2, 1], cmds: 'fLR2', sol: 'f 2 f 2 f|L f R',
+      tip: "F2 pot fer una feina petita que es repeteix: pujar un graó.",
+      hints: ["Quina part del camí surt dues vegades igual?", "Quan F2 acabi, el coet ha de quedar mirant a la dreta, a punt per avançar."] },
+    { name: "Tres esglaons", map: ["...B", "..Bb", ".Bb.", "bb.."], start: [0, 3, 1], cmds: 'fLR2', sol: '2 2 2|f L f R',
+      tip: "F2 també pot girar. Ensenya-li a pujar un esglaó i crida-la tres vegades.",
+      hints: ["Com al nivell de l'escala, pensa en un sol esglaó. Ara aquest esglaó pot viure dins de F2.", "Quan F2 acaba, el coet ha de quedar mirant igual que al començament. Així F2 es pot tornar a cridar i fa el mateix."] },
+    { name: "L'escala llarga", map: [".....B", "....Bb", "...Bb.", "..Bb..", ".Bb...", "bb...."], start: [0, 5, 1], cmds: 'fLR12', sol: '2 1|f L f R',
+      tip: "Massa esglaons per cridar F2 un per un! Fes que F1 cridi F2 i després torni a començar.",
+      hints: ["F2 ja sap pujar un esglaó. Quantes vegades caldria cridar-la? Massa! Recorda com es repetia una ordre a la secció de repeticions.", "F1 pot ser molt curta: fes un esglaó i torna a començar."] },
+    { name: "Esglaons grans", map: ["......B", "......b", "....Bbb", "....b..", "..Bbb..", "..b....", "bbb...."], start: [0, 6, 1], cmds: 'fLR12', sol: '2 L 2 R 1|f f',
+      tip: "Aquests esglaons fan dues caselles. F2 pot ser «avança dues caselles».",
+      hints: ["Cada esglaó té un tros pla i un tros que puja, i tots dos són igual de llargs. Quin tros pot fer F2?", "F1 descriu un esglaó sencer fent servir F2 i els girs. Després torna a començar."] },
+    { name: "El quadrat", map: ["BbbB", "b..b", "b..b", "bBbB"], start: [0, 3, 0], cmds: 'fLR12', sol: '2 R 1|f f f',
+      tip: "Un quadrat sense colors! Ensenya a F2 a fer un costat i fes que F1 el repeteixi girant.",
+      hints: ["Un quadrat té quatre costats iguals. Què es repeteix? Fer un costat i girar.", "F2 fa el costat. F1 no ha de comptar els costats: en fa un, gira i torna a començar."] },
+    { name: "Les arrels", map: ["bbbb", "BBBB"], start: [0, 0, 1], cmds: 'fLR12', sol: '2 f 1|R f L L f R',
+      tip: "Sota de cada casella hi ha una estrella. Fes que F2 baixi a buscar-la, torni a pujar i quedi mirant endavant.",
+      hints: ["Pensa en una sola casella: baixar, agafar l'estrella i tornar a pujar. Recorda com es fa una mitja volta.", "Quan F2 acabi, el coet ha de ser a dalt i mirant endavant, com abans de començar. Llavors F1 només ha d'avançar i repetir."] },
+    { name: "Les branques", map: ["BBBBB", "bbbbb"], start: [0, 1, 1], cmds: 'fLR12', sol: 'L 2 L f 1|f R R f',
+      tip: "Com les arrels, però ara F2 només té 4 caselles: els girs que no hi caben han d'anar a F1.",
+      hints: ["És el mateix viatge que a les arrels, però cap amunt i amb una F2 més petita. Quina part del viatge és «anar i tornar» i quina és «preparar-se»?", "F2 pot fer només l'anar i tornar. Els girs d'abans i de després els pot fer F1."] }
+  ] },
+  { name: "Recursivitat", sub: "Crides de color i ordres guardades", levels: [
+    { name: "Només quan toca", map: ["....bB", "..Bbp.", "bbp..."], start: [0, 2, 1], cmds: 'fLR12', conds: 'p', sol: 'f p2 1|L f R',
+      tip: "A les caselles roses hi ha un graó. Pots cridar F2 només quan el coet sigui al rosa.",
+      hints: ["Primer pensa què fa el coet per pujar un graó i quedar mirant endavant. Això és F2.", "Després pensa quan cal fer-ho: tria el color abans de posar F2 a F1."] },
+    { name: "Canvi de carril", map: ["bbp....", "..b....", "..Bbp..", "....b..", "....BbB"], start: [0, 0, 1], cmds: 'fLR12', conds: 'p', sol: 'p2 f 1|R f f L',
+      tip: "A les caselles roses cal baixar al carril de sota. Crida F2 només quan el coet sigui al rosa.",
+      hints: ["Primer pensa què ha de fer el coet per baixar de carril i quedar mirant endavant. Això és la feina de F2.", "Després pensa quan cal baixar: només en un color. La resta del temps, el coet simplement avança."] },
+    { name: "Només al rosa", map: [".B.BB..", "bpbppbB"], start: [0, 1, 1], cmds: 'fLR12', conds: 'p', sol: 'p2 f 1|L f R R f L',
+      tip: "Només hi ha estrelles damunt de les caselles roses. Crida F2 només quan el coet sigui al rosa.",
+      hints: ["Fes-te dues preguntes: què cal fer per agafar una estrella de dalt i tornar? I a quines caselles cal fer-ho?", "La primera resposta és F2. La segona és un color: F1 crida F2 només allà, i a totes les caselles avança."] },
+    { name: "Amunt i avall", map: ["...B", "...b", ".BBp", "bpbg"], start: [0, 3, 1], cmds: 'fLR12', conds: 'gp', sol: 'p2 gL f 1|L f R R f L',
+      tip: "Al rosa hi ha una estrella al costat, i al verd el camí gira. Dues ordres de color a F1!",
+      hints: ["F2 és anar a buscar l'estrella del costat i tornar. Quan acabi, el coet ha de mirar com abans.", "F1 fa tres coses: cridar F2 al rosa, girar al verd, i avançar sempre."] },
+    { name: "Ordres guardades", map: ["..b.", "..bB", "..b.", "bbp."], start: [0, 3, 1], cmds: 'fLR12', conds: 'bp', sol: '2 R f|f b2 pL f',
+      tip: "Nou truc! Si F2 es crida a si mateixa abans d'acabar, l'ordre del darrere queda guardada per a després. Així el coet compta sense saber comptar.",
+      hints: ["El coet ha de pujar tantes caselles com n'ha avançat. Cada crida de F2 avança una casella i guarda una ordre per a després.", "Pensa F2 així: avança; si encara ets al blau, torna a començar; al rosa, gira. L'última casella és l'ordre que queda guardada. F1 crida F2 i acaba el camí."] },
+    { name: "Una mica més lluny", map: ["...b..", "...bbB", "...b..", "...b..", "bbbp.."], start: [0, 4, 1], cmds: 'fLR12', conds: 'bp', sol: '2 R f f|f b2 pL f',
+      tip: "El mateix truc amb un camí més llarg. Cal pujar tantes caselles com n'has avançat, i després anar fins a l'estrella.",
+      hints: ["El coet ha de pujar tantes caselles com n'ha avançat, però no sap comptar. El truc: cada vegada que F2 es crida a si mateixa abans d'acabar, li queda una ordre guardada per a després.", "Pensa F2 així: avança; si encara ets al blau, torna a començar; quan arribis al rosa, gira. L'última casella de F2 és l'ordre que queda guardada a cada crida: quina ha de ser? F1 fa la resta del camí."] },
+    { name: "Compta amunt", map: ["...B..", "pbbbbb", "b.....", "b.....", "b....."], start: [0, 4, 0], cmds: 'fLR12', conds: 'bp', sol: '2 L f|f b2 pR f',
+      tip: "El mateix truc, començant cap amunt. El coet ha d'anar a la dreta tantes caselles com n'ha pujat.",
+      hints: ["Cada crida de F2 ha de deixar una ordre guardada. Quina?", "Mira on és l'estrella: després de F2, què li queda per fer a F1?"] },
+    { name: "El doble", map: ["..b.", "..bB", "..b.", "..b.", "..b.", "bbp."], start: [0, 5, 1], cmds: 'fLR12', conds: 'bp', sol: '2 R f|f b2 pL f f',
+      tip: "Ara cal pujar el doble de caselles de les que has avançat.",
+      hints: ["Si cada crida guarda una ordre, el coet puja el mateix. Què ha de guardar per pujar el doble?", "Després de la crida a F2 poden quedar dues ordres guardades en lloc d'una."] },
+    { name: "Anar i tornar", map: [".B...", "bbbbP"], start: [1, 1, 1], cmds: 'fLR12', conds: 'bp', sol: '2 R f|f b2 pL pL f',
+      tip: "Ves fins a l'estrella del fons, torna exactament fins on has començat i puja. El coet no sap on ha començat, però les ordres guardades sí!",
+      hints: ["Per tornar el mateix nombre de caselles, cada crida ha de guardar un pas. Però abans cal fer mitja volta: on?", "La mitja volta només es fa al rosa. Quan F2 acabi del tot, el coet serà on ha començat: llavors F1 el fa pujar."] },
+    { name: "L'escala recursiva", map: ["....Bb", "....bb", "...bb.", "bbpb.."], start: [0, 3, 1], cmds: 'fLR12', conds: 'bp', sol: '2 L f|f b2 f L f R',
+      tip: "Avança fins al rosa i després puja tants esglaons com caselles has avançat.",
+      hints: ["Què queda guardat a cada crida? Aquesta vegada no és una sola ordre: és un esglaó sencer.", "Un esglaó és avançar, girar, avançar i girar. Posa'l després de la crida de F2. F1 només ha de fer l'últim pas fins a l'estrella."] }
+  ] }
 ];
+const parseSol = sol => sol.split('|').map(fn => fn.split(' ').map(t => ({ op: t.slice(-1), c: t.length > 1 ? t[0] : null })));
+const LEVELS = SECTIONS.flatMap((s, sec) => s.levels.map((l, idx) => { const ref = parseSol(l.sol); return { ...l, sec, idx, ref, slots: ref.map(fn => fn.length) }; }));
 const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
 function readMap(map) {
   const cells = new Map(), stars = new Set();
@@ -362,10 +518,13 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const board = $('#board'), stage = $('#stage'), statusEl = $('#status'), dotsEl = $('#dots');
 
-let prog = { best: 0, so: true, coet: 0 };
+// secs counts the levels done in each section of the rocket game
+let prog = { best: 0, so: true, secs: SECTIONS.map(() => 0) };
 try {
   const d = JSON.parse(localStorage.getItem(KEY));
-  if (d) prog = { best: Math.max(0, d.best | 0), so: d.so !== false, coet: Math.min(LEVELS.length, Math.max(0, d.coet | 0)) };
+  // an older save counted 20 levels in a row: each section whose old levels were all done opens complete
+  if (d) prog = { best: Math.max(0, d.best | 0), so: d.so !== false, secs: Array.isArray(d.secs) && d.secs.length === SECTIONS.length
+    ? d.secs.map(n => Math.min(10, Math.max(0, n | 0))) : [2, 4, 9, 18, 20].map(c => (d.coet | 0) >= c ? 10 : 0) };
 } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
 
@@ -527,7 +686,8 @@ function show(game, kicker) {
   $('#toG').hidden = game !== 'menu' || location.protocol !== 'file:'; $('#toM').hidden = game === 'menu'; $('#kick').textContent = kicker;
   if (game !== 'coet') { $('#coet').replaceChildren(); replace = null; }
 }
-$('#toM').onclick = () => menu();
+let back = () => menu();
+$('#toM').onclick = () => back();
 // while a panel is up, lights twinkle quietly behind it
 async function twinkle(t) {
   while (t.on) { await sleep(rand(350, 800)); if (t.on && tiles.length) flash(Math.floor(Math.random() * tiles.length), 420, true); }
@@ -554,13 +714,13 @@ const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Quina memòria!', 'Així es
 const ON = 520, GAP = 190;
 
 async function menu() {
-  const t = fresh(); pickFn = null; show('menu', 'Tria un joc');
+  const t = fresh(); pickFn = null; show('menu', 'Tria un joc'); back = menu; $('#toM').textContent = '← Jocs';
   stage.querySelector('.panel')?.remove(); live(false);
   $('#hud').hidden = true; dotsEl.replaceChildren(); statusEl.textContent = ''; FX.mood(0);
   await build(3, t); if (!t.on) return;
   panel(stage, `<button class="game" id="g1"><b>Repeteix els llums</b><span>Mira quins llums s'encenen i toca'ls en el mateix ordre. Quan arribis a 5, els quadres es fan més petits!</span>${prog.best ? `<span class="rec">Rècord: ${prog.best} punts</span>` : ''}</button>
-    <button class="game" id="g2"><b>El coet</b><span>Escriu les ordres perquè el coet reculli totes les estrelles. Aprendràs a programar!</span><span class="rec">${prog.coet} de ${LEVELS.length} nivells superats</span></button>`);
-  $('#g1').onclick = play; $('#g2').onclick = () => coet(Math.min(prog.coet, LEVELS.length - 1));
+    <button class="game" id="g2"><b>El coet</b><span>Escriu les ordres perquè el coet reculli totes les estrelles. Aprendràs a programar!</span><span class="rec">${prog.secs.reduce((a, b) => a + b, 0)} de ${LEVELS.length} nivells superats</span></button>`);
+  $('#g1').onclick = play; $('#g2').onclick = seccions;
   twinkle(t);
 }
 
@@ -630,13 +790,30 @@ const STEP = 430, HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Bon programa!'
 let replace = null;
 addEventListener('resize', () => replace && replace());
 
-function coet(n) {
-  const t = fresh(); pickFn = null; show('coet', 'Joc 2 · Programació'); FX.mood(n % 4);
-  const root = $('#coet'), lv = LEVELS[n], g = readMap(lv.map), size = Math.max(g.w, g.h), ox = Math.floor((size - g.w) / 2);
+const secOpen = s => s === 0 || prog.secs[s - 1] >= 10;
+function seccions() {
+  fresh(); pickFn = null; show('coet', 'Joc 2 · Programació'); FX.mood(0); back = menu; $('#toM').textContent = '← Jocs';
+  const root = $('#coet');
+  root.innerHTML = `<p class="status tip">Tria una secció. A cada una el coet aprèn un truc nou.</p>
+    <nav class="secs" aria-label="Seccions">${SECTIONS.map((s, i) => { const n = prog.secs[i]; return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${secOpen(i) ? '' : ' disabled'}>
+      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${secOpen(i) ? s.sub : 'Acaba la secció anterior per obrir-la'}</span></span>
+      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10</span></button>`; }).join('')}</nav>`;
+  root.querySelector('.secs').onclick = e => { const b = e.target.closest('.sec'); if (b && !b.disabled) coet(+b.dataset.s, Math.min(prog.secs[+b.dataset.s], 9)); };
+  root.querySelector('.sec:not(:disabled)').focus({ preventScroll: true });
+}
+
+function coet(sec, idx) {
+  const t = fresh(); pickFn = null; show('coet', `Secció ${sec + 1} · ${SECTIONS[sec].name}`); FX.mood(sec % 4); back = seccions; $('#toM').textContent = '← Seccions';
+  const root = $('#coet'), lv = LEVELS[sec * 10 + idx], g = readMap(lv.map), size = Math.max(g.w, g.h), ox = Math.floor((size - g.w) / 2);
   const code = lv.slots.map(k => Array(k).fill(null));
-  let sel = [0, 0], brush = '', hintN = 0, job = null, ang = 0, at = [0, 0], geo = { x: 0, y: 0, pitch: 0 };
-  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${n + 1} · ${lv.name}</span><span class="chip" id="cstars"></span></div>
-    <nav class="levels" aria-label="Nivells">${LEVELS.map((_, i) => `<button data-n="${i}" class="${i < prog.coet ? 'done' : ''}"${i === n ? ' aria-current="true"' : ''}${i > prog.coet ? ' disabled title="Supera el nivell anterior"' : ''}>${i + 1}</button>`).join('')}</nav>
+  // the reference route, tile by tile, with the stars picked up by then: a hint lights up what comes next
+  const route = [{ x: lv.start[0], y: lv.start[1], got: 0 }];
+  for (const st of trace(lv, lv.ref).steps) if (!st.skip && lv.ref[st.f][st.i].op === 'f') route.push({ x: st.x, y: st.y, got: route[route.length - 1].got + (st.star ? 1 : 0) });
+  let sel = [0, 0], brush = '', job = null, ang = 0, at = [0, 0], got = 0, geo = { x: 0, y: 0, pitch: 0 };
+  // hint state: how many were asked, the slot being pointed at, the order given away after asking three times at the same spot
+  let asks = 0, slow = false, mark = null, reveal = null, stuck = ['', 0];
+  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${idx + 1} · ${lv.name}</span><span class="chip" id="cstars"></span></div>
+    <nav class="levels" aria-label="Nivells">${SECTIONS[sec].levels.map((_, i) => `<button data-n="${i}" class="${i < prog.secs[sec] ? 'done' : ''}"${i === idx ? ' aria-current="true"' : ''}${i > prog.secs[sec] ? ' disabled title="Supera el nivell anterior"' : ''}>${i + 1}</button>`).join('')}</nav>
     <p class="status tip" id="ctip" role="status" aria-live="polite"></p>
     <div class="split"><div class="stage" id="cstage"><div class="board" id="cboard" style="--n:${size};--gh:${g.h}"></div></div>
     <div class="prog" id="prog"><div id="fns"></div>
@@ -654,6 +831,7 @@ function coet(n) {
     if (a.top < 0 || b.bottom > innerHeight - under) $('#ctip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
   }
   const rk = () => cb.querySelector('.rocket');
+  const mid = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
   function put(x, y, extra = '') { at = [x, y]; rk().style.transform = `translate(${geo.x + x * geo.pitch}px, ${geo.y + y * geo.pitch}px) rotate(${ang}deg)${extra}`; }
   function measure() {
     const cs = getComputedStyle(cb), pad = parseFloat(cs.paddingLeft), gap = parseFloat(cs.columnGap), pitch = (cb.clientWidth - 2 * pad + gap) / size;
@@ -663,8 +841,8 @@ function coet(n) {
     geo = { x: c.offsetLeft - x * pitch, y: c.offsetTop - y * pitch, pitch };
   }
   const still = fn => { rk().style.transition = 'none'; fn(); void rk().offsetWidth; rk().style.transition = ''; };
-  const count = k => { $('#cstars').textContent = `★ ${k} de ${g.stars.size}`; };
-  // the board as the level starts: every star back, the rocket on its first tile
+  const count = k => { got = k; $('#cstars').textContent = `★ ${k} de ${g.stars.size}`; };
+  // the board as the level starts: every star back, no hint lights, the rocket on its first tile
   function setup() {
     cb.innerHTML = [...g.cells].map(([k, c]) => { const [x, y] = k.split(',').map(Number); return `<div class="cell c${c}${g.stars.has(k) ? ' star' : ''}" data-k="${k}" style="grid-column:${x + ox + 1};grid-row:${y + 1}"></div>`; }).join('') + `<div class="rocket">${ROCKET}</div>`;
     measure(); ang = lv.start[2] * 90; still(() => put(lv.start[0], lv.start[1])); count(0); $('#stk').textContent = '';
@@ -672,73 +850,127 @@ function coet(n) {
   replace = () => { measure(); still(() => put(at[0], at[1])); };
   function drawCode() {
     $('#fns').innerHTML = code.map((fn, f) => `<div class="fn"><span class="fname">F${f + 1}</span><div class="slots">${fn.map((s, i) =>
-      `<button class="slot${s ? ' full' : ''}${s && s.c ? ' c' + s.c : ''}${sel[0] === f && sel[1] === i ? ' sel' : ''}" data-f="${f}" data-i="${i}" aria-label="F${f + 1}, casella ${i + 1}: ${s ? OPS[s.op][1] + (s.c ? ', només al ' + CNAME[s.c] : '') : 'buida'}">${s ? OPS[s.op][0] : ''}</button>`).join('')}</div></div>`).join('');
-    root.querySelectorAll('.cmd').forEach(b => { b.className = 'cmd' + (brush && b.dataset.op !== 'x' ? ' c' + brush : ''); });
-    root.querySelectorAll('.brush button').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === brush));
+      `<button class="slot${s ? ' full' : ''}${s && s.c ? ' c' + s.c : ''}${sel[0] === f && sel[1] === i ? ' sel' : ''}${mark && mark.f === f && mark.i === i ? ' ' + mark.kind : ''}" data-f="${f}" data-i="${i}" aria-label="F${f + 1}, casella ${i + 1}: ${s ? OPS[s.op][1] + (s.c ? ', només al ' + CNAME[s.c] : '') : 'buida'}">${s ? OPS[s.op][0] : ''}</button>`).join('')}</div></div>`).join('');
+    root.querySelectorAll('.cmd').forEach(b => { b.className = 'cmd' + (brush && b.dataset.op !== 'x' ? ' c' + brush : '') + (reveal && reveal.op === b.dataset.op ? ' glow' : ''); });
+    root.querySelectorAll('.brush button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.c === brush); b.classList.toggle('glow', !!reveal && (reveal.c || '') === b.dataset.c); });
   }
   function stop() { if (job) job.on = false; job = null; runb.textContent = '▶ Engega'; setup(); drawCode(); }
+  const launch = () => { const me = job = { on: true }; runb.textContent = '■ Atura'; return me; };
+  function sink() {
+    const p = mid(rk()); FX.burst(p.x, p.y, 200, 24, 150); FX.ring(p.x, p.y, 200, 6, p.w);
+    put(at[0], at[1], ' scale(0.1)'); rk().style.opacity = 0; tone(150, 0, 0.45, 0.16, 'triangle');
+  }
 
-  async function go() {
-    const r = trace(lv, code, 120);
-    if (!r.steps.length) return tip('Posa alguna ordre a F1 i torna a prémer Engega.', 'oops');
-    const me = job = { on: true }, alive = () => me.on && t.on;
-    runb.textContent = '■ Atura'; tip(lv.tip); look(); tone(523, 0, 0.15); root.querySelector('.slot.sel')?.classList.remove('sel');
-    let got = 0, k = 0;
-    for (const st of r.steps) {
+  // plays the steps of a trace on the board; false if the run was stopped on the way
+  async function fly(steps, me, pace) {
+    let k = 0;
+    for (const st of steps) {
       const el = root.querySelector(`.slot[data-f="${st.f}"][data-i="${st.i}"]`), op = code[st.f][st.i].op;
       el.classList.add(st.skip ? 'skip' : 'run');
       if (!st.skip) {
         $('#stk').innerHTML = 'Funcions en marxa: ' + st.stack.slice(0, 9).map(f => `<b>F${f + 1}</b>`).join('▸') + (st.stack.length > 9 ? '…' : '');
-        if (op === 'f') { const p = rk().getBoundingClientRect(); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 38, 8, 70, 0); put(st.x, st.y); tone(330, 0, 0.12, 0.06); }
+        if (op === 'f') { const p = mid(rk()); FX.burst(p.x, p.y, 38, 8, 70, 0); put(st.x, st.y); tone(330, 0, 0.12, 0.06); }
         else if (st.turn) { ang += 90 * st.turn; put(st.x, st.y); tone(440, 0, 0.1, 0.05); }
         else tone(660, 0, 0.12, 0.06);
       }
-      // a program that is still going after 45 steps is probably looping: hurry it along
-      await sleep(++k > 45 ? 150 : st.skip ? 240 : STEP); if (!alive()) return;
+      // a program that is still going after 60 steps is probably looping: hurry it along
+      await sleep(++k > 60 ? 150 : st.skip ? Math.min(240, pace) : pace); if (!me.on || !t.on) return false;
       if (st.star) {
-        const c = cb.querySelector(`[data-k="${st.star}"]`), p = c.getBoundingClientRect();
-        c.classList.remove('star'); count(++got); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 48, 26, 190); FX.ring(p.left + p.width / 2, p.top + p.height / 2, 48, 8, p.width * 1.2); tone(1047, 0, 0.3, 0.1);
+        const c = cb.querySelector(`[data-k="${st.star}"]`), p = mid(c);
+        c.classList.remove('star'); count(got + 1); FX.burst(p.x, p.y, 48, 26, 190); FX.ring(p.x, p.y, 48, 8, p.w * 1.2); tone(1047, 0, 0.3, 0.1);
       }
       el.classList.remove('run', 'skip');
     }
+    return true;
+  }
+
+  async function go() {
+    const r = trace(lv, code, 150);
+    if (!r.steps.length) return tip('Posa alguna ordre a F1 i torna a prémer Engega.', 'oops');
+    mark = reveal = null; setup(); drawCode(); root.querySelector('.slot.sel')?.classList.remove('sel');
+    const me = launch(), alive = () => me.on && t.on;
+    tip(lv.tip); look(); tone(523, 0, 0.15);
+    // after asking for a hint the rocket flies slower, so each order can be followed
+    if (!await fly(r.steps, me, slow ? 700 : STEP)) return;
     if (r.end === 'win') {
       runb.disabled = true; ang += 360; put(at[0], at[1]);
-      if (n + 1 > prog.coet) { prog.coet = n + 1; save(); }
-      chime([523, 659, 784, 1047, 1319]); FX.celebrate(n === LEVELS.length - 1 ? 16 : 8);
+      if (idx + 1 > prog.secs[sec]) { prog.secs[sec] = idx + 1; save(); }
+      const end = idx === 9, last = end && sec === SECTIONS.length - 1;
+      chime([523, 659, 784, 1047, 1319]); FX.celebrate(end ? 16 : 8);
       await sleep(900); if (!alive()) return;
-      const last = n === LEVELS.length - 1;
-      panel($('#cstage'), `<h2>${last ? 'Ets programador de coets!' : pick(HURRAY)}</h2>
-        <p class="lead">${last ? 'Has fet servir funcions, colors i recursivitat, com els programadors de veritat.' : `Nivell ${n + 1} superat amb ${code.flat().filter(Boolean).length} ordres.`}</p>
-        <button class="btn" id="nx">${last ? 'Torna als jocs' : 'Nivell següent'}</button>`);
-      $('#nx').onclick = () => last ? menu() : coet(n + 1);
+      panel($('#cstage'), `<h2>${last ? 'Ets programador de coets!' : end ? 'Secció superada!' : pick(HURRAY)}</h2>
+        <p class="lead">${last ? 'Has fet servir funcions, colors i recursivitat, com els programadors de veritat.' : end ? `Has obert la secció ${sec + 2}: ${SECTIONS[sec + 1].name}.` : `Nivell ${idx + 1} superat amb ${code.flat().filter(Boolean).length} ordres.`}</p>
+        <button class="btn" id="nx">${last ? 'Torna a les seccions' : end ? 'Secció següent' : 'Nivell següent'}</button>`);
+      $('#nx').onclick = () => last ? seccions() : end ? coet(sec + 1, 0) : coet(sec, idx + 1);
       return;
     }
-    if (r.end === 'fall') {
-      const p = rk().getBoundingClientRect(); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 200, 24, 150); FX.ring(p.left + p.width / 2, p.top + p.height / 2, 200, 6, p.width);
-      put(at[0], at[1], ' scale(0.1)'); rk().style.opacity = 0;
-    }
-    tone(150, 0, 0.45, 0.16, 'triangle');
-    tip({ fall: "Xof! El coet ha caigut a l'aigua. Canvia les ordres i torna-hi.", end: "S'han acabat les ordres i encara queden estrelles.", fuel: "El coet s'ha quedat sense combustible: fa voltes sense arribar enlloc." }[r.end], 'oops');
+    if (r.end === 'fall') sink(); else tone(150, 0, 0.45, 0.16, 'triangle');
+    tip({ fall: "Xof! El coet ha caigut a l'aigua. Canvia les ordres i torna-hi.", end: "S'han acabat les ordres i encara queden estrelles.", fuel: "El coet s'ha quedat sense combustible: fa voltes sense arribar enlloc." }[r.end] + ' Si no saps com seguir, prem Pista.', 'oops');
     await sleep(1500); if (!alive()) return;
     stop();
+  }
+
+  // shortest way over the tiles from the rocket to a star still on the board, for a rocket that left the reference route
+  function wayToStar() {
+    const seen = new Map([[at.join(','), null]]), queue = [at.join(',')];
+    while (queue.length) {
+      const k = queue.shift(), [x, y] = k.split(',').map(Number);
+      if (k !== at.join(',') && cb.querySelector(`[data-k="${k}"]`).classList.contains('star')) { const out = []; for (let c = k; seen.get(c) !== null; c = seen.get(c)) out.unshift(c); return out; }
+      for (let d = 0; d < 4; d++) { const n = (x + DX[d]) + ',' + (y + DY[d]); if (g.cells.has(n) && !seen.has(n)) { seen.set(n, k); queue.push(n); } }
+    }
+    return [];
+  }
+  // A hint replays, slowly, what is written so far and leaves the rocket where the program leaves it. Then lights run along
+  // the tiles to visit next, and the first slot that is empty or differs from the reference program is marked.
+  async function coach() {
+    slow = true;
+    const hint = lv.hints[asks++ % lv.hints.length], r = trace(lv, code, 150);
+    if (r.end === 'win') return tip('Aquest programa ja funciona! Prem Engega i mira com vola.', 'go');
+    let tgt = [0, 0];
+    lv.ref.some((fn, f) => fn.some((b, i) => { const a = code[f][i]; return (!a || a.op !== b.op || (a.c || null) !== b.c) && (tgt = [f, i]); }));
+    const filled = !!code[tgt[0]][tgt[1]], key = tgt + '|' + filled, steps = r.steps.slice(0, 40), fell = r.end === 'fall';
+    stuck = [key, stuck[0] === key ? stuck[1] + 1 : 1];
+    mark = reveal = null; setup(); drawCode(); root.querySelector('.slot.sel')?.classList.remove('sel');
+    if (steps.length) {
+      const me = launch(); tip('Mirem què fa el teu programa…'); look();
+      if (!await fly(steps, me, 700)) return;
+      if (fell) {
+        // show the splash, then put the rocket back on the last tile it stood on
+        const prev = steps[steps.length - 2];
+        sink(); await sleep(900); if (!me.on || !t.on) return;
+        rk().style.opacity = ''; put(prev ? prev.x : lv.start[0], prev ? prev.y : lv.start[1]);
+      }
+      job = null; runb.textContent = '▶ Engega';
+    }
+    const j = route.findIndex(c => c.x === at[0] && c.y === at[1] && c.got === got);
+    let next = j < 0 ? wayToStar() : route.slice(j + 1).map(c => c.x + ',' + c.y);
+    if (j >= 0) { const star = route.slice(j + 1).findIndex(c => c.got > got); next = next.slice(0, star < 0 ? next.length : star + 1); }
+    next.slice(0, 8).forEach((k, n) => { const c = cb.querySelector(`[data-k="${k}"]`); c.classList.add('trail'); c.style.setProperty('--d', n * 220); });
+    mark = { f: tgt[0], i: tgt[1], kind: filled ? 'think' : 'next' }; sel = tgt;
+    if (stuck[1] >= 3) reveal = lv.ref[tgt[0]][tgt[1]];
+    drawCode(); look();
+    tip((fell ? 'Xof! Aquí el coet cau. ' : r.end === 'fuel' ? 'El coet fa voltes sense arribar enlloc. ' : steps.length ? 'Fins aquí arriba el teu programa. ' : '')
+      + (reveal ? "L'ordre que brilla a baix és la que va a la casella marcada. " : filled ? 'Repassa la casella marcada amb «?» i segueix el camí de llums. ' : 'Segueix el camí de llums i continua a la casella que brilla. ') + hint);
   }
 
   $('#prog').onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b === runb) return job ? stop() : go();
     if (job) return;
+    if (b.id === 'hintb') return coach();
     if (b.classList.contains('slot')) sel = [+b.dataset.f, +b.dataset.i];
+    else if ('c' in b.dataset) brush = b.dataset.c;
     else if (b.dataset.op === 'x') code[sel[0]][sel[1]] = null;
     else if (b.dataset.op) {
       code[sel[0]][sel[1]] = { op: b.dataset.op, c: brush || null }; brush = ''; tone(784, 0, 0.08, 0.05);
       if (sel[1] + 1 < code[sel[0]].length) sel = [sel[0], sel[1] + 1];
     }
-    else if ('c' in b.dataset) brush = b.dataset.c;
     else if (b.id === 'clr') { code.forEach(fn => fn.fill(null)); sel = [0, 0]; }
-    else if (b.id === 'hintb') { const k = hintN++ % lv.hints.length; tip(`Pista ${k + 1} de ${lv.hints.length}: ${lv.hints[k]}`); return look(); }
+    // any change to the program clears the hint marks; the lights on the board stay until the next flight
+    if (!('c' in b.dataset)) mark = reveal = null;
     drawCode();
   };
-  root.querySelector('.levels').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) coet(+b.dataset.n); };
+  root.querySelector('.levels').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) coet(sec, +b.dataset.n); };
   tip(lv.tip); setup(); drawCode();
 }
 
