@@ -1,0 +1,740 @@
+<title>Llums de l'estany</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: a night pond. One centred column; the board is the stage, two fixed canvases paint the sky behind it and the sparks in front.
+   The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
+:root {
+  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
+  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D; --sun: #F7C64E; --bad: #FF6B5E;
+  --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 14px 24px; overflow-x: hidden;
+  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
+  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#sky { z-index: 0; }
+#fx { z-index: 5; }
+#app { position: relative; z-index: 1; max-width: 620px; min-height: calc(100dvh - 38px); margin-inline: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+
+/* the links stay at the top; whatever height is left over is shared above and below the game */
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: auto; }
+.link { display: inline-block; background: none; border: 0; padding: 11px 0; margin-block: -7px; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.kicker { color: var(--muted); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 {
+  margin: 0; font-size: clamp(2rem, 7vw, 3rem); line-height: 1; font-weight: 800; text-wrap: balance;
+  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
+  filter: drop-shadow(0 0 18px rgb(110 230 255 / 0.35));
+}
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--glass); border: 1px solid var(--edge); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lives { flex: none; display: flex; gap: 8px; }
+.lives i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#fff 15%, var(--sun) 45%, rgb(247 198 78 / 0) 72%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: breathe 2.2s ease-in-out infinite; }
+.lives i:nth-child(2) { animation-delay: -0.7s; }
+.lives i:nth-child(3) { animation-delay: -1.4s; }
+.lives i.gone { background: rgb(160 230 220 / 0.16); box-shadow: none; animation: none; }
+.status { min-height: 1.25em; font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.25; font-weight: 800; text-wrap: balance; }
+.status.go { color: #7CF5B0; text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
+.status.oops { color: var(--bad); }
+.status.pop { animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
+
+/* the board keeps its size at every level; --n only changes how many tiles share it */
+.stage { position: relative; width: min(100%, 560px, max(260px, calc(100dvh - var(--chrome, 280px)))); aspect-ratio: 1; }
+.board {
+  position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr);
+  gap: calc(22px - var(--n) * 2.5px); padding: 14px; border-radius: 30px;
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); border: 1px solid var(--edge);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+.tile {
+  --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; border: 0; padding: 0; border-radius: calc(34px - var(--n) * 4px); cursor: default; touch-action: manipulation;
+  background: linear-gradient(160deg, hsl(var(--h) 46% 27%), hsl(var(--h) 52% 13%));
+  box-shadow: inset 0 1px 0 hsl(var(--h) 80% 70% / 0.4), inset 0 -8px 14px hsl(var(--h) 60% 6% / 0.6), 0 5px 0 hsl(var(--h) 55% 8%), 0 10px 18px rgb(0 0 0 / 0.45);
+  transition: transform 0.18s cubic-bezier(0.3, 1.7, 0.5, 1), filter 0.2s, box-shadow 0.18s;
+}
+.tile::before { content: ""; position: absolute; inset: 8% 10% 54%; border-radius: inherit; background: linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0)); }
+.tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 3px solid var(--c); opacity: 0; }
+.board.live .tile { cursor: pointer; }
+.board.live .tile:hover { filter: brightness(1.3); }
+.board.live .tile:active { transform: translateY(4px) scale(0.97); }
+.tile.on, .tile.bad {
+  z-index: 2; transform: scale(1.08);
+  background: radial-gradient(circle at 50% 38%, #fff 0, hsl(var(--h) 100% 80%) 28%, hsl(var(--h) 98% 56%) 78%);
+  box-shadow: 0 0 0 2px hsl(var(--h) 100% 88%), 0 0 26px 5px var(--c), 0 0 80px 18px hsl(var(--h) 100% 60% / 0.55);
+}
+.tile.on::after { animation: ring 0.55s ease-out; }
+.tile.bad {
+  animation: shake 0.35s; background: radial-gradient(circle at 50% 38%, #fff 0, #FF9A8A 28%, #F0432F 78%);
+  box-shadow: 0 0 0 2px #FFC9C0, 0 0 26px 5px #FF5A45, 0 0 80px 18px rgb(255 80 60 / 0.55);
+}
+.tile.hint { animation: hint 0.5s ease-in-out 3; }
+.tile.enter { animation: enter 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) backwards; animation-delay: calc(var(--d) * 1ms); }
+.tile.wave { animation: wave 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
+.board.out .tile { animation: leave 0.4s ease-in forwards; animation-delay: calc(var(--d) * 0.5ms); }
+.board.shake { animation: shake 0.35s; }
+
+.panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94%, 400px); z-index: 3;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px 14px 16px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); animation: pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.panel h2 { margin: 0; font-size: 1.7rem; line-height: 1.1; font-weight: 800; text-wrap: balance; }
+.panel .lead { font-size: 1.05rem; text-wrap: pretty; }
+.panel .score { font: 800 2.6rem/1 var(--display); color: var(--sun); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+.panel .rec { color: var(--muted); font-weight: 700; font-size: 1rem; }
+.btn {
+  border: 0; border-radius: 999px; padding: 0.4em 1.6em; font-size: 1.4rem; font-weight: 800;
+  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55);
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--pad-dark); }
+.banner { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 4px; pointer-events: none; animation: banner 1.9s ease-in-out both; text-shadow: 0 0 30px rgb(110 230 255 / 0.8), 0 4px 0 rgb(0 0 0 / 0.35); }
+.banner b { font-size: clamp(3rem, 14vw, 5.2rem); line-height: 1; font-weight: 800; }
+.banner span { font-size: clamp(1.2rem, 5vw, 1.7rem); font-weight: 800; color: #6FE3FF; }
+
+.dots { display: flex; gap: 10px; min-height: 18px; align-items: center; margin-bottom: auto; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: transform 0.2s cubic-bezier(0.3, 1.8, 0.5, 1), background 0.15s, box-shadow 0.15s; }
+.dots i.ok { background: #7CF5B0; box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); transform: scale(1.25); }
+
+/* home: one card per game */
+.game { width: 100%; display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 10px 14px 12px; border-radius: 18px; border: 1px solid var(--edge); background: rgb(79 181 98 / 0.16); }
+.game:hover { background: rgb(79 181 98 / 0.3); }
+.game b { font: 800 1.45rem/1.1 var(--display); color: #7CF5B0; }
+.game span { font-size: 0.95rem; line-height: 1.3; }
+.game .rec { font-size: 0.9rem; }
+
+/* game 2: the board above the program, with the run buttons pinned to the bottom of the screen; side by side when there is room */
+#app.wide { max-width: 940px; }
+#app.wide h1 { display: none; }
+#mem { display: contents; }
+#coet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.status.tip { font: 700 1rem/1.35 var(--body); max-width: 54ch; min-height: 2.7em; text-wrap: pretty; scroll-margin-top: 10px; }
+/* one row that scrolls sideways, fading at both ends */
+.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.levels::-webkit-scrollbar { display: none; }
+.levels button { flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; border: 1px solid var(--edge); background: var(--glass); font: 800 1rem/1 var(--display); }
+.levels button.done { background: #1E6B4A; border-color: #7CF5B0; }
+.levels button[aria-current] { background: var(--sun); color: #2A1C00; border-color: #fff; }
+.levels button:disabled { opacity: 0.4; cursor: not-allowed; }
+.split { width: 100%; display: flex; flex-direction: column; gap: 16px 28px; justify-content: center; align-items: center; }
+/* the board is only as tall as its map, so a flat level leaves room for the program */
+.split .stage { flex: none; width: min(100%, 480px, max(250px, calc(100dvh - 150px))); aspect-ratio: auto; }
+.split .board { position: relative; min-height: 220px; grid-template-rows: repeat(var(--gh), var(--cs)); align-content: center; }
+.cell { position: relative; display: grid; place-items: center; min-width: 0; border-radius: max(5px, calc(34px - var(--n) * 4px)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 4px 0 rgb(0 0 0 / 0.35); }
+.cell.cb { background: linear-gradient(160deg, #4C9BEA, #1F4F9A); }
+.cell.cg { background: linear-gradient(160deg, #4CCB78, #1C7A3E); }
+.cell.cp { background: linear-gradient(160deg, #F57DBC, #A82B72); }
+.cell.star::after { content: "★"; font-size: calc(var(--cs) * 0.62); line-height: 1; color: var(--sun); text-shadow: 0 0 12px rgb(247 198 78 / 0.9), 0 2px 0 rgb(0 0 0 / 0.3); animation: breathe 1.6s ease-in-out infinite; }
+.rocket { position: absolute; left: 0; top: 0; width: var(--cs); height: var(--cs); z-index: 3; pointer-events: none; transition: transform 0.32s cubic-bezier(0.4, 0, 0.3, 1), opacity 0.3s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
+.rocket svg { display: block; width: 100%; height: 100%; }
+.rocket .flame { transform-origin: 32px 48px; animation: flame 0.18s ease-in-out infinite alternate; }
+.prog { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); text-align: left; }
+.fn { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.fname { flex: none; width: 2ch; font: 800 1.3rem/1 var(--display); color: var(--sun); }
+.slots, .pal, .brush, .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.slot, .cmd { width: 44px; height: 44px; padding: 0; border-radius: 12px; display: grid; place-items: center; font: 800 1.35rem/1 var(--display); color: #fff; transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s; }
+.slot { background: rgb(160 230 220 / 0.08); border: 2px dashed var(--edge); }
+.slot.full, .cmd { background: #2A4B5C; border: 2px solid #4D7486; }
+.cmd { box-shadow: 0 3px 0 #10242F; }
+.cmd:active { transform: translateY(2px); box-shadow: 0 1px 0 #10242F; }
+.slot.cb, .cmd.cb, .brush .cb i { background: #2F6FC4; border-color: #8CC2FF; }
+.slot.cg, .cmd.cg, .brush .cg i { background: #23904B; border-color: #8CF0AE; }
+.slot.cp, .cmd.cp, .brush .cp i { background: #C2408A; border-color: #FFB0DA; }
+.slot.sel { outline: 3px solid var(--sun); outline-offset: 2px; }
+.slot.run { transform: scale(1.2); border-color: #fff; box-shadow: 0 0 18px 4px var(--sun); z-index: 1; }
+.slot.skip { opacity: 0.3; }
+.label { margin-bottom: 6px; font-weight: 800; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.brush button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 3px 14px 3px 10px; border-radius: 999px; border: 2px solid var(--edge); background: none; font-weight: 800; font-size: 1rem; }
+.brush button i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); }
+.brush button[aria-pressed="true"] { border-color: var(--sun); background: rgb(247 198 78 / 0.16); }
+.btn.soft { background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
+.btn.soft:active { box-shadow: 0 1px 0 #10242F; }
+.prog .btn { min-height: 44px; font-size: 1.15rem; padding: 0.35em 1em; }
+.prog .row { order: 1; position: sticky; bottom: 0; z-index: 2; justify-content: center; margin: 0 -14px -14px; padding: 10px 14px 12px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.stackline { min-height: 1.7em; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+.stackline b { display: inline-block; margin: 0 2px; padding: 0 8px; border-radius: 8px; background: #2A4B5C; color: var(--sun); font-family: var(--display); }
+@keyframes flame { to { transform: scaleY(0.6); } }
+
+@keyframes slide { to { background-position: -200% 0; } }
+@keyframes breathe { 50% { transform: scale(0.9); } }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+.panel { animation-name: panel; }
+@keyframes panel { from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; } }
+@keyframes ring { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.55); } }
+@keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+@keyframes hint { 50% { filter: brightness(2.6) saturate(1.4); transform: scale(1.1); box-shadow: 0 0 0 3px #fff, 0 0 30px 6px var(--c); } }
+@keyframes enter { from { transform: scale(0) rotate(-25deg); opacity: 0; } }
+@keyframes leave { to { transform: scale(0) rotate(30deg); opacity: 0; } }
+@keyframes wave { 50% { transform: translateY(-9px) scale(1.06); filter: brightness(2.1) saturate(1.5); } }
+@keyframes banner { 0% { transform: scale(0.3); opacity: 0; } 18% { transform: scale(1.12); opacity: 1; } 28%, 78% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+/* a tablet or a laptop: bigger type, and the rocket's board and program side by side */
+@media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; }
+  .split { flex-direction: row; }
+  .split .stage { width: min(480px, max(250px, calc(100dvh - 330px)), calc(100% - 328px)); aspect-ratio: 1; }
+  .split .board { position: absolute; min-height: 0; }
+  .prog { flex: 1 1 300px; width: auto; max-width: 420px; padding: 16px; }
+  .slot, .cmd { width: 46px; height: 46px; }
+  .prog .row { order: 0; position: static; justify-content: flex-start; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+}
+@media (min-width: 700px) {
+  :root { --chrome: 310px; }
+  #app.wide h1 { display: block; }
+  .chip { padding-inline: 14px; }
+  .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
+  .game span { font-size: 0.98rem; line-height: inherit; }
+}
+/* with a mouse the small buttons can be smaller, which keeps the rocket game on one laptop screen */
+@media (min-width: 700px) and (pointer: fine) {
+  .levels button { width: 36px; height: 36px; }
+  .brush button { min-height: 36px; }
+}
+/* a phone on its side: the memory board takes the whole height on the right, the rest stacks on the left; the rocket's board follows the program as it scrolls */
+@media (orientation: landscape) and (max-height: 520px) {
+  .split { align-items: flex-start; }
+  .split .stage { position: sticky; top: 8px; }
+  h1 { font-size: 2rem; }
+  #app.wide h1 { display: none; }
+  .status:not(.tip) { font-size: 1.5rem; }
+  #app:not(.wide) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr repeat(4, auto) 1fr; gap: 10px 24px; justify-items: center; max-width: 900px; }
+  #app:not(.wide) .top { grid-area: 1 / 1; margin: 0; }
+  #app:not(.wide) header { grid-area: 3 / 1; }
+  #app:not(.wide) .hud { grid-area: 4 / 1; }
+  #app:not(.wide) .status { grid-area: 5 / 1; }
+  #app:not(.wide) .dots { grid-area: 6 / 1; margin: 0; }
+  #app:not(.wide) .stage { grid-area: 1 / 2 / -1 / 2; width: min(calc(100dvh - 38px), 50vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .lives i, .cell.star::after, .rocket .flame, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
+  .tile { transition: none; }
+  .banner { animation: bannerCalm 1.9s both; }
+  @keyframes bannerCalm { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }
+}
+</style>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<main id="app">
+  <div class="top"><span><a class="link" id="toG" href="salts-de-granota.html">← Salts de Granota</a><button class="link" id="toM" hidden>← Jocs</button></span><button class="link" id="so"></button></div>
+  <header><p class="kicker" id="kick"></p><h1>Llums de l'estany</h1></header>
+  <section id="mem">
+  <div class="hud" id="hud" hidden><span class="chip" id="lvl"></span><span class="lives" id="lives" role="img"></span><span class="chip" id="pts"></span></div>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <div class="stage" id="stage"><div class="board" id="board" style="--n:3"></div></div>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  </section>
+  <section id="coet" hidden></section>
+</main>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+/* LOGIC-START */
+const GRIDS = [3, 4, 5, 6], MINLEN = 2, MAXLEN = 5, LIVES = 3;
+// a sequence never lights the same tile twice
+function makeSeq(cells, len, rand = Math.random) {
+  const pool = Array.from({ length: cells }, (_, i) => i), out = [];
+  while (out.length < len) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  return out;
+}
+const begin = () => ({ lvl: 0, len: MINLEN, lives: LIVES, score: 0, up: false, won: false, over: false });
+// one round played: a miss costs a life and keeps the length; a hit grows the series, and after MAXLEN the grid gets finer
+function step(s, ok) {
+  if (!ok) { const lives = s.lives - 1; return { ...s, lives, up: false, over: lives <= 0 }; }
+  const score = s.score + s.len * (s.lvl + 1) * 10;
+  if (s.len < MAXLEN) return { ...s, score, len: s.len + 1, up: false };
+  if (s.lvl === GRIDS.length - 1) return { ...s, score, up: false, won: true, over: true };
+  return { ...s, score, lvl: s.lvl + 1, len: MINLEN, up: true };
+}
+// colour and pitch follow the position: green and low at the bottom left, pink and high at the top right
+const hueOf = (r, c, n) => Math.round(140 + (n - 1 - r + c) / (2 * (n - 1)) * 200);
+const PENTA = [0, 2, 4, 7, 9];
+const noteOf = (r, c, n) => { const k = n - 1 - r + c; return 261.63 * 2 ** ((12 * Math.floor(k / 5) + PENTA[k % 5]) / 12); };
+
+// game 2. Map letters are tile colours (b blue, g green, p pink), a capital carries a star, a dot is water.
+// start is [x, y, direction] with 0 up, 1 right, 2 down, 3 left; slots is the size of F1, F2.
+const LEVELS = [
+  { name: 'Endavant', map: ['bBBB'], start: [0, 0, 1], slots: [3], cmds: 'f',
+    tip: "El coet fa les ordres de F1, d'una en una. ↑ vol dir endavant, cap on mira el coet.", hints: ["Compta les caselles que hi ha entre el coet i l'última estrella. Cada ↑ el fa avançar una casella.", "Segueix el camí amb el dit i digues cada pas en veu alta. Cada pas és una ordre."] },
+  { name: 'Girs', map: ['..B', '..b', 'bbB'], start: [0, 2, 1], slots: [5], cmds: 'fLR',
+    tip: 'Ara cal girar. ↶ gira a l\'esquerra i ↷ gira a la dreta, sense avançar.', hints: ["Fes de coet: segueix el camí amb el dit. A cada casella pregunta't: aquí avanço o giro?", "Girar no fa avançar. Posa't al lloc del coet: l'esquerra i la dreta són les seves, no les teves."] },
+  { name: 'Torna a començar', map: ['bbBbbBbB'], start: [0, 0, 1], slots: [2], cmds: 'f1',
+    tip: 'El camí és llarg i només tens 2 caselles! Si poses F1 dins de F1, la funció torna a començar.', hints: ["Totes les caselles del camí demanen el mateix. Quina és l'ordre que es repeteix tota l'estona?", "No cal escriure la mateixa ordre moltes vegades. Escriu-la un cop i, al final, digues a F1 que torni a començar."] },
+  { name: "L'escala", map: ['....B', '...Bb', '..Bb.', '.Bb..', 'bb...'], start: [0, 4, 1], slots: [5], cmds: 'fLR1',
+    tip: 'Una escala! Escriu un sol esglaó i fes que es repeteixi.', hints: ["Mira només el primer esglaó. Quins passos fa el coet per pujar-lo i quedar mirant com al principi?", "Tots els esglaons són iguals. Si en saps pujar un, guarda l'última casella per tornar a començar."] },
+  { name: 'Colors', map: ['....B', '....b', '....b', 'bbBbp'], start: [0, 3, 1], slots: [3], cmds: 'fLR1', conds: 'p',
+    tip: 'Tria un color abans de posar una ordre: només es farà quan el coet sigui damunt d\'aquell color.', hints: ["Gairebé sempre el coet només ha d'avançar. A quina casella ha de fer una cosa diferent? De quin color és?", "Una ordre amb color se salta a totes les altres caselles. Així pots posar un gir que només passi a la cantonada."] },
+  { name: 'La serp', map: ['....B', '....b', '..pBg', '..b..', 'bbg..'], start: [0, 4, 1], slots: [4], cmds: 'fLR1', conds: 'gp',
+    tip: "Dos colors, dues ordres: al verd gira cap a un costat i al rosa cap a l'altre.", hints: ["Ves a cada casella de color i pregunta't: aquí, cap on ha de girar el coet? Cada color té la seva resposta.", "Les ordres de color no es molesten entre elles: al verd només es fa la verda i al rosa només la rosa."] },
+  { name: 'La volta', map: ['pbBp', 'b..B', 'B..b', 'bbBp'], start: [0, 3, 1], slots: [3], cmds: 'fLR1', conds: 'p',
+    tip: 'Fes tota la volta. Les cantonades són roses: què ha de fer el coet quan hi arriba?', hints: ["On passa alguna cosa especial en aquest camí? Mira de quin color són les cantonades.", "Això ja ho has fet abans: avançar sempre i girar només en un color. El programa pot ser molt curt encara que el camí sigui llarg."] },
+  { name: 'El tobogan', map: ['bbg..', '..b..', '..pBg', '....b', '....B'], start: [0, 0, 1], slots: [4], cmds: 'fLR1', conds: 'gp',
+    tip: "Ara el camí baixa. Fixa't bé cap a quin costat ha de girar el coet a cada color.", hints: ["No copiïs el nivell de la serp: aquí els girs van al revés. Posa't al lloc del coet a la casella verda: cap on vol anar?", "Gira el cap per mirar igual que el coet. La seva dreta canvia segons cap on mira."] },
+  { name: 'Mitja volta', map: ['BbbbBbp'], start: [2, 0, 1], slots: [4], cmds: 'fLR1', conds: 'p',
+    tip: 'Hi ha una estrella darrere del coet! Al final del passadís cal fer mitja volta: dos girs seguits.', hints: ["El coet no sap anar enrere. Com pots fer que miri cap a l'altre costat fent servir només girs?", "Un gir és un quart de volta. Quants en calen per fer mitja volta? Fes-los només a la casella on s'acaba el camí."] },
+  { name: "L'ajudant", map: ['...B', '...b', '...b', 'bbbB'], start: [0, 3, 1], slots: [3, 3], cmds: 'fLR2',
+    tip: 'Ara tens una ajudant: F2. Quan F1 la crida, F2 fa les seves ordres i després F1 continua.', hints: ["El camí té dos trossos iguals. Quin és el tros que es repeteix? Aquesta és la feina de F2.", "F1 és qui mana: diu «fes el tros», després fa el que cal entre tros i tros, i torna a dir «fes el tros»."] },
+  { name: 'El pont', map: ['BbB', 'b.b', 'b.B'], start: [0, 2, 0], slots: [5, 2], cmds: 'fLR2',
+    tip: 'Pots cridar F2 tantes vegades com vulguis. Aquí cal fer tres trossos iguals.', hints: ["Busca el tros que es repeteix: quantes caselles fa cada costat del pont?", "F2 fa un costat. F1 només ha de dir quan toca fer un costat i quan toca girar."] },
+  { name: 'Tres esglaons', map: ['...B', '..Bb', '.Bb.', 'bb..'], start: [0, 3, 1], slots: [3, 4], cmds: 'fLR2',
+    tip: "F2 també pot girar. Ensenya-li a pujar un esglaó i crida-la tres vegades.", hints: ["Com al nivell de l'escala, pensa en un sol esglaó. Ara aquest esglaó pot viure dins de F2.", "Quan F2 acaba, el coet ha de quedar mirant igual que al començament. Així F2 es pot tornar a cridar i fa el mateix."] },
+  { name: "L'escala llarga", map: ['.....B', '....Bb', '...Bb.', '..Bb..', '.Bb...', 'bb....'], start: [0, 5, 1], slots: [2, 4], cmds: 'fLR12',
+    tip: "Massa esglaons per cridar F2 un per un! Fes que F1 cridi F2 i després torni a començar.", hints: ["F2 ja sap pujar un esglaó. Quantes vegades caldria cridar-la? Massa! Recorda com es repetia una ordre al nivell 3.", "F1 pot ser molt curta: fes un esglaó i torna a començar."] },
+  { name: 'Esglaons grans', map: ['......B', '......b', '....Bbb', '....b..', '..Bbb..', '..b....', 'bbb....'], start: [0, 6, 1], slots: [5, 2], cmds: 'fLR12',
+    tip: 'Aquests esglaons fan dues caselles. F2 pot ser «avança dues caselles».', hints: ["Cada esglaó té un tros pla i un tros que puja, i tots dos són igual de llargs. Quin tros pot fer F2?", "F1 descriu un esglaó sencer fent servir F2 i els girs. Després torna a començar."] },
+  { name: 'Canvi de carril', map: ['bbp....', '..b....', '..Bbp..', '....b..', '....BbB'], start: [0, 0, 1], slots: [3, 4], cmds: 'fLR12', conds: 'p',
+    tip: 'A les caselles roses cal baixar al carril de sota. Crida F2 només quan el coet sigui al rosa.', hints: ["Primer pensa què ha de fer el coet per baixar de carril i quedar mirant endavant. Això és la feina de F2.", "Després pensa quan cal baixar: només en un color. La resta del temps, el coet simplement avança."] },
+  { name: 'Les arrels', map: ['bbbb', 'BBBB'], start: [0, 0, 1], slots: [3, 6], cmds: 'fLR12',
+    tip: 'Sota de cada casella hi ha una estrella. Fes que F2 baixi a buscar-la, torni a pujar i quedi mirant endavant.', hints: ["Pensa en una sola casella: baixar, agafar l'estrella i tornar a pujar. Recorda com es fa una mitja volta.", "Quan F2 acabi, el coet ha de ser a dalt i mirant endavant, com abans de començar. Llavors F1 només ha d'avançar i repetir."] },
+  { name: 'El quadrat', map: ['BbbB', 'b..b', 'b..b', 'bBbB'], start: [0, 3, 0], slots: [3, 3], cmds: 'fLR12',
+    tip: 'Un quadrat sense colors! Ensenya a F2 a fer un costat i fes que F1 el repeteixi girant.', hints: ["Un quadrat té quatre costats iguals. Què es repeteix? Fer un costat i girar.", "F2 fa el costat. F1 no ha de comptar els costats: en fa un, gira i torna a començar."] },
+  { name: 'Les branques', map: ['BBBBB', 'bbbbb'], start: [0, 1, 1], slots: [5, 4], cmds: 'fLR12',
+    tip: 'Com les arrels, però ara F2 només té 4 caselles: els girs que no hi caben han d\'anar a F1.', hints: ["És el mateix viatge que a les arrels, però cap amunt i amb una F2 més petita. Quina part del viatge és «anar i tornar» i quina és «preparar-se»?", "F2 pot fer només l'anar i tornar. Els girs d'abans i de després els pot fer F1."] },
+  { name: 'Només al rosa', map: ['.B.BB..', 'bpbppbB'], start: [0, 1, 1], slots: [3, 6], cmds: 'fLR12', conds: 'p',
+    tip: 'Només hi ha estrelles damunt de les caselles roses. Crida F2 només quan el coet sigui al rosa.', hints: ["Fes-te dues preguntes: què cal fer per agafar una estrella de dalt i tornar? I a quines caselles cal fer-ho?", "La primera resposta és F2. La segona és un color: F1 crida F2 només allà, i a totes les caselles avança."] },
+  { name: 'Recursivitat', map: ['...b..', '...bbB', '...b..', '...b..', 'bbbp..'], start: [0, 4, 1], slots: [4, 4], cmds: 'fLR12', conds: 'bp',
+    tip: 'Cal pujar tantes caselles com n\'has avançat. Quan F2 es crida a si mateixa a mig camí, les ordres del darrere queden guardades i es fan després.', hints: ["El coet ha de pujar tantes caselles com n'ha avançat, però no sap comptar. El truc: cada vegada que F2 es crida a si mateixa abans d'acabar, li queda una ordre guardada per a després.", "Pensa F2 així: avança; si encara ets al blau, torna a començar; quan arribis al rosa, gira. L'última casella de F2 és l'ordre que queda guardada a cada crida: quina ha de ser? F1 fa la resta del camí."] }
+];
+const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+function readMap(map) {
+  const cells = new Map(), stars = new Set();
+  map.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.') return;
+    cells.set(x + ',' + y, ch.toLowerCase()); if (ch !== ch.toLowerCase()) stars.add(x + ',' + y);
+  }));
+  return { cells, stars, w: map[0].length, h: map.length };
+}
+// Runs a program (one array of slots per function; a slot is null or { op: 'f' | 'L' | 'R' | '1' | '2', c: colour or null })
+// and returns every step taken plus how it ended: 'win', 'fall' (off the tiles), 'end' (out of orders) or 'fuel' (never stops).
+function trace(lv, code, max = 300) {
+  const { cells, stars } = readMap(lv.map), steps = [], stack = [{ f: 0, i: 0 }];
+  let [x, y, d] = lv.start;
+  const left = fr => code[fr.f].slice(fr.i).some(Boolean);
+  while (steps.length < max) {
+    while (stack.length && !left(stack[stack.length - 1])) stack.pop();
+    if (!stack.length) return { steps, end: 'end' };
+    const fr = stack[stack.length - 1], s = code[fr.f][fr.i], st = { f: fr.f, i: fr.i };
+    fr.i++;
+    if (!s) continue;
+    steps.push(st);
+    let end;
+    if (s.c && cells.get(x + ',' + y) !== s.c) st.skip = true;
+    else if (s.op === 'f') {
+      x += DX[d]; y += DY[d];
+      const k = x + ',' + y;
+      if (!cells.has(k)) end = 'fall'; else if (stars.delete(k)) { st.star = k; if (!stars.size) end = 'win'; }
+    }
+    else if (s.op === 'L') { d = (d + 3) % 4; st.turn = -1; }
+    else if (s.op === 'R') { d = (d + 1) % 4; st.turn = 1; }
+    else {
+      // a call from the last order of a function leaves nothing pending, so that frame is dropped
+      if (!left(fr)) stack.pop();
+      stack.push({ f: +s.op - 1, i: 0 });
+      if (stack.length > 60) end = 'fuel';
+    }
+    Object.assign(st, { x, y, d, stack: stack.map(q => q.f) });
+    if (end) return { steps, end };
+  }
+  return { steps, end: 'fuel' };
+}
+/* LOGIC-END */
+
+const KEY = 'memoria-visual';
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const board = $('#board'), stage = $('#stage'), statusEl = $('#status'), dotsEl = $('#dots');
+
+let prog = { best: 0, so: true, coet: 0 };
+try {
+  const d = JSON.parse(localStorage.getItem(KEY));
+  if (d) prog = { best: Math.max(0, d.best | 0), so: d.so !== false, coet: Math.min(LEVELS.length, Math.max(0, d.coet | 0)) };
+} catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
+
+// every new game or screen cancels the running one through this token
+let tok = { on: true };
+function fresh() { tok.on = false; tok = { on: true }; return tok; }
+
+/* ---------- sound: each tile has its own note ---------- */
+let ac;
+function tone(f, at = 0, dur = 0.34, vol = 0.15, type = 'sine') {
+  if (!prog.so) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + at;
+    [[f, vol, type], [f * 2, vol * 0.3, 'triangle']].forEach(([fr, v, ty]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty; o.frequency.value = fr;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+    });
+  } catch (e) {}
+}
+const chime = (notes, gap = 0.08) => notes.forEach((f, i) => tone(f, i * gap, 0.4, 0.12));
+
+/* ---------- canvases: drifting glow and fireflies behind, sparks and rings in front ---------- */
+const FX = (() => {
+  const sky = $('#sky'), fx = $('#fx'), a = sky.getContext('2d'), b = fx.getContext('2d');
+  const parts = [], rings = [], flies = [], sprites = new Map();
+  let W = 0, H = 0, hue = 165, target = 165, last = 0;
+  function sprite(h) {
+    h = ((Math.round(h / 12) * 12) % 360 + 360) % 360;
+    let s = sprites.get(h);
+    if (!s) {
+      s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, `hsl(${h} 100% 75%)`); gr.addColorStop(1, `hsl(${h} 100% 55% / 0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); sprites.set(h, s);
+    }
+    return s;
+  }
+  function resize() {
+    const D = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
+    if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
+    if (RM) drawSky(0, 0);
+  }
+  function drawSky(now, dt) {
+    a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
+    hue += (target - hue) * Math.min(1, dt * 1.5);
+    const R = Math.max(W, H) * 0.6;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.4 * Math.sin(now * 0.00011 * (i + 1) + i * 2.1)), y = H * (0.5 + 0.38 * Math.cos(now * 0.00013 * (i + 1.3) + i));
+      const g = a.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, `hsl(${hue + i * 42} 85% 48% / 0.24)`); g.addColorStop(1, `hsl(${hue + i * 42} 85% 48% / 0)`);
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+    }
+    if (RM) return;
+    const img = sprite(62);
+    for (const f of flies) {
+      f.a += rand(-1.2, 1.2) * dt; f.x += Math.cos(f.a) * f.s * dt; f.y += Math.sin(f.a) * f.s * dt;
+      if (f.x < -20) f.x = W + 20; else if (f.x > W + 20) f.x = -20;
+      if (f.y < -20) f.y = H + 20; else if (f.y > H + 20) f.y = -20;
+      a.globalAlpha = 0.15 + 0.75 * Math.sin(now * 0.0016 + f.p) ** 2;
+      a.drawImage(img, f.x - f.z, f.y - f.z, f.z * 2, f.z * 2);
+    }
+    a.globalAlpha = 1;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    drawSky(now, dt);
+    b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H); b.globalCompositeOperation = 'lighter';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= 0.96; p.vy = p.vy * 0.96 + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = p.life / p.max, z = p.z * (0.35 + 0.65 * k);
+      b.globalAlpha = Math.min(1, k * 1.6); b.drawImage(sprite(p.h), p.x - z, p.y - z, z * 2, z * 2);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+      const k = 1 - r.life / r.max;
+      b.globalAlpha = 1 - k; b.strokeStyle = `hsl(${r.h} 100% 72%)`; b.lineWidth = 4 * (1 - k) + 1;
+      b.beginPath(); b.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 3), 0, 6.283); b.stroke();
+    }
+    b.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  function burst(x, y, h, n, power, g = 140) {
+    if (RM) return;
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, 6.283), v = power * rand(0.35, 1.5), life = rand(0.45, 1.05);
+      parts.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, g, life, max: life, z: rand(4, 11), h: h + rand(-22, 22) });
+    }
+  }
+  function ring(x, y, h, r0, r1, life = 0.6) { if (!RM) rings.push({ x, y, h, r0, r1, life, max: life }); }
+  // fireworks over the upper half of the screen
+  function celebrate(n = 9) {
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const x = W * rand(0.12, 0.88), y = H * rand(0.12, 0.6), h = rand(0, 360);
+      burst(x, y, h, 46, 330, 220); ring(x, y, h, 6, 120, 0.8); tone(pick([784, 880, 1047, 1175, 1319]), 0, 0.3, 0.05);
+    }, k * 170);
+  }
+  addEventListener('resize', resize); resize();
+  if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
+  return { burst, ring, celebrate, mood(lvl) { target = [165, 205, 262, 318][lvl] ?? 165; } };
+})();
+
+/* ---------- board ---------- */
+let N = 3, tiles = [];
+const tileAt = i => ({ r: Math.floor(i / N), c: i % N });
+async function build(n, t) {
+  if (tiles.length && !RM) { board.classList.add('out'); await sleep(520); if (!t.on) return; }
+  N = n; board.classList.remove('out'); board.style.setProperty('--n', n);
+  const mid = (n - 1) / 2;
+  board.innerHTML = Array.from({ length: n * n }, (_, i) => {
+    const r = Math.floor(i / n), c = i % n;
+    return `<button class="tile enter" data-i="${i}" tabindex="-1" aria-label="Fila ${r + 1}, columna ${c + 1}" style="--h:${hueOf(r, c, n)};--d:${Math.round(Math.hypot(r - mid, c - mid) * 70)}"></button>`;
+  }).join('');
+  tiles = [...board.children];
+  await sleep(RM ? 0 : 650);
+  tiles.forEach(e => e.classList.remove('enter'));
+}
+function centre(i) { const r = tiles[i].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; }
+// light one tile: glow, sparks, a ring and its note
+function flash(i, ms, quiet) {
+  const e = tiles[i], { r, c } = tileAt(i), h = hueOf(r, c, N), p = centre(i);
+  e.classList.remove('on'); void e.offsetWidth; e.classList.add('on');
+  FX.burst(p.x, p.y, h, quiet ? 6 : 20, p.w * (quiet ? 1.2 : 2.4)); if (!quiet) { FX.ring(p.x, p.y, h, p.w * 0.45, p.w * 1.25); tone(noteOf(r, c, N)); }
+  return sleep(ms).then(() => { if (tiles[i] === e) e.classList.remove('on'); });
+}
+function wave() {
+  tiles.forEach((e, i) => { const { r, c } = tileAt(i); e.style.setProperty('--d', (r + c) * 55); e.classList.add('wave'); });
+  const mine = tiles;
+  setTimeout(() => mine.forEach(e => e.classList.remove('wave')), 700 + N * 110);
+}
+
+/* ---------- screens ---------- */
+function say(txt, cls) {
+  statusEl.className = 'status' + (cls ? ' ' + cls : ''); statusEl.textContent = txt;
+  void statusEl.offsetWidth; statusEl.classList.add('pop');
+}
+function hud(s) {
+  $('#lvl').textContent = `Nivell ${s.lvl + 1} · ${GRIDS[s.lvl]}×${GRIDS[s.lvl]}`;
+  $('#pts').textContent = `${s.score} punts`;
+  const l = $('#lives'); l.setAttribute('aria-label', `Vides: ${s.lives} de ${LIVES}`);
+  l.innerHTML = Array.from({ length: LIVES }, (_, i) => `<i${i < s.lives ? '' : ' class="gone"'}></i>`).join('');
+}
+function panel(host, html) {
+  host.querySelector('.panel')?.remove();
+  host.insertAdjacentHTML('beforeend', `<div class="panel">${html}</div>`);
+  host.querySelector('.panel button').focus({ preventScroll: true });
+}
+// one game on screen at a time; the home menu sits over the memory board. The link to the frog page only works between local files.
+function show(game, kicker) {
+  $('#mem').hidden = game === 'coet'; $('#coet').hidden = game !== 'coet'; $('#app').classList.toggle('wide', game === 'coet');
+  $('#toG').hidden = game !== 'menu' || location.protocol !== 'file:'; $('#toM').hidden = game === 'menu'; $('#kick').textContent = kicker;
+  if (game !== 'coet') { $('#coet').replaceChildren(); replace = null; }
+}
+$('#toM').onclick = () => menu();
+// while a panel is up, lights twinkle quietly behind it
+async function twinkle(t) {
+  while (t.on) { await sleep(rand(350, 800)); if (t.on && tiles.length) flash(Math.floor(Math.random() * tiles.length), 420, true); }
+}
+function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
+$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+
+let pickFn = null;
+board.onclick = e => { const b = e.target.closest('.tile'); if (b && pickFn) pickFn(+b.dataset.i); };
+// resolves once the series is repeated in full, or at the first wrong tile
+function listen(seq) {
+  return new Promise(res => {
+    let k = 0;
+    pickFn = i => {
+      if (i !== seq[k]) { pickFn = null; return res({ ok: false, got: i, want: seq[k] }); }
+      flash(i, 260); dotsEl.children[k].classList.add('ok');
+      if (++k === seq.length) { pickFn = null; res({ ok: true }); }
+    };
+  });
+}
+function live(on) { board.classList.toggle('live', on); tiles.forEach(e => e.tabIndex = on ? 0 : -1); }
+
+const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Quina memòria!', 'Així es fa!'];
+const ON = 520, GAP = 190;
+
+async function menu() {
+  const t = fresh(); pickFn = null; show('menu', 'Tria un joc');
+  stage.querySelector('.panel')?.remove(); live(false);
+  $('#hud').hidden = true; dotsEl.replaceChildren(); statusEl.textContent = ''; FX.mood(0);
+  await build(3, t); if (!t.on) return;
+  panel(stage, `<button class="game" id="g1"><b>Repeteix els llums</b><span>Mira quins llums s'encenen i toca'ls en el mateix ordre. Quan arribis a 5, els quadres es fan més petits!</span>${prog.best ? `<span class="rec">Rècord: ${prog.best} punts</span>` : ''}</button>
+    <button class="game" id="g2"><b>El coet</b><span>Escriu les ordres perquè el coet reculli totes les estrelles. Aprendràs a programar!</span><span class="rec">${prog.coet} de ${LEVELS.length} nivells superats</span></button>`);
+  $('#g1').onclick = play; $('#g2').onclick = () => coet(Math.min(prog.coet, LEVELS.length - 1));
+  twinkle(t);
+}
+
+function end(s) {
+  const t = fresh(); pickFn = null; live(false);
+  const record = s.score > prog.best;
+  if (record) { prog.best = s.score; save(); }
+  dotsEl.replaceChildren(); statusEl.textContent = '';
+  if (s.won || record) FX.celebrate(s.won ? 16 : 7);
+  panel(stage, `<h2>${s.won ? 'Ho has aconseguit!' : 'S\'han acabat les vides'}</h2>
+    <p class="lead">${s.won ? 'Has encès tots els llums de l\'estany, fins i tot els més petits.' : `Has arribat al nivell ${s.lvl + 1} (${GRIDS[s.lvl]}×${GRIDS[s.lvl]}), a les sèries de ${s.len} llums.`}</p>
+    <p class="score">${s.score} punts</p><p class="rec">${record ? 'Nou rècord!' : `Rècord: ${prog.best} punts`}</p>
+    <button class="btn" id="go">Torna-hi</button>`);
+  $('#go').onclick = play;
+  twinkle(t);
+}
+
+async function play() {
+  const t = fresh(); let s = begin(); pickFn = null; show('mem', 'Joc 1 · Memòria visual');
+  stage.querySelector('.panel')?.remove(); $('#hud').hidden = false; hud(s); FX.mood(0);
+  tone(523, 0, 0.2);
+  if (N !== GRIDS[0] || !tiles.length) { await build(GRIDS[0], t); if (!t.on) return; }
+  while (t.on) {
+    const q = makeSeq(N * N, s.len);
+    dotsEl.innerHTML = '<i></i>'.repeat(s.len);
+    live(false); say('Mira bé…');
+    await sleep(900); if (!t.on) return;
+    for (const i of q) { await flash(i, ON); if (!t.on) return; await sleep(GAP); if (!t.on) return; }
+    say('Ara tu!', 'go'); live(true);
+    const r = await listen(q); if (!t.on) return;
+    live(false);
+    s = step(s, r.ok); hud(s);
+    if (!r.ok) {
+      const bad = tiles[r.got], good = tiles[r.want];
+      bad.classList.add('bad'); board.classList.add('shake'); tone(150, 0, 0.45, 0.16, 'triangle');
+      say('Ui! Aquest no. Era el que fa pampallugues.', 'oops');
+      await sleep(450); if (!t.on) return;
+      bad.classList.remove('bad'); board.classList.remove('shake'); good.classList.add('hint');
+      await sleep(1700); if (!t.on) return;
+      good.classList.remove('hint');
+      if (s.over) return end(s);
+      continue;
+    }
+    await sleep(320); if (!t.on) return;
+    wave();
+    if (s.won) { say('Increïble!', 'go'); chime([523, 659, 784, 1047, 1319, 1568]); await sleep(1100); if (!t.on) return; return end(s); }
+    if (!s.up) { say(pick(BRAVO), 'go'); chime([659, 784, 1047]); await sleep(1100); if (!t.on) return; continue; }
+    // five lights done: same board, smaller tiles
+    say('Nivell superat!', 'go'); chime([523, 659, 784, 1047, 1319]); FX.celebrate(); FX.mood(s.lvl);
+    await sleep(1500); if (!t.on) return;
+    dotsEl.replaceChildren();
+    const n = GRIDS[s.lvl];
+    stage.insertAdjacentHTML('beforeend', `<div class="banner"><b>Nivell ${s.lvl + 1}</b><span>${n} × ${n} · quadres més petits!</span></div>`);
+    const ban = stage.lastElementChild; setTimeout(() => ban.remove(), 1950);
+    const c = stage.getBoundingClientRect(); FX.ring(c.left + c.width / 2, c.top + c.height / 2, hueOf(0, n - 1, n), 30, c.width * 0.75, 1);
+    await build(n, t); if (!t.on) return;
+    await sleep(900); if (!t.on) return;
+  }
+}
+
+/* ---------- game 2: the rocket follows the functions the child writes ---------- */
+const OPS = { f: ['↑', 'Endavant'], L: ['↶', "Gira a l'esquerra"], R: ['↷', 'Gira a la dreta'], 1: ['F1', 'Crida F1'], 2: ['F2', 'Crida F2'] };
+const CNAME = { b: 'blau', g: 'verd', p: 'rosa' };
+const ROCKET = `<svg viewBox="0 0 64 64" aria-hidden="true"><path class="flame" d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></svg>`;
+const STEP = 430, HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Bon programa!', 'Enlairament perfecte!'];
+// set while the rocket game is up: puts the rocket back on its tile after a resize
+let replace = null;
+addEventListener('resize', () => replace && replace());
+
+function coet(n) {
+  const t = fresh(); pickFn = null; show('coet', 'Joc 2 · Programació'); FX.mood(n % 4);
+  const root = $('#coet'), lv = LEVELS[n], g = readMap(lv.map), size = Math.max(g.w, g.h), ox = Math.floor((size - g.w) / 2);
+  const code = lv.slots.map(k => Array(k).fill(null));
+  let sel = [0, 0], brush = '', hintN = 0, job = null, ang = 0, at = [0, 0], geo = { x: 0, y: 0, pitch: 0 };
+  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${n + 1} · ${lv.name}</span><span class="chip" id="cstars"></span></div>
+    <nav class="levels" aria-label="Nivells">${LEVELS.map((_, i) => `<button data-n="${i}" class="${i < prog.coet ? 'done' : ''}"${i === n ? ' aria-current="true"' : ''}${i > prog.coet ? ' disabled title="Supera el nivell anterior"' : ''}>${i + 1}</button>`).join('')}</nav>
+    <p class="status tip" id="ctip" role="status" aria-live="polite"></p>
+    <div class="split"><div class="stage" id="cstage"><div class="board" id="cboard" style="--n:${size};--gh:${g.h}"></div></div>
+    <div class="prog" id="prog"><div id="fns"></div>
+      <div><p class="label">Ordres</p><div class="pal" id="pal">${[...lv.cmds].map(op => `<button class="cmd" data-op="${op}" aria-label="${OPS[op][1]}">${OPS[op][0]}</button>`).join('')}<button class="cmd" data-op="x" aria-label="Buida la casella">✕</button></div></div>
+      ${lv.conds ? `<div><p class="label">Fes-la només si el coet és damunt de…</p><div class="brush">${['', ...lv.conds].map(c => `<button data-c="${c}" class="${c ? 'c' + c : ''}"><i></i>${c ? CNAME[c] : 'sempre'}</button>`).join('')}</div></div>` : ''}
+      <div class="row"><button class="btn" id="runb">▶ Engega</button><button class="btn soft" id="clr">Esborra</button><button class="btn soft" id="hintb">Pista</button></div>
+      <p class="stackline" id="stk"></p></div></div>`;
+  const cb = $('#cboard'), runb = $('#runb');
+  // the row of levels scrolls sideways on a phone: start with this level in the middle
+  { const nav = root.querySelector('.levels'), a = nav.getBoundingClientRect(), c = nav.querySelector('[aria-current]').getBoundingClientRect(); nav.scrollLeft += c.left - a.left - (a.width - c.width) / 2; }
+  const tip = (txt, cls) => { const e = $('#ctip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+  // on a phone the program can push the tip and the board off screen: bring them back when something is about to happen there
+  function look() {
+    const a = $('#ctip').getBoundingClientRect(), b = cb.getBoundingClientRect(), bar = runb.parentElement, under = getComputedStyle(bar).position === 'sticky' ? bar.offsetHeight : 0;
+    if (a.top < 0 || b.bottom > innerHeight - under) $('#ctip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
+  }
+  const rk = () => cb.querySelector('.rocket');
+  function put(x, y, extra = '') { at = [x, y]; rk().style.transform = `translate(${geo.x + x * geo.pitch}px, ${geo.y + y * geo.pitch}px) rotate(${ang}deg)${extra}`; }
+  function measure() {
+    const cs = getComputedStyle(cb), pad = parseFloat(cs.paddingLeft), gap = parseFloat(cs.columnGap), pitch = (cb.clientWidth - 2 * pad + gap) / size;
+    cb.style.setProperty('--cs', pitch - gap + 'px');
+    // the stylesheet centres the rows: read where the map landed from one of its tiles
+    const c = cb.querySelector('.cell'), [x, y] = c.dataset.k.split(',').map(Number);
+    geo = { x: c.offsetLeft - x * pitch, y: c.offsetTop - y * pitch, pitch };
+  }
+  const still = fn => { rk().style.transition = 'none'; fn(); void rk().offsetWidth; rk().style.transition = ''; };
+  const count = k => { $('#cstars').textContent = `★ ${k} de ${g.stars.size}`; };
+  // the board as the level starts: every star back, the rocket on its first tile
+  function setup() {
+    cb.innerHTML = [...g.cells].map(([k, c]) => { const [x, y] = k.split(',').map(Number); return `<div class="cell c${c}${g.stars.has(k) ? ' star' : ''}" data-k="${k}" style="grid-column:${x + ox + 1};grid-row:${y + 1}"></div>`; }).join('') + `<div class="rocket">${ROCKET}</div>`;
+    measure(); ang = lv.start[2] * 90; still(() => put(lv.start[0], lv.start[1])); count(0); $('#stk').textContent = '';
+  }
+  replace = () => { measure(); still(() => put(at[0], at[1])); };
+  function drawCode() {
+    $('#fns').innerHTML = code.map((fn, f) => `<div class="fn"><span class="fname">F${f + 1}</span><div class="slots">${fn.map((s, i) =>
+      `<button class="slot${s ? ' full' : ''}${s && s.c ? ' c' + s.c : ''}${sel[0] === f && sel[1] === i ? ' sel' : ''}" data-f="${f}" data-i="${i}" aria-label="F${f + 1}, casella ${i + 1}: ${s ? OPS[s.op][1] + (s.c ? ', només al ' + CNAME[s.c] : '') : 'buida'}">${s ? OPS[s.op][0] : ''}</button>`).join('')}</div></div>`).join('');
+    root.querySelectorAll('.cmd').forEach(b => { b.className = 'cmd' + (brush && b.dataset.op !== 'x' ? ' c' + brush : ''); });
+    root.querySelectorAll('.brush button').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === brush));
+  }
+  function stop() { if (job) job.on = false; job = null; runb.textContent = '▶ Engega'; setup(); drawCode(); }
+
+  async function go() {
+    const r = trace(lv, code, 120);
+    if (!r.steps.length) return tip('Posa alguna ordre a F1 i torna a prémer Engega.', 'oops');
+    const me = job = { on: true }, alive = () => me.on && t.on;
+    runb.textContent = '■ Atura'; tip(lv.tip); look(); tone(523, 0, 0.15); root.querySelector('.slot.sel')?.classList.remove('sel');
+    let got = 0, k = 0;
+    for (const st of r.steps) {
+      const el = root.querySelector(`.slot[data-f="${st.f}"][data-i="${st.i}"]`), op = code[st.f][st.i].op;
+      el.classList.add(st.skip ? 'skip' : 'run');
+      if (!st.skip) {
+        $('#stk').innerHTML = 'Funcions en marxa: ' + st.stack.slice(0, 9).map(f => `<b>F${f + 1}</b>`).join('▸') + (st.stack.length > 9 ? '…' : '');
+        if (op === 'f') { const p = rk().getBoundingClientRect(); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 38, 8, 70, 0); put(st.x, st.y); tone(330, 0, 0.12, 0.06); }
+        else if (st.turn) { ang += 90 * st.turn; put(st.x, st.y); tone(440, 0, 0.1, 0.05); }
+        else tone(660, 0, 0.12, 0.06);
+      }
+      // a program that is still going after 45 steps is probably looping: hurry it along
+      await sleep(++k > 45 ? 150 : st.skip ? 240 : STEP); if (!alive()) return;
+      if (st.star) {
+        const c = cb.querySelector(`[data-k="${st.star}"]`), p = c.getBoundingClientRect();
+        c.classList.remove('star'); count(++got); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 48, 26, 190); FX.ring(p.left + p.width / 2, p.top + p.height / 2, 48, 8, p.width * 1.2); tone(1047, 0, 0.3, 0.1);
+      }
+      el.classList.remove('run', 'skip');
+    }
+    if (r.end === 'win') {
+      runb.disabled = true; ang += 360; put(at[0], at[1]);
+      if (n + 1 > prog.coet) { prog.coet = n + 1; save(); }
+      chime([523, 659, 784, 1047, 1319]); FX.celebrate(n === LEVELS.length - 1 ? 16 : 8);
+      await sleep(900); if (!alive()) return;
+      const last = n === LEVELS.length - 1;
+      panel($('#cstage'), `<h2>${last ? 'Ets programador de coets!' : pick(HURRAY)}</h2>
+        <p class="lead">${last ? 'Has fet servir funcions, colors i recursivitat, com els programadors de veritat.' : `Nivell ${n + 1} superat amb ${code.flat().filter(Boolean).length} ordres.`}</p>
+        <button class="btn" id="nx">${last ? 'Torna als jocs' : 'Nivell següent'}</button>`);
+      $('#nx').onclick = () => last ? menu() : coet(n + 1);
+      return;
+    }
+    if (r.end === 'fall') {
+      const p = rk().getBoundingClientRect(); FX.burst(p.left + p.width / 2, p.top + p.height / 2, 200, 24, 150); FX.ring(p.left + p.width / 2, p.top + p.height / 2, 200, 6, p.width);
+      put(at[0], at[1], ' scale(0.1)'); rk().style.opacity = 0;
+    }
+    tone(150, 0, 0.45, 0.16, 'triangle');
+    tip({ fall: "Xof! El coet ha caigut a l'aigua. Canvia les ordres i torna-hi.", end: "S'han acabat les ordres i encara queden estrelles.", fuel: "El coet s'ha quedat sense combustible: fa voltes sense arribar enlloc." }[r.end], 'oops');
+    await sleep(1500); if (!alive()) return;
+    stop();
+  }
+
+  $('#prog').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b === runb) return job ? stop() : go();
+    if (job) return;
+    if (b.classList.contains('slot')) sel = [+b.dataset.f, +b.dataset.i];
+    else if (b.dataset.op === 'x') code[sel[0]][sel[1]] = null;
+    else if (b.dataset.op) {
+      code[sel[0]][sel[1]] = { op: b.dataset.op, c: brush || null }; brush = ''; tone(784, 0, 0.08, 0.05);
+      if (sel[1] + 1 < code[sel[0]].length) sel = [sel[0], sel[1] + 1];
+    }
+    else if ('c' in b.dataset) brush = b.dataset.c;
+    else if (b.id === 'clr') { code.forEach(fn => fn.fill(null)); sel = [0, 0]; }
+    else if (b.id === 'hintb') { const k = hintN++ % lv.hints.length; tip(`Pista ${k + 1} de ${lv.hints.length}: ${lv.hints[k]}`); return look(); }
+    drawCode();
+  };
+  root.querySelector('.levels').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) coet(+b.dataset.n); };
+  tip(lv.tip); setup(); drawCode();
+}
+
+soBtn();
+menu();
+</script>
