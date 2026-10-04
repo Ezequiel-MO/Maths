@@ -337,8 +337,8 @@ function load(d) {
   p.so = d.so !== false;
   return p;
 }
-// a section opens when the one before it is done; the subtractions open with the friends of 10
-const opens = (secs, s) => s === 0 || secs[s === PATH ? 0 : s - 1] >= 10;
+// the first section of each path is always open; the others open when the one before them is done
+const opens = (secs, s) => s % PATH === 0 || secs[s - 1] >= 10;
 /* LOGIC-END */
 
 const KEY = 'salts-de-granota';
@@ -611,9 +611,9 @@ function seccions() {
   fresh(); show('Càlcul mental', false); FX.mood(HUE[op]);
   const base = op * PATH, done = k => prog.secs.slice(k * PATH, k * PATH + PATH).reduce((a, b) => a + b, 0);
   root.innerHTML = `<nav class="ops" aria-label="Sumes o restes">${['＋ Sumes', '− Restes'].map((s, k) => `<button data-o="${k}" aria-pressed="${k === op}">${s}<span>${done(k)}/${PATH * 10}</span></button>`).join('')}</nav>
-    <p class="lead">${!op ? 'Tria una secció. A cada una, la granota t\'ensenya un truc per sumar de cap.' : secOpen(PATH) ? 'Els mateixos trucs, saltant enrere: ara la granota t\'ensenya a restar de cap.' : 'Acaba «Amics del 10» i s\'obrirà el camí de les restes.'}</p>
+    <p class="lead">${!op ? 'Tria una secció. A cada una, la granota t\'ensenya un truc per sumar de cap.' : 'Els mateixos trucs, saltant enrere: aquí la granota t\'ensenya a restar de cap.'}</p>
     <nav class="secs" aria-label="Seccions">${SECTIONS.slice(base, base + PATH).map((s, i) => { const n = prog.secs[base + i], on = secOpen(base + i); return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${base + i}"${on ? '' : ' disabled'}>
-      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${on ? s.tip : i ? 'Acaba la secció anterior per obrir-la' : 'Acaba «Amics del 10» de les sumes per obrir-la'}</span></span>
+      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${on ? s.tip : 'Acaba la secció anterior per obrir-la'}</span></span>
       <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10</span></button>`; }).join('')}</nav>
     <p class="foot"><span>${done(0) + done(1)} de ${SECTIONS.length * 10} nivells</span><button class="link" id="wipe">Esborra el progrés</button></p>`;
   root.querySelectorAll('.ops button').forEach(b => b.onclick = () => { op = +b.dataset.o; tone(op ? 494 : 659, 0, 0.15, 0.08); seccions(); });
@@ -636,13 +636,17 @@ addEventListener('keydown', e => {
 function keypad(p, submit) {
   const out = $('#ans'); let v = '';
   $('#lhs').textContent = p.lhs; $('#rhs').textContent = p.rhs;
+  // no need to press the tick: the answer is checked as soon as it is right, or has as many digits as the right one
+  const auto = () => { if (keyFn && v && (+v === p.ans || v.length >= String(p.ans).length)) submit(+v); };
   keyFn = k => {
     if (k === 'ok') { if (v) submit(+v); return; }
     out.className = ''; v = k === 'del' ? v.slice(0, -1) : (v + k).slice(0, 3); out.textContent = v;
     tone(k === 'del' ? 392 : 784, 0, 0.08, 0.05);
+    if (k !== 'del') auto();
   };
   $('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
   return {
+    auto,
     wrong() { v = ''; out.textContent = ''; out.className = ''; void out.offsetWidth; out.className = 'shake'; tone(150, 0, 0.45, 0.16, 'triangle'); },
     right(k = 0) { keyFn = null; out.className = 'good'; const c = mid(out); FX.burst(c.x, c.y, 140, 16 + 4 * Math.min(k, 6), 160 + 20 * Math.min(k, 6)); FX.ring(c.x, c.y, 140, c.w * 0.4, c.w * 1.2); chime([noteOf(k), noteOf(k + 2)]); }
   };
@@ -699,7 +703,8 @@ function nivell(sec, idx) {
     const say = (txt, cls) => { msg.textContent = txt; msg.className = cls || ''; };
     if (L.pic) {
       v = Viz($('#viz'), p);
-      if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { busy = false; }); }
+      // an answer typed while the first leap is being drawn is checked when it lands
+      if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { if (alive()) { busy = false; kp.auto(); } }); }
     }
     // a hint is a picture, never words: the frog makes its next move, and the place where the result goes shows "?".
     // Asked again once every move is on screen, the picture gives the result away.
@@ -709,7 +714,7 @@ function nivell(sec, idx) {
       if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); }
       if (shown < v.n) { await v.jump(shown, shown === v.n - 1); shown++; }
       else v.reveal();
-      if (alive()) busy = false;
+      if (alive()) { busy = false; kp.auto(); }
     };
     const kp = keypad(p, async val => {
       if (busy || done) return;
