@@ -383,7 +383,7 @@ function home() {
       ${i === here ? `<svg class="here" viewBox="-30 -46 60 50" aria-hidden="true">${FROG}</svg>` : ''}<span class="lily">${i + 1}</span><span class="tag"><b>${w.name}</b><span class="ex">${open(i + 1) ? w.ex : 'Tancat'}</span>${starsHTML(prog.stars[i])}</span>
     </button></li>`).join('')}</ol></div>
     <footer class="foot"><span>${total} de 18 estrelles</span>
-      <span class="row"><a class="link" href="memoria-visual.html">Jocs de memòria →</a><button class="link" id="so">So: ${prog.so ? 'sí' : 'no'}</button><button class="link" id="wipe">Esborra el progrés</button></span></footer>`;
+      <span class="row"><a class="link" href="index.html">← Tots els jocs</a><button class="link" id="so">So: ${prog.so ? 'sí' : 'no'}</button><button class="link" id="wipe">Esborra el progrés</button></span></footer>`;
   app.querySelectorAll('.world').forEach(b => b.onclick = () => mira(+b.dataset.w));
   $('#so').onclick = () => { prog.so = !prog.so; save(); home(); };
   $('#wipe').onclick = e => {
