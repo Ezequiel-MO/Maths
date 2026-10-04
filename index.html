@@ -8,7 +8,7 @@
 <title>Jocs de l'estany</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <style>
-/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and four on a wide screen. */
+/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and three on a wide screen. */
 :root {
   --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
   --sun: #F7C64E;
@@ -53,7 +53,7 @@ p { margin: 0; }
   .game svg { width: 120px; height: 120px; }
   .txt { align-items: center; }
 }
-@media (min-width: 1040px) { .games { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1040px) { .games { grid-template-columns: repeat(3, 1fr); } }
 @keyframes slide { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { h1 { animation: none; } .game { transition: none; } }
 </style>
@@ -73,6 +73,9 @@ p { margin: 0; }
     <li><a class="game" href="abac-xines.html">
       <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="7" width="54" height="50" rx="9" fill="#6B321C" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="12" width="44" height="40" rx="4" fill="#061A24"/><path d="M19 12V52M32 12V52M45 12V52" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="25" width="44" height="4" fill="#C07A48"/><g fill="#5B4A1C"><ellipse cx="19" cy="15.5" rx="5.5" ry="3"/><ellipse cx="45" cy="15.5" rx="5.5" ry="3"/></g><g fill="#F7C64E"><ellipse cx="32" cy="21.500" rx="5.5" ry="3"/></g><g fill="#7CF5B0"><ellipse cx="45" cy="32.500" rx="5.5" ry="3"/><ellipse cx="45" cy="39" rx="5.5" ry="3"/></g><ellipse cx="32" cy="32.500" rx="5.5" ry="3" fill="#6FE3FF"/><g fill="#B79CFF"><ellipse cx="19" cy="32.500" rx="5.5" ry="3"/><ellipse cx="19" cy="39" rx="5.5" ry="3"/><ellipse cx="19" cy="45.5" rx="5.5" ry="3"/></g><g fill="#1B3F52"><ellipse cx="32" cy="42" rx="5.5" ry="3"/><ellipse cx="32" cy="48.500" rx="5.5" ry="3"/><ellipse cx="45" cy="48.500" rx="5.5" ry="3"/></g></svg>
       <span class="txt"><span class="tag">Operacions</span><b>L'àbac xinès</b><span class="what">Mou les boles per sumar, restar i multiplicar.</span><span class="rec" id="r-abac"></span></span></a></li>
+    <li><a class="game" href="coet-multiplicador.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="30" width="56" height="30" rx="7" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="1.5"/><path d="M32 30V60M4 45H60" stroke="#6FE3FF" stroke-width="1.5"/><rect x="5" y="46" width="26" height="13" rx="5" fill="#FF8FD0"/><rect x="33" y="31" width="26" height="13" rx="5" fill="#6FE3FF"/><g transform="rotate(35 40 18) translate(22 0) scale(0.56)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g><path d="M9 10l10 10M19 10L9 20" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/></svg>
+      <span class="txt"><span class="tag">Multiplicar</span><b>El coet multiplicador</b><span class="what">Multiplica números grans tros a tros i fes enlairar el coet.</span><span class="rec" id="r-mult"></span></span></a></li>
   </ul>
 </main>
 
@@ -87,6 +90,8 @@ if (pond.best > 0) document.querySelector('#r-llums').textContent = `Rècord: ${
 if (levels) document.querySelector('#r-coet').textContent = `${levels} de 50 nivells`;
 const beads = Array.isArray(abacus.secs) ? abacus.secs.reduce((a, b) => a + (b | 0), 0) : 0;
 if (beads) document.querySelector('#r-abac').textContent = `${beads} de 60 nivells`;
+const fuel = Array.isArray(saved('coet-multiplicador').secs) ? saved('coet-multiplicador').secs.reduce((a, b) => a + (b | 0), 0) : 0;
+if (fuel) document.querySelector('#r-mult').textContent = `${fuel} de 60 nivells`;
 </script>
 </body>
 </html>
