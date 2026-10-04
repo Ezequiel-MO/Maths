@@ -8,7 +8,7 @@
 <title>Jocs de l'estany</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <style>
-/* Layout: the pond at night, one column of game cards on a phone and three across on a wide screen. */
+/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and four on a wide screen. */
 :root {
   --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
   --sun: #F7C64E;
@@ -48,11 +48,12 @@ p { margin: 0; }
 .rec:empty { display: none; }
 @media (min-width: 760px) {
   body { padding-block: 56px; }
-  .games { grid-template-columns: repeat(3, 1fr); }
+  .games { grid-template-columns: repeat(2, 1fr); }
   .game { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 24px 18px; gap: 12px; align-content: start; }
   .game svg { width: 120px; height: 120px; }
   .txt { align-items: center; }
 }
+@media (min-width: 1040px) { .games { grid-template-columns: repeat(4, 1fr); } }
 @keyframes slide { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { h1 { animation: none; } .game { transition: none; } }
 </style>
@@ -69,18 +70,23 @@ p { margin: 0; }
     <li><a class="game" href="memoria-visual.html#coet">
       <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 14l1.6 3.6 3.9.4-2.9 2.7.8 3.9L10 22.600l-3.400 2 .8-3.9-2.900-2.700 3.900-.4z" fill="#F7C64E"/><g transform="rotate(35 32 32)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g></svg>
       <span class="txt"><span class="tag">Programació</span><b>El coet</b><span class="what">Escriu les ordres perquè el coet reculli totes les estrelles.</span><span class="rec" id="r-coet"></span></span></a></li>
+    <li><a class="game" href="abac-xines.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="7" width="54" height="50" rx="9" fill="#6B321C" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="12" width="44" height="40" rx="4" fill="#061A24"/><path d="M19 12V52M32 12V52M45 12V52" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="25" width="44" height="4" fill="#C07A48"/><g fill="#5B4A1C"><ellipse cx="19" cy="15.5" rx="5.5" ry="3"/><ellipse cx="45" cy="15.5" rx="5.5" ry="3"/></g><g fill="#F7C64E"><ellipse cx="32" cy="21.500" rx="5.5" ry="3"/></g><g fill="#7CF5B0"><ellipse cx="45" cy="32.500" rx="5.5" ry="3"/><ellipse cx="45" cy="39" rx="5.5" ry="3"/></g><ellipse cx="32" cy="32.500" rx="5.5" ry="3" fill="#6FE3FF"/><g fill="#B79CFF"><ellipse cx="19" cy="32.500" rx="5.5" ry="3"/><ellipse cx="19" cy="39" rx="5.5" ry="3"/><ellipse cx="19" cy="45.5" rx="5.5" ry="3"/></g><g fill="#1B3F52"><ellipse cx="32" cy="42" rx="5.5" ry="3"/><ellipse cx="32" cy="48.500" rx="5.5" ry="3"/><ellipse cx="45" cy="48.500" rx="5.5" ry="3"/></g></svg>
+      <span class="txt"><span class="tag">Operacions</span><b>L'àbac xinès</b><span class="what">Mou les boles per sumar, restar i multiplicar.</span><span class="rec" id="r-abac"></span></span></a></li>
   </ul>
 </main>
 
 <script>
 // each game keeps its own progress in this browser: show it on the cards when there is some
 function saved(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } }
-const frog = saved('salts-de-granota'), pond = saved('memoria-visual');
+const frog = saved('salts-de-granota'), pond = saved('memoria-visual'), abacus = saved('abac-xines');
 const stars = Array.isArray(frog.stars) ? frog.stars.reduce((a, b) => a + (b | 0), 0) : 0;
 const levels = Array.isArray(pond.secs) ? pond.secs.reduce((a, b) => a + (b | 0), 0) : 0;
 if (stars) document.querySelector('#r-granota').textContent = `${stars} de 18 estrelles`;
 if (pond.best > 0) document.querySelector('#r-llums').textContent = `Rècord: ${pond.best | 0} punts`;
 if (levels) document.querySelector('#r-coet').textContent = `${levels} de 50 nivells`;
+const beads = Array.isArray(abacus.secs) ? abacus.secs.reduce((a, b) => a + (b | 0), 0) : 0;
+if (beads) document.querySelector('#r-abac').textContent = `${beads} de 60 nivells`;
 </script>
 </body>
 </html>

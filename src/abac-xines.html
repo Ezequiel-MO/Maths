@@ -1,0 +1,740 @@
+<title>L'àbac xinès</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: the night pond of the other games. One centred column: the operation, the abacus as the stage, the buttons under it.
+   Every size of the abacus hangs from --u, the height of one bead, so it shrinks with the screen without any measuring in the script.
+   The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
+:root {
+  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
+  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D; --sun: #F7C64E; --bad: #FF6B5E;
+  --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 14px 24px; overflow-x: hidden;
+  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
+  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
+}
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#sky { z-index: 0; }
+#fx { z-index: 5; }
+#app { position: relative; z-index: 1; max-width: 620px; min-height: calc(100dvh - 38px); margin-inline: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.link { display: inline-block; background: none; border: 0; padding: 11px 0; margin-block: -7px; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.kicker { color: var(--muted); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 {
+  margin: 0; font-size: clamp(2rem, 7vw, 3rem); line-height: 1; font-weight: 800; text-wrap: balance;
+  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
+  filter: drop-shadow(0 0 18px rgb(110 230 255 / 0.35));
+}
+/* inside a level the big title gives its height to the abacus */
+#app.wide h1 { display: none; }
+#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--glass); border: 1px solid var(--edge); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.status { font-weight: 800; }
+.status.tip { font: 700 1rem/1.35 var(--body); max-width: 54ch; min-height: 2.7em; text-wrap: pretty; scroll-margin-top: 10px; }
+.status.go { color: #7CF5B0; text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
+.status.oops { color: var(--bad); }
+/* one row that scrolls sideways, fading at both ends; its padding only leaves room for the focus ring */
+.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; margin-block: -6px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.levels::-webkit-scrollbar { display: none; }
+.levels button { flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; border: 1px solid var(--edge); background: var(--glass); font: 800 1rem/1 var(--display); }
+.levels button.done { background: #1E6B4A; border-color: #7CF5B0; }
+.levels button[aria-current] { background: var(--sun); color: #2A1C00; border-color: #fff; }
+.levels button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* the operation to solve, as big as the screen allows */
+.task { font-size: clamp(1.7rem, 8vw, 2.5rem); line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; text-wrap: balance; }
+.task b { color: var(--sun); text-shadow: 0 0 22px rgb(247 198 78 / 0.55); }
+
+/* the abacus: a rosewood frame with a gold inlay around a dark well. Each column is a rod; the beads are buttons placed by --s,
+   the slot they sit in, counted from the top of their deck. A bead that counts is lit like a lantern. */
+.stage { position: relative; width: 100%; display: grid; justify-items: center; }
+.abacus {
+  --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 9.6)), 44px);
+  position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); padding: 14px 14px 8px; border-radius: 26px;
+  background: linear-gradient(160deg, #9A5A36, #5A2A18 55%, #35160D); border: 1px solid rgb(255 214 160 / 0.4);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 -6px 12px rgb(0 0 0 / 0.35);
+}
+.abacus::before { content: ""; position: absolute; inset: 5px; border-radius: 21px; border: 1.5px solid rgb(247 198 78 / 0.45); pointer-events: none; }
+.well { display: grid; grid-template-columns: repeat(var(--n), 1fr); border-radius: 12px; overflow: hidden; background: linear-gradient(#051821, #0B2C3C); box-shadow: inset 0 5px 16px rgb(0 0 0 / 0.75), 0 1px 0 rgb(255 255 255 / 0.18); }
+.rod { --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; display: flex; flex-direction: column; }
+.rod::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: linear-gradient(90deg, #6E5220, #F7C64E 45%, #6E5220); }
+.deck { position: relative; }
+.deck.hi { height: calc(var(--u) * 3 + 8px); }
+.deck.lo { height: calc(var(--u) * 6 + 8px); }
+.beam { position: relative; z-index: 1; height: 12px; background: linear-gradient(#C07A48, #6B321C); box-shadow: 0 2px 4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.35); }
+.beam::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 6px var(--sun); }
+.bead {
+  position: absolute; left: 50%; top: 5.5px; width: min(86%, calc(var(--u) * 2.15)); height: calc(var(--u) - 3px); padding: 0; border: 0; border-radius: 50%;
+  transform: translate(-50%, calc(var(--s) * var(--u))); transition: transform 0.2s cubic-bezier(0.3, 1.5, 0.5, 1), box-shadow 0.2s; touch-action: manipulation;
+  background: radial-gradient(ellipse at 50% 28%, hsl(var(--h) 45% 46%), hsl(var(--h) 50% 24%) 55%, hsl(var(--h) 55% 12%));
+  box-shadow: inset 0 -3px 5px rgb(0 0 0 / 0.45), 0 2px 3px rgb(0 0 0 / 0.5);
+}
+.bead::before { content: ""; position: absolute; inset: 12% 22% 56%; border-radius: 50%; background: linear-gradient(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0)); }
+/* the heaven beads are amber on every rod: they are the ones worth five */
+.deck.hi .bead { --h: 44; --c: hsl(44 100% 62%); }
+.bead.on {
+  background: radial-gradient(ellipse at 50% 32%, #fff 0, hsl(var(--h) 100% 80%) 26%, hsl(var(--h) 98% 56%) 80%);
+  box-shadow: 0 0 0 1.5px hsl(var(--h) 100% 88%), 0 0 16px 3px var(--c), 0 0 34px 8px hsl(var(--h) 100% 60% / 0.4);
+}
+.abacus.locked .bead { cursor: default; }
+.bead.wave { animation: lit 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
+.abacus.shake { animation: shake 0.35s; }
+/* under each rod: what the column shows (only while the level allows it) and the place it stands for */
+.foot { display: grid; grid-template-columns: repeat(var(--n), 1fr); padding-top: 5px; }
+.foot span { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.foot b { font: 800 1.5rem/1.05 var(--display); color: hsl(var(--h) 100% 78%); font-variant-numeric: tabular-nums; }
+.foot b:empty { display: none; }
+.foot b.over { color: var(--bad); }
+.foot i { font-style: normal; font-weight: 800; font-size: 0.75rem; line-height: 1.5; letter-spacing: 0.06em; color: rgb(255 214 160 / 0.85); }
+/* hints: first the column to look at glows, then the bead to touch turns gold with the way it has to go */
+.rod.glow { animation: column 1s ease-in-out infinite; }
+.bead.next { background: radial-gradient(ellipse at 50% 30%, #fff, var(--sun) 62%); box-shadow: 0 0 0 2px #fff, 0 0 16px 5px var(--sun); animation: lit 1s ease-in-out infinite; z-index: 1; }
+.bead.next::after { content: attr(data-a); position: absolute; inset: 0; display: grid; place-items: center; color: #2A1C00; font: 800 0.8rem/1 var(--display); }
+
+.acts, .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.btn {
+  border: 0; border-radius: 999px; padding: 0.4em 1.6em; font-size: 1.4rem; font-weight: 800;
+  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55);
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--pad-dark); }
+.btn.soft { background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
+.btn.soft:active { box-shadow: 0 1px 0 #10242F; }
+.acts { flex-wrap: nowrap; width: 100%; max-width: 400px; }
+.acts .btn { flex: 1 1 auto; min-height: 44px; font-size: 1.1rem; padding: 0.35em 0.5em; white-space: nowrap; }
+.opts .btn { min-width: 72px; min-height: 48px; font-size: 1.4rem; padding: 0.2em 0.7em; font-variant-numeric: tabular-nums; }
+.opts .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94%, 400px); z-index: 3;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px 14px 16px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); animation: panel 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.panel h2 { margin: 0; font-size: 1.7rem; line-height: 1.1; font-weight: 800; text-wrap: balance; }
+.panel .lead { font-size: 1.05rem; text-wrap: pretty; }
+
+/* the vertical menu of sections */
+.secs { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; }
+.sec { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 12px 16px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); }
+.sec:not(:disabled):hover { background: rgb(79 181 98 / 0.22); border-color: #7CF5B0; }
+.sec:disabled { opacity: 0.5; cursor: not-allowed; }
+.sec-n { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--pad); color: var(--on-pad); font: 800 1.5rem/1 var(--display); }
+.sec.all .sec-n { background: var(--sun); color: #2A1C00; }
+.sec-t { display: flex; flex-direction: column; min-width: 0; }
+.sec-t b { font: 800 1.35rem/1.15 var(--display); }
+.sec-t span { font-size: 0.95rem; color: var(--muted); }
+.sec-p { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-weight: 800; font-size: 0.9rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pips i.ok { background: var(--sun); }
+
+@keyframes slide { to { background-position: -200% 0; } }
+@keyframes panel { from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; } }
+@keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+@keyframes lit { 50% { filter: brightness(1.7) saturate(1.4); } }
+@keyframes column { 0%, 100% { background: rgb(247 198 78 / 0.1); } 50% { background: rgb(247 198 78 / 0.34); } }
+/* a tablet or a laptop: bigger type and the title back over the level */
+@media (min-width: 700px) {
+  .status.tip { font-size: 1.1rem; }
+  #app.wide h1 { display: block; }
+  .abacus { --u: clamp(22px, calc((100dvh - 500px) / 9.6), 44px); }
+  .chip { padding-inline: 14px; }
+  .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
+}
+/* with a mouse the small buttons can be smaller */
+@media (min-width: 700px) and (pointer: fine) {
+  .levels button { width: 34px; height: 34px; }
+  .acts .btn { min-height: 0; }
+}
+/* a short window: the level drops the big title again */
+@media (max-height: 700px) {
+  body { padding-bottom: 14px; }
+  #app.wide h1 { display: none; }
+  .abacus { --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 9.6)), 44px); }
+}
+/* a phone on its side: the abacus takes the whole height on the right, the rest stacks on the left */
+@media (orientation: landscape) and (max-height: 520px) {
+  #app { max-width: 900px; }
+  #app.wide header { display: none; }
+  #joc.lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; justify-items: center; align-content: start; }
+  #joc.lvl > * { grid-column: 1; }
+  #joc.lvl .stage { grid-column: 2; grid-row: 1 / span 6; width: auto; align-self: start; }
+  .abacus { --u: clamp(18px, calc((100dvh - 150px) / 9.6), 44px); width: calc(var(--n) * var(--u) * 2.5 + 28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }
+  .bead { transition: none; }
+  .rod.glow { animation: none; background: rgb(247 198 78 / 0.28); }
+}
+</style>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<main id="app">
+  <div class="top"><span><a class="link" id="toG" href="index.html">← Tots els jocs</a><button class="link" id="toM" hidden>← Seccions</button></span><button class="link" id="so"></button></div>
+  <header><p class="kicker" id="kick"></p><h1>L'àbac xinès</h1></header>
+  <section id="joc"></section>
+</main>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+/* LOGIC-START */
+// A Chinese abacus, the suanpan. Each rod has five earth beads under the beam, worth 1 each, and two heaven beads over it, worth 5 each.
+// A bead only counts while it touches the beam. A rod is { lo, hi }: how many earth beads are up and how many heaven beads are down.
+// rods[0] is the units. A rod can hold up to 15, which is what makes room for carrying: fill it first, then exchange.
+const rodVal = r => r.lo + 5 * r.hi;
+const valueOf = rods => rods.reduce((a, r, p) => a + rodVal(r) * 10 ** p, 0);
+// the tidy way to show a number: no rod with five earth beads or two heaven beads up
+const tidy = rods => rods.every(r => r.lo < 5 && r.hi < 2);
+const write = (v, n) => Array.from({ length: n }, (_, p) => { const d = Math.floor(v / 10 ** p) % 10; return { lo: d % 5, hi: d >= 5 ? 1 : 0 }; });
+// touching a bead moves it together with the ones between it and the beam; j counts the beads of a deck from the beam
+function tap(rods, p, deck, j) { const out = rods.map(r => ({ ...r })); out[p][deck] = j < out[p][deck] ? j : j + 1; return out; }
+
+// q is a number to write or an operation read from left to right ('x' times, ':' divided by; these two only come first).
+// The abacus starts on the first number when beads are added to it or taken from it, and empty otherwise.
+// stages are the values to pass through on the way to the result: they keep the hints on the method instead of on the answer.
+function plan(q) {
+  const t = String(q).split(/([+\-x:])/), a = +t[0], stages = [];
+  if (t.length === 1) return { start: 0, stages: [a], goal: a };
+  // the digits of v times k, from the highest place down, as running totals
+  const parts = (v, k) => [...String(v)].map((d, i, all) => d * 10 ** (all.length - 1 - i) * k).filter(Boolean).map((s => x => s += x)(0));
+  let acc = a;
+  for (let i = 1; i < t.length; i += 2) {
+    const op = t[i], b = +t[i + 1];
+    if (op === '+') stages.push(acc += b);
+    else if (op === '-') stages.push(acc -= b);
+    else if (op === ':') stages.push(...parts(acc /= b, 1));
+    else {
+      // two digits of the tables, on their own: add the bigger one as many times as the smaller says. Otherwise, one product per digit.
+      const big = Math.max(acc, b), small = Math.min(acc, b);
+      stages.push(...(big < 10 && t.length === 3 ? Array.from({ length: small }, (_, k) => big * (k + 1)) : parts(big, small)));
+      acc *= b;
+    }
+  }
+  return { start: '+-'.includes(t[1]) ? a : 0, stages, goal: acc };
+}
+
+// One touch towards target, the way the abacus is worked: from the highest column down, adding or taking what is missing.
+// Returns { p, deck, to, why } (set rods[p][deck] to `to`), or null when the abacus shows target in its tidy form. why is
+// 'add' or 'take' for a plain move, 'five' and 'ten' for the two exchanges, 'borrow' for taking one from a higher column, and
+// 'more' or 'less' for the trick with the heaven bead: adding d as 5 - (5 - d), or taking it the same way. The trick starts
+// with the earth beads, so the column never goes past what it needs and the next hint finds the 5 still to be moved.
+function nextMove(rods, target) {
+  const diff = target - valueOf(rods), n = rods.length;
+  if (!diff) {
+    const p = rods.findIndex(r => r.hi === 2 || r.lo === 5);
+    if (p < 0) return null;
+    return rods[p].hi === 2 ? { p, deck: 'hi', to: 0, why: 'ten' } : { p, deck: 'lo', to: 0, why: 'five' };
+  }
+  const abs = Math.abs(diff), p = Math.min(String(abs).length - 1, n - 1), d = Math.min(15, Math.floor(abs / 10 ** p)), r = rods[p];
+  if (diff > 0) {
+    if (d >= 5 && !r.hi) return { p, deck: 'hi', to: 1, why: 'add' };
+    // filling the fifth earth bead is fine when it completes a five, but never as a way to add a whole five
+    if (r.lo + d <= 4 || (r.lo && r.lo + d === 5)) return { p, deck: 'lo', to: r.lo + d, why: 'add' };
+    if (r.hi < 2) return d >= 5 ? { p, deck: 'hi', to: r.hi + 1, why: 'add' } : { p, deck: 'lo', to: r.lo + d - 5, why: 'more', d };
+    // a full column: its two heaven beads become one earth bead on the left
+    return { p, deck: 'hi', to: 0, why: 'ten' };
+  }
+  const take = (p, d, why) => {
+    const r = rods[p];
+    if (d >= 5 && r.hi) return { p, deck: 'hi', to: r.hi - 1, why };
+    if (d <= r.lo) return { p, deck: 'lo', to: r.lo - d, why };
+    if (d < 5 && r.hi) return why === 'take' ? { p, deck: 'lo', to: r.lo + 5 - d, why: 'less', d } : { p, deck: 'hi', to: r.hi - 1, why };
+  };
+  let m = take(p, d, 'take');
+  // not enough on this column: one from the nearest column on the left that has something
+  for (let q = p + 1; !m && q < n; q++) m = take(q, 1, 'borrow');
+  // nothing on the left either, so a column on the right is overfull: empty that one
+  for (let q = p - 1; !m && q >= 0; q--) if (rodVal(rods[q])) m = take(q, Math.min(9, rodVal(rods[q])), 'take');
+  return m;
+}
+
+// Six sections of ten levels. A level asks for q (see plan) or, with read, shows a number to be picked among opts.
+// show keeps the value of each column written under it.
+const SECTIONS = [
+  { name: "Coneix l'àbac", sub: "Llegeix i escriu nombres", levels: [
+    { name: "Les boles de baix", q: '3', show: 1,
+      tip: "Cada bola de baix val 1, però només compta quan toca la barra del mig. Toca una bola per pujar-la. Quan l'àbac marqui 3, prem Comprova.",
+      hints: ["Fes servir la columna de la dreta: és la de les unitats.", "Si toques la tercera bola, pugen totes tres alhora."] },
+    { name: "La bola de dalt", q: '5', show: 1,
+      tip: "Les boles de dalt valen 5 cadascuna. Compten quan les baixes fins a la barra. Escriu el 5 amb una sola bola.",
+      hints: ["Per escriure 5 n'hi ha prou amb una bola de dalt.", "Cinc boles de baix també fan 5, però l'àbac queda desendreçat: sempre es canvien per una de dalt."] },
+    { name: "Cinc i dos", q: '7', show: 1,
+      tip: "Els nombres del 6 al 9 es fan amb la bola de dalt i unes quantes de baix: 7 és 5 i 2.",
+      hints: ["Comença per la bola que val 5.", "Quant falta de 5 fins a 7? Aquestes són les boles de baix."] },
+    { name: "Quin nombre és?", read: 8, opts: [3, 8, 4, 9],
+      tip: "Ara et toca llegir. Quin nombre marca l'àbac? Només compten les boles que toquen la barra.",
+      hints: ["Una bola de dalt a la barra val 5. Suma-hi les de baix que toquen la barra.", "Compta: 5 i quantes més?"] },
+    { name: "Les desenes", q: '20', show: 1,
+      tip: "Cada columna val deu vegades més que la de la seva dreta. La segona columna és la de les desenes: allà, una bola de baix val 10.",
+      hints: ["Per escriure 20 calen 2 desenes i cap unitat.", "Les lletres de sota t'ho recorden: U vol dir unitats i D, desenes."] },
+    { name: "Dues columnes", q: '36', show: 1,
+      tip: "Un nombre de dues xifres s'escriu xifra a xifra: 3 a les desenes i 6 a les unitats.",
+      hints: ["Comença per les desenes: 3 boles de baix.", "El 6 de les unitats és 5 i 1."] },
+    { name: "Llegeix-lo", read: 74, opts: [47, 24, 74, 79],
+      tip: "Llegeix l'àbac d'esquerra a dreta, com un nombre escrit.",
+      hints: ["Primer la columna de les desenes: quant val?", "Després la de les unitats. Ajunta les dues xifres."] },
+    { name: "Sense xivato", q: '58',
+      tip: "Els números de sota s'han amagat! Escriu el 58 i prem Comprova quan el tinguis.",
+      hints: ["El 5 de les desenes es fa amb una sola bola.", "El 8 de les unitats és 5 i 3."] },
+    { name: "Un zero al mig", q: '407',
+      tip: "Una columna sense cap bola a la barra és un zero. La tercera columna és la de les centenes.",
+      hints: ["407 són 4 centenes, 0 desenes i 7 unitats.", "La columna del mig s'ha de quedar buida."] },
+    { name: "Tres xifres", read: 692, opts: [642, 296, 962, 692],
+      tip: "Últim repte de la secció: llegeix un nombre de tres xifres.",
+      hints: ["Ves columna per columna, començant per les centenes.", "A la columna del mig hi ha una bola de dalt i quatre de baix: 5 i 4."] }
+  ] },
+  { name: "Sumes", sub: "Afegeix boles, columna a columna", levels: [
+    { name: "Dos i dos", q: '2+2', show: 1,
+      tip: "L'àbac ja marca el primer nombre. Per sumar-n'hi 2, puja 2 boles més.",
+      hints: ["No cal començar de zero: el 2 ja hi és.", "Puja dues boles de baix més i mira quantes en toquen la barra."] },
+    { name: "Passa de cinc", q: '2+6', show: 1,
+      tip: "Sumar 6 és sumar 5 i 1: una bola de dalt i una de baix.",
+      hints: ["Baixa la bola de dalt: ja n'has sumat 5.", "Encara en falta 1 per arribar a 6."] },
+    { name: "Només les unitats", q: '21+7', show: 1,
+      tip: "Suma el 7 a la columna de les unitats. Les desenes no es toquen.",
+      hints: ["7 és 5 i 2.", "A les unitats hi ha 1 bola. Amb 7 més n'hi haurà 8."] },
+    { name: "Columna a columna", q: '32+15', show: 1,
+      tip: "Suma el 15 per parts: 1 a les desenes i 5 a les unitats.",
+      hints: ["Comença per les desenes: només cal una bola més.", "El 5 de les unitats és la bola de dalt."] },
+    { name: "El canvi de cinc", q: '4+1', show: 1,
+      tip: "Puja la cinquena bola de baix. Ara n'hi ha 5, i cinc boles de baix es canvien per una de dalt: baixa-les totes i posa la de dalt.",
+      hints: ["Cinc boles de baix i una de dalt valen el mateix: 5.", "Després del canvi, a la barra només hi ha d'haver la bola de dalt."] },
+    { name: "Treu-ne 1 i suma'n 5", q: '3+4', show: 1,
+      tip: "Per sumar 4 no hi ha prou boles de baix. Un truc: 4 és 5 menys 1. Treu una bola de baix i baixa la de dalt.",
+      hints: ["Treure'n 1 i sumar-ne 5 és el mateix que sumar-ne 4.", "Al final, a la barra hi ha d'haver la bola de dalt i dues de baix."] },
+    { name: "Un altre cop", q: '13+4',
+      tip: "El mateix truc d'abans, ara sense els números de sota.",
+      hints: ["A les unitats només queden dues boles de baix, i en calen 4.", "Sumar 4 és treure'n 1 i sumar-ne 5."] },
+    { name: "Dos canvis", q: '24+31',
+      tip: "Suma 3 a les desenes i 1 a les unitats. Si en una columna queden cinc boles de baix a la barra, fes el canvi.",
+      hints: ["A les desenes, 2 i 3 fan 5: cinc de baix es canvien per una de dalt.", "A les unitats passa el mateix amb 4 i 1."] },
+    { name: "Tres xifres", q: '142+36',
+      tip: "36 no té centenes: suma 3 a les desenes i 6 a les unitats.",
+      hints: ["A les desenes n'hi ha 4 i en vols sumar 3: treu-ne 2 i suma'n 5.", "A les unitats, 6 és 5 i 1."] },
+    { name: "Suma gran", q: '253+324',
+      tip: "Tres columnes, tres sumes petites: 2 i 3, 5 i 2, 3 i 4.",
+      hints: ["Ves columna per columna, de l'esquerra cap a la dreta.", "Recorda els dos trucs: el canvi de cinc, i sumar 4 traient-ne 1 i sumant-ne 5."] }
+  ] },
+  { name: "Me'n porto una", sub: "Quan una columna s'omple, es fa un canvi", levels: [
+    { name: "El canvi de deu", q: '5+5', show: 1,
+      tip: "Baixa l'altra bola de dalt: dues boles de dalt fan 10. I 10 és una bola de baix de la columna de les desenes. Fes el canvi!",
+      hints: ["Puja les dues boles de dalt i, a canvi, puja una bola de baix a les desenes.", "10 s'escriu amb un 1 a les desenes i un 0 a les unitats."] },
+    { name: "Dos canvis seguits", q: '8+2', show: 1,
+      tip: "Puja 2 boles de baix. Després endreça: primer el canvi de cinc, i després el canvi de deu.",
+      hints: ["Cinc de baix es canvien per una de dalt.", "Dues de dalt es canvien per una de baix de la columna de l'esquerra."] },
+    { name: "Set i vuit", q: '7+8', show: 1,
+      tip: "Suma 8 a les unitats amb les boles que queden: 5 i 3. Després endreça la columna amb canvis.",
+      hints: ["Una columna pot aguantar fins a 15: fes servir totes les boles.", "Quan el número de sota surt vermell, la columna demana un canvi."] },
+    { name: "Nou i nou", q: '9+9', show: 1,
+      tip: "Quan una columna és plena i encara has de sumar, fes el canvi de deu i continua.",
+      hints: ["Suma'n 5 primer. Després, canvia les dues boles de dalt per una desena.", "Encara en falten 4 per sumar: 5 menys 1."] },
+    { name: "Me'n porto una", q: '28+14',
+      tip: "Suma les desenes i després les unitats. Si les unitats passen de 9, canvia'n 10 per una desena: això és «portar-ne una».",
+      hints: ["Primer 1 a les desenes. Després 4 a les unitats.", "8 i 4 fan 12: 10 se'n van a les desenes i 2 es queden."] },
+    { name: "Sumes de dues xifres", q: '36+47',
+      tip: "Columna a columna, i un canvi quan calgui.",
+      hints: ["A les desenes, 3 i 4 fan 7.", "A les unitats, 6 i 7 fan 13: me'n porto una."] },
+    { name: "Passem de cent", q: '65+38',
+      tip: "Les desenes també es poden omplir: 10 desenes es canvien per 1 centena.",
+      hints: ["6 i 3 desenes en fan 9. Però n'arribarà una més de les unitats…", "5 i 8 fan 13 unitats: una desena més, i ja en són 10."] },
+    { name: "Tres xifres", q: '157+68',
+      tip: "68 no té centenes. Suma 6 a les desenes i 8 a les unitats, amb els canvis que calguin.",
+      hints: ["5 i 6 desenes en fan 11: una centena més.", "7 i 8 unitats en fan 15: una desena més."] },
+    { name: "Suma gran", q: '486+237',
+      tip: "Tres columnes i més d'un canvi. Amb calma!",
+      hints: ["Ves d'esquerra a dreta: centenes, desenes, unitats.", "Cada vegada que una columna passa de 9, canvia'n 10 per una bola de l'esquerra."] },
+    { name: "L'efecte dòmino", q: '999+1',
+      tip: "Una sola unitat més i… cada canvi en provoca un altre!",
+      hints: ["Suma 1 a les unitats i fes els canvis d'un en un.", "Quan acabis, quedarà una sola bola a tot l'àbac."] }
+  ] },
+  { name: "Restes", sub: "Treu boles, i demana'n quan no n'hi ha prou", levels: [
+    { name: "Treu-ne dues", q: '4-2', show: 1,
+      tip: "Restar és treure boles de la barra. Baixa 2 boles de baix.",
+      hints: ["Toca la bola que vols treure: les de sota baixen amb ella.", "De 4 boles, n'han de quedar 2 a la barra."] },
+    { name: "Treu-ne cinc", q: '9-5', show: 1,
+      tip: "Per treure'n 5 n'hi ha prou amb pujar la bola de dalt.",
+      hints: ["La bola de dalt val 5.", "Les boles de baix no es toquen."] },
+    { name: "Columna a columna", q: '48-16', show: 1,
+      tip: "Resta el 16 per parts: 1 desena i 6 unitats.",
+      hints: ["Treu una bola de baix de les desenes.", "Treure 6 és treure 5 i 1."] },
+    { name: "Posa'n 1 i treu-ne 5", q: '7-4', show: 1,
+      tip: "No hi ha 4 boles de baix per treure. Un truc: 4 és 5 menys 1. Posa una bola de baix més i puja la de dalt.",
+      hints: ["Posar-ne 1 i treure'n 5 és el mateix que treure'n 4.", "Al final han de quedar 3 boles de baix a la barra."] },
+    { name: "El truc, dues vegades", q: '56-23',
+      tip: "A cada columna cal el truc de la bola de dalt: posar-ne unes quantes de baix i treure'n 5.",
+      hints: ["A les desenes: posa'n 3 i treu-ne 5, perquè 2 és 5 menys 3.", "A les unitats: posa'n 2 i treu-ne 5, perquè 3 és 5 menys 2."] },
+    { name: "Demana'n una", q: '10-3', show: 1,
+      tip: "A les unitats no hi ha res per treure. Demana una desena: val 10 unitats. Si de 10 en treus 3, en queden 7 a les unitats.",
+      hints: ["Treu la bola de les desenes.", "A canvi, posa a les unitats el que queda de 10 quan en treus 3."] },
+    { name: "Demana i resta", q: '32-5',
+      tip: "A les unitats n'hi ha 2 i en vols treure 5. Demana una desena.",
+      hints: ["Una desena menys: de 3 en queden 2.", "10 menys 5 fan 5: suma'ls a les 2 unitats que ja hi havia."] },
+    { name: "Restes de dues xifres", q: '54-28',
+      tip: "Primer les desenes, després les unitats. Si no n'hi ha prou, demana'n a l'esquerra.",
+      hints: ["5 desenes menys 2 en fan 3.", "Per treure 8 de 4 unitats cal demanar una desena: 14 menys 8 fan 6."] },
+    { name: "El dòmino al revés", q: '100-1',
+      tip: "No hi ha unitats ni desenes: cal demanar a les centenes. Una centena són 9 desenes i 10 unitats.",
+      hints: ["Treu la bola de les centenes.", "A canvi, posa 9 a les desenes i 9 a les unitats."] },
+    { name: "Resta gran", q: '423-167',
+      tip: "Tres columnes i més d'un préstec. Amb calma!",
+      hints: ["Ves d'esquerra a dreta: centenes, desenes, unitats.", "Quan en una columna no n'hi ha prou, treu una bola de la columna de l'esquerra: en val 10."] }
+  ] },
+  { name: "Multiplica", sub: "Sumar el mateix nombre moltes vegades", levels: [
+    { name: "Dues vegades tres", q: '2x3', show: 1,
+      tip: "2 × 3 vol dir «2 vegades 3». Escriu un 3 i suma-n'hi 3 més.",
+      hints: ["Primer puja 3 boles de baix.", "Per sumar-n'hi 3 més: treu-ne 2 i suma'n 5."] },
+    { name: "Tres vegades quatre", q: '3x4', show: 1,
+      tip: "4 i 4 i 4. Suma de quatre en quatre, tres vegades.",
+      hints: ["4, 8… i quin ve després?", "Quan passis de 9, fes el canvi de deu."] },
+    { name: "De cinc en cinc", q: '4x5', show: 1,
+      tip: "Sumar 5 és fàcil a l'àbac: una bola de dalt cada vegada. No t'oblidis dels canvis!",
+      hints: ["Dues boles de dalt fan 10: canvia-les per una desena.", "5, 10, 15 i 20."] },
+    { name: "El camí curt", q: '6x2',
+      tip: "6 × 2 fa el mateix que 2 × 6. Tria el camí curt: 6 i 6.",
+      hints: ["Escriu un 6: la bola de dalt i una de baix.", "Suma-n'hi 6 més i fes els canvis."] },
+    { name: "Tres vegades set", q: '3x7',
+      tip: "7 i 7 i 7. O, si ja saps la taula del 7, escriu el resultat directament.",
+      hints: ["7 i 7 fan 14.", "14 i 7 fan 21."] },
+    { name: "Si saps la taula…", q: '5x8',
+      tip: "Si saps la taula del 5, pots escriure el resultat de cop. L'àbac no s'enfada!",
+      hints: ["8, 16, 24, 32…", "El resultat acaba en zero."] },
+    { name: "Trenca el nombre", q: '12x3',
+      tip: "Trenca el 12 en 10 i 2. Primer 10 × 3, a les desenes. Després suma-hi 2 × 3, a les unitats.",
+      hints: ["10 × 3 són 3 desenes.", "2 × 3 són 6 unitats."] },
+    { name: "Per parts", q: '23x4',
+      tip: "20 × 4 i 3 × 4. Escriu el primer resultat i suma-hi el segon.",
+      hints: ["20 × 4 fan 80: 8 a les desenes.", "3 × 4 fan 12: suma 1 desena i 2 unitats."] },
+    { name: "Més gran", q: '45x6',
+      tip: "40 × 6 i 5 × 6. Escriu el primer resultat i suma-hi el segon.",
+      hints: ["4 × 6 fan 24, i per tant 40 × 6 fan 240.", "5 × 6 fan 30: suma 3 desenes."] },
+    { name: "Tres parts", q: '124x3',
+      tip: "Trenca el 124 en 100, 20 i 4, i multiplica cada part per 3.",
+      hints: ["100 × 3 fan 300 i 20 × 3 fan 60.", "4 × 3 fan 12: suma 1 desena i 2 unitats."] }
+  ] },
+  { name: "Reparteix i barreja", sub: "Divisions i operacions encadenades", levels: [
+    { name: "Reparteix", q: '12:3', show: 1,
+      tip: "12 : 3 vol dir repartir 12 en 3 parts iguals. Quin nombre, multiplicat per 3, fa 12? Escriu-lo a l'àbac.",
+      hints: ["Repassa la taula del 3: 3, 6, 9, 12.", "Quantes vegades has sumat 3 per arribar a 12?"] },
+    { name: "La taula del cinc", q: '35:5',
+      tip: "Quantes vegades hi cap el 5 dins del 35?",
+      hints: ["Compta de cinc en cinc fins a 35.", "5, 10, 15, 20, 25, 30, 35: quants nombres has dit?"] },
+    { name: "La taula del sis", q: '48:6',
+      tip: "Busca a la taula del 6 quin nombre fa 48.",
+      hints: ["6 × 5 fan 30. Encara en falten.", "6 × 8 fan…"] },
+    { name: "Dues operacions", q: '25+17-8',
+      tip: "Fes les operacions d'una en una, d'esquerra a dreta. El resultat de la primera ja queda a l'àbac per a la segona.",
+      hints: ["Primer suma 17: 1 desena i 7 unitats.", "Després resta 8 del que ha quedat."] },
+    { name: "Resta i suma", q: '60-25+9',
+      tip: "Primer la resta, després la suma. No esborris l'àbac entremig!",
+      hints: ["Per restar 25: treu 2 desenes i demana'n una altra per a les unitats.", "Després suma 9 a les unitats."] },
+    { name: "Reparteix per parts", q: '84:4',
+      tip: "Reparteix primer les desenes, 80 : 4, i després les unitats, 4 : 4.",
+      hints: ["8 desenes entre 4 fan 2 desenes.", "4 unitats entre 4 fan 1 unitat."] },
+    { name: "Arriben els milers", q: '1250+375',
+      tip: "La quarta columna és la dels milers. Tot funciona igual: columna a columna, i canvis quan cal.",
+      hints: ["Suma 3 a les centenes, 7 a les desenes i 5 a les unitats.", "5 i 7 desenes en fan 12: una centena més."] },
+    { name: "Resta amb milers", q: '2000-750',
+      tip: "Per treure 750 cal demanar un miler: val 10 centenes.",
+      hints: ["Treu una bola dels milers: a canvi tens 10 centenes.", "De 10 centenes en treus 7 i en queden 3. Després demana'n una altra per treure les 5 desenes."] },
+    { name: "Multiplica i resta", q: '7x8-6',
+      tip: "Primer la multiplicació. Escriu-ne el resultat i després resta 6.",
+      hints: ["7 × 8 fan 56.", "Per treure 6 de les unitats: treu 5 i 1."] },
+    { name: "El gran repte", q: '125x4+500',
+      tip: "L'últim nivell! Multiplica per parts, 100, 20 i 5, i després suma 500.",
+      hints: ["100 × 4 fan 400, 20 × 4 fan 80 i 5 × 4 fan 20.", "Quan acabis, quedarà una sola bola a tot l'àbac."] }
+  ] }
+];
+const LEVELS = SECTIONS.flatMap((s, sec) => s.levels.map((l, idx) => ({ ...l, sec, idx })));
+/* LOGIC-END */
+
+const KEY = 'abac-xines';
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+// secs counts the levels done in each section
+let prog = { so: true, secs: SECTIONS.map(() => 0) };
+try {
+  const d = JSON.parse(localStorage.getItem(KEY));
+  if (d) prog = { so: d.so !== false, secs: SECTIONS.map((_, i) => Math.min(10, Math.max(0, (Array.isArray(d.secs) ? d.secs[i] : 0) | 0))) };
+} catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
+
+// every new screen cancels what the last one left running through this token
+let tok = { on: true };
+function fresh() { tok.on = false; tok = { on: true }; return tok; }
+
+/* ---------- sound ---------- */
+let ac;
+function tone(f, at = 0, dur = 0.34, vol = 0.15, type = 'sine') {
+  if (!prog.so) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  } catch (e) {}
+}
+const chime = (notes, gap = 0.08) => notes.forEach((f, i) => tone(f, i * gap, 0.4, 0.12));
+// each bead clicks with a note of its own: higher on the left columns, and higher still for a heaven bead
+const PENTA = [0, 2, 4, 7, 9];
+const noteOf = k => 261.63 * 2 ** ((12 * Math.floor(k / 5) + PENTA[k % 5]) / 12);
+
+/* ---------- canvases: drifting glow and fireflies behind, sparks and rings in front ---------- */
+const FX = (() => {
+  const sky = $('#sky'), fx = $('#fx'), a = sky.getContext('2d'), b = fx.getContext('2d');
+  const parts = [], rings = [], flies = [], sprites = new Map();
+  let W = 0, H = 0, hue = 165, target = 165, last = 0;
+  function sprite(h) {
+    h = ((Math.round(h / 12) * 12) % 360 + 360) % 360;
+    let s = sprites.get(h);
+    if (!s) {
+      s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, `hsl(${h} 100% 75%)`); gr.addColorStop(1, `hsl(${h} 100% 55% / 0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); sprites.set(h, s);
+    }
+    return s;
+  }
+  function resize() {
+    const D = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
+    if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
+    if (RM) drawSky(0, 0);
+  }
+  function drawSky(now, dt) {
+    a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
+    hue += (target - hue) * Math.min(1, dt * 1.5);
+    const R = Math.max(W, H) * 0.6;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.4 * Math.sin(now * 0.00011 * (i + 1) + i * 2.1)), y = H * (0.5 + 0.38 * Math.cos(now * 0.00013 * (i + 1.3) + i));
+      const g = a.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, `hsl(${hue + i * 42} 85% 48% / 0.24)`); g.addColorStop(1, `hsl(${hue + i * 42} 85% 48% / 0)`);
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+    }
+    if (RM) return;
+    const img = sprite(62);
+    for (const f of flies) {
+      f.a += rand(-1.2, 1.2) * dt; f.x += Math.cos(f.a) * f.s * dt; f.y += Math.sin(f.a) * f.s * dt;
+      if (f.x < -20) f.x = W + 20; else if (f.x > W + 20) f.x = -20;
+      if (f.y < -20) f.y = H + 20; else if (f.y > H + 20) f.y = -20;
+      a.globalAlpha = 0.15 + 0.75 * Math.sin(now * 0.0016 + f.p) ** 2;
+      a.drawImage(img, f.x - f.z, f.y - f.z, f.z * 2, f.z * 2);
+    }
+    a.globalAlpha = 1;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    drawSky(now, dt);
+    b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H); b.globalCompositeOperation = 'lighter';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= 0.96; p.vy = p.vy * 0.96 + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = p.life / p.max, z = p.z * (0.35 + 0.65 * k);
+      b.globalAlpha = Math.min(1, k * 1.6); b.drawImage(sprite(p.h), p.x - z, p.y - z, z * 2, z * 2);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+      const k = 1 - r.life / r.max;
+      b.globalAlpha = 1 - k; b.strokeStyle = `hsl(${r.h} 100% 72%)`; b.lineWidth = 4 * (1 - k) + 1;
+      b.beginPath(); b.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 3), 0, 6.283); b.stroke();
+    }
+    b.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  function burst(x, y, h, n, power, g = 140) {
+    if (RM) return;
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, 6.283), v = power * rand(0.35, 1.5), life = rand(0.45, 1.05);
+      parts.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, g, life, max: life, z: rand(4, 11), h: h + rand(-22, 22) });
+    }
+  }
+  function ring(x, y, h, r0, r1, life = 0.6) { if (!RM) rings.push({ x, y, h, r0, r1, life, max: life }); }
+  // fireworks over the upper half of the screen
+  function celebrate(n = 9) {
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const x = W * rand(0.12, 0.88), y = H * rand(0.12, 0.6), h = rand(0, 360);
+      burst(x, y, h, 46, 330, 220); ring(x, y, h, 6, 120, 0.8); tone(pick([784, 880, 1047, 1175, 1319]), 0, 0.3, 0.05);
+    }, k * 170);
+  }
+  addEventListener('resize', resize); resize();
+  if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
+  return { burst, ring, celebrate, mood(sec) { target = [165, 205, 262, 318, 28, 120][sec] ?? 165; } };
+})();
+
+/* ---------- screens ---------- */
+// the link to the page of all games only exists where this page is served under its own file name, next to the others
+const HUB = /abac-xines\.html$/.test(location.pathname);
+function show(level, kicker) {
+  $('#app').classList.toggle('wide', level); $('#joc').classList.toggle('lvl', level);
+  $('#toG').hidden = level || !HUB; $('#toM').hidden = !level; $('#kick').textContent = kicker;
+}
+function panel(host, html) {
+  host.querySelector('.panel')?.remove();
+  host.insertAdjacentHTML('beforeend', `<div class="panel">${html}</div>`);
+  host.querySelector('.panel button').focus({ preventScroll: true });
+}
+function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
+$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+$('#toM').onclick = () => seccions();
+
+const secOpen = s => s === 0 || prog.secs[s - 1] >= 10;
+function seccions() {
+  fresh(); show(false, 'Tria una secció'); FX.mood(0);
+  const root = $('#joc'); root.onclick = null;
+  root.innerHTML = `<p class="status tip">Mou les boles de l'àbac per fer operacions, com es fa a la Xina des de fa segles. A cada secció aprendràs un truc nou.</p>
+    <nav class="secs" aria-label="Seccions">${SECTIONS.map((s, i) => { const n = prog.secs[i]; return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${secOpen(i) ? '' : ' disabled'}>
+      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${secOpen(i) ? s.sub : 'Acaba la secció anterior per obrir-la'}</span></span>
+      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10</span></button>`; }).join('')}</nav>`;
+  root.querySelector('.secs').onclick = e => { const b = e.target.closest('.sec'); if (b && !b.disabled) nivell(+b.dataset.s, Math.min(prog.secs[+b.dataset.s], 9)); };
+  root.querySelector('.sec:not(:disabled)').focus({ preventScroll: true });
+}
+
+/* ---------- one level: an operation and the abacus to solve it on ---------- */
+const HUES = [150, 190, 258, 325, 28], PLACE = ['U', 'D', 'C', 'UM', 'DM'];
+const COL = ['de les unitats', 'de les desenes', 'de les centenes', 'dels milers', 'de les desenes de miler'];
+const SIGN = { '+': '+', '-': '−', x: '×', ':': ':' };
+const HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Ben calculat!', 'Així es fa!'];
+// what to say when a hint is one of the tricks rather than a plain move; d is the digit being added or taken
+const WHY = {
+  more: d => `Per sumar-ne ${d} aquí no hi ha prou boles de baix. Un truc: ${d} és 5 menys ${5 - d}. Treu-ne ${5 - d} de baix i després baixa la bola de dalt.`,
+  less: d => `Per treure'n ${d} aquí no hi ha prou boles de baix. Un truc: ${d} és 5 menys ${5 - d}. Posa'n ${5 - d} de baix i després puja la bola de dalt.`,
+  five: () => "Cinc boles de baix valen el mateix que una de dalt. Fes el canvi: baixa'n cinc i posa'n una de dalt.",
+  ten: () => "Dues boles de dalt fan 10. Fes el canvi: puja-les i posa una bola de baix a la columna de l'esquerra.",
+  borrow: () => "A la dreta no n'hi ha prou per treure. Demana una bola a aquesta columna: val 10 de les de la seva dreta."
+};
+
+function nivell(sec, idx) {
+  const t = fresh(); show(true, `Secció ${sec + 1} · ${SECTIONS[sec].name}`); FX.mood(sec);
+  const root = $('#joc'), lv = LEVELS[sec * 10 + idx], reading = lv.read != null;
+  const pl = reading ? { start: lv.read, stages: [lv.read], goal: lv.read } : plan(lv.q);
+  const n = Math.max(3, String(Math.max(pl.start, ...pl.stages)).length);
+  const op = !reading && /\D/.test(lv.q);
+  const ask = reading ? "Quin nombre marca l'àbac?" : op ? lv.q.replace(/\D/g, o => ` ${SIGN[o]} `) + ' = ' : `Escriu el <b>${lv.q}</b>`;
+  // stage is how many of the values on the way have been reached. Hint state: how many were asked, the abacus as it stood
+  // at the last one (asking again without moving gives the bead away), and what is glowing.
+  let rods = write(pl.start, n), stage = 0, asks = 0, seen = '', mark = null, done = false, digits = !!lv.show;
+  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${idx + 1} · ${lv.name}</span></div>
+    <nav class="levels" aria-label="Nivells">${SECTIONS[sec].levels.map((_, i) => `<button data-n="${i}" class="${i < prog.secs[sec] ? 'done' : ''}"${i === idx ? ' aria-current="true"' : ''}${i > prog.secs[sec] ? ' disabled title="Supera el nivell anterior"' : ''}>${i + 1}</button>`).join('')}</nav>
+    <p class="status tip" id="tip" role="status" aria-live="polite"></p>
+    <p class="task" id="task"></p>
+    <div class="stage" id="stage"><div class="abacus${reading ? ' locked' : ''}" id="ab" role="group" aria-label="Àbac" style="--n:${n}">
+      <div class="well">${rods.map((_, i) => { const p = n - 1 - i, bead = (deck, j) => `<button class="bead" data-p="${p}" data-deck="${deck}" data-j="${j}"></button>`;
+        return `<div class="rod" data-p="${p}" style="--h:${HUES[p]}"><div class="deck hi">${bead('hi', 1)}${bead('hi', 0)}</div><div class="beam"></div><div class="deck lo">${[0, 1, 2, 3, 4].map(j => bead('lo', j)).join('')}</div></div>`; }).join('')}</div>
+      <div class="foot" aria-hidden="true">${rods.map((_, i) => `<span style="--h:${HUES[n - 1 - i]}"><b></b><i>${PLACE[n - 1 - i]}</i></span>`).join('')}</div></div></div>
+    ${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
+      : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}`;
+  const ab = $('#ab'), beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')], foot = [...ab.querySelectorAll('.foot b')];
+  // the row of levels scrolls sideways on a phone: start with this level in the middle
+  { const nav = root.querySelector('.levels'), a = nav.getBoundingClientRect(), c = nav.querySelector('[aria-current]').getBoundingClientRect(); nav.scrollLeft += c.left - a.left - (a.width - c.width) / 2; }
+  const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+  const target = () => pl.stages[Math.min(stage, pl.stages.length - 1)];
+  const mid = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
+  // the bead a move asks to touch: the far end of the group that has to travel
+  const beadOf = m => { const cur = rods[m.p][m.deck], j = m.to > cur ? m.to - 1 : m.to; return beads.find(b => +b.dataset.p === m.p && b.dataset.deck === m.deck && +b.dataset.j === j); };
+
+  function draw() {
+    for (const b of beads) {
+      const p = +b.dataset.p, hi = b.dataset.deck === 'hi', j = +b.dataset.j, on = j < rods[p][b.dataset.deck];
+      // earth beads that count sit against the beam above them, heaven beads against the beam below
+      b.style.setProperty('--s', hi ? (on ? 2 : 1) - j : on ? j : j + 1);
+      b.classList.toggle('on', on); b.classList.remove('next');
+      b.setAttribute('aria-label', `Bola ${hi ? 'de dalt' : 'de baix'} ${j + 1}, columna ${COL[p]}${on ? ', toca la barra' : ''}`);
+      b.tabIndex = reading || done ? -1 : 0;
+    }
+    cols.forEach(c => c.classList.toggle('glow', !!mark && mark.p === +c.dataset.p));
+    if (mark && mark.m) { const b = beadOf(mark.m), up = (mark.m.deck === 'lo') === (mark.m.to > rods[mark.m.p][mark.m.deck]); b.classList.add('next'); b.dataset.a = up ? '▲' : '▼'; }
+    foot.forEach((e, i) => { const v = rodVal(rods[n - 1 - i]); e.textContent = digits ? v : ''; e.classList.toggle('over', v > 9); });
+    $('#task').innerHTML = ask + (op ? `<b>${done ? pl.goal : '?'}</b>` : '');
+  }
+
+  function oops(txt) {
+    ab.classList.remove('shake'); void ab.offsetWidth; ab.classList.add('shake'); tone(150, 0, 0.45, 0.16, 'triangle');
+    tip(txt, 'oops');
+  }
+  async function win() {
+    done = true; mark = null; ab.classList.add('locked'); draw();
+    if (idx + 1 > prog.secs[sec]) { prog.secs[sec] = idx + 1; save(); }
+    const end = idx === 9, last = end && sec === SECTIONS.length - 1, lit = beads.filter(b => b.classList.contains('on'));
+    tip(reading ? `Sí! L'àbac marca ${pl.goal}.` : `Correcte! L'àbac marca ${pl.goal}.`, 'go');
+    lit.forEach((b, i) => { const p = mid(b), h = b.dataset.deck === 'hi' ? 44 : HUES[b.dataset.p]; b.style.setProperty('--d', i * 70); b.classList.add('wave'); FX.burst(p.x, p.y, h, 12, p.w * 2); });
+    chime([523, 659, 784, 1047, 1319]); FX.celebrate(end ? 16 : 8);
+    await sleep(1100); if (!t.on) return;
+    panel($('#stage'), `<h2>${last ? "Ets un mestre de l'àbac!" : end ? 'Secció superada!' : pick(HURRAY)}</h2>
+      <p class="lead">${last ? 'Has sumat, restat, multiplicat i dividit movent boles, com els calculistes de fa mil anys.' : end ? `Has obert la secció ${sec + 2}: ${SECTIONS[sec + 1].name}.` : `Nivell ${idx + 1} superat.`}</p>
+      <button class="btn" id="nx">${last ? 'Torna a les seccions' : end ? 'Secció següent' : 'Nivell següent'}</button>`);
+    $('#nx').onclick = () => last ? seccions() : end ? nivell(sec + 1, 0) : nivell(sec, idx + 1);
+  }
+  function check() {
+    const v = valueOf(rods);
+    if (v === pl.goal && tidy(rods)) return win();
+    if (v !== pl.goal) return oops(`Ara l'àbac marca ${v}, i encara no és el resultat. Si no saps com seguir, prem Pista.`);
+    // the right number with a column left overfull: point at it
+    const p = rods.findIndex(r => r.hi === 2 || r.lo === 5);
+    mark = { p }; draw();
+    oops("El nombre és correcte, però l'àbac està desendreçat. " + (rods[p].hi === 2 ? "Dues boles de dalt es canvien per una de baix de la columna de l'esquerra." : 'Cinc boles de baix es canvien per una de dalt.'));
+  }
+  // The first hint lights the column to work on and says what to think about. Asked again with the abacus untouched,
+  // the bead to touch turns gold and the move is spelled out.
+  function coach() {
+    if (done) return;
+    const hint = lv.hints[asks++ % lv.hints.length];
+    if (reading) {
+      // reading has no move to give away: the second hint writes what each column is worth under it
+      if (asks > 1) { digits = true; mark = null; draw(); return tip('Sota cada columna hi ha el que val. Ajunta les xifres d\'esquerra a dreta. ' + hint); }
+      mark = { p: n - 1 - cols.findIndex(c => rodVal(rods[+c.dataset.p])) }; draw();
+      return tip('Comença per la columna que brilla. ' + hint);
+    }
+    const m = nextMove(rods, target());
+    if (!m) return tip("L'àbac ja marca el resultat. Prem Comprova!", 'go');
+    const now = JSON.stringify(rods), again = now === seen, k = Math.abs(m.to - rods[m.p][m.deck]);
+    seen = now; mark = { p: m.p, m: again ? m : null }; draw();
+    if (!again) return tip("Fixa't en la columna que brilla. " + (WHY[m.why] ? WHY[m.why](m.d) : hint));
+    const up = (m.deck === 'lo') === (m.to > rods[m.p][m.deck]);
+    tip(`${up ? 'Puja' : 'Baixa'} ${k} ${k > 1 ? 'boles' : 'bola'} ${m.deck === 'hi' ? 'de dalt' : 'de baix'} a la columna ${COL[m.p]}: toca la bola daurada.`);
+  }
+
+  ab.onclick = e => {
+    const b = e.target.closest('.bead'); if (!b || done) return;
+    if (reading) return tip("En aquest nivell les boles no es mouen. Llegeix el nombre i tria'l a sota.");
+    const p = +b.dataset.p, deck = b.dataset.deck, was = rods[p][deck];
+    rods = tap(rods, p, deck, +b.dataset.j); mark = null;
+    const k = pl.stages.lastIndexOf(valueOf(rods)); if (k >= stage) stage = k + 1;
+    draw(); tone(noteOf(p * 2 + (deck === 'hi' ? 4 : 0) + rods[p][deck]), 0, 0.16, 0.08, 'triangle');
+    if (rods[p][deck] > was) { const c = mid(b); FX.burst(c.x, c.y, deck === 'hi' ? 44 : HUES[p], 7, c.w * 1.3); }
+  };
+  root.onclick = e => {
+    const b = e.target.closest('button'); if (!b || done) return;
+    if (b.id === 'chk') check();
+    else if (b.id === 'hintb') coach();
+    else if (b.id === 'rst') { rods = write(pl.start, n); stage = 0; mark = null; draw(); tip(lv.tip); tone(330, 0, 0.12, 0.06); }
+    else if ('v' in b.dataset) {
+      if (+b.dataset.v === pl.goal) return win();
+      b.disabled = true; oops('No és aquest. Compta només les boles que toquen la barra. Si no saps com seguir, prem Pista.');
+    }
+  };
+  root.querySelector('.levels').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) nivell(sec, +b.dataset.n); };
+  tip(lv.tip); draw();
+}
+
+soBtn();
+seccions();
+</script>
