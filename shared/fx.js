@@ -22,7 +22,7 @@ export function pond(tone) {
     W = innerWidth; H = innerHeight;
     sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
     if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
-    if (RM) drawSky(0, 0);
+    if (RM) drawSky(0, 1);
   }
   function drawSky(now, dt) {
     a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
@@ -83,5 +83,5 @@ export function pond(tone) {
   }
   addEventListener('resize', resize); resize();
   if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
-  return { burst, ring, celebrate, mood(h) { target = h; } };
+  return { burst, ring, celebrate, mood(h) { target = h; if (RM) drawSky(0, 1); } };
 }

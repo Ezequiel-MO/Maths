@@ -144,6 +144,8 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
 @media (min-width: 700px) {
   :root { --chrome: 310px; }
   #app.wide h1 { display: block; }
+  .chip { padding-inline: 14px; }
+  .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
   .game span { font-size: 0.98rem; line-height: inherit; }
 }
 /* with a mouse the small buttons can be smaller, which keeps the rocket game on one laptop screen */

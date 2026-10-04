@@ -9,12 +9,13 @@ export function panel(host, html) {
 
 // The menu of sections under a line of introduction. done[i] counts the levels done in section i: a section opens when
 // the one before is complete, and go(section, level) is called with the first level of it still to do.
-export function sectionMenu(root, intro, sections, done, go) {
+// note(i) adds something of the game's own after the count of section i.
+export function sectionMenu(root, intro, sections, done, go, note = () => '') {
   const open = s => s === 0 || done[s - 1] >= 10;
   root.innerHTML = `<p class="status tip">${intro}</p>
     <nav class="secs" aria-label="Seccions">${sections.map((s, i) => { const n = done[i]; return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${open(i) ? '' : ' disabled'}>
       <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${open(i) ? s.sub : 'Acaba la secció anterior per obrir-la'}</span></span>
-      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10</span></button>`; }).join('')}</nav>`;
+      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10${note(i)}</span></button>`; }).join('')}</nav>`;
   root.querySelector('.secs').onclick = e => { const b = e.target.closest('.sec'); if (b && !b.disabled) go(+b.dataset.s, Math.min(done[+b.dataset.s], 9)); };
   root.querySelector('.sec:not(:disabled)').focus({ preventScroll: true });
 }

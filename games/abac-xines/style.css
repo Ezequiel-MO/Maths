@@ -76,6 +76,8 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   .status.tip { font-size: 1.1rem; }
   #app.wide h1 { display: block; }
   .abacus { --u: clamp(22px, calc((100dvh - 500px) / 8.6), 44px); }
+  .chip { padding-inline: 14px; }
+  .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
 }
 /* with a mouse the small buttons can be smaller */
 @media (min-width: 700px) and (pointer: fine) {

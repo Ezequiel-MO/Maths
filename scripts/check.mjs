@@ -2,11 +2,12 @@
 // build and stops it when a total in shared/games.js has drifted from the data, or a card points at a page that is not there.
 import { existsSync } from 'node:fs';
 import { GAMES } from '../shared/games.js';
-import { WORLDS } from '../games/salts-de-granota/logic.js';
+import { SECTIONS as TRICKS, PLAN } from '../games/salts-de-granota/logic.js';
 import { LEVELS as ROCKET } from '../games/memoria-visual/logic.js';
 import { LEVELS as ABACUS } from '../games/abac-xines/logic.js';
+import { LEVELS as TIMES } from '../games/coet-multiplicador/logic.js';
 
-const TOTALS = { 'salts-de-granota': WORLDS.length * 3, coet: ROCKET.length, 'abac-xines': ABACUS.length };
+const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];

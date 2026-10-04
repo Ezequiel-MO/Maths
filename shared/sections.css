@@ -37,10 +37,6 @@
 .pips i.ok { background: var(--sun); }
 
 @keyframes panel { from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; } }
-@media (min-width: 700px) {
-  .chip { padding-inline: 14px; }
-  .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
-}
 /* with a mouse the level buttons can be smaller */
 @media (min-width: 700px) and (pointer: fine) {
   .levels button { width: 34px; height: 34px; }

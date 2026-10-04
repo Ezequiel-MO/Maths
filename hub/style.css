@@ -1,4 +1,4 @@
-/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and four on a wide screen. */
+/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and three on a wide screen. */
 @import "../shared/base.css";
 
 body { padding-block: 28px 36px; }
@@ -27,5 +27,5 @@ h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter:
   .game svg { width: 120px; height: 120px; }
   .txt { align-items: center; }
 }
-@media (min-width: 1040px) { .games { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1040px) { .games { grid-template-columns: repeat(3, 1fr); } }
 @media (prefers-reduced-motion: reduce) { h1 { animation: none; } .game { transition: none; } }
