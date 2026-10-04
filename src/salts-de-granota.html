@@ -1,104 +1,105 @@
 <title>Salts de Granota</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <style>
-/* Layout: one centred column on a pond; the number line is the stage, the sum sits above it, the answer box below. */
+/* Layout: the pond at night, like the other games. One centred column: the menu of sections, or a level with its sum,
+   its picture and the answer box on one glass card. Two fixed canvases paint the sky behind and the sparks in front. */
 :root {
-  --water: #DDF1EE; --water-deep: #BFE3DF; --surface: #FFFFFF; --line: #9CCFC9;
-  --ink: #0F3A40; --muted: #4E7379;
-  --pad: #3E9B4F; --pad-dark: #2C7A3C; --on-pad: #FFFFFF;
-  --flower: #E24C86; --sun: #F2B632; --bad: #C8452F;
+  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
+  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D; --sun: #F7C64E; --bad: #FF6B5E; --flower: #FF79A8; --line: #2F666D;
   --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   --body: "Nunito", "Segoe UI", system-ui, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --water: #0C2A30; --water-deep: #123A41; --surface: #16424A; --line: #2F666D;
-    --ink: #E6F5F1; --muted: #9EC3C0;
-    --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D;
-    --flower: #FF79A8; --sun: #F7C64E; --bad: #FF8A70; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --water: #0C2A30; --water-deep: #123A41; --surface: #16424A; --line: #2F666D;
-  --ink: #E6F5F1; --muted: #9EC3C0;
-  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D;
-  --flower: #FF79A8; --sun: #F7C64E; --bad: #FF8A70; color-scheme: dark;
+  color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {
-  margin: 0; min-height: 100vh; padding-inline: 16px; padding-block: 20px 40px;
-  background: radial-gradient(120% 80% at 50% 110%, var(--water-deep), var(--water) 60%) var(--water);
-  color: var(--ink); font: 500 1.125rem/1.45 var(--body);
+  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 14px 24px; overflow-x: hidden;
+  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
+  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
 }
-#app { max-width: 860px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
-h1, h2, .big, .num, .btn { font-family: var(--display); }
-h1 { font-size: clamp(2.2rem, 7vw, 3.6rem); line-height: 1; margin: 0; font-weight: 800; text-wrap: balance; }
-h2 { font-size: 1.6rem; line-height: 1.1; margin: 0; font-weight: 800; text-wrap: balance; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#sky { z-index: 0; }
+#fx { z-index: 5; }
+#app { position: relative; z-index: 1; max-width: 680px; min-height: calc(100dvh - 38px); margin-inline: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+h1, h2, .btn, .chip, .status { font-family: var(--display); }
 p { margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
-:focus-visible { outline: 3px solid var(--flower); outline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+/* the links stay at the top; whatever height is left over is shared above and below the game */
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: auto; }
+.link { display: inline-block; background: none; border: 0; padding: 11px 0; margin-block: -7px; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.kicker { color: var(--muted); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 {
+  margin: 0; font-size: clamp(2rem, 7vw, 3rem); line-height: 1; font-weight: 800; text-wrap: balance;
+  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
+  filter: drop-shadow(0 0 18px rgb(110 230 255 / 0.35));
+}
+#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; background: var(--glass); border: 1px solid var(--edge); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.status.tip { font: 700 1rem/1.35 var(--body); max-width: 54ch; text-wrap: pretty; }
 .btn {
-  border: 0; border-radius: 999px; padding: 0.45em 1.3em; font-size: 1.25rem; font-weight: 800;
-  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark);
+  border: 0; border-radius: 999px; padding: 0.4em 1.6em; font-size: 1.4rem; font-weight: 800;
+  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55);
 }
 .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--pad-dark); }
-.btn.soft { background: var(--surface); color: var(--ink); box-shadow: 0 4px 0 var(--line); }
-.link { background: none; border: 0; padding: 4px 0; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
-.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.btn.soft { background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
+.btn.soft:active { box-shadow: 0 1px 0 #10242F; }
+.btn.glow { outline: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
 
-/* home: a trail of lily pads across the pond */
-.hero { display: flex; flex-direction: column; gap: 8px; }
-.lead { color: var(--muted); max-width: 46ch; }
-.trail { position: relative; aspect-ratio: 860 / 480; }
-.trail > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.way { fill: none; stroke: var(--line); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 1 26; }
-.trail ol { list-style: none; margin: 0; padding: 0; }
-.trail li { position: absolute; left: calc(var(--x) / 860 * 100%); top: calc(var(--y) / 480 * 100%); width: 172px; margin-left: -86px; margin-top: -38px; }
-.world { position: relative; width: 100%; border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.world:disabled { cursor: not-allowed; opacity: 0.55; }
-.lily {
-  width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; transition: transform 0.15s;
-  background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); color: var(--on-pad);
-  font: 800 2.3rem/1 var(--display);
-}
-.world:not(:disabled):hover .lily { transform: scale(1.1); }
-.tag { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--water); border-radius: 16px; padding: 4px 10px 6px; }
-.world b { font: 800 1.2rem/1.1 var(--display); }
-.world .ex { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.here { position: absolute; top: -40px; left: 50%; width: 58px; margin-left: -29px; }
-.stars { letter-spacing: 2px; color: var(--line); font-size: 1.3rem; line-height: 1; }
-.stars i { font-style: normal; color: var(--sun); }
-@media (max-width: 700px) {
-  .trail { aspect-ratio: auto; }
-  .trail > svg { display: none; }
-  .trail ol { display: flex; flex-direction: column; gap: 46px; padding-top: 44px; }
-  .trail li { position: static; margin: 0; }
-  .trail li:nth-child(even) { align-self: flex-end; }
-}
-.foot { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); }
+/* the vertical menu of sections */
+.secs { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; }
+.sec { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 12px 16px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); }
+.sec:not(:disabled):hover { background: rgb(79 181 98 / 0.22); border-color: #7CF5B0; }
+.sec:disabled { opacity: 0.5; cursor: not-allowed; }
+.sec-n { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--pad); color: var(--on-pad); font: 800 1.5rem/1 var(--display); }
+.sec.all .sec-n { background: var(--sun); color: #2A1C00; }
+.sec-t { display: flex; flex-direction: column; min-width: 0; }
+.sec-t b { font: 800 1.35rem/1.15 var(--display); }
+.sec-t span { font-size: 0.95rem; color: var(--muted); }
+.sec-p { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-weight: 800; font-size: 0.9rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 7px; height: 7px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pips i.ok { background: var(--sun); }
+.foot { width: min(100%, 560px); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); font-weight: 700; font-size: 1rem; }
 
-/* world header */
-.top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
-.tabs { display: flex; gap: 6px; background: var(--surface); border-radius: 999px; padding: 5px; border: 2px solid var(--line); }
-.tabs button { border: 0; background: none; border-radius: 999px; padding: 2px 16px; font-weight: 800; color: var(--muted); }
-.tabs button[aria-current="step"] { background: var(--pad); color: var(--on-pad); }
+/* one row of levels that scrolls sideways, fading at both ends; its padding only leaves room for the focus ring */
+.levels { display: flex; gap: 6px; max-width: 100%; padding: 6px 16px; margin-block: -6px; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.levels::-webkit-scrollbar { display: none; }
+.levels button { flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; border: 1px solid var(--edge); background: var(--glass); font: 800 1rem/1 var(--display); }
+.levels button.done { background: #1E6B4A; border-color: #7CF5B0; }
+.levels button[aria-current] { background: var(--sun); color: #2A1C00; border-color: #fff; }
+.levels button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* play area */
-.play { background: var(--surface); border-radius: 28px; padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; }
-.big { font-size: clamp(2.6rem, 9vw, 4.6rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+/* the level: one glass card with the sum, its picture and the answer */
+.play { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 16px 14px 18px; border-radius: 26px; background: var(--glass); border: 1px solid var(--edge); box-shadow: 0 24px 60px rgb(0 0 0 / 0.45); }
+.play h2 { margin: 0; font-size: 1.9rem; line-height: 1.1; font-weight: 800; text-wrap: balance; color: #7CF5B0; text-shadow: 0 0 22px rgb(124 245 176 / 0.5); animation: pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1); }
+.big { font: 800 clamp(2.4rem, 9vw, 4rem)/1 var(--display); font-variant-numeric: tabular-nums; }
 .q { color: var(--flower); }
-.cap { min-height: 2.9em; font-size: 1.3rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
-.count, .hud { color: var(--muted); font-weight: 700; }
-.hud { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
-.dots { display: flex; gap: 6px; }
-.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); }
-.dots i.ok { background: var(--sun); }
-.dots i.slow { background: var(--muted); }
-.dots i.now { outline: 3px solid var(--flower); outline-offset: 1px; }
-.timer { width: 100%; height: 12px; border-radius: 999px; background: var(--water-deep); overflow: hidden; }
-.timer i { display: block; height: 100%; background: var(--pad); transform-origin: left; }
+.cap { min-height: 2.9em; font-size: 1.2rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
+.count { color: var(--muted); font-weight: 700; }
+.dots { display: flex; gap: 8px; min-height: 18px; align-items: center; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.dots i.ok { background: #7CF5B0; box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); }
+.dots i.slow { background: #4D7486; }
+.dots i.now { outline: 3px solid var(--sun); outline-offset: 1px; }
+form { display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%; }
+form label { font-size: 1.15rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; text-wrap: balance; }
+#eq, #tail, #ans { font: 800 clamp(2.2rem, 8vw, 3.4rem)/1.15 var(--display); font-variant-numeric: tabular-nums; }
+#eq:empty, #tail:empty { display: none; }
+#ans { width: 3.6ch; text-align: center; color: var(--ink); background: rgb(160 230 220 / 0.08); border: 3px solid #4D7486; border-radius: 18px; padding: 0 6px; }
+#ans:focus { outline: none; border-color: var(--sun); box-shadow: 0 0 18px rgb(247 198 78 / 0.35); }
+#ans.ok { border-color: #7CF5B0; color: #7CF5B0; box-shadow: 0 0 22px rgb(124 245 176 / 0.45); }
+#msg { min-height: 1.5em; font-weight: 800; }
+#msg.bad { color: var(--bad); }
+#msg.good { color: #7CF5B0; }
+.shake { animation: shake 0.3s; }
+
+/* pictures: ten lily pads, tens and units, the number line */
 #viz { width: 100%; }
 svg.nl { width: 100%; height: auto; display: block; }
 .nl .axis { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
@@ -107,59 +108,61 @@ svg.nl { width: 100%; height: auto; display: block; }
 .nl text { font-family: var(--display); text-anchor: middle; font-variant-numeric: tabular-nums; }
 .nl .tl { fill: var(--muted); font-size: 26px; font-weight: 600; }
 .nl .pl { fill: var(--ink); font-size: 36px; font-weight: 800; }
+.nl .pl.q { fill: var(--sun); }
 .nl .lp { fill: var(--pad); }
 .nl .arc { fill: none; stroke: var(--flower); stroke-width: 5; stroke-linecap: round; }
 .nl .jl { fill: var(--flower); font-size: 34px; font-weight: 800; }
-.nl .fb { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; }
-.nl .fe, .here .fe { fill: var(--surface); stroke: var(--pad-dark); stroke-width: 2; }
-.nl .fp, .here .fp { fill: var(--ink); }
-.here .fb { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; }
+.nl .frog { filter: drop-shadow(0 0 8px rgb(124 245 176 / 0.6)); }
+.fb { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; }
+.fe { fill: #fff; stroke: var(--pad-dark); stroke-width: 2; }
+.fp { fill: #0F3A40; }
 .fm { fill: none; stroke: var(--pad-dark); stroke-width: 2.5; stroke-linecap: round; }
-
-.frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 420px; margin-inline: auto; padding: 14px; border-radius: 20px; background: var(--water); }
-.frame span { aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); display: grid; place-items: center; }
+.frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 400px; margin-inline: auto; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); }
+.frame span { position: relative; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); display: grid; place-items: center; }
 .frame span::after { content: ""; width: 52%; aspect-ratio: 1; border-radius: 50%; }
 .frame .on::after { background: radial-gradient(var(--sun) 32%, var(--flower) 34%); }
-.frame .new::after { background: radial-gradient(var(--flower) 32%, var(--sun) 34%); animation: pop 0.25s ease-out; }
-
-form { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; }
-form label { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-#ans {
-  width: 5.2ch; text-align: center; font: 800 2.4rem/1.2 var(--display); color: var(--ink); background: var(--water);
-  border: 3px solid var(--line); border-radius: 18px; padding: 2px 6px; font-variant-numeric: tabular-nums;
-}
-#eq, #tail { font: 800 2.4rem/1.2 var(--display); font-variant-numeric: tabular-nums; }
-#eq:empty, #tail:empty { display: none; }
-#ans:focus { outline: none; border-color: var(--flower); }
-#msg { min-height: 1.5em; font-weight: 800; }
-#msg.bad { color: var(--bad); }
-#msg.good { color: var(--pad-dark); }
-:root[data-theme="dark"] #msg.good { color: var(--pad); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #msg.good { color: var(--pad); } }
-.shake { animation: shake 0.3s; }
-.tricks { text-align: left; display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; max-width: 46ch; }
-.tricks b { font-family: var(--display); font-variant-numeric: tabular-nums; }
-.result .stars { font-size: 3.4rem; letter-spacing: 6px; }
-@keyframes pop { from { transform: scale(0.2); } }
-@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-.split { font: 800 1.9rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 10px; }
+.frame .new::after { background: radial-gradient(var(--flower) 32%, var(--sun) 34%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.6); animation: pop 0.25s ease-out; }
+.frame b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 1.15rem/1 var(--display); color: #2A1C00; animation: pop 0.25s ease-out; }
+.split { font: 800 1.7rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 12px; }
 .split b { color: var(--flower); }
 .blocks { display: flex; gap: 40px; justify-content: center; align-items: flex-end; }
 .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.col .h { font-size: 0.95rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.col .h { font-size: 0.85rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .bars { display: flex; gap: 8px; justify-content: flex-end; min-width: 216px; height: 138px; }
 .bar { width: 20px; height: 138px; border-radius: 4px; background: repeating-linear-gradient(to bottom, var(--pad) 0 12px, var(--pad-dark) 12px 14px); }
-.bar.new { background: repeating-linear-gradient(to bottom, var(--flower) 0 12px, var(--sun) 12px 14px); }
+.bar.new { background: repeating-linear-gradient(to bottom, var(--flower) 0 12px, var(--sun) 12px 14px); box-shadow: 0 0 16px 2px rgb(255 121 168 / 0.6); }
 .cubes { display: flex; flex-direction: column-reverse; gap: 2px; width: 20px; height: 138px; }
 .cube { width: 20px; height: 12px; border-radius: 3px; background: var(--pad); flex: none; }
 .cube.new { background: var(--flower); animation: pop 0.2s ease-out; }
 .cubes.full { gap: 0; border-radius: 4px; outline: 3px solid var(--sun); outline-offset: 2px; }
 .cubes.full .cube { height: 13.8px; border-radius: 0; background: var(--flower); }
-.blocks + .split { margin: 14px 0 0; }
-@media (prefers-reduced-motion: reduce) { .shake, .frame .new::after, .cube.new { animation: none; } }
+
+@keyframes slide { to { background-position: -200% 0; } }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+@keyframes beacon { 50% { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); } }
+@media (min-width: 700px) {
+  .status.tip { font-size: 1.1rem; }
+  .chip { padding-inline: 14px; }
+  .play { padding: 22px 22px 24px; gap: 14px; }
+}
+/* with a mouse the level buttons can be smaller */
+@media (min-width: 700px) and (pointer: fine) { .levels button { width: 34px; height: 34px; } }
+/* a short window: a level drops the big title and gives that height to the sum */
+@media (max-height: 760px) { #app.in h1 { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .play h2, .shake, .btn.glow, .frame .new::after, .frame b, .cube.new { animation: none; }
+  .btn.glow { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); }
+}
 </style>
 
-<main id="app"></main>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main id="app">
+  <div class="top"><span><a class="link" id="toG" href="index.html">← Tots els jocs</a><button class="link" id="toM" hidden>← Seccions</button></span><button class="link" id="so"></button></div>
+  <header><p class="kicker" id="kick"></p><h1>Salts de Granota</h1></header>
+  <section id="joc"></section>
+</main>
+<canvas id="fx" aria-hidden="true"></canvas>
 
 <script>
 /* LOGIC-START */
@@ -175,130 +178,246 @@ const bar = n => n === 1 ? '1 barra' : `${n} barres`;
 const cub = n => n === 1 ? '1 cubet' : `${n} cubets`;
 const falten = n => n === 1 ? 'En falta 1' : `En falten ${n}`;
 
+// One sum of a trick (type 1 to 5, the number of its section). lead and tail sit around the answer box, jumps are the frog's
+// leaps on the number line, caps narrate the trick, pre means the first leap is already drawn when the picture is on screen.
 function make(type, a, b) {
   if (type === 1) {
     const f = 10 - a;
-    return { type, a, b: f, ans: f, key: '1:' + a, text: `${a} + <b class="q">?</b> = 10`, eq: `${a} + ${f} = 10`, jumps: [],
-      caps: [`Tens ${a} ${a === 1 ? 'nenúfar' : 'nenúfars'} amb flor.`, `${falten(f)} per omplir els 10.`, `${a} i ${f} són amics del 10.`],
-      steps: [{ hint: `Quin és l'amic del 10 ${del(a)}?`, eq: `${a} +`, tail: '= 10', ans: f, jump: 0 }] };
+    return { type, a, b: f, ans: f, key: '1:' + a, text: `${a} + <b class="q">?</b> = 10`, eq: `${a} + ${f} = 10`, lead: `${a} +`, tail: '= 10', jumps: [],
+      hint: `Quin és l'amic del 10 ${del(a)}?`,
+      caps: [`Tens ${a} ${a === 1 ? 'nenúfar' : 'nenúfars'} amb flor.`, `${falten(f)} per omplir els 10.`, `${a} i ${f} són amics del 10.`] };
   }
-  const ans = a + b, base = { type, a, b, ans, key: a + '+' + b, text: `${a} + ${b}`, eq: `${a} + ${b} = ${ans}` };
+  const ans = a + b, base = { type, a, b, ans, key: a + '+' + b, text: `${a} + ${b}`, eq: `${a} + ${b} = ${ans}`, lead: `${a} + ${b} =`, tail: '' };
   if (type === 2) {
     const u = a % 10, t = (a - u) / 10;
-    return { ...base, nj: 2, pre: true, jumps: [{ to: ans, lab: `+${b}` }],
-      caps: [`${a} són ${bar(t)} de deu i ${cub(u)}.`, `${b === 1 ? 'Arriba' : 'Arriben'} ${cub(b)} més: ara n'hi ha 10 de solts.`, `10 cubets fan una barra nova. ${cap(bar(t + 1))} són ${ans}.`],
-      steps: [{ hint: '10 cubets fan una barra nova', eq: `${a} + ${b} =`, ans, jump: 1 }] };
+    return { ...base, nj: 2, pre: true, jumps: [{ to: ans, lab: `+${b}` }], hint: '10 cubets fan una barra nova',
+      caps: [`${a} són ${bar(t)} de deu i ${cub(u)}.`, `${b === 1 ? 'Arriba' : 'Arriben'} ${cub(b)} més: ara n'hi ha 10 de solts.`, `10 cubets fan una barra nova. ${cap(bar(t + 1))} són ${ans}.`] };
   }
   if (type === 3) {
-    return { ...base, jumps: [{ to: ans, lab: '+10' }],
-      caps: [`Sumar 10 és un salt gran.`, `La desena puja 1 i les unitats queden igual: ${ans}.`],
-      steps: [{ hint: 'Només canvia la desena', eq: `${a} + 10 =`, ans, jump: 0 }] };
+    return { ...base, jumps: [{ to: ans, lab: '+10' }], hint: 'Només canvia la desena',
+      caps: [`Sumar 10 és un salt gran.`, `La desena puja 1 i les unitats queden igual: ${ans}.`] };
   }
   if (type === 4) {
     const k = 10 - b, t = a + 10;
-    return { ...base, jumps: [{ to: t, lab: '+10' }, { to: ans, lab: `−${k}` }],
-      caps: [`${cap(el(b))} és gairebé 10.`, `Primer suma 10: arribes ${al(t)}.`, `Te n'has passat ${k}. Torna enrere ${k}: ${ans}.`],
-      pre: true, steps: [{ hint: `Suma 10 i torna enrere ${k}`, eq: `${a} + ${b} =`, ans, jump: 1 }] };
+    return { ...base, pre: true, jumps: [{ to: t, lab: '+10' }, { to: ans, lab: `−${k}` }], hint: `Suma 10 i torna enrere ${k}`,
+      caps: [`${cap(el(b))} és gairebé 10.`, `Primer suma 10: arribes ${al(t)}.`, `Te n'has passat ${k}. Torna enrere ${k}: ${ans}.`] };
   }
   const T = Math.ceil(a / 10) * 10, c = T - a, r = b - c;
-  return { ...base, jumps: [{ to: T, lab: `+${c}` }, { to: ans, lab: `+${r}` }],
-    caps: [`Primer salta fins a la desena.`, `${cap(del(a))} fins ${al(T)} ${falten(c).toLowerCase()}.`, `${cap(el(b))} és ${c} i ${r}. Ja n'has fet ${c}, ${r === 1 ? 'en queda' : 'en queden'} ${r}: ${ans}.`],
-    pre: true, steps: [{ hint: `Primer fins ${al(T)}, després el que queda ${del(b)}`, eq: `${a} + ${b} =`, ans, jump: 1 }] };
+  return { ...base, pre: true, jumps: [{ to: T, lab: `+${c}` }, { to: ans, lab: `+${r}` }], hint: `Primer fins ${al(T)}, després el que queda ${del(b)}`,
+    caps: [`Primer salta fins a la desena.`, `${cap(del(a))} fins ${al(T)} ${falten(c).toLowerCase()}.`, `${cap(el(b))} és ${c} i ${r}. Ja n'has fet ${c}, ${r === 1 ? 'en queda' : 'en queden'} ${r}: ${ans}.`] };
 }
 
-function gen(w) {
-  if (w === 1) return make(1, rnd(1, 9));
-  if (w === 2) { const u = rnd(1, 9); return make(2, 10 * rnd(1, 8) + u, 10 - u); }
-  if (w === 3) return make(3, rnd(11, 89), 10);
-  if (w === 4) return make(4, 10 * rnd(1, 8) + rnd(1, 9), pick([9, 9, 8]));
-  if (w === 5) { const u = rnd(4, 9); return make(5, 10 * rnd(1, 8) + u, rnd(Math.max(2, 11 - u), 7)); }
-  return gen(rnd(2, 5));
+// one section per trick; demo holds the sums the frog shows in the first level
+const SECTIONS = [
+  { name: 'Amics del 10', tip: 'Cada número té un amic: junts fan 10.', demo: [[7], [6]] },
+  { name: 'Arribar a la desena', tip: 'Deu cubets fan una barra: una desena més.', demo: [[32, 8], [46, 4]] },
+  { name: 'Sumar 10', tip: 'Quan sumes 10, només canvia la desena.', demo: [[17, 10], [43, 10]] },
+  { name: 'Sumar 9 i 8', tip: 'Suma 10 i torna enrere 1 (o 2).', demo: [[17, 9], [35, 8]] },
+  { name: 'Passar per la desena', tip: 'Primer salta fins a la desena, després la resta.', demo: [[27, 6], [48, 5]] }
+];
+// The ten levels of every section: n sums; pic keeps the picture on screen; tier is how big the numbers get;
+// demo starts with the frog showing the trick; mix brings back the tricks of earlier sections.
+const PLAN = [
+  { kind: 'Mira el truc', n: 3, pic: true, tier: 0, demo: true },
+  { kind: 'Amb dibuix', n: 4, pic: true, tier: 0 },
+  { kind: 'Amb dibuix', n: 4, pic: true, tier: 1 },
+  { kind: 'Amb dibuix', n: 5, pic: true, tier: 2 },
+  { kind: 'De cap', n: 5, tier: 0 },
+  { kind: 'De cap', n: 5, tier: 1 },
+  { kind: 'De cap', n: 5, tier: 2 },
+  { kind: 'De cap', n: 6, tier: 2 },
+  { kind: 'Barreja', n: 6, tier: 2, mix: true },
+  { kind: 'Repte final', n: 8, tier: 2, mix: true }
+];
+// per tier: the tens a sum may start in, and the numbers whose friend of 10 is asked
+const TENS = [[1, 2], [1, 5], [1, 8]];
+const FRIENDS = [[9, 8, 5, 1, 2], [3, 4, 6, 7, 5, 8], [1, 2, 3, 4, 5, 6, 7, 8, 9]];
+function gen(type, tier) {
+  if (type === 1) return make(1, pick(FRIENDS[tier]));
+  const t = rnd(...TENS[tier]);
+  if (type === 2) { const u = rnd(1, 9); return make(2, 10 * t + u, 10 - u); }
+  if (type === 3) return make(3, 10 * t + rnd(1, 9), 10);
+  if (type === 4) return make(4, 10 * t + rnd(1, 9), tier < 2 ? 9 : pick([9, 9, 8]));
+  const u = rnd(4, 9);
+  return make(5, 10 * t + u, rnd(Math.max(2, 11 - u), 7));
 }
-
-function round(w, n) {
-  const out = [], seen = new Set();
-  for (let tries = 0; out.length < n; tries++) {
-    const p = gen(w);
+// the sums of one level, none repeated; in a mixed level every other sum uses an earlier trick
+function sums(sec, idx) {
+  const L = PLAN[idx], out = [], seen = new Set();
+  for (let tries = 0; out.length < L.n; tries++) {
+    const p = gen(L.mix && sec && out.length % 2 ? rnd(1, sec) : sec + 1, L.tier);
     if (seen.has(p.key) && tries < 200) continue;
     seen.add(p.key); out.push(p);
   }
   return out;
 }
-
-const starsFor = fast => fast >= 9 ? 3 : fast >= 7 ? 2 : fast >= 5 ? 1 : 0;
+// Progress read from storage: secs counts the levels done in each section. An older save kept 0 to 3 stars
+// for each of six worlds; a world with a star opened the next one, so it becomes a finished section.
+function load(d) {
+  const p = { secs: SECTIONS.map(() => 0), so: true };
+  if (!d || typeof d !== 'object') return p;
+  if (Array.isArray(d.secs) && d.secs.length === SECTIONS.length) p.secs = d.secs.map(n => Math.min(10, Math.max(0, n | 0)));
+  else if (Array.isArray(d.stars)) p.secs = p.secs.map((_, i) => d.stars[i] > 0 ? 10 : 0);
+  p.so = d.so !== false;
+  return p;
+}
 /* LOGIC-END */
 
-const WORLDS = [
-  { name: 'Amics del 10', ex: '7 + ? = 10', tip: 'Cada número té un amic: junts fan 10.', secs: 6, demo: [[7], [6]] },
-  { name: 'Arribar a la desena', ex: '32 + 8', tip: 'Deu cubets fan una barra: una desena més.', secs: 8, demo: [[32, 8], [46, 4]] },
-  { name: 'Sumar 10', ex: '17 + 10', tip: 'Quan sumes 10, només canvia la desena.', secs: 8, demo: [[17, 10], [43, 10]] },
-  { name: 'Sumar 9 i 8', ex: '17 + 9', tip: 'Suma 10 i torna enrere 1 (o 2).', secs: 12, demo: [[17, 9], [35, 8]] },
-  { name: 'Passar per la desena', ex: '27 + 6', tip: 'Primer salta fins a la desena, després la resta.', secs: 12, demo: [[27, 6], [48, 5]] },
-  { name: 'Barreja', ex: 'de tot', tip: 'Tria el truc que millor et vagi.', secs: 12 }
-];
 const KEY = 'salts-de-granota';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = (s, r = document) => r.querySelector(s);
-const app = $('#app');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
+const root = $('#joc');
 
-let prog = { stars: [0, 0, 0, 0, 0, 0], so: true };
-try {
-  const d = JSON.parse(localStorage.getItem(KEY));
-  if (d && Array.isArray(d.stars) && d.stars.length === 6) prog = { stars: d.stars.map(n => Math.min(3, Math.max(0, n | 0))), so: d.so !== false };
-} catch (e) {}
+let prog = load(null);
+try { prog = load(JSON.parse(localStorage.getItem(KEY))); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
-const open = w => w === 1 || prog.stars[w - 2] > 0;
 
-// every screen change cancels running animations and timers through this token
-let tok = { on: true }, timer = 0;
-function fresh() { tok.on = false; tok = { on: true }; clearTimeout(timer); return tok; }
+// every new screen cancels the running one through this token
+let tok = { on: true };
+function fresh() { tok.on = false; tok = { on: true }; return tok; }
 
+/* ---------- sound ---------- */
 let ac;
-function beep(good) {
+function tone(f, at = 0, dur = 0.34, vol = 0.15, type = 'sine') {
   if (!prog.so) return;
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    (good ? [660, 880] : [200]).forEach((f, i) => {
-      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i * 0.09;
-      o.type = good ? 'triangle' : 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.2);
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + at;
+    [[f, vol, type], [f * 2, vol * 0.3, 'triangle']].forEach(([fr, v, ty]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty; o.frequency.value = fr;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
     });
   } catch (e) {}
 }
+const chime = (notes, gap = 0.08) => notes.forEach((f, i) => tone(f, i * gap, 0.4, 0.12));
 
-const starsHTML = n => `<span class="stars" role="img" aria-label="${n} de 3 estrelles"><i>${'★'.repeat(n)}</i>${'★'.repeat(3 - n)}</span>`;
+/* ---------- canvases: drifting glow and fireflies behind, sparks and rings in front ---------- */
+const FX = (() => {
+  const sky = $('#sky'), fx = $('#fx'), a = sky.getContext('2d'), b = fx.getContext('2d');
+  const parts = [], rings = [], flies = [], sprites = new Map();
+  let W = 0, H = 0, hue = 165, target = 165, last = 0;
+  function sprite(h) {
+    h = ((Math.round(h / 12) * 12) % 360 + 360) % 360;
+    let s = sprites.get(h);
+    if (!s) {
+      s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, `hsl(${h} 100% 75%)`); gr.addColorStop(1, `hsl(${h} 100% 55% / 0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); sprites.set(h, s);
+    }
+    return s;
+  }
+  function resize() {
+    const D = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
+    if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
+    if (RM) drawSky(0, 0);
+  }
+  function drawSky(now, dt) {
+    a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
+    hue += (target - hue) * Math.min(1, dt * 1.5);
+    const R = Math.max(W, H) * 0.6;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.4 * Math.sin(now * 0.00011 * (i + 1) + i * 2.1)), y = H * (0.5 + 0.38 * Math.cos(now * 0.00013 * (i + 1.3) + i));
+      const g = a.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, `hsl(${hue + i * 42} 85% 48% / 0.24)`); g.addColorStop(1, `hsl(${hue + i * 42} 85% 48% / 0)`);
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+    }
+    if (RM) return;
+    const img = sprite(62);
+    for (const f of flies) {
+      f.a += rand(-1.2, 1.2) * dt; f.x += Math.cos(f.a) * f.s * dt; f.y += Math.sin(f.a) * f.s * dt;
+      if (f.x < -20) f.x = W + 20; else if (f.x > W + 20) f.x = -20;
+      if (f.y < -20) f.y = H + 20; else if (f.y > H + 20) f.y = -20;
+      a.globalAlpha = 0.15 + 0.75 * Math.sin(now * 0.0016 + f.p) ** 2;
+      a.drawImage(img, f.x - f.z, f.y - f.z, f.z * 2, f.z * 2);
+    }
+    a.globalAlpha = 1;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    drawSky(now, dt);
+    b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H); b.globalCompositeOperation = 'lighter';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= 0.96; p.vy = p.vy * 0.96 + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = p.life / p.max, z = p.z * (0.35 + 0.65 * k);
+      b.globalAlpha = Math.min(1, k * 1.6); b.drawImage(sprite(p.h), p.x - z, p.y - z, z * 2, z * 2);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+      const k = 1 - r.life / r.max;
+      b.globalAlpha = 1 - k; b.strokeStyle = `hsl(${r.h} 100% 72%)`; b.lineWidth = 4 * (1 - k) + 1;
+      b.beginPath(); b.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 3), 0, 6.283); b.stroke();
+    }
+    b.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  function burst(x, y, h, n, power, g = 140) {
+    if (RM) return;
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, 6.283), v = power * rand(0.35, 1.5), life = rand(0.45, 1.05);
+      parts.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, g, life, max: life, z: rand(4, 11), h: h + rand(-22, 22) });
+    }
+  }
+  function ring(x, y, h, r0, r1, life = 0.6) { if (!RM) rings.push({ x, y, h, r0, r1, life, max: life }); }
+  // fireworks over the upper half of the screen
+  function celebrate(n = 9) {
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const x = W * rand(0.12, 0.88), y = H * rand(0.12, 0.6), h = rand(0, 360);
+      burst(x, y, h, 46, 330, 220); ring(x, y, h, 6, 120, 0.8); tone(pick([784, 880, 1047, 1175, 1319]), 0, 0.3, 0.05);
+    }, k * 170);
+  }
+  addEventListener('resize', resize); resize();
+  if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
+  return { burst, ring, celebrate, mood(lvl) { target = [165, 205, 262, 318][lvl] ?? 165; } };
+})();
+const mid = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
+
 const FROG = `<ellipse class="fb" cx="0" cy="-18" rx="21" ry="16"/><circle class="fe" cx="-10" cy="-33" r="8"/><circle class="fe" cx="10" cy="-33" r="8"/><circle class="fp" cx="-10" cy="-33" r="3.2"/><circle class="fp" cx="10" cy="-33" r="3.2"/><path class="fm" d="M-8 -14 Q0 -8 8 -14"/>`;
 
-/* ---------- pictures: ten lily pads for world 1, a number line for the rest ---------- */
-function frameViz(host, n) {
-  host.innerHTML = `<div class="frame" role="img" aria-label="Deu nenúfars, ${n} amb flor">${Array.from({ length: 10 }, (_, i) => `<span${i < n ? ' class="on"' : ''}></span>`).join('')}</div>`;
-  const pads = [...host.querySelectorAll('span')];
-  return {
-    async jump() { for (let i = n; i < 10; i++) { pads[i].className = 'new'; await sleep(RM ? 0 : 240); } },
-    reset() { pads.forEach((e, i) => { if (i >= n) e.className = ''; }); }
-  };
-}
+/* ---------- pictures: ten lily pads for section 1, tens and units for section 2, a number line for the rest ----------
+   Each picture has n moves. jump(i, mask) plays move i; with mask, the move that ends on the result shows "?" in its place,
+   and reveal() writes the result there. A hint plays one more move each time it is asked. */
 function Viz(host, p) {
   if (p.type === 1) return frameViz(host, p.a);
   return p.type === 2 ? blockViz(host, p) : lineViz(host, p);
 }
-// world 2: tens as bars, units as cubes; ten loose cubes turn into a new bar
+function frameViz(host, n) {
+  host.innerHTML = `<div class="frame" role="img" aria-label="Deu nenúfars, ${n} amb flor">${Array.from({ length: 10 }, (_, i) => `<span${i < n ? ' class="on"' : ''}></span>`).join('')}</div>`;
+  const pads = [...host.querySelectorAll('span')];
+  return {
+    n: 1,
+    async jump() { for (let i = n; i < 10; i++) { pads[i].className = 'new'; tone(440 + (i - n) * 40, 0, 0.12, 0.05); await sleep(RM ? 0 : 240); } },
+    // counts the new flowers one by one
+    reveal() { pads.forEach((e, i) => { if (i >= n) { e.className = 'new'; e.innerHTML = `<b>${i - n + 1}</b>`; } }); },
+    reset() { pads.forEach((e, i) => { if (i >= n) { e.className = ''; e.replaceChildren(); } }); }
+  };
+}
+// tens as bars, units as cubes; ten loose cubes turn into a new bar
 function blockViz(host, p) {
   const u = p.a % 10, t = (p.a - u) / 10;
   host.innerHTML = `<div class="blocks"><div class="col"><span class="h">Desenes</span><div class="bars"></div></div><div class="col"><span class="h">Unitats</span><div class="cubes"></div></div></div><p class="split"></p>`;
   const bars = $('.bars', host), cubes = $('.cubes', host), sp = $('.split', host);
   const add = (to, cls) => { const e = document.createElement('i'); e.className = cls; to.appendChild(e); return e; };
+  let fused = false;
   function reset() {
-    bars.replaceChildren(); cubes.replaceChildren(); cubes.className = 'cubes';
+    bars.replaceChildren(); cubes.replaceChildren(); cubes.className = 'cubes'; fused = false;
     for (let i = 0; i < t; i++) add(bars, 'bar');
     for (let i = 0; i < u; i++) add(cubes, 'cube');
     sp.innerHTML = `${bar(t)} i ${cub(u)}`;
   }
-  async function jump(i) {
+  async function jump(i, mask) {
     if (i === 0) {
-      for (let k = 0; k < p.b; k++) { add(cubes, 'cube new'); await sleep(RM ? 0 : 200); }
+      for (let k = 0; k < p.b; k++) { add(cubes, 'cube new'); tone(440 + k * 40, 0, 0.12, 0.05); await sleep(RM ? 0 : 200); }
       sp.innerHTML = `${bar(t)} i <b>${u} + ${p.b} = 10 cubets</b>`;
       return;
     }
@@ -307,15 +426,18 @@ function blockViz(host, p) {
     cubes.replaceChildren(); cubes.className = 'cubes';
     const nb = add(bars, 'bar new'), r1 = nb.getBoundingClientRect();
     if (!RM && nb.animate) await nb.animate([{ transform: `translate(${r0.left - r1.left}px, ${r0.top - r1.top}px)` }, { transform: 'none' }], { duration: 700, easing: 'ease-in-out' }).finished;
-    sp.innerHTML = `<b>${bar(t + 1)}</b> = ${p.ans}`;
+    const m = mid(nb); FX.burst(m.x, m.y, 330, 14, 90); tone(660, 0, 0.2, 0.08);
+    fused = true; sp.innerHTML = `<b>${bar(t + 1)}</b> = ${mask ? '<b class="q">?</b>' : p.ans}`;
   }
   reset();
-  return { jump, reset };
+  return { n: 2, jump, reset, reveal() { if (fused) sp.innerHTML = `<b>${bar(t + 1)}</b> = ${p.ans}`; } };
 }
 function lineViz(host, p) {
   const pts = [p.a, ...p.jumps.map(j => j.to)], lo = Math.min(...pts) - 2, hi = Math.max(...pts) + 2;
-  const X = n => 50 + (n - lo) / (hi - lo) * 900, Y = 170, NS = 'http://www.w3.org/2000/svg';
-  let s = `<svg class="nl" viewBox="0 0 1000 232" role="img" aria-label="Recta numèrica: ${lo} a ${hi}"><line class="axis" x1="16" y1="${Y}" x2="984" y2="${Y}"/>`;
+  // on a phone the drawing is narrower, so the numbers and the frog come out bigger
+  const VW = host.clientWidth < 480 ? 700 : 1000;
+  const X = n => 50 + (n - lo) / (hi - lo) * (VW - 100), Y = 170, NS = 'http://www.w3.org/2000/svg';
+  let s = `<svg class="nl" viewBox="0 0 ${VW} 232" role="img" aria-label="Recta numèrica: ${lo} a ${hi}"><line class="axis" x1="16" y1="${Y}" x2="${VW - 16}" y2="${Y}"/>`;
   for (let n = lo; n <= hi; n++) {
     s += `<line class="tick${n % 10 ? '' : ' ten'}" x1="${X(n)}" x2="${X(n)}" y1="${Y - 8}" y2="${Y + 8}"/>`;
     if (n % 10 === 0) s += `<text class="tl" data-n="${n}" x="${X(n)}" y="${Y + 48}">${n}</text>`;
@@ -324,20 +446,24 @@ function lineViz(host, p) {
   const dyn = $('.dyn', host), frog = $('.frog', host);
   const mk = (tag, at, txt) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; dyn.appendChild(e); return e; };
   const sit = (x, y) => frog.setAttribute('transform', `translate(${x} ${y})`);
-  function pad(n) {
+  let hid = null;
+  function pad(n, mask) {
     const t = host.querySelector(`.tl[data-n="${n}"]`); if (t) t.setAttribute('visibility', 'hidden');
     mk('ellipse', { class: 'lp', cx: X(n), cy: Y, rx: 25, ry: 9 });
-    mk('text', { class: 'pl', x: X(n), y: Y + 50 }, n);
+    const lab = mk('text', { class: mask ? 'pl q' : 'pl', x: X(n), y: Y + 50 }, mask ? '?' : n);
+    if (mask) hid = lab;
   }
+  function reveal() { if (hid) { hid.textContent = p.ans; hid = null; } }
   function reset() {
-    dyn.replaceChildren(); host.querySelectorAll('.tl').forEach(t => t.removeAttribute('visibility'));
+    dyn.replaceChildren(); host.querySelectorAll('.tl').forEach(t => t.removeAttribute('visibility')); hid = null;
     pad(p.a); sit(X(p.a), Y);
   }
-  async function jump(i) {
+  async function jump(i, mask) {
     const x1 = X(pts[i]), x2 = X(pts[i + 1]), dx = Math.abs(x2 - x1), h = Math.min(108, 36 + dx * 0.15), mx = (x1 + x2) / 2;
     const arc = mk('path', { class: 'arc', d: `M${x1} ${Y - 10} Q${mx} ${Y - 10 - 2 * h} ${x2} ${Y - 10}`, pathLength: 1, 'stroke-dasharray': 1, 'stroke-dashoffset': 1 });
     const dur = RM ? 0 : Math.min(950, 380 + dx);
     const t0 = performance.now();
+    tone(392, 0, 0.15, 0.06);
     await new Promise(done => {
       (function frame(now) {
         const t = dur ? Math.min(1, (now - t0) / dur) : 1, q = 1 - t;
@@ -347,186 +473,162 @@ function lineViz(host, p) {
       })(t0);
     });
     mk('text', { class: 'jl', x: mx, y: Y - 10 - h - 12 }, p.jumps[i].lab);
-    pad(pts[i + 1]);
+    pad(pts[i + 1], mask && pts[i + 1] === p.ans);
+    const m = mid(frog); FX.burst(m.x, m.y + m.w * 0.3, 140, 12, 80); FX.ring(m.x, m.y + m.w * 0.3, 140, 6, m.w * 0.9); tone(523, 0, 0.18, 0.07);
   }
   reset();
-  return { jump, reset };
+  return { n: p.jumps.length, jump, reset, reveal };
 }
 
-// narrate a trick: one caption per jump, then any closing caption
+// narrate a trick: one caption per move, then any closing caption
 async function demo(p, v, capEl, t) {
   const say = async (txt, ms) => { capEl.textContent = txt; await sleep(ms); return t.on; };
   v.reset();
   if (!await say(p.caps[0], 1700)) return false;
-  const n = p.nj || Math.max(1, p.jumps.length);
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < v.n; i++) {
     capEl.textContent = p.caps[i + 1];
     await sleep(700); if (!t.on) return false;
     await v.jump(i); if (!t.on) return false;
     await sleep(1300); if (!t.on) return false;
   }
-  for (let i = n + 1; i < p.caps.length; i++) if (!await say(p.caps[i], 1500)) return false;
+  for (let i = v.n + 1; i < p.caps.length; i++) if (!await say(p.caps[i], 1500)) return false;
   return true;
 }
 
 /* ---------- screens ---------- */
-const PTS = [[90, 350], [240, 140], [410, 330], [560, 120], [690, 330], [775, 120]];
-function home() {
-  fresh();
-  const total = prog.stars.reduce((a, b) => a + b, 0);
-  const todo = prog.stars.findIndex((n, i) => open(i + 1) && !n), here = todo < 0 ? 5 : todo;
-  const way = `M${PTS[0].join(' ')}` + PTS.slice(1).map(([x, y], i) => { const [x0, y0] = PTS[i], m = (x0 + x) / 2; return `C${m} ${y0} ${m} ${y} ${x} ${y}`; }).join('');
-  app.innerHTML = `
-    <header class="hero"><h1>Salts de Granota</h1><p class="lead">Aprèn trucs per sumar de cap, ben de pressa. Segueix el camí de nenúfars: a cada un, la granota t'ensenya un truc nou.</p></header>
-    <div class="trail"><svg viewBox="0 0 860 480" aria-hidden="true"><path class="way" d="${way}"/></svg>
-    <ol>${WORLDS.map((w, i) => `<li style="--x:${PTS[i][0]};--y:${PTS[i][1]}"><button class="world" data-w="${i + 1}" ${open(i + 1) ? '' : 'disabled title="Guanya una estrella al món anterior"'}>
-      ${i === here ? `<svg class="here" viewBox="-30 -46 60 50" aria-hidden="true">${FROG}</svg>` : ''}<span class="lily">${i + 1}</span><span class="tag"><b>${w.name}</b><span class="ex">${open(i + 1) ? w.ex : 'Tancat'}</span>${starsHTML(prog.stars[i])}</span>
-    </button></li>`).join('')}</ol></div>
-    <footer class="foot"><span>${total} de 18 estrelles</span>
-      <span class="row"><a class="link" href="index.html">← Tots els jocs</a><button class="link" id="so">So: ${prog.so ? 'sí' : 'no'}</button><button class="link" id="wipe">Esborra el progrés</button></span></footer>`;
-  app.querySelectorAll('.world').forEach(b => b.onclick = () => mira(+b.dataset.w));
-  $('#so').onclick = () => { prog.so = !prog.so; save(); home(); };
+// the link to the page of all games shows on the menu of sections, the way back to that menu inside a level
+function show(kicker, inLevel) {
+  $('#toG').hidden = inLevel; $('#toM').hidden = !inLevel; $('#kick').textContent = kicker; $('#app').classList.toggle('in', inLevel);
+}
+$('#toM').onclick = () => seccions();
+function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
+$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+
+const secOpen = s => s === 0 || prog.secs[s - 1] >= 10;
+function seccions() {
+  fresh(); show('Càlcul mental', false); FX.mood(0);
+  root.innerHTML = `<p class="status tip">Tria una secció. A cada una, la granota t'ensenya un truc nou per sumar de cap.</p>
+    <nav class="secs" aria-label="Seccions">${SECTIONS.map((s, i) => { const n = prog.secs[i]; return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${secOpen(i) ? '' : ' disabled'}>
+      <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${secOpen(i) ? s.tip : 'Acaba la secció anterior per obrir-la'}</span></span>
+      <span class="sec-p"><span class="pips">${Array.from({ length: 10 }, (_, k) => `<i${k < n ? ' class="ok"' : ''}></i>`).join('')}</span>${n} de 10</span></button>`; }).join('')}</nav>
+    <p class="foot"><span>${prog.secs.reduce((a, b) => a + b, 0)} de ${SECTIONS.length * 10} nivells</span><button class="link" id="wipe">Esborra el progrés</button></p>`;
+  $('.secs', root).onclick = e => { const b = e.target.closest('.sec'); if (b && !b.disabled) nivell(+b.dataset.s, Math.min(prog.secs[+b.dataset.s], 9)); };
   $('#wipe').onclick = e => {
-    if (e.target.dataset.sure) { prog.stars = [0, 0, 0, 0, 0, 0]; save(); home(); }
+    if (e.target.dataset.sure) { prog.secs = SECTIONS.map(() => 0); save(); seccions(); }
     else { e.target.dataset.sure = 1; e.target.textContent = 'Segur? Torna a clicar per esborrar-ho tot'; }
   };
+  $('.sec:not(:disabled)', root).focus({ preventScroll: true });
 }
 
-function head(w, step) {
-  return `<div class="top"><button class="link" id="back">← Mapa</button><h2>${w}. ${WORLDS[w - 1].name}</h2>
-    <nav class="tabs" aria-label="Passos">${['Mira', 'Prova', 'Repte'].map((s, i) => `<button data-s="${i + 1}"${i + 1 === step ? ' aria-current="step"' : ''}>${s}</button>`).join('')}</nav></div>`;
-}
-function wire(w) {
-  $('#back').onclick = home;
-  app.querySelectorAll('.tabs button').forEach(b => b.onclick = () => [mira, prova, repte][b.dataset.s - 1](w));
-}
-const FORM = `<form id="f" autocomplete="off"><label for="ans" id="q"></label>
-  <div class="row"><span id="eq"></span><input id="ans" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="msg"><span id="tail"></span><button class="btn" id="ok">Comprova</button></div>
-  <p id="msg" role="status"></p></form>`;
-const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!'];
-function say(txt, cls) { const m = $('#msg'); if (m) { m.textContent = txt; m.className = cls || ''; } }
-function wrong() { const a = $('#ans'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); a.select(); beep(false); }
+const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!'], HURRAY = ['Molt bé!', 'Quin salt!', 'Genial!', 'Nivell superat!'];
 
-function mira(w) {
-  const t = fresh(), W = WORLDS[w - 1];
-  if (!W.demo) {
-    app.innerHTML = head(w, 1) + `<section class="play"><p class="cap">Ja saps tots els trucs. Ara toca triar el bo per a cada suma.</p>
-      <ul class="tricks">${WORLDS.slice(1, 5).map(x => `<li><b>${x.ex}</b> · ${x.tip}</li>`).join('')}</ul>
-      <div class="row"><button class="btn" id="go">Ara jo!</button></div></section>`;
-    wire(w); $('#go').onclick = () => prova(w); $('#go').focus();
-    return;
+// A level: its sums one after another. A sum answered with a hint or after a miss comes back once at the end,
+// and the level is done when every sum has been answered: nothing is timed and nothing can be lost.
+function nivell(sec, idx) {
+  const t = fresh(), S = SECTIONS[sec], L = PLAN[idx], q = sums(sec, idx), res = [];
+  let i = 0, cur = { on: true };
+  show(`Secció ${sec + 1} · ${S.name}`, true); FX.mood(sec % 4);
+  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${idx + 1} · ${L.kind}</span><span class="chip" id="cnt"></span></div>
+    <nav class="levels" aria-label="Nivells"></nav><div class="play" id="play"></div>`;
+  const play = $('#play'), nav = $('.levels', root);
+  function levels() {
+    nav.innerHTML = PLAN.map((_, k) => `<button data-n="${k}" class="${k < prog.secs[sec] ? 'done' : ''}"${k === idx ? ' aria-current="true"' : ''}${k > prog.secs[sec] ? ' disabled title="Supera el nivell anterior"' : ''}>${k + 1}</button>`).join('');
+    // the row scrolls sideways on a phone: keep this level in the middle
+    const a = nav.getBoundingClientRect(), c = nav.querySelector('[aria-current]').getBoundingClientRect(); nav.scrollLeft += c.left - a.left - (a.width - c.width) / 2;
   }
-  let n = 0;
-  app.innerHTML = head(w, 1) + `<section class="play"><p class="count">${W.tip}</p><p class="big" id="big"></p><div id="viz"></div><p class="cap" id="cap" aria-live="polite"></p>
-    <div class="row"><button class="btn soft" id="again">Torna-ho a veure</button><button class="btn soft" id="other">Un altre exemple</button><button class="btn" id="go">Ara jo!</button></div></section>`;
-  wire(w);
-  let cur = { on: true };
-  async function play() {
-    cur.on = false; cur = { on: true }; const mine = cur, p = make(w, ...W.demo[n]);
-    $('#big').innerHTML = p.text;
-    const done = await demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return mine.on && t.on; } });
-    if (done) $('#big').textContent = p.eq;
-  }
-  $('#again').onclick = play;
-  $('#other').onclick = () => { n = (n + 1) % W.demo.length; play(); };
-  $('#go').onclick = () => prova(w);
-  play();
-}
+  nav.onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) nivell(sec, +b.dataset.n); };
+  levels();
 
-function prova(w) {
-  const t = fresh(), list = round(w, 5);
-  let i = 0;
-  (function show() {
-    if (i >= list.length) {
-      app.innerHTML = head(w, 2) + `<section class="play"><p class="big">Ja ho tens!</p><p class="cap">Ara sense dibuix i ben de pressa.</p>
-        <div class="row"><button class="btn soft" id="more">Vull practicar més</button><button class="btn" id="go">Al repte!</button></div></section>`;
-      wire(w); $('#more').onclick = () => prova(w); $('#go').onclick = () => repte(w); $('#go').focus();
-      return;
+  // the first level of a section opens with the frog showing the trick
+  function intro() {
+    let n = 0;
+    $('#cnt').textContent = 'La granota ho ensenya';
+    play.innerHTML = `<p class="count">${S.tip}</p><p class="big" id="big"></p><div id="viz"></div><p class="cap" id="cap" aria-live="polite"></p>
+      <div class="row"><button class="btn soft" id="again">Torna-ho a veure</button><button class="btn soft" id="other">Un altre exemple</button><button class="btn" id="go">Ara jo!</button></div>`;
+    async function run() {
+      cur.on = false; cur = { on: true }; const me = cur, p = make(sec + 1, ...S.demo[n]);
+      $('#big').innerHTML = p.text;
+      if (await demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return me.on && t.on; } })) $('#big').textContent = p.eq;
     }
-    const p = list[i]; let s = 0, miss = 0, busy = false;
-    app.innerHTML = head(w, 2) + `<section class="play"><p class="count">Suma ${i + 1} de ${list.length}</p>
-      <p class="big" id="big">${p.text}</p><div id="viz"></div>${FORM}</section>`;
-    wire(w);
-    const v = Viz($('#viz'), p), inp = $('#ans');
-    if (p.pre) { busy = true; v.jump(0).then(() => { busy = false; }); }
-    const ask = () => { const st = p.steps[s]; $('#q').textContent = st.hint; $('#eq').textContent = st.eq || ''; $('#tail').textContent = st.tail || ''; inp.value = ''; inp.focus(); miss = 0; };
-    ask();
+    $('#again').onclick = run;
+    $('#other').onclick = () => { n = (n + 1) % S.demo.length; run(); };
+    $('#go').onclick = ask;
+    run();
+  }
+
+  function ask() {
+    cur.on = false; cur = { on: true };
+    if (i >= q.length) return win();
+    const me = cur, alive = () => me.on && t.on, p = q[i];
+    // shown counts the moves of the picture already played; clean stays true while no hint and no miss
+    let v = null, shown = 0, clean = true, miss = 0, busy = false, done = false;
+    $('#cnt').textContent = p.re ? 'Repàs' : `Suma ${res.length + 1} de ${L.n}`;
+    play.innerHTML = `<div class="dots" role="img" aria-label="${res.length} de ${L.n} sumes fetes">${Array.from({ length: L.n }, (_, k) => `<i class="${k < res.length ? (res[k] ? 'ok' : 'slow') : k === res.length && !p.re ? 'now' : ''}"></i>`).join('')}</div>
+      <div id="viz"${L.pic ? '' : ' hidden'}></div>
+      <form id="f" autocomplete="off"><label for="ans"${L.pic ? '' : ' class="sr"'}>${L.pic ? p.hint : 'Escriu el resultat'}</label>
+        <div class="row"><span id="eq">${p.lead}</span><input id="ans" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="msg"><span id="tail">${p.tail}</span></div>
+        <div class="row"><button class="btn" id="ok">Comprova</button><button class="btn soft" type="button" id="hintb">Pista</button></div>
+        <p id="msg" role="status"></p></form>`;
+    const inp = $('#ans'), hb = $('#hintb'), msg = $('#msg');
+    const say = (txt, cls) => { msg.textContent = txt; msg.className = cls || ''; };
+    if (L.pic) {
+      v = Viz($('#viz'), p);
+      if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { busy = false; }); }
+    }
+    inp.focus({ preventScroll: true });
+    // a hint is a picture, never words: the frog makes its next move, and the place where the result goes shows "?".
+    // Asked again once every move is on screen, the picture gives the result away.
+    hb.onclick = async () => {
+      if (busy || done) return;
+      busy = true; clean = false; hb.classList.remove('glow'); say('');
+      if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); }
+      if (shown < v.n) { await v.jump(shown, shown === v.n - 1); shown++; }
+      else v.reveal();
+      if (!alive()) return;
+      busy = false; inp.focus({ preventScroll: true });
+    };
     $('#f').onsubmit = async e => {
       e.preventDefault();
-      const val = parseInt(inp.value, 10), st = p.steps[s];
-      if (busy || isNaN(val)) return;
-      // typing the final result early is right too: show why, then move on
-      const skip = val === p.ans && val !== st.ans;
-      if (!skip && val !== st.ans) {
-        miss++; wrong();
-        say(miss >= 2 ? `La resposta és ${st.ans}. Escriu-la per continuar.` : 'Encara no. Torna-ho a provar.', 'bad');
+      const val = parseInt(inp.value, 10);
+      if (busy || done || isNaN(val)) return;
+      if (val !== p.ans) {
+        clean = false; inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.select(); tone(150, 0, 0.3, 0.14, 'triangle');
+        say('Encara no. Torna-ho a provar.', 'bad');
+        // two misses in a row: the hint button lights up
+        if (++miss >= 2) hb.classList.add('glow');
         return;
       }
-      busy = true; beep(true); say(skip ? `Sí, fa ${p.ans}! Mira com hi arriba la granota.` : pick(BRAVO), 'good');
-      for (let k = s; k < (skip ? p.steps.length : s + 1); k++) {
-        if (p.steps[k].jump != null) await v.jump(p.steps[k].jump);
-        if (!t.on) return;
-      }
-      if (skip) { s = p.steps.length - 1; await sleep(900); if (!t.on) return; }
-      busy = false;
-      if (++s < p.steps.length) return ask();
-      $('#big').textContent = p.eq;
-      $('#f').outerHTML = `<p class="cap">${pick(BRAVO)}</p><div class="row"><button class="btn" id="next">Següent</button></div>`;
-      $('#next').onclick = () => { i++; show(); }; $('#next').focus();
+      done = true; inp.readOnly = true; inp.classList.add('ok'); hb.classList.remove('glow');
+      const m = mid(inp); FX.burst(m.x, m.y, 140, 22, 150); FX.ring(m.x, m.y, 140, m.w * 0.4, m.w * 1.1); chime([660, 880]);
+      say(pick(BRAVO), 'good');
+      if (!p.re) { res.push(clean); if (!clean) q.push({ ...p, re: true }); }
+      // with the picture on screen, the frog finishes the trick before the next sum
+      if (v) {
+        for (; shown < v.n; shown++) { await v.jump(shown); if (!alive()) return; }
+        v.reveal(); await sleep(1200);
+      } else await sleep(650);
+      if (!alive()) return;
+      i++; ask();
     };
-  })();
-}
-
-function repte(w) {
-  const t = fresh(), q = round(w, 10), res = [], T = WORLDS[w - 1].secs * 1000;
-  let i = 0, streak = 0;
-  (function show() {
-    clearTimeout(timer);
-    if (i >= q.length) return fi();
-    const p = q[i]; let first = true, hinted = false, done = false, hint = { on: true };
-    app.innerHTML = head(w, 3) + `<section class="play">
-      <div class="hud"><span class="dots" role="img" aria-label="${res.length} de 10 sumes fetes">${Array.from({ length: 10 }, (_, k) => `<i class="${k < res.length ? (res[k] ? 'ok' : 'slow') : k === res.length && !p.re ? 'now' : ''}"></i>`).join('')}</span>
-        <span>${p.re ? 'Repàs' : 'Ratxa: ' + streak}</span></div>
-      <div class="timer"><i id="bar"></i></div>
-      <p class="big">${p.text}${p.type === 1 ? '' : ' ='}</p>${FORM}
-      <p class="cap" id="cap" aria-live="polite" hidden></p><div id="viz" hidden></div></section>`;
-    wire(w);
-    const inp = $('#ans'), bar = $('#bar');
-    $('#q').textContent = 'Escriu el resultat i prem Enter';
-    inp.focus();
-    void bar.offsetWidth; bar.style.transition = `transform ${T}ms linear`; bar.style.transform = 'scaleX(0)';
-    function showTrick() {
-      if (hinted) return; hinted = true;
-      $('#viz').hidden = false; $('#cap').hidden = false;
-      demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return hint.on && t.on; } });
-    }
-    timer = setTimeout(() => { if (!done && t.on) { say('Cap pressa. Mira el truc i escriu la resposta.'); showTrick(); } }, T);
-    $('#f').onsubmit = e => {
-      e.preventDefault();
-      const val = parseInt(inp.value, 10);
-      if (done || isNaN(val)) return;
-      if (val !== p.ans) { first = false; wrong(); say('Encara no. Mira el truc i torna-ho a provar.', 'bad'); showTrick(); return; }
-      done = true; clearTimeout(timer); bar.style.transition = 'none';
-      const clean = first && !hinted;
-      if (!p.re) { res.push(clean); streak = clean ? streak + 1 : 0; if (!clean) q.push({ ...p, re: true }); }
-      beep(true); say(pick(BRAVO), 'good');
-      timer = setTimeout(() => { hint.on = false; if (t.on) { i++; show(); } }, hinted ? 1300 : 600);
-    };
-  })();
-  function fi() {
-    const fast = res.filter(Boolean).length, st = starsFor(fast);
-    if (st > prog.stars[w - 1]) { prog.stars[w - 1] = st; save(); }
-    app.innerHTML = head(w, 3) + `<section class="play result">${starsHTML(st)}
-      <p class="big">${fast} de 10</p>
-      <p class="cap">${st ? 'sumes fetes de pressa i sense pista.' : 'Encara no hi ha estrella. Torna a mirar el truc i prova-ho un altre cop.'}</p>
-      <p class="count">5 sumes: 1 estrella · 7 sumes: 2 estrelles · 9 sumes: 3 estrelles</p>
-      <div class="row"><button class="btn soft" id="again">Torna-hi</button>${st && w < 6 ? '<button class="btn" id="next">Món següent</button>' : '<button class="btn" id="map">Torna al mapa</button>'}</div></section>`;
-    wire(w);
-    $('#again').onclick = () => repte(w);
-    if ($('#next')) { $('#next').onclick = () => mira(w + 1); $('#next').focus(); }
-    if ($('#map')) { $('#map').onclick = home; $('#map').focus(); }
   }
+
+  function win() {
+    const fast = res.filter(Boolean).length, end = idx === 9, all = end && sec === SECTIONS.length - 1;
+    if (idx + 1 > prog.secs[sec]) { prog.secs[sec] = idx + 1; save(); }
+    levels(); $('#cnt').textContent = `${fast} de ${L.n} sense pista`;
+    chime([523, 659, 784, 1047, 1319]); FX.celebrate(end ? 16 : 8);
+    play.innerHTML = `<h2>${all ? 'Ja saps tots els trucs!' : end ? 'Secció superada!' : pick(HURRAY)}</h2>
+      <div class="dots" role="img" aria-label="${fast} de ${L.n} sumes sense pista">${res.map(ok => `<i class="${ok ? 'ok' : 'slow'}"></i>`).join('')}</div>
+      <p class="cap">${all ? 'Has après els cinc trucs de la granota per sumar de cap.' : `Nivell ${idx + 1} superat: ${fast} de ${L.n} sumes sense pista ni errors.`}</p>
+      <div class="row"><button class="btn soft" id="again">Torna-hi</button><button class="btn" id="nx">${all ? 'Torna a les seccions' : end ? 'Secció següent' : 'Nivell següent'}</button></div>`;
+    $('#again').onclick = () => nivell(sec, idx);
+    $('#nx').onclick = () => all ? seccions() : end ? nivell(sec + 1, 0) : nivell(sec, idx + 1);
+    $('#nx').focus({ preventScroll: true });
+  }
+
+  L.demo ? intro() : ask();
 }
 
-home();
+soBtn();
+seccions();
 </script>

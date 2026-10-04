@@ -69,9 +69,10 @@ p { margin: 0; }
 // each game keeps its own progress in this browser: show it on the cards when there is some
 function saved(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } }
 const frog = saved('salts-de-granota'), pond = saved('memoria-visual');
-const stars = Array.isArray(frog.stars) ? frog.stars.reduce((a, b) => a + (b | 0), 0) : 0;
+// the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
+const leaps = Array.isArray(frog.secs) ? frog.secs.reduce((a, b) => a + (b | 0), 0) : Array.isArray(frog.stars) ? frog.stars.slice(0, 5).filter(n => n > 0).length * 10 : 0;
 const levels = Array.isArray(pond.secs) ? pond.secs.reduce((a, b) => a + (b | 0), 0) : 0;
-if (stars) document.querySelector('#r-granota').textContent = `${stars} de 18 estrelles`;
+if (leaps) document.querySelector('#r-granota').textContent = `${leaps} de 50 nivells`;
 if (pond.best > 0) document.querySelector('#r-llums').textContent = `Rècord: ${pond.best | 0} punts`;
 if (levels) document.querySelector('#r-coet').textContent = `${levels} de 50 nivells`;
 </script>
