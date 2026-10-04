@@ -1,165 +1,204 @@
 <title>Salts de Granota</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <style>
-/* Layout: one centred column on a pond; the number line is the stage, the sum sits above it, the answer box below. */
+/* Layout: the pond at night, like the other games. One centred column: at home the trail of lily pads; in a world the sum, its picture
+   and a keypad of big keys, so nothing needs the phone's keyboard. Two fixed canvases paint the sky behind and the sparks in front.
+   The rules are written for a phone held upright; the media queries at the end add what a wider screen needs. */
 :root {
-  --water: #DDF1EE; --water-deep: #BFE3DF; --surface: #FFFFFF; --line: #9CCFC9;
-  --ink: #0F3A40; --muted: #4E7379;
-  --pad: #3E9B4F; --pad-dark: #2C7A3C; --on-pad: #FFFFFF;
-  --flower: #E24C86; --sun: #F2B632; --bad: #C8452F;
+  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
+  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D; --sun: #F7C64E; --bad: #FF6B5E;
+  --mint: #7CF5B0; --sky: #6FE3FF; --flower: #FF8FD0; --dim: rgb(160 230 220 / 0.2);
   --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   --body: "Nunito", "Segoe UI", system-ui, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --water: #0C2A30; --water-deep: #123A41; --surface: #16424A; --line: #2F666D;
-    --ink: #E6F5F1; --muted: #9EC3C0;
-    --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D;
-    --flower: #FF79A8; --sun: #F7C64E; --bad: #FF8A70; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --water: #0C2A30; --water-deep: #123A41; --surface: #16424A; --line: #2F666D;
-  --ink: #E6F5F1; --muted: #9EC3C0;
-  --pad: #4FB562; --pad-dark: #2F7F40; --on-pad: #06220D;
-  --flower: #FF79A8; --sun: #F7C64E; --bad: #FF8A70; color-scheme: dark;
+  color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {
-  margin: 0; min-height: 100vh; padding-inline: 16px; padding-block: 20px 40px;
-  background: radial-gradient(120% 80% at 50% 110%, var(--water-deep), var(--water) 60%) var(--water);
-  color: var(--ink); font: 500 1.125rem/1.45 var(--body);
+  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 14px 24px; overflow-x: hidden;
+  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
+  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
 }
-#app { max-width: 860px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
-h1, h2, .big, .num, .btn { font-family: var(--display); }
-h1 { font-size: clamp(2.2rem, 7vw, 3.6rem); line-height: 1; margin: 0; font-weight: 800; text-wrap: balance; }
-h2 { font-size: 1.6rem; line-height: 1.1; margin: 0; font-weight: 800; text-wrap: balance; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#sky { z-index: 0; }
+#fx { z-index: 5; }
+#app { position: relative; z-index: 1; max-width: 860px; margin-inline: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+h1, h2, .big, .btn, .chip, .key { font-family: var(--display); }
 p { margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
-:focus-visible { outline: 3px solid var(--flower); outline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.link { display: inline-block; background: none; border: 0; padding: 11px 0; margin-block: -7px; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.kicker { color: var(--muted); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 {
+  margin: 0; font-size: clamp(2.2rem, 8vw, 3.4rem); line-height: 1; font-weight: 800; text-wrap: balance;
+  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
+  filter: drop-shadow(0 0 18px rgb(110 230 255 / 0.35));
+}
+h2 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.1rem); line-height: 1.1; font-weight: 800; text-wrap: balance; }
+.lead { color: var(--muted); max-width: 44ch; text-wrap: pretty; }
 .btn {
-  border: 0; border-radius: 999px; padding: 0.45em 1.3em; font-size: 1.25rem; font-weight: 800;
-  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark);
+  min-height: 44px; border: 0; border-radius: 999px; padding: 0.3em 1.3em; font-size: 1.25rem; font-weight: 800;
+  background: var(--pad); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55);
 }
 .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--pad-dark); }
-.btn.soft { background: var(--surface); color: var(--ink); box-shadow: 0 4px 0 var(--line); }
-.link { background: none; border: 0; padding: 4px 0; color: var(--muted); font-weight: 700; text-decoration: underline; font-size: 1rem; }
+.btn.soft { background: #2A4B5C; color: var(--ink); box-shadow: 0 4px 0 #10242F; font-size: 1.1rem; }
+.btn.soft:active { box-shadow: 0 1px 0 #10242F; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.chip { background: var(--glass); border: 1px solid var(--edge); border-radius: 999px; padding: 1px 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* home: a trail of lily pads across the pond */
-.hero { display: flex; flex-direction: column; gap: 8px; }
-.lead { color: var(--muted); max-width: 46ch; }
-.trail { position: relative; aspect-ratio: 860 / 480; }
-.trail > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.way { fill: none; stroke: var(--line); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 1 26; }
-.trail ol { list-style: none; margin: 0; padding: 0; }
-.trail li { position: absolute; left: calc(var(--x) / 860 * 100%); top: calc(var(--y) / 480 * 100%); width: 172px; margin-left: -86px; margin-top: -38px; }
-.world { position: relative; width: 100%; border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.world:disabled { cursor: not-allowed; opacity: 0.55; }
+/* home: sums or subtractions, then that trail of lily pads across the pond */
+.ops { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.ops button { min-height: 44px; display: flex; gap: 8px; align-items: center; border: 0; background: none; border-radius: 999px; padding: 2px 16px; font: 800 1.2rem/1 var(--display); color: var(--muted); }
+.ops button span { font: 800 0.9rem/1 var(--body); font-variant-numeric: tabular-nums; }
+.ops button[aria-pressed="true"] { background: var(--pad); color: var(--on-pad); box-shadow: 0 0 24px rgb(79 181 98 / 0.5); }
+.ops button[data-o="1"][aria-pressed="true"] { background: var(--flower); color: #2A0718; box-shadow: 0 0 24px rgb(255 143 208 / 0.5); }
+.trail { position: relative; width: 100%; }
+.trail > svg { display: none; }
+.way { fill: none; stroke: var(--edge); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 1 26; }
+.trail ol { list-style: none; margin: 0; padding: 46px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 50px 8px; }
+.world { position: relative; width: 100%; border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; touch-action: manipulation; }
+/* a closed world dims what is inside its tag, not the tag: the dotted path must not show through it */
+.world:disabled { cursor: not-allowed; }
+.world:disabled .tag > * { opacity: 0.45; }
 .lily {
-  width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; transition: transform 0.15s;
+  width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; transition: transform 0.18s cubic-bezier(0.3, 1.7, 0.5, 1);
   background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); color: var(--on-pad);
-  font: 800 2.3rem/1 var(--display);
+  font: 800 2.3rem/1 var(--display); filter: drop-shadow(0 0 12px rgb(79 181 98 / 0.6));
 }
+.world:disabled .lily { filter: brightness(0.5) saturate(0.6); }
 .world:not(:disabled):hover .lily { transform: scale(1.1); }
-.tag { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--water); border-radius: 16px; padding: 4px 10px 6px; }
-.world b { font: 800 1.2rem/1.1 var(--display); }
-.world .ex { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.here { position: absolute; top: -40px; left: 50%; width: 58px; margin-left: -29px; }
-.stars { letter-spacing: 2px; color: var(--line); font-size: 1.3rem; line-height: 1; }
-.stars i { font-style: normal; color: var(--sun); }
-@media (max-width: 700px) {
-  .trail { aspect-ratio: auto; }
-  .trail > svg { display: none; }
-  .trail ol { display: flex; flex-direction: column; gap: 46px; padding-top: 44px; }
-  .trail li { position: static; margin: 0; }
-  .trail li:nth-child(even) { align-self: flex-end; }
-}
-.foot { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); }
+.world:not(:disabled):active .lily { transform: scale(0.95); }
+.tag { display: flex; flex-direction: column; align-items: center; gap: 2px; background: #0B2733; border: 1px solid var(--edge); border-radius: 16px; padding: 5px 10px 7px; }
+.world b { font: 800 1.15rem/1.1 var(--display); text-wrap: balance; }
+.world .ex { color: var(--muted); font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.here { position: absolute; top: -42px; left: 50%; width: 58px; margin-left: -29px; animation: bob 1.6s ease-in-out infinite; filter: drop-shadow(0 0 8px rgb(124 245 176 / 0.7)); }
+.stars { letter-spacing: 2px; color: var(--dim); font-size: 1.3rem; line-height: 1; }
+.stars i { font-style: normal; color: var(--sun); text-shadow: 0 0 12px rgb(247 198 78 / 0.8); }
+.foot { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); font-weight: 700; }
 
-/* world header */
-.top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
-.tabs { display: flex; gap: 6px; background: var(--surface); border-radius: 999px; padding: 5px; border: 2px solid var(--line); }
-.tabs button { border: 0; background: none; border-radius: 999px; padding: 2px 16px; font-weight: 800; color: var(--muted); }
+/* a world: its name, the three steps, and the card where everything happens */
+.whead { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.tabs { display: flex; gap: 6px; background: var(--glass); border-radius: 999px; padding: 5px; border: 1px solid var(--edge); }
+.tabs button { min-height: 40px; border: 0; background: none; border-radius: 999px; padding: 2px 18px; font-weight: 800; color: var(--muted); }
 .tabs button[aria-current="step"] { background: var(--pad); color: var(--on-pad); }
-
-/* play area */
-.play { background: var(--surface); border-radius: 28px; padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; }
-.big { font-size: clamp(2.6rem, 9vw, 4.6rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-.q { color: var(--flower); }
-.cap { min-height: 2.9em; font-size: 1.3rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
-.count, .hud { color: var(--muted); font-weight: 700; }
+.play {
+  width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 16px 14px 18px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); animation: pop 0.3s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.big { display: flex; flex-wrap: wrap; gap: 0 0.28em; align-items: center; justify-content: center; font-size: clamp(2.5rem, 10vw, 4.2rem); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.q { color: var(--sun); }
+.cap { min-height: 2.9em; font-size: 1.2rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
+.count, .hint { color: var(--muted); font-weight: 700; }
+.hint { color: var(--sky); text-wrap: balance; }
 .hud { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
-.dots { display: flex; gap: 6px; }
-.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); }
-.dots i.ok { background: var(--sun); }
+.dots { display: flex; gap: 7px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--dim); }
+.dots i.ok { background: var(--mint); box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); }
 .dots i.slow { background: var(--muted); }
-.dots i.now { outline: 3px solid var(--flower); outline-offset: 1px; }
-.timer { width: 100%; height: 12px; border-radius: 999px; background: var(--water-deep); overflow: hidden; }
-.timer i { display: block; height: 100%; background: var(--pad); transform-origin: left; }
+.dots i.now { outline: 3px solid var(--sun); outline-offset: 1px; }
+.timer { width: 100%; height: 10px; border-radius: 999px; background: var(--dim); overflow: hidden; }
+.timer i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), var(--sky)); transform-origin: left; }
+
+/* the answer is typed into the sum itself, with the keys below it */
+#rhs:empty { display: none; }
+#ans {
+  min-width: 2.3ch; height: 1.25em; padding: 0 0.2em; display: inline-grid; place-items: center; border-radius: 18px;
+  border: 3px solid var(--sun); background: rgb(160 230 220 / 0.08); box-shadow: 0 0 18px rgb(247 198 78 / 0.35);
+}
+#ans:empty::after { content: "?"; color: var(--sun); animation: blink 1.2s ease-in-out infinite; }
+#ans.good { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 26px 4px rgb(124 245 176 / 0.6); }
+#ans.shake { border-color: var(--bad); animation: shake 0.35s; }
+#msg { min-height: 1.5em; font-weight: 800; text-wrap: balance; }
+#msg.bad { color: var(--bad); }
+#msg.good { color: var(--mint); text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
+.keys { width: 100%; max-width: 460px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.key {
+  height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.del { background: none; color: var(--muted); }
+.key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+
+/* pictures: the number line, the ten lily pads, the bars and cubes */
 #viz { width: 100%; }
 svg.nl { width: 100%; height: auto; display: block; }
-.nl .axis { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
+.nl .axis { stroke: rgb(160 230 220 / 0.4); stroke-width: 6; stroke-linecap: round; }
 .nl .tick { stroke: var(--muted); stroke-width: 2; }
 .nl .tick.ten { stroke-width: 5; }
 .nl text { font-family: var(--display); text-anchor: middle; font-variant-numeric: tabular-nums; }
 .nl .tl { fill: var(--muted); font-size: 26px; font-weight: 600; }
 .nl .pl { fill: var(--ink); font-size: 36px; font-weight: 800; }
 .nl .lp { fill: var(--pad); }
-.nl .arc { fill: none; stroke: var(--flower); stroke-width: 5; stroke-linecap: round; }
-.nl .jl { fill: var(--flower); font-size: 34px; font-weight: 800; }
-.nl .fb { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; }
-.nl .fe, .here .fe { fill: var(--surface); stroke: var(--pad-dark); stroke-width: 2; }
-.nl .fp, .here .fp { fill: var(--ink); }
-.here .fb { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; }
-.fm { fill: none; stroke: var(--pad-dark); stroke-width: 2.5; stroke-linecap: round; }
-
-.frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 420px; margin-inline: auto; padding: 14px; border-radius: 20px; background: var(--water); }
+/* a jump forwards is blue, a jump backwards is yellow */
+.nl .arc { fill: none; stroke: var(--sky); stroke-width: 5; stroke-linecap: round; }
+.nl .jl { fill: var(--sky); font-size: 34px; font-weight: 800; }
+.nl .arc.back { stroke: var(--sun); }
+.nl .jl.back { fill: var(--sun); }
+.fb { fill: #4FB562; stroke: #2F7F40; stroke-width: 2; }
+.fe { fill: #fff; stroke: #2F7F40; stroke-width: 2; }
+.fp { fill: #06220D; }
+.fm { fill: none; stroke: #2F7F40; stroke-width: 2.5; stroke-linecap: round; }
+.frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 400px; margin-inline: auto; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); }
 .frame span { aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); display: grid; place-items: center; }
 .frame span::after { content: ""; width: 52%; aspect-ratio: 1; border-radius: 50%; }
-.frame .on::after { background: radial-gradient(var(--sun) 32%, var(--flower) 34%); }
-.frame .new::after { background: radial-gradient(var(--flower) 32%, var(--sun) 34%); animation: pop 0.25s ease-out; }
-
-form { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; }
-form label { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-#ans {
-  width: 5.2ch; text-align: center; font: 800 2.4rem/1.2 var(--display); color: var(--ink); background: var(--water);
-  border: 3px solid var(--line); border-radius: 18px; padding: 2px 6px; font-variant-numeric: tabular-nums;
-}
-#eq, #tail { font: 800 2.4rem/1.2 var(--display); font-variant-numeric: tabular-nums; }
-#eq:empty, #tail:empty { display: none; }
-#ans:focus { outline: none; border-color: var(--flower); }
-#msg { min-height: 1.5em; font-weight: 800; }
-#msg.bad { color: var(--bad); }
-#msg.good { color: var(--pad-dark); }
-:root[data-theme="dark"] #msg.good { color: var(--pad); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #msg.good { color: var(--pad); } }
-.shake { animation: shake 0.3s; }
-.tricks { text-align: left; display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; max-width: 46ch; }
-.tricks b { font-family: var(--display); font-variant-numeric: tabular-nums; }
-.result .stars { font-size: 3.4rem; letter-spacing: 6px; }
-@keyframes pop { from { transform: scale(0.2); } }
-@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-.split { font: 800 1.9rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 10px; }
-.split b { color: var(--flower); }
-.blocks { display: flex; gap: 40px; justify-content: center; align-items: flex-end; }
+.frame .on::after, .frame .gone::after { background: radial-gradient(var(--sun) 32%, var(--flower) 34%); }
+.frame .new::after { background: radial-gradient(var(--flower) 32%, var(--sun) 34%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: grow 0.25s ease-out; }
+.frame .gone::after { animation: wilt 0.3s ease-in forwards; }
+.split { font: 800 1.6rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 12px; }
+.split b { color: var(--sun); }
+.blocks { display: flex; gap: 26px; justify-content: center; align-items: flex-end; }
 .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.col .h { font-size: 0.95rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.bars { display: flex; gap: 8px; justify-content: flex-end; min-width: 216px; height: 138px; }
+.col .h { font-size: 0.85rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.bars { display: flex; gap: 6px; justify-content: flex-end; min-width: 150px; height: 138px; }
 .bar { width: 20px; height: 138px; border-radius: 4px; background: repeating-linear-gradient(to bottom, var(--pad) 0 12px, var(--pad-dark) 12px 14px); }
-.bar.new { background: repeating-linear-gradient(to bottom, var(--flower) 0 12px, var(--sun) 12px 14px); }
+.bar.new { background: repeating-linear-gradient(to bottom, var(--flower) 0 12px, var(--sun) 12px 14px); box-shadow: 0 0 16px 3px rgb(247 198 78 / 0.6); }
 .cubes { display: flex; flex-direction: column-reverse; gap: 2px; width: 20px; height: 138px; }
 .cube { width: 20px; height: 12px; border-radius: 3px; background: var(--pad); flex: none; }
-.cube.new { background: var(--flower); animation: pop 0.2s ease-out; }
+.cube.new { background: var(--flower); animation: grow 0.2s ease-out; }
 .cubes.full { gap: 0; border-radius: 4px; outline: 3px solid var(--sun); outline-offset: 2px; }
 .cubes.full .cube { height: 13.8px; border-radius: 0; background: var(--flower); }
-.blocks + .split { margin: 14px 0 0; }
-@media (prefers-reduced-motion: reduce) { .shake, .frame .new::after, .cube.new { animation: none; } }
+
+.tricks { text-align: left; display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; max-width: 46ch; }
+.tricks b { display: inline-block; margin-right: 6px; padding: 0 10px; border-radius: 10px; background: #2A4B5C; color: var(--sun); font-family: var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.result .stars { font-size: 3.6rem; letter-spacing: 6px; animation: pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.result .big { color: var(--sun); text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+
+@keyframes slide { to { background-position: -200% 0; } }
+@keyframes pop { from { transform: scale(0.7); opacity: 0; } }
+@keyframes grow { from { transform: scale(0.2); } }
+@keyframes wilt { to { transform: scale(0); opacity: 0; } }
+@keyframes bob { 50% { transform: translateY(-6px); } }
+@keyframes blink { 50% { opacity: 0.25; } }
+@keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+/* a tablet or a laptop: the pads follow a winding path, and the keys grow */
+@media (min-width: 700px) {
+  body { padding-block: 20px 32px; }
+  #app { gap: 16px; }
+  .trail { aspect-ratio: 860 / 480; }
+  .trail > svg { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+  .trail ol { display: block; padding: 0; }
+  .trail li { position: absolute; left: calc(var(--x) / 860 * 100%); top: calc(var(--y) / 480 * 100%); width: 172px; margin: -38px 0 0 -86px; }
+  .play { padding: 22px 22px 24px; gap: 14px; }
+  .key { height: 60px; }
+  .blocks { gap: 40px; }
+  .bars { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .here, .play, .result .stars, #ans:empty::after, #ans.shake, .frame .new::after, .cube.new { animation: none; }
+  .frame .gone::after { animation: none; opacity: 0; }
+  .lily, .key { transition: none; }
+}
 </style>
 
+<canvas id="sky" aria-hidden="true"></canvas>
 <main id="app"></main>
+<canvas id="fx" aria-hidden="true"></canvas>
 
 <script>
 /* LOGIC-START */
@@ -174,45 +213,64 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 const bar = n => n === 1 ? '1 barra' : `${n} barres`;
 const cub = n => n === 1 ? '1 cubet' : `${n} cubets`;
 const falten = n => n === 1 ? 'En falta 1' : `En falten ${n}`;
+const queden = n => n === 1 ? 'en queda 1' : `en queden ${n}`;
 
+// One problem of a trick. Types 1 to 5 are the tricks for adding (worlds 1 to 5) and 7 to 11 the same tricks for taking away
+// (worlds 7 to 11). lhs and rhs are what is written before and after the answer box; jumps are the frog's hops on the number line;
+// caps narrate the trick, one caption per hop after the first; pre means the first hop is already drawn when the child answers.
 function make(type, a, b) {
   if (type === 1) {
     const f = 10 - a;
-    return { type, a, b: f, ans: f, key: '1:' + a, text: `${a} + <b class="q">?</b> = 10`, eq: `${a} + ${f} = 10`, jumps: [],
-      caps: [`Tens ${a} ${a === 1 ? 'nenúfar' : 'nenúfars'} amb flor.`, `${falten(f)} per omplir els 10.`, `${a} i ${f} són amics del 10.`],
-      steps: [{ hint: `Quin és l'amic del 10 ${del(a)}?`, eq: `${a} +`, tail: '= 10', ans: f, jump: 0 }] };
+    return { type, a, b: f, ans: f, key: '1:' + a, lhs: `${a} +`, rhs: '= 10', eq: `${a} + ${f} = 10`, jumps: [],
+      hint: `Quin és l'amic del 10 ${del(a)}?`,
+      caps: [`Tens ${a} ${a === 1 ? 'nenúfar' : 'nenúfars'} amb flor.`, `${falten(f)} per omplir els 10.`, `${a} i ${f} són amics del 10.`] };
   }
-  const ans = a + b, base = { type, a, b, ans, key: a + '+' + b, text: `${a} + ${b}`, eq: `${a} + ${b} = ${ans}` };
-  if (type === 2) {
-    const u = a % 10, t = (a - u) / 10;
-    return { ...base, nj: 2, pre: true, jumps: [{ to: ans, lab: `+${b}` }],
-      caps: [`${a} són ${bar(t)} de deu i ${cub(u)}.`, `${b === 1 ? 'Arriba' : 'Arriben'} ${cub(b)} més: ara n'hi ha 10 de solts.`, `10 cubets fan una barra nova. ${cap(bar(t + 1))} són ${ans}.`],
-      steps: [{ hint: '10 cubets fan una barra nova', eq: `${a} + ${b} =`, ans, jump: 1 }] };
-  }
-  if (type === 3) {
-    return { ...base, jumps: [{ to: ans, lab: '+10' }],
-      caps: [`Sumar 10 és un salt gran.`, `La desena puja 1 i les unitats queden igual: ${ans}.`],
-      steps: [{ hint: 'Només canvia la desena', eq: `${a} + 10 =`, ans, jump: 0 }] };
-  }
+  const sub = type > 6, sg = sub ? '−' : '+', ans = sub ? a - b : a + b, u = a % 10, t = (a - u) / 10;
+  const p = { type, a, b, ans, sub, key: a + sg + b, lhs: `${a} ${sg} ${b} =`, rhs: '', eq: `${a} ${sg} ${b} = ${ans}`, jumps: [] };
+  if (type === 2) return { ...p, nj: 2, pre: true, hint: '10 cubets fan una barra nova',
+    caps: [`${a} són ${bar(t)} de deu i ${cub(u)}.`, `${b === 1 ? 'Arriba' : 'Arriben'} ${cub(b)} més: ara n'hi ha 10 de solts.`, `10 cubets fan una barra nova. ${cap(bar(t + 1))} són ${ans}.`] };
+  if (type === 3) return { ...p, jumps: [{ to: ans, lab: '+10' }], hint: 'Només canvia la desena',
+    caps: [`Sumar 10 és un salt gran.`, `La desena puja 1 i les unitats queden igual: ${ans}.`] };
   if (type === 4) {
-    const k = 10 - b, t = a + 10;
-    return { ...base, jumps: [{ to: t, lab: '+10' }, { to: ans, lab: `−${k}` }],
-      caps: [`${cap(el(b))} és gairebé 10.`, `Primer suma 10: arribes ${al(t)}.`, `Te n'has passat ${k}. Torna enrere ${k}: ${ans}.`],
-      pre: true, steps: [{ hint: `Suma 10 i torna enrere ${k}`, eq: `${a} + ${b} =`, ans, jump: 1 }] };
+    const k = 10 - b, far = a + 10;
+    return { ...p, pre: true, jumps: [{ to: far, lab: '+10' }, { to: ans, lab: `−${k}` }], hint: `Suma 10 i torna enrere ${k}`,
+      caps: [`${cap(el(b))} és gairebé 10.`, `Primer suma 10: arribes ${al(far)}.`, `Te n'has passat ${k}. Torna enrere ${k}: ${ans}.`] };
   }
-  const T = Math.ceil(a / 10) * 10, c = T - a, r = b - c;
-  return { ...base, jumps: [{ to: T, lab: `+${c}` }, { to: ans, lab: `+${r}` }],
-    caps: [`Primer salta fins a la desena.`, `${cap(del(a))} fins ${al(T)} ${falten(c).toLowerCase()}.`, `${cap(el(b))} és ${c} i ${r}. Ja n'has fet ${c}, ${r === 1 ? 'en queda' : 'en queden'} ${r}: ${ans}.`],
-    pre: true, steps: [{ hint: `Primer fins ${al(T)}, després el que queda ${del(b)}`, eq: `${a} + ${b} =`, ans, jump: 1 }] };
+  if (type === 5) {
+    const T = Math.ceil(a / 10) * 10, c = T - a, r = b - c;
+    return { ...p, pre: true, jumps: [{ to: T, lab: `+${c}` }, { to: ans, lab: `+${r}` }], hint: `Primer fins ${al(T)}, després el que queda ${del(b)}`,
+      caps: [`Primer salta fins a la desena.`, `${cap(del(a))} fins ${al(T)} ${falten(c).toLowerCase()}.`, `${cap(el(b))} és ${c} i ${r}. Ja n'has fet ${c}, ${queden(r)}: ${ans}.`] };
+  }
+  if (type === 7) return { ...p, hint: `Si del 10 en treus ${b}, quants en queden?`,
+    caps: [`Tens 10 nenúfars amb flor.`, b === 1 ? `Se'n va 1 flor.` : `Se'n van ${b} flors.`, `${cap(queden(ans))}. ${b} i ${ans} són amics del 10.`] };
+  if (type === 8) return { ...p, nj: 2, pre: true, hint: `Trenca una barra i treu-ne ${b}`,
+    caps: [`${a} són ${bar(t)} de deu, sense cap cubet solt.`, `Trenca una barra: ara tens 10 cubets solts.`, `Treu-ne ${b}: ${queden(10 - b)}. ${cap(bar(t - 1))} i ${cub(10 - b)} són ${ans}.`] };
+  if (type === 9) return { ...p, jumps: [{ to: ans, lab: '−10' }], hint: 'Només canvia la desena',
+    caps: [`Restar 10 és un salt gran enrere.`, `La desena baixa 1 i les unitats queden igual: ${ans}.`] };
+  if (type === 10) {
+    const k = 10 - b, far = a - 10;
+    return { ...p, pre: true, jumps: [{ to: far, lab: '−10' }, { to: ans, lab: `+${k}` }], hint: `Resta 10 i torna endavant ${k}`,
+      caps: [`${cap(el(b))} és gairebé 10.`, `Primer resta 10: arribes ${al(far)}.`, `N'has tret ${k} de més. Torna endavant ${k}: ${ans}.`] };
+  }
+  const T = a - u, r = b - u;
+  return { ...p, pre: true, jumps: [{ to: T, lab: `−${u}` }, { to: ans, lab: `−${r}` }], hint: `Primer fins ${al(T)}, després el que queda ${del(b)}`,
+    caps: [`Primer salta enrere fins a la desena.`, `${cap(del(a))} fins ${al(T)} n'hi ha ${u}.`, `${cap(el(b))} és ${u} i ${r}. Ja n'has tret ${u}, ${queden(r)}: ${ans}.`] };
 }
 
+// worlds 6 and 12 mix the tricks: 6 the ones for adding, 12 all of them
 function gen(w) {
   if (w === 1) return make(1, rnd(1, 9));
   if (w === 2) { const u = rnd(1, 9); return make(2, 10 * rnd(1, 8) + u, 10 - u); }
   if (w === 3) return make(3, rnd(11, 89), 10);
   if (w === 4) return make(4, 10 * rnd(1, 8) + rnd(1, 9), pick([9, 9, 8]));
   if (w === 5) { const u = rnd(4, 9); return make(5, 10 * rnd(1, 8) + u, rnd(Math.max(2, 11 - u), 7)); }
-  return gen(rnd(2, 5));
+  if (w === 6) return gen(rnd(2, 5));
+  if (w === 7) return make(7, 10, rnd(1, 9));
+  if (w === 8) return make(8, 10 * rnd(2, 9), rnd(1, 9));
+  if (w === 9) return make(9, rnd(21, 99), 10);
+  if (w === 10) return make(10, 10 * rnd(2, 9) + rnd(0, 7), pick([9, 9, 8]));
+  if (w === 11) { const u = rnd(1, 6); return make(11, 10 * rnd(2, 9) + u, rnd(Math.max(2, u + 1), 7)); }
+  return gen(pick([2, 3, 4, 5, 8, 9, 10, 11]));
 }
 
 function round(w, n) {
@@ -228,63 +286,169 @@ function round(w, n) {
 const starsFor = fast => fast >= 9 ? 3 : fast >= 7 ? 2 : fast >= 5 ? 1 : 0;
 /* LOGIC-END */
 
+// six worlds of sums, then six of subtractions that mirror them
 const WORLDS = [
   { name: 'Amics del 10', ex: '7 + ? = 10', tip: 'Cada número té un amic: junts fan 10.', secs: 6, demo: [[7], [6]] },
   { name: 'Arribar a la desena', ex: '32 + 8', tip: 'Deu cubets fan una barra: una desena més.', secs: 8, demo: [[32, 8], [46, 4]] },
   { name: 'Sumar 10', ex: '17 + 10', tip: 'Quan sumes 10, només canvia la desena.', secs: 8, demo: [[17, 10], [43, 10]] },
   { name: 'Sumar 9 i 8', ex: '17 + 9', tip: 'Suma 10 i torna enrere 1 (o 2).', secs: 12, demo: [[17, 9], [35, 8]] },
-  { name: 'Passar per la desena', ex: '27 + 6', tip: 'Primer salta fins a la desena, després la resta.', secs: 12, demo: [[27, 6], [48, 5]] },
-  { name: 'Barreja', ex: 'de tot', tip: 'Tria el truc que millor et vagi.', secs: 12 }
+  { name: 'Passar per la desena', ex: '27 + 6', tip: 'Primer salta fins a la desena, després el que queda.', secs: 12, demo: [[27, 6], [48, 5]] },
+  { name: 'Barreja', ex: 'totes les sumes', tip: 'Tria el truc que millor et vagi.', secs: 12 },
+  { name: 'Treure del 10', ex: '10 − 3', tip: 'Si del 10 en treus un amic, queda l\'altre.', secs: 6, demo: [[10, 3], [10, 6]] },
+  { name: 'Trencar una desena', ex: '40 − 6', tip: 'Trenca una barra en 10 cubets i treu els que calgui.', secs: 8, demo: [[40, 6], [70, 3]] },
+  { name: 'Restar 10', ex: '47 − 10', tip: 'Quan restes 10, només canvia la desena.', secs: 8, demo: [[47, 10], [83, 10]] },
+  { name: 'Restar 9 i 8', ex: '35 − 9', tip: 'Resta 10 i torna endavant 1 (o 2).', secs: 12, demo: [[35, 9], [52, 8]] },
+  { name: 'Passar per la desena', ex: '33 − 6', tip: 'Primer salta enrere fins a la desena, després el que queda.', secs: 12, demo: [[33, 6], [52, 5]] },
+  { name: 'Gran barreja', ex: 'sumes i restes', tip: 'Mira bé el signe i tria el truc.', secs: 12 }
 ];
+const NOUN = w => w < 7 ? ['suma', 'sumes'] : w < 12 ? ['resta', 'restes'] : ['operació', 'operacions'];
 const KEY = 'salts-de-granota';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = (s, r = document) => r.querySelector(s);
 const app = $('#app');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
 
-let prog = { stars: [0, 0, 0, 0, 0, 0], so: true };
+let prog = { stars: WORLDS.map(() => 0), so: true };
 try {
   const d = JSON.parse(localStorage.getItem(KEY));
-  if (d && Array.isArray(d.stars) && d.stars.length === 6) prog = { stars: d.stars.map(n => Math.min(3, Math.max(0, n | 0))), so: d.so !== false };
+  // a save from before the subtractions only has the six worlds of sums: the new ones start without stars
+  if (d && Array.isArray(d.stars)) prog = { stars: prog.stars.map((_, i) => Math.min(3, Math.max(0, d.stars[i] | 0))), so: d.so !== false };
 } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) {} };
-const open = w => w === 1 || prog.stars[w - 2] > 0;
+// each world opens with a star in the one before; the subtractions open with a star in the friends of 10
+const open = w => w === 1 || prog.stars[w === 7 ? 0 : w - 2] > 0;
 
-// every screen change cancels running animations and timers through this token
-let tok = { on: true }, timer = 0;
-function fresh() { tok.on = false; tok = { on: true }; clearTimeout(timer); return tok; }
+// every screen change cancels running animations, timers and the keypad through this token
+let tok = { on: true }, timer = 0, keyFn = null;
+function fresh() { tok.on = false; tok = { on: true }; clearTimeout(timer); keyFn = null; return tok; }
 
+/* ---------- sound ---------- */
 let ac;
-function beep(good) {
+function tone(f, at = 0, dur = 0.34, vol = 0.15, type = 'sine') {
   if (!prog.so) return;
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    (good ? [660, 880] : [200]).forEach((f, i) => {
-      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i * 0.09;
-      o.type = good ? 'triangle' : 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.2);
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + at;
+    [[f, vol, type], [f * 2, vol * 0.3, 'triangle']].forEach(([fr, v, ty]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty; o.frequency.value = fr;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
     });
   } catch (e) {}
 }
+const chime = (notes, gap = 0.08) => notes.forEach((f, i) => tone(f, i * gap, 0.4, 0.12));
+const PENTA = [0, 2, 4, 7, 9];
+// the longer the streak, the higher the note
+const noteOf = k => 392 * 2 ** ((12 * Math.floor(k / 5) + PENTA[k % 5]) / 12);
+
+/* ---------- canvases: drifting glow and fireflies behind, sparks and rings in front ---------- */
+const FX = (() => {
+  const sky = $('#sky'), fx = $('#fx'), a = sky.getContext('2d'), b = fx.getContext('2d');
+  const parts = [], rings = [], flies = [], sprites = new Map();
+  let W = 0, H = 0, hue = 165, target = 165, last = 0;
+  function sprite(h) {
+    h = ((Math.round(h / 12) * 12) % 360 + 360) % 360;
+    let s = sprites.get(h);
+    if (!s) {
+      s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, `hsl(${h} 100% 75%)`); gr.addColorStop(1, `hsl(${h} 100% 55% / 0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); sprites.set(h, s);
+    }
+    return s;
+  }
+  function resize() {
+    const D = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    sky.width = W; sky.height = H; fx.width = W * D; fx.height = H * D; b.setTransform(D, 0, 0, D, 0, 0);
+    if (!flies.length) for (let i = 0; i < 34; i++) flies.push({ x: rand(0, W), y: rand(0, H), a: rand(0, 6.28), s: rand(8, 24), p: rand(0, 6.28), z: rand(5, 13) });
+    if (RM) drawSky(0, 0);
+  }
+  function drawSky(now, dt) {
+    a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.globalCompositeOperation = 'lighter';
+    hue += (target - hue) * Math.min(1, dt * 1.5);
+    const R = Math.max(W, H) * 0.6;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.4 * Math.sin(now * 0.00011 * (i + 1) + i * 2.1)), y = H * (0.5 + 0.38 * Math.cos(now * 0.00013 * (i + 1.3) + i));
+      const g = a.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, `hsl(${hue + i * 42} 85% 48% / 0.24)`); g.addColorStop(1, `hsl(${hue + i * 42} 85% 48% / 0)`);
+      a.fillStyle = g; a.fillRect(0, 0, W, H);
+    }
+    if (RM) return;
+    const img = sprite(62);
+    for (const f of flies) {
+      f.a += rand(-1.2, 1.2) * dt; f.x += Math.cos(f.a) * f.s * dt; f.y += Math.sin(f.a) * f.s * dt;
+      if (f.x < -20) f.x = W + 20; else if (f.x > W + 20) f.x = -20;
+      if (f.y < -20) f.y = H + 20; else if (f.y > H + 20) f.y = -20;
+      a.globalAlpha = 0.15 + 0.75 * Math.sin(now * 0.0016 + f.p) ** 2;
+      a.drawImage(img, f.x - f.z, f.y - f.z, f.z * 2, f.z * 2);
+    }
+    a.globalAlpha = 1;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    drawSky(now, dt);
+    b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H); b.globalCompositeOperation = 'lighter';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= 0.96; p.vy = p.vy * 0.96 + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const k = p.life / p.max, z = p.z * (0.35 + 0.65 * k);
+      b.globalAlpha = Math.min(1, k * 1.6); b.drawImage(sprite(p.h), p.x - z, p.y - z, z * 2, z * 2);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.life -= dt; if (r.life <= 0) { rings.splice(i, 1); continue; }
+      const k = 1 - r.life / r.max;
+      b.globalAlpha = 1 - k; b.strokeStyle = `hsl(${r.h} 100% 72%)`; b.lineWidth = 4 * (1 - k) + 1;
+      b.beginPath(); b.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 3), 0, 6.283); b.stroke();
+    }
+    b.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  function burst(x, y, h, n, power, g = 140) {
+    if (RM) return;
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, 6.283), v = power * rand(0.35, 1.5), life = rand(0.45, 1.05);
+      parts.push({ x, y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, g, life, max: life, z: rand(4, 11), h: h + rand(-22, 22) });
+    }
+  }
+  function ring(x, y, h, r0, r1, life = 0.6) { if (!RM) rings.push({ x, y, h, r0, r1, life, max: life }); }
+  // fireworks over the upper half of the screen
+  function celebrate(n = 9) {
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const x = W * rand(0.12, 0.88), y = H * rand(0.12, 0.6), h = rand(0, 360);
+      burst(x, y, h, 46, 330, 220); ring(x, y, h, 6, 120, 0.8); tone(pick([784, 880, 1047, 1175, 1319]), 0, 0.3, 0.05);
+    }, k * 170);
+  }
+  addEventListener('resize', resize); resize();
+  if (!RM) requestAnimationFrame(t => { last = t; frame(t); });
+  return { burst, ring, celebrate, mood(h) { target = h; } };
+})();
+const mid = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, bottom: r.bottom }; };
 
 const starsHTML = n => `<span class="stars" role="img" aria-label="${n} de 3 estrelles"><i>${'★'.repeat(n)}</i>${'★'.repeat(3 - n)}</span>`;
 const FROG = `<ellipse class="fb" cx="0" cy="-18" rx="21" ry="16"/><circle class="fe" cx="-10" cy="-33" r="8"/><circle class="fe" cx="10" cy="-33" r="8"/><circle class="fp" cx="-10" cy="-33" r="3.2"/><circle class="fp" cx="10" cy="-33" r="3.2"/><path class="fm" d="M-8 -14 Q0 -8 8 -14"/>`;
 
-/* ---------- pictures: ten lily pads for world 1, a number line for the rest ---------- */
-function frameViz(host, n) {
-  host.innerHTML = `<div class="frame" role="img" aria-label="Deu nenúfars, ${n} amb flor">${Array.from({ length: 10 }, (_, i) => `<span${i < n ? ' class="on"' : ''}></span>`).join('')}</div>`;
+/* ---------- pictures: ten lily pads for the friends of 10, bars and cubes for the tens, a number line for the rest ---------- */
+function Viz(host, p) {
+  if (p.type === 1 || p.type === 7) return frameViz(host, p);
+  return p.type === 2 || p.type === 8 ? blockViz(host, p) : lineViz(host, p);
+}
+// adding fills the empty pads with new flowers; taking away starts with ten flowers and some leave
+function frameViz(host, p) {
+  const keep = p.sub ? p.ans : p.a, first = i => p.sub || i < keep ? 'on' : '';
+  host.innerHTML = `<div class="frame" role="img" aria-label="Deu nenúfars, ${p.sub ? 10 : keep} amb flor">${Array.from({ length: 10 }, (_, i) => `<span class="${first(i)}"></span>`).join('')}</div>`;
   const pads = [...host.querySelectorAll('span')];
   return {
-    async jump() { for (let i = n; i < 10; i++) { pads[i].className = 'new'; await sleep(RM ? 0 : 240); } },
-    reset() { pads.forEach((e, i) => { if (i >= n) e.className = ''; }); }
+    async jump() { for (let i = keep; i < 10; i++) { pads[i].className = p.sub ? 'gone' : 'new'; tone(noteOf(i), 0, 0.12, 0.05); await sleep(RM ? 0 : 240); } },
+    reset() { pads.forEach((e, i) => { e.className = first(i); }); }
   };
 }
-function Viz(host, p) {
-  if (p.type === 1) return frameViz(host, p.a);
-  return p.type === 2 ? blockViz(host, p) : lineViz(host, p);
-}
-// world 2: tens as bars, units as cubes; ten loose cubes turn into a new bar
+// tens as bars, units as cubes: ten loose cubes turn into a new bar, or a bar breaks into ten cubes to take some away
 function blockViz(host, p) {
   const u = p.a % 10, t = (p.a - u) / 10;
   host.innerHTML = `<div class="blocks"><div class="col"><span class="h">Desenes</span><div class="bars"></div></div><div class="col"><span class="h">Unitats</span><div class="cubes"></div></div></div><p class="split"></p>`;
@@ -296,9 +460,21 @@ function blockViz(host, p) {
     for (let i = 0; i < u; i++) add(cubes, 'cube');
     sp.innerHTML = `${bar(t)} i ${cub(u)}`;
   }
-  async function jump(i) {
+  async function take(i) {
     if (i === 0) {
-      for (let k = 0; k < p.b; k++) { add(cubes, 'cube new'); await sleep(RM ? 0 : 200); }
+      bars.lastChild.classList.add('new'); await sleep(RM ? 0 : 600);
+      bars.lastChild.remove(); tone(330, 0, 0.2, 0.08);
+      for (let k = 0; k < 10; k++) add(cubes, 'cube new');
+      sp.innerHTML = `${bar(t - 1)} i <b>10 cubets</b>`;
+      return;
+    }
+    for (let k = 0; k < p.b; k++) { cubes.lastChild.remove(); tone(noteOf(9 - k), 0, 0.12, 0.05); await sleep(RM ? 0 : 200); }
+    sp.innerHTML = `<b>${bar(t - 1)} i ${cub(10 - p.b)}</b> = ${p.ans}`;
+  }
+  async function jump(i) {
+    if (p.sub) return take(i);
+    if (i === 0) {
+      for (let k = 0; k < p.b; k++) { add(cubes, 'cube new'); tone(noteOf(u + k), 0, 0.12, 0.05); await sleep(RM ? 0 : 200); }
       sp.innerHTML = `${bar(t)} i <b>${u} + ${p.b} = 10 cubets</b>`;
       return;
     }
@@ -307,15 +483,18 @@ function blockViz(host, p) {
     cubes.replaceChildren(); cubes.className = 'cubes';
     const nb = add(bars, 'bar new'), r1 = nb.getBoundingClientRect();
     if (!RM && nb.animate) await nb.animate([{ transform: `translate(${r0.left - r1.left}px, ${r0.top - r1.top}px)` }, { transform: 'none' }], { duration: 700, easing: 'ease-in-out' }).finished;
+    tone(523, 0, 0.25, 0.08);
     sp.innerHTML = `<b>${bar(t + 1)}</b> = ${p.ans}`;
   }
   reset();
   return { jump, reset };
 }
 function lineViz(host, p) {
-  const pts = [p.a, ...p.jumps.map(j => j.to)], lo = Math.min(...pts) - 2, hi = Math.max(...pts) + 2;
-  const X = n => 50 + (n - lo) / (hi - lo) * 900, Y = 170, NS = 'http://www.w3.org/2000/svg';
-  let s = `<svg class="nl" viewBox="0 0 1000 232" role="img" aria-label="Recta numèrica: ${lo} a ${hi}"><line class="axis" x1="16" y1="${Y}" x2="984" y2="${Y}"/>`;
+  // a narrow screen gets a shorter line with less room at the ends, so the numbers stay readable
+  const tight = host.clientWidth < 560, VW = tight ? 640 : 1000, m = tight ? 1 : 2;
+  const pts = [p.a, ...p.jumps.map(j => j.to)], lo = Math.min(...pts) - m, hi = Math.max(...pts) + m;
+  const X = n => 50 + (n - lo) / (hi - lo) * (VW - 100), Y = 170, NS = 'http://www.w3.org/2000/svg';
+  let s = `<svg class="nl" viewBox="0 0 ${VW} 232" role="img" aria-label="Recta numèrica: ${lo} a ${hi}"><line class="axis" x1="16" y1="${Y}" x2="${VW - 16}" y2="${Y}"/>`;
   for (let n = lo; n <= hi; n++) {
     s += `<line class="tick${n % 10 ? '' : ' ten'}" x1="${X(n)}" x2="${X(n)}" y1="${Y - 8}" y2="${Y + 8}"/>`;
     if (n % 10 === 0) s += `<text class="tl" data-n="${n}" x="${X(n)}" y="${Y + 48}">${n}</text>`;
@@ -334,10 +513,11 @@ function lineViz(host, p) {
     pad(p.a); sit(X(p.a), Y);
   }
   async function jump(i) {
-    const x1 = X(pts[i]), x2 = X(pts[i + 1]), dx = Math.abs(x2 - x1), h = Math.min(108, 36 + dx * 0.15), mx = (x1 + x2) / 2;
-    const arc = mk('path', { class: 'arc', d: `M${x1} ${Y - 10} Q${mx} ${Y - 10 - 2 * h} ${x2} ${Y - 10}`, pathLength: 1, 'stroke-dasharray': 1, 'stroke-dashoffset': 1 });
+    const x1 = X(pts[i]), x2 = X(pts[i + 1]), dx = Math.abs(x2 - x1), h = Math.min(108, 36 + dx * 0.15), mx = (x1 + x2) / 2, back = x2 < x1 ? ' back' : '';
+    const arc = mk('path', { class: 'arc' + back, d: `M${x1} ${Y - 10} Q${mx} ${Y - 10 - 2 * h} ${x2} ${Y - 10}`, pathLength: 1, 'stroke-dasharray': 1, 'stroke-dashoffset': 1 });
     const dur = RM ? 0 : Math.min(950, 380 + dx);
     const t0 = performance.now();
+    tone(back ? 330 : 440, 0, 0.14, 0.06);
     await new Promise(done => {
       (function frame(now) {
         const t = dur ? Math.min(1, (now - t0) / dur) : 1, q = 1 - t;
@@ -346,8 +526,10 @@ function lineViz(host, p) {
         t < 1 ? requestAnimationFrame(frame) : done();
       })(t0);
     });
-    mk('text', { class: 'jl', x: mx, y: Y - 10 - h - 12 }, p.jumps[i].lab);
+    mk('text', { class: 'jl' + back, x: mx, y: Y - 10 - h - 12 }, p.jumps[i].lab);
     pad(pts[i + 1]);
+    // the frog lands on the pad with a splash
+    if (frog.isConnected) { const c = mid(frog), hue = back ? 45 : 190; FX.ring(c.x, c.bottom, hue, 4, c.w * 1.1); FX.burst(c.x, c.bottom, hue, 12, 110); tone(back ? 494 : 659, 0, 0.2, 0.07); }
   }
   reset();
   return { jump, reset };
@@ -370,60 +552,91 @@ async function demo(p, v, capEl, t) {
 }
 
 /* ---------- screens ---------- */
+function soBtn() {
+  const b = $('#so'); b.textContent = `So: ${prog.so ? 'sí' : 'no'}`;
+  b.onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+}
 const PTS = [[90, 350], [240, 140], [410, 330], [560, 120], [690, 330], [775, 120]];
+// which trail the map shows: 0 the sums, 1 the subtractions
+let op = 0;
 function home() {
-  fresh();
-  const total = prog.stars.reduce((a, b) => a + b, 0);
-  const todo = prog.stars.findIndex((n, i) => open(i + 1) && !n), here = todo < 0 ? 5 : todo;
+  fresh(); FX.mood(op ? 318 : 165);
+  const base = op * 6, sum = k => prog.stars.slice(k * 6, k * 6 + 6).reduce((a, b) => a + b, 0);
+  const todo = PTS.findIndex((_, i) => open(base + i + 1) && !prog.stars[base + i]), here = todo >= 0 ? todo : open(base + 1) ? 5 : -1;
   const way = `M${PTS[0].join(' ')}` + PTS.slice(1).map(([x, y], i) => { const [x0, y0] = PTS[i], m = (x0 + x) / 2; return `C${m} ${y0} ${m} ${y} ${x} ${y}`; }).join('');
   app.innerHTML = `
-    <header class="hero"><h1>Salts de Granota</h1><p class="lead">Aprèn trucs per sumar de cap, ben de pressa. Segueix el camí de nenúfars: a cada un, la granota t'ensenya un truc nou.</p></header>
+    <div class="top"><a class="link" href="index.html">← Tots els jocs</a><button class="link" id="so"></button></div>
+    <header><p class="kicker">Càlcul mental</p><h1>Salts de Granota</h1></header>
+    <nav class="ops" aria-label="Sumes o restes">${['＋ Sumes', '− Restes'].map((s, k) => `<button data-o="${k}" aria-pressed="${k === op}">${s}<span>★ ${sum(k)}/18</span></button>`).join('')}</nav>
+    <p class="lead">${!op ? 'Segueix el camí de nenúfars: a cada un, la granota t\'ensenya un truc per sumar de cap.' : open(7) ? 'Els mateixos trucs, saltant enrere: ara la granota t\'ensenya a restar de cap.' : 'Guanya una estrella a «Amics del 10» i s\'obrirà el camí de les restes.'}</p>
     <div class="trail"><svg viewBox="0 0 860 480" aria-hidden="true"><path class="way" d="${way}"/></svg>
-    <ol>${WORLDS.map((w, i) => `<li style="--x:${PTS[i][0]};--y:${PTS[i][1]}"><button class="world" data-w="${i + 1}" ${open(i + 1) ? '' : 'disabled title="Guanya una estrella al món anterior"'}>
-      ${i === here ? `<svg class="here" viewBox="-30 -46 60 50" aria-hidden="true">${FROG}</svg>` : ''}<span class="lily">${i + 1}</span><span class="tag"><b>${w.name}</b><span class="ex">${open(i + 1) ? w.ex : 'Tancat'}</span>${starsHTML(prog.stars[i])}</span>
-    </button></li>`).join('')}</ol></div>
-    <footer class="foot"><span>${total} de 18 estrelles</span>
-      <span class="row"><a class="link" href="index.html">← Tots els jocs</a><button class="link" id="so">So: ${prog.so ? 'sí' : 'no'}</button><button class="link" id="wipe">Esborra el progrés</button></span></footer>`;
-  app.querySelectorAll('.world').forEach(b => b.onclick = () => mira(+b.dataset.w));
-  $('#so').onclick = () => { prog.so = !prog.so; save(); home(); };
+    <ol>${PTS.map(([x, y], i) => { const n = base + i + 1, w = WORLDS[n - 1]; return `<li style="--x:${x};--y:${y}"><button class="world" data-w="${n}" ${open(n) ? '' : `disabled title="Guanya una estrella ${n === 7 ? 'a Amics del 10' : 'al món anterior'}"`}>
+      ${i === here ? `<svg class="here" viewBox="-30 -46 60 50" aria-hidden="true">${FROG}</svg>` : ''}<span class="lily">${i + 1}</span><span class="tag"><b>${w.name}</b><span class="ex">${open(n) ? w.ex : 'Tancat'}</span>${starsHTML(prog.stars[n - 1])}</span>
+    </button></li>`; }).join('')}</ol></div>
+    <footer class="foot"><span>${sum(0) + sum(1)} de 36 estrelles</span><button class="link" id="wipe">Esborra el progrés</button></footer>`;
+  soBtn();
+  app.querySelectorAll('.ops button').forEach(b => b.onclick = () => { op = +b.dataset.o; tone(op ? 494 : 659, 0, 0.15, 0.08); home(); });
+  app.querySelectorAll('.world').forEach(b => b.onclick = () => { tone(523, 0, 0.2); mira(+b.dataset.w); });
   $('#wipe').onclick = e => {
-    if (e.target.dataset.sure) { prog.stars = [0, 0, 0, 0, 0, 0]; save(); home(); }
-    else { e.target.dataset.sure = 1; e.target.textContent = 'Segur? Torna a clicar per esborrar-ho tot'; }
+    if (e.target.dataset.sure) { prog.stars.fill(0); save(); home(); }
+    else { e.target.dataset.sure = 1; e.target.textContent = 'Segur? Torna a tocar per esborrar-ho tot'; }
   };
 }
 
 function head(w, step) {
-  return `<div class="top"><button class="link" id="back">← Mapa</button><h2>${w}. ${WORLDS[w - 1].name}</h2>
-    <nav class="tabs" aria-label="Passos">${['Mira', 'Prova', 'Repte'].map((s, i) => `<button data-s="${i + 1}"${i + 1 === step ? ' aria-current="step"' : ''}>${s}</button>`).join('')}</nav></div>`;
+  op = +(w > 6); FX.mood(op ? 318 : 165);
+  return `<div class="top"><button class="link" id="back">← Mapa</button><button class="link" id="so"></button></div>
+    <header class="whead"><p class="kicker">${op ? 'Restes' : 'Sumes'} · món ${w - op * 6}</p><h2>${WORLDS[w - 1].name}</h2></header>
+    <nav class="tabs" aria-label="Passos">${['Mira', 'Prova', 'Repte'].map((s, i) => `<button data-s="${i + 1}"${i + 1 === step ? ' aria-current="step"' : ''}>${s}</button>`).join('')}</nav>`;
 }
 function wire(w) {
-  $('#back').onclick = home;
+  soBtn(); $('#back').onclick = home;
   app.querySelectorAll('.tabs button').forEach(b => b.onclick = () => [mira, prova, repte][b.dataset.s - 1](w));
 }
-const FORM = `<form id="f" autocomplete="off"><label for="ans" id="q"></label>
-  <div class="row"><span id="eq"></span><input id="ans" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="msg"><span id="tail"></span><button class="btn" id="ok">Comprova</button></div>
-  <p id="msg" role="status"></p></form>`;
-const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!'];
+
+// the sum with a box for the answer, and the keys that fill it. A real keyboard works too.
+const EQ = `<p class="big" id="big"><span id="lhs"></span><output id="ans" aria-label="La teva resposta"></output><span id="rhs"></span></p>`;
+const KEYS = `<p id="msg" role="status"></p><div class="keys">${[1, 2, 3, 4, 5, 'del', 6, 7, 8, 9, 0, 'ok'].map(k =>
+  `<button class="key${k > -1 ? '' : ' ' + k}" data-k="${k}"${k === 'del' ? ' aria-label="Esborra"' : k === 'ok' ? ' aria-label="Comprova"' : ''}>${k === 'del' ? '⌫' : k === 'ok' ? '✓' : k}</button>`).join('')}</div>`;
+addEventListener('keydown', e => {
+  if (!keyFn || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : /^\d$/.test(e.key) ? e.key : null;
+  if (k) { e.preventDefault(); keyFn(k); }
+});
+function keypad(p, submit) {
+  const out = $('#ans'); let v = '';
+  $('#lhs').textContent = p.lhs; $('#rhs').textContent = p.rhs;
+  keyFn = k => {
+    if (k === 'ok') { if (v) submit(+v); return; }
+    out.className = ''; v = k === 'del' ? v.slice(0, -1) : (v + k).slice(0, 3); out.textContent = v;
+    tone(k === 'del' ? 392 : 784, 0, 0.08, 0.05);
+  };
+  $('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
+  return {
+    wrong() { v = ''; out.textContent = ''; out.className = ''; void out.offsetWidth; out.className = 'shake'; tone(150, 0, 0.45, 0.16, 'triangle'); },
+    right(k = 0) { keyFn = null; out.className = 'good'; const c = mid(out); FX.burst(c.x, c.y, 140, 16 + 4 * Math.min(k, 6), 160 + 20 * Math.min(k, 6)); FX.ring(c.x, c.y, 140, c.w * 0.4, c.w * 1.2); chime([noteOf(k), noteOf(k + 2)]); }
+  };
+}
+const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!', 'Quin salt!'];
 function say(txt, cls) { const m = $('#msg'); if (m) { m.textContent = txt; m.className = cls || ''; } }
-function wrong() { const a = $('#ans'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); a.select(); beep(false); }
 
 function mira(w) {
   const t = fresh(), W = WORLDS[w - 1];
   if (!W.demo) {
-    app.innerHTML = head(w, 1) + `<section class="play"><p class="cap">Ja saps tots els trucs. Ara toca triar el bo per a cada suma.</p>
-      <ul class="tricks">${WORLDS.slice(1, 5).map(x => `<li><b>${x.ex}</b> · ${x.tip}</li>`).join('')}</ul>
+    app.innerHTML = head(w, 1) + `<section class="play"><p class="cap">${w === 6 ? 'Ja saps tots els trucs. Ara toca triar el bo per a cada suma.' : 'Ara tot barrejat: sumes i restes. Mira bé el signe abans de saltar!'}</p>
+      <ul class="tricks">${WORLDS.slice(w - 5, w - 1).map(x => `<li><b>${x.ex}</b>${x.tip}</li>`).join('')}</ul>
       <div class="row"><button class="btn" id="go">Ara jo!</button></div></section>`;
-    wire(w); $('#go').onclick = () => prova(w); $('#go').focus();
+    wire(w); $('#go').onclick = () => prova(w); $('#go').focus({ preventScroll: true });
     return;
   }
   let n = 0;
-  app.innerHTML = head(w, 1) + `<section class="play"><p class="count">${W.tip}</p><p class="big" id="big"></p><div id="viz"></div><p class="cap" id="cap" aria-live="polite"></p>
+  app.innerHTML = head(w, 1) + `<section class="play"><p class="hint">${W.tip}</p><p class="big" id="big"></p><div id="viz"></div><p class="cap" id="cap" aria-live="polite"></p>
     <div class="row"><button class="btn soft" id="again">Torna-ho a veure</button><button class="btn soft" id="other">Un altre exemple</button><button class="btn" id="go">Ara jo!</button></div></section>`;
   wire(w);
   let cur = { on: true };
   async function play() {
     cur.on = false; cur = { on: true }; const mine = cur, p = make(w, ...W.demo[n]);
-    $('#big').innerHTML = p.text;
+    $('#big').innerHTML = `${p.lhs} <b class="q">?</b> ${p.rhs}`;
     const done = await demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return mine.on && t.on; } });
     if (done) $('#big').textContent = p.eq;
   }
@@ -438,62 +651,49 @@ function prova(w) {
   let i = 0;
   (function show() {
     if (i >= list.length) {
+      keyFn = null;
       app.innerHTML = head(w, 2) + `<section class="play"><p class="big">Ja ho tens!</p><p class="cap">Ara sense dibuix i ben de pressa.</p>
         <div class="row"><button class="btn soft" id="more">Vull practicar més</button><button class="btn" id="go">Al repte!</button></div></section>`;
-      wire(w); $('#more').onclick = () => prova(w); $('#go').onclick = () => repte(w); $('#go').focus();
+      wire(w); $('#more').onclick = () => prova(w); $('#go').onclick = () => repte(w); $('#go').focus({ preventScroll: true });
+      chime([523, 659, 784]);
       return;
     }
-    const p = list[i]; let s = 0, miss = 0, busy = false;
-    app.innerHTML = head(w, 2) + `<section class="play"><p class="count">Suma ${i + 1} de ${list.length}</p>
-      <p class="big" id="big">${p.text}</p><div id="viz"></div>${FORM}</section>`;
+    const p = list[i]; let miss = 0, busy = false;
+    app.innerHTML = head(w, 2) + `<section class="play"><p class="count">${cap(NOUN(w)[0])} ${i + 1} de ${list.length}</p>
+      ${EQ}<div id="viz"></div><p class="hint">${p.hint}</p>${KEYS}</section>`;
     wire(w);
-    const v = Viz($('#viz'), p), inp = $('#ans');
+    const v = Viz($('#viz'), p);
     if (p.pre) { busy = true; v.jump(0).then(() => { busy = false; }); }
-    const ask = () => { const st = p.steps[s]; $('#q').textContent = st.hint; $('#eq').textContent = st.eq || ''; $('#tail').textContent = st.tail || ''; inp.value = ''; inp.focus(); miss = 0; };
-    ask();
-    $('#f').onsubmit = async e => {
-      e.preventDefault();
-      const val = parseInt(inp.value, 10), st = p.steps[s];
-      if (busy || isNaN(val)) return;
-      // typing the final result early is right too: show why, then move on
-      const skip = val === p.ans && val !== st.ans;
-      if (!skip && val !== st.ans) {
-        miss++; wrong();
-        say(miss >= 2 ? `La resposta és ${st.ans}. Escriu-la per continuar.` : 'Encara no. Torna-ho a provar.', 'bad');
+    const kp = keypad(p, async val => {
+      if (busy) return;
+      if (val !== p.ans) {
+        miss++; kp.wrong();
+        say(miss >= 2 ? `La resposta és ${p.ans}. Escriu-la per continuar.` : 'Encara no. Torna-ho a provar.', 'bad');
         return;
       }
-      busy = true; beep(true); say(skip ? `Sí, fa ${p.ans}! Mira com hi arriba la granota.` : pick(BRAVO), 'good');
-      for (let k = s; k < (skip ? p.steps.length : s + 1); k++) {
-        if (p.steps[k].jump != null) await v.jump(p.steps[k].jump);
-        if (!t.on) return;
-      }
-      if (skip) { s = p.steps.length - 1; await sleep(900); if (!t.on) return; }
-      busy = false;
-      if (++s < p.steps.length) return ask();
+      busy = true; kp.right(); say(pick(BRAVO), 'good');
+      await v.jump(p.pre ? 1 : 0); if (!t.on) return;
       $('#big').textContent = p.eq;
-      $('#f').outerHTML = `<p class="cap">${pick(BRAVO)}</p><div class="row"><button class="btn" id="next">Següent</button></div>`;
-      $('#next').onclick = () => { i++; show(); }; $('#next').focus();
-    };
+      $('.keys').outerHTML = `<div class="row"><button class="btn" id="next">Següent</button></div>`;
+      $('#next').onclick = () => { i++; show(); }; $('#next').focus({ preventScroll: true });
+    });
   })();
 }
 
 function repte(w) {
-  const t = fresh(), q = round(w, 10), res = [], T = WORLDS[w - 1].secs * 1000;
+  const t = fresh(), q = round(w, 10), res = [], T = WORLDS[w - 1].secs * 1000, N = NOUN(w)[1];
   let i = 0, streak = 0;
   (function show() {
     clearTimeout(timer);
     if (i >= q.length) return fi();
     const p = q[i]; let first = true, hinted = false, done = false, hint = { on: true };
     app.innerHTML = head(w, 3) + `<section class="play">
-      <div class="hud"><span class="dots" role="img" aria-label="${res.length} de 10 sumes fetes">${Array.from({ length: 10 }, (_, k) => `<i class="${k < res.length ? (res[k] ? 'ok' : 'slow') : k === res.length && !p.re ? 'now' : ''}"></i>`).join('')}</span>
-        <span>${p.re ? 'Repàs' : 'Ratxa: ' + streak}</span></div>
+      <div class="hud"><span class="dots" role="img" aria-label="${res.length} de 10 ${N} fetes">${Array.from({ length: 10 }, (_, k) => `<i class="${k < res.length ? (res[k] ? 'ok' : 'slow') : k === res.length && !p.re ? 'now' : ''}"></i>`).join('')}</span>
+        <span class="chip">${p.re ? 'Repàs' : 'Ratxa: ' + streak}</span></div>
       <div class="timer"><i id="bar"></i></div>
-      <p class="big">${p.text}${p.type === 1 ? '' : ' ='}</p>${FORM}
-      <p class="cap" id="cap" aria-live="polite" hidden></p><div id="viz" hidden></div></section>`;
+      ${EQ}<p class="cap" id="cap" aria-live="polite" hidden></p><div id="viz" hidden></div>${KEYS}</section>`;
     wire(w);
-    const inp = $('#ans'), bar = $('#bar');
-    $('#q').textContent = 'Escriu el resultat i prem Enter';
-    inp.focus();
+    const bar = $('#bar');
     void bar.offsetWidth; bar.style.transition = `transform ${T}ms linear`; bar.style.transform = 'scaleX(0)';
     function showTrick() {
       if (hinted) return; hinted = true;
@@ -501,30 +701,30 @@ function repte(w) {
       demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return hint.on && t.on; } });
     }
     timer = setTimeout(() => { if (!done && t.on) { say('Cap pressa. Mira el truc i escriu la resposta.'); showTrick(); } }, T);
-    $('#f').onsubmit = e => {
-      e.preventDefault();
-      const val = parseInt(inp.value, 10);
-      if (done || isNaN(val)) return;
-      if (val !== p.ans) { first = false; wrong(); say('Encara no. Mira el truc i torna-ho a provar.', 'bad'); showTrick(); return; }
+    const kp = keypad(p, val => {
+      if (done) return;
+      if (val !== p.ans) { first = false; kp.wrong(); say('Encara no. Mira el truc i torna-ho a provar.', 'bad'); showTrick(); return; }
       done = true; clearTimeout(timer); bar.style.transition = 'none';
       const clean = first && !hinted;
       if (!p.re) { res.push(clean); streak = clean ? streak + 1 : 0; if (!clean) q.push({ ...p, re: true }); }
-      beep(true); say(pick(BRAVO), 'good');
-      timer = setTimeout(() => { hint.on = false; if (t.on) { i++; show(); } }, hinted ? 1300 : 600);
-    };
+      kp.right(clean ? streak : 0); say(clean && streak >= 3 ? `${streak} seguides!` : pick(BRAVO), 'good');
+      timer = setTimeout(() => { hint.on = false; if (t.on) { i++; show(); } }, hinted ? 1300 : 700);
+    });
   })();
   function fi() {
     const fast = res.filter(Boolean).length, st = starsFor(fast);
+    keyFn = null;
     if (st > prog.stars[w - 1]) { prog.stars[w - 1] = st; save(); }
     app.innerHTML = head(w, 3) + `<section class="play result">${starsHTML(st)}
       <p class="big">${fast} de 10</p>
-      <p class="cap">${st ? 'sumes fetes de pressa i sense pista.' : 'Encara no hi ha estrella. Torna a mirar el truc i prova-ho un altre cop.'}</p>
-      <p class="count">5 sumes: 1 estrella · 7 sumes: 2 estrelles · 9 sumes: 3 estrelles</p>
-      <div class="row"><button class="btn soft" id="again">Torna-hi</button>${st && w < 6 ? '<button class="btn" id="next">Món següent</button>' : '<button class="btn" id="map">Torna al mapa</button>'}</div></section>`;
+      <p class="cap">${st ? `${N} fetes de pressa i sense pista.` : 'Encara no hi ha estrella. Torna a mirar el truc i prova-ho un altre cop.'}</p>
+      <p class="count">5 ${N}: 1 estrella · 7 ${N}: 2 estrelles · 9 ${N}: 3 estrelles</p>
+      <div class="row"><button class="btn soft" id="again">Torna-hi</button>${st && w < 12 ? `<button class="btn" id="next">${w === 6 ? 'A les restes!' : 'Món següent'}</button>` : '<button class="btn" id="map">Torna al mapa</button>'}</div></section>`;
     wire(w);
+    if (st) { chime([523, 659, 784, 1047, 1319].slice(0, st + 2)); FX.celebrate(st * 5); }
     $('#again').onclick = () => repte(w);
-    if ($('#next')) { $('#next').onclick = () => mira(w + 1); $('#next').focus(); }
-    if ($('#map')) { $('#map').onclick = home; $('#map').focus(); }
+    if ($('#next')) { $('#next').onclick = () => mira(w + 1); $('#next').focus({ preventScroll: true }); }
+    if ($('#map')) { $('#map').onclick = home; $('#map').focus({ preventScroll: true }); }
   }
 }
 
