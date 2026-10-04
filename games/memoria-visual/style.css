@@ -1,0 +1,180 @@
+/* Layout: a night pond. One centred column; the board is the stage, two fixed canvases paint the sky behind it and the sparks in front.
+   The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
+
+/* the links stay at the top; whatever height is left over is shared above and below the game */
+.top { margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lives { flex: none; display: flex; gap: 8px; }
+.lives i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#fff 15%, var(--sun) 45%, rgb(247 198 78 / 0) 72%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: breathe 2.2s ease-in-out infinite; }
+.lives i:nth-child(2) { animation-delay: -0.7s; }
+.lives i:nth-child(3) { animation-delay: -1.4s; }
+.lives i.gone { background: rgb(160 230 220 / 0.16); box-shadow: none; animation: none; }
+.status { min-height: 1.25em; font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.25; font-weight: 800; text-wrap: balance; }
+.status.pop { animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
+
+/* the board keeps its size at every level; --n only changes how many tiles share it */
+.stage { position: relative; width: min(100%, 560px, max(260px, calc(100dvh - var(--chrome, 280px)))); aspect-ratio: 1; }
+.board {
+  position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr);
+  gap: calc(22px - var(--n) * 2.5px); padding: 14px; border-radius: 30px;
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); border: 1px solid var(--edge);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+.tile {
+  --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; border: 0; padding: 0; border-radius: calc(34px - var(--n) * 4px); cursor: default; touch-action: manipulation;
+  background: linear-gradient(160deg, hsl(var(--h) 46% 27%), hsl(var(--h) 52% 13%));
+  box-shadow: inset 0 1px 0 hsl(var(--h) 80% 70% / 0.4), inset 0 -8px 14px hsl(var(--h) 60% 6% / 0.6), 0 5px 0 hsl(var(--h) 55% 8%), 0 10px 18px rgb(0 0 0 / 0.45);
+  transition: transform 0.18s cubic-bezier(0.3, 1.7, 0.5, 1), filter 0.2s, box-shadow 0.18s;
+}
+.tile::before { content: ""; position: absolute; inset: 8% 10% 54%; border-radius: inherit; background: linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0)); }
+.tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 3px solid var(--c); opacity: 0; }
+.board.live .tile { cursor: pointer; }
+.board.live .tile:hover { filter: brightness(1.3); }
+.board.live .tile:active { transform: translateY(4px) scale(0.97); }
+.tile.on, .tile.bad {
+  z-index: 2; transform: scale(1.08);
+  background: radial-gradient(circle at 50% 38%, #fff 0, hsl(var(--h) 100% 80%) 28%, hsl(var(--h) 98% 56%) 78%);
+  box-shadow: 0 0 0 2px hsl(var(--h) 100% 88%), 0 0 26px 5px var(--c), 0 0 80px 18px hsl(var(--h) 100% 60% / 0.55);
+}
+.tile.on::after { animation: ring 0.55s ease-out; }
+.tile.bad {
+  animation: shake 0.35s; background: radial-gradient(circle at 50% 38%, #fff 0, #FF9A8A 28%, #F0432F 78%);
+  box-shadow: 0 0 0 2px #FFC9C0, 0 0 26px 5px #FF5A45, 0 0 80px 18px rgb(255 80 60 / 0.55);
+}
+.tile.hint { animation: hint 0.5s ease-in-out 3; }
+.tile.enter { animation: enter 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) backwards; animation-delay: calc(var(--d) * 1ms); }
+.tile.wave { animation: wave 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
+.board.out .tile { animation: leave 0.4s ease-in forwards; animation-delay: calc(var(--d) * 0.5ms); }
+.board.shake { animation: shake 0.35s; }
+
+.panel .score { font: 800 2.6rem/1 var(--display); color: var(--sun); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+.panel .rec { color: var(--muted); font-weight: 700; font-size: 1rem; }
+.banner { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 4px; pointer-events: none; animation: banner 1.9s ease-in-out both; text-shadow: 0 0 30px rgb(110 230 255 / 0.8), 0 4px 0 rgb(0 0 0 / 0.35); }
+.banner b { font-size: clamp(3rem, 14vw, 5.2rem); line-height: 1; font-weight: 800; }
+.banner span { font-size: clamp(1.2rem, 5vw, 1.7rem); font-weight: 800; color: #6FE3FF; }
+
+.dots { display: flex; gap: 10px; min-height: 18px; align-items: center; margin-bottom: auto; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: transform 0.2s cubic-bezier(0.3, 1.8, 0.5, 1), background 0.15s, box-shadow 0.15s; }
+.dots i.ok { background: #7CF5B0; box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); transform: scale(1.25); }
+
+/* home: one card per game */
+.game { width: 100%; display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 10px 14px 12px; border-radius: 18px; border: 1px solid var(--edge); background: rgb(79 181 98 / 0.16); }
+.game:hover { background: rgb(79 181 98 / 0.3); }
+.game b { font: 800 1.45rem/1.1 var(--display); color: #7CF5B0; }
+.game span { font-size: 0.95rem; line-height: 1.3; }
+.game .rec { font-size: 0.9rem; }
+
+/* game 2: the board above the program, with the run buttons pinned to the bottom of the screen; side by side when there is room */
+#app.wide { max-width: 940px; }
+#app.wide h1 { display: none; }
+#mem { display: contents; }
+#coet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.split { width: 100%; display: flex; flex-direction: column; gap: 16px 28px; justify-content: center; align-items: center; }
+/* the board is only as tall as its map, so a flat level leaves room for the program */
+.split .stage { flex: none; width: min(100%, 480px, max(250px, calc(100dvh - 150px))); aspect-ratio: auto; }
+.split .board { position: relative; min-height: 220px; grid-template-rows: repeat(var(--gh), var(--cs)); align-content: center; }
+.cell { position: relative; display: grid; place-items: center; min-width: 0; border-radius: max(5px, calc(34px - var(--n) * 4px)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 4px 0 rgb(0 0 0 / 0.35); }
+.cell.cb { background: linear-gradient(160deg, #4C9BEA, #1F4F9A); }
+.cell.cg { background: linear-gradient(160deg, #4CCB78, #1C7A3E); }
+.cell.cp { background: linear-gradient(160deg, #F57DBC, #A82B72); }
+.cell.star::after { content: "★"; font-size: calc(var(--cs) * 0.62); line-height: 1; color: var(--sun); text-shadow: 0 0 12px rgb(247 198 78 / 0.9), 0 2px 0 rgb(0 0 0 / 0.3); animation: breathe 1.6s ease-in-out infinite; }
+.rocket { position: absolute; left: 0; top: 0; width: var(--cs); height: var(--cs); z-index: 3; pointer-events: none; transition: transform 0.32s cubic-bezier(0.4, 0, 0.3, 1), opacity 0.3s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
+.rocket svg { display: block; width: 100%; height: 100%; }
+.rocket .flame { transform-origin: 32px 48px; animation: flame 0.18s ease-in-out infinite alternate; }
+.prog { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); text-align: left; }
+.fn { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.fname { flex: none; width: 2ch; font: 800 1.3rem/1 var(--display); color: var(--sun); }
+.slots, .pal, .brush, .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.slot, .cmd { width: 44px; height: 44px; padding: 0; border-radius: 12px; display: grid; place-items: center; font: 800 1.35rem/1 var(--display); color: #fff; transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s; }
+.slot { background: rgb(160 230 220 / 0.08); border: 2px dashed var(--edge); }
+.slot.full, .cmd { background: #2A4B5C; border: 2px solid #4D7486; }
+.cmd { box-shadow: 0 3px 0 #10242F; }
+.cmd:active { transform: translateY(2px); box-shadow: 0 1px 0 #10242F; }
+.slot.cb, .cmd.cb, .brush .cb i { background: #2F6FC4; border-color: #8CC2FF; }
+.slot.cg, .cmd.cg, .brush .cg i { background: #23904B; border-color: #8CF0AE; }
+.slot.cp, .cmd.cp, .brush .cp i { background: #C2408A; border-color: #FFB0DA; }
+.slot.sel { outline: 3px solid var(--sun); outline-offset: 2px; }
+.slot.run { transform: scale(1.2); border-color: #fff; box-shadow: 0 0 18px 4px var(--sun); z-index: 1; }
+.slot.skip { opacity: 0.3; }
+.label { margin-bottom: 6px; font-weight: 800; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.brush button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 3px 14px 3px 10px; border-radius: 999px; border: 2px solid var(--edge); background: none; font-weight: 800; font-size: 1rem; }
+.brush button i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); }
+.brush button[aria-pressed="true"] { border-color: var(--sun); background: rgb(247 198 78 / 0.16); }
+.prog .btn { min-height: 44px; font-size: 1.15rem; padding: 0.35em 1em; }
+.prog .row .btn { flex: 1 1 auto; padding-inline: 0.5em; font-size: 1.05rem; white-space: nowrap; }
+.prog .row { order: 1; position: sticky; bottom: 0; z-index: 2; flex-wrap: nowrap; margin: 0 -12px -12px; padding: 10px 12px 12px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.stackline { min-height: 1.7em; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+.stackline b { display: inline-block; margin: 0 2px; padding: 0 8px; border-radius: 8px; background: #2A4B5C; color: var(--sun); font-family: var(--display); }
+/* hints: lights run along the tiles to visit next, and the slot to look at pulses */
+.cell.trail::before { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: #fff; box-shadow: 0 0 14px 5px #fff; opacity: 0; animation: trail 2s ease-in-out infinite; animation-delay: calc(var(--d) * 1ms); }
+.slot { position: relative; }
+.slot.next { border: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
+.slot.think { border-color: #FFB347; animation: wobble 0.9s ease-in-out infinite; }
+.slot.think::after { content: "?"; position: absolute; top: -10px; right: -9px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #FFB347; color: #2A1C00; font-size: 0.9rem; }
+.cmd.glow, .brush button.glow { border-color: var(--sun); animation: beacon 1s ease-in-out infinite; }
+@keyframes trail { 0%, 55%, 100% { opacity: 0; transform: scale(0.4); } 18% { opacity: 0.95; transform: scale(1); } }
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes wobble { 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
+@keyframes flame { to { transform: scaleY(0.6); } }
+
+@keyframes breathe { 50% { transform: scale(0.9); } }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes ring { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.55); } }
+@keyframes hint { 50% { filter: brightness(2.6) saturate(1.4); transform: scale(1.1); box-shadow: 0 0 0 3px #fff, 0 0 30px 6px var(--c); } }
+@keyframes enter { from { transform: scale(0) rotate(-25deg); opacity: 0; } }
+@keyframes leave { to { transform: scale(0) rotate(30deg); opacity: 0; } }
+@keyframes wave { 50% { transform: translateY(-9px) scale(1.06); filter: brightness(2.1) saturate(1.5); } }
+@keyframes banner { 0% { transform: scale(0.3); opacity: 0; } 18% { transform: scale(1.12); opacity: 1; } 28%, 78% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+/* a tablet or a laptop: bigger type, and the rocket's board and program side by side */
+@media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; }
+  .split { flex-direction: row; }
+  .split .stage { width: min(480px, max(250px, calc(100dvh - var(--chrome2, 330px))), calc(100% - 328px)); aspect-ratio: 1; }
+  .split .board { position: absolute; min-height: 0; }
+  .prog { flex: 1 1 300px; width: auto; max-width: 420px; padding: 16px; }
+  .slot, .cmd { width: 46px; height: 46px; }
+  .prog .row .btn { flex: none; padding-inline: 1em; font-size: 1.15rem; }
+  .prog .row { order: 0; position: static; flex-wrap: wrap; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+}
+@media (min-width: 700px) {
+  :root { --chrome: 310px; }
+  #app.wide h1 { display: block; }
+  .game span { font-size: 0.98rem; line-height: inherit; }
+}
+/* with a mouse the small buttons can be smaller, which keeps the rocket game on one laptop screen */
+@media (min-width: 700px) and (pointer: fine) {
+  .brush button, .prog .btn { min-height: 0; }
+}
+/* a short window: the rocket game drops the big title and gives that height to the board */
+@media (max-height: 700px) {
+  :root { --chrome2: 270px; }
+  body { padding-bottom: 14px; }
+  #app.wide h1 { display: none; }
+}
+/* a phone on its side: the memory board takes the whole height on the right, the rest stacks on the left; the rocket's board follows the program as it scrolls */
+@media (orientation: landscape) and (max-height: 520px) {
+  .split { align-items: flex-start; }
+  .split .stage { position: sticky; top: 8px; }
+  h1 { font-size: 2rem; }
+  .status:not(.tip) { font-size: 1.5rem; }
+  #app:not(.wide) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr repeat(4, auto) 1fr; gap: 10px 24px; justify-items: center; max-width: 900px; }
+  #app:not(.wide) .top { grid-area: 1 / 1; margin: 0; }
+  #app:not(.wide) header { grid-area: 3 / 1; }
+  #app:not(.wide) .hud { grid-area: 4 / 1; }
+  #app:not(.wide) .status { grid-area: 5 / 1; }
+  #app:not(.wide) .dots { grid-area: 6 / 1; margin: 0; }
+  #app:not(.wide) .stage { grid-area: 1 / 2 / -1 / 2; width: min(calc(100dvh - 38px), 50vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .lives i, .cell.star::after, .rocket .flame, .slot.next, .slot.think, .cmd.glow, .brush button.glow, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
+  .tile { transition: none; }
+  .cell.trail::before { animation: none; opacity: 0.85; }
+  .slot.next, .cmd.glow, .brush button.glow { box-shadow: 0 0 16px 5px var(--sun); }
+  .banner { animation: bannerCalm 1.9s both; }
+  @keyframes bannerCalm { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }
+}

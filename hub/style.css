@@ -1,0 +1,31 @@
+/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and four on a wide screen. */
+@import "../shared/base.css";
+
+body { padding-block: 28px 36px; }
+main { max-width: 980px; margin-inline: auto; display: flex; flex-direction: column; gap: 22px; }
+header { text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter: none; }
+.lead { color: var(--muted); max-width: 40ch; text-wrap: balance; }
+.games { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.game {
+  height: 100%; display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; padding: 16px; border-radius: 24px;
+  background: var(--glass); border: 1px solid var(--edge); color: inherit; text-decoration: none; transition: transform 0.15s, border-color 0.15s;
+}
+.game:hover { transform: translateY(-3px); border-color: #7CF5B0; }
+.game:active { transform: translateY(1px); }
+.game svg { width: 84px; height: 84px; display: block; }
+.txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tag { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.game b { font: 800 1.6rem/1.1 var(--display); text-wrap: balance; }
+.what { font-size: 1rem; }
+.rec { margin-top: 4px; font-weight: 800; font-size: 0.9rem; color: var(--sun); font-variant-numeric: tabular-nums; }
+.rec:empty { display: none; }
+@media (min-width: 760px) {
+  body { padding-block: 56px; }
+  .games { grid-template-columns: repeat(2, 1fr); }
+  .game { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 24px 18px; gap: 12px; align-content: start; }
+  .game svg { width: 120px; height: 120px; }
+  .txt { align-items: center; }
+}
+@media (min-width: 1040px) { .games { grid-template-columns: repeat(4, 1fr); } }
+@media (prefers-reduced-motion: reduce) { h1 { animation: none; } .game { transition: none; } }

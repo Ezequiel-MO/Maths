@@ -1,0 +1,103 @@
+/* Layout: the night pond of the other games. One centred column: the operation, the abacus as the stage, the buttons under it.
+   Every size of the abacus hangs from --u, the height of one bead, so it shrinks with the screen without any measuring in the script.
+   The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
+
+/* inside a level the big title gives its height to the abacus */
+#app.wide h1 { display: none; }
+#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.status { font-weight: 800; }
+
+/* the operation to solve, as big as the screen allows */
+.task { font-size: clamp(1.7rem, 8vw, 2.5rem); line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; text-wrap: balance; }
+.task b { color: var(--sun); text-shadow: 0 0 22px rgb(247 198 78 / 0.55); }
+
+/* the abacus: a rosewood frame with a gold inlay around a dark well. Each column is a rod; the beads are buttons placed by --s,
+   the slot they sit in, counted from the top of their deck. A bead that counts is lit like a lantern. */
+.stage { position: relative; width: 100%; display: grid; justify-items: center; }
+.abacus {
+  --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px);
+  position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); padding: 14px 14px 8px; border-radius: 26px;
+  background: linear-gradient(160deg, #9A5A36, #5A2A18 55%, #35160D); border: 1px solid rgb(255 214 160 / 0.4);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 -6px 12px rgb(0 0 0 / 0.35);
+}
+.abacus::before { content: ""; position: absolute; inset: 5px; border-radius: 21px; border: 1.5px solid rgb(247 198 78 / 0.45); pointer-events: none; }
+.well { display: grid; grid-template-columns: repeat(var(--n), 1fr); border-radius: 12px; overflow: hidden; background: linear-gradient(#051821, #0B2C3C); box-shadow: inset 0 5px 16px rgb(0 0 0 / 0.75), 0 1px 0 rgb(255 255 255 / 0.18); }
+.rod { --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; display: flex; flex-direction: column; }
+.rod::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: linear-gradient(90deg, #6E5220, #F7C64E 45%, #6E5220); }
+.deck { position: relative; }
+.deck.hi { height: calc(var(--u) * 2 + 8px); }
+.deck.lo { height: calc(var(--u) * 6 + 8px); }
+.beam { position: relative; z-index: 1; height: 12px; background: linear-gradient(#C07A48, #6B321C); box-shadow: 0 2px 4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.35); }
+.beam::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 6px var(--sun); }
+.bead {
+  position: absolute; left: 50%; top: 5.5px; width: min(86%, calc(var(--u) * 2.15)); height: calc(var(--u) - 3px); padding: 0; border: 0; border-radius: 50%;
+  transform: translate(-50%, calc(var(--s) * var(--u))); transition: transform 0.2s cubic-bezier(0.3, 1.5, 0.5, 1), box-shadow 0.2s; touch-action: manipulation;
+  background: radial-gradient(ellipse at 50% 28%, hsl(var(--h) 45% 46%), hsl(var(--h) 50% 24%) 55%, hsl(var(--h) 55% 12%));
+  box-shadow: inset 0 -3px 5px rgb(0 0 0 / 0.45), 0 2px 3px rgb(0 0 0 / 0.5);
+}
+.bead::before { content: ""; position: absolute; inset: 12% 22% 56%; border-radius: 50%; background: linear-gradient(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0)); }
+/* the heaven bead is amber on every rod: it is the one worth five */
+.deck.hi .bead { --h: 44; --c: hsl(44 100% 62%); }
+.bead.on {
+  background: radial-gradient(ellipse at 50% 32%, #fff 0, hsl(var(--h) 100% 80%) 26%, hsl(var(--h) 98% 56%) 80%);
+  box-shadow: 0 0 0 1.5px hsl(var(--h) 100% 88%), 0 0 16px 3px var(--c), 0 0 34px 8px hsl(var(--h) 100% 60% / 0.4);
+}
+.abacus.locked .bead { cursor: default; }
+.bead.wave { animation: lit 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
+.abacus.shake { animation: shake 0.35s; }
+/* under each rod: what the column shows (only while the level allows it) and the place it stands for */
+.foot { display: grid; grid-template-columns: repeat(var(--n), 1fr); padding-top: 5px; }
+.foot span { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.foot b { font: 800 1.5rem/1.05 var(--display); color: hsl(var(--h) 100% 78%); font-variant-numeric: tabular-nums; }
+.foot b:empty { display: none; }
+.foot b.over { color: var(--bad); }
+.foot i { font-style: normal; font-weight: 800; font-size: 0.75rem; line-height: 1.5; letter-spacing: 0.06em; color: rgb(255 214 160 / 0.85); }
+/* hints: first the column to look at glows, then the bead to touch turns gold with the way it has to go */
+.rod.glow { animation: column 1s ease-in-out infinite; }
+.bead.next { background: radial-gradient(ellipse at 50% 30%, #fff, var(--sun) 62%); box-shadow: 0 0 0 2px #fff, 0 0 16px 5px var(--sun); animation: lit 1s ease-in-out infinite; z-index: 1; }
+.bead.next::after { content: attr(data-a); position: absolute; inset: 0; display: grid; place-items: center; color: #2A1C00; font: 800 0.8rem/1 var(--display); }
+
+.acts, .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.acts { flex-wrap: nowrap; width: 100%; max-width: 400px; }
+.acts .btn { flex: 1 1 auto; min-height: 44px; font-size: 1.1rem; padding: 0.35em 0.5em; white-space: nowrap; }
+.opts .btn { min-width: 72px; min-height: 48px; font-size: 1.4rem; padding: 0.2em 0.7em; font-variant-numeric: tabular-nums; }
+.opts .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+@keyframes lit { 50% { filter: brightness(1.7) saturate(1.4); } }
+@keyframes column { 0%, 100% { background: rgb(247 198 78 / 0.1); } 50% { background: rgb(247 198 78 / 0.34); } }
+/* a tablet or a laptop: bigger type and the title back over the level */
+@media (min-width: 700px) {
+  .status.tip { font-size: 1.1rem; }
+  #app.wide h1 { display: block; }
+  .abacus { --u: clamp(22px, calc((100dvh - 500px) / 8.6), 44px); }
+}
+/* with a mouse the small buttons can be smaller */
+@media (min-width: 700px) and (pointer: fine) {
+  .acts .btn { min-height: 0; }
+}
+/* a short window: the level drops the big title again */
+@media (max-height: 700px) {
+  body { padding-bottom: 14px; }
+  #app.wide h1 { display: none; }
+  .abacus { --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px); }
+}
+/* a phone on its side: the abacus takes the whole height on the right, the rest stacks on the left */
+@media (orientation: landscape) and (max-height: 520px) {
+  #app { max-width: 900px; }
+  #app.wide header { display: none; }
+  #joc.lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; justify-items: center; align-content: start; }
+  #joc.lvl > * { grid-column: 1; }
+  #joc.lvl .stage { grid-column: 2; grid-row: 1 / span 6; width: auto; align-self: start; }
+  .abacus { --u: clamp(18px, calc((100dvh - 150px) / 8.6), 44px); width: calc(var(--n) * var(--u) * 2.5 + 28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }
+  .bead { transition: none; }
+  .rod.glow { animation: none; background: rgb(247 198 78 / 0.28); }
+}
