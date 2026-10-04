@@ -264,7 +264,7 @@ h1 {
 
 <canvas id="sky" aria-hidden="true"></canvas>
 <main id="app">
-  <div class="top"><span><a class="link" id="toG" href="salts-de-granota.html">← Salts de Granota</a><button class="link" id="toM" hidden>← Jocs</button></span><button class="link" id="so"></button></div>
+  <div class="top"><span><a class="link" id="toG" href="index.html">← Tots els jocs</a><button class="link" id="toM" hidden>← Jocs</button></span><button class="link" id="so"></button></div>
   <header><p class="kicker" id="kick"></p><h1>Llums de l'estany</h1></header>
   <section id="mem">
   <div class="hud" id="hud" hidden><span class="chip" id="lvl"></span><span class="lives" id="lives" role="img"></span><span class="chip" id="pts"></span></div>
@@ -680,10 +680,12 @@ function panel(host, html) {
   host.insertAdjacentHTML('beforeend', `<div class="panel">${html}</div>`);
   host.querySelector('.panel button').focus({ preventScroll: true });
 }
-// one game on screen at a time; the home menu sits over the memory board. The link to the frog page only works between local files.
+// one game on screen at a time; the home menu sits over the memory board. The link to the page of all games
+// only exists where this page is served under its own file name, next to the others.
+const HUB = /memoria-visual\.html$/.test(location.pathname);
 function show(game, kicker) {
   $('#mem').hidden = game === 'coet'; $('#coet').hidden = game !== 'coet'; $('#app').classList.toggle('wide', game === 'coet');
-  $('#toG').hidden = game !== 'menu' || location.protocol !== 'file:'; $('#toM').hidden = game === 'menu'; $('#kick').textContent = kicker;
+  $('#toG').hidden = game !== 'menu' || !HUB; $('#toM').hidden = game === 'menu'; $('#kick').textContent = kicker;
   if (game !== 'coet') { $('#coet').replaceChildren(); replace = null; }
 }
 let back = () => menu();
@@ -975,7 +977,8 @@ function coet(sec, idx) {
 }
 
 soBtn();
-menu();
+// the page of all games links straight to the rocket game
+location.hash === '#coet' ? seccions() : menu();
 </script>
 </body>
 </html>
