@@ -636,13 +636,17 @@ addEventListener('keydown', e => {
 function keypad(p, submit) {
   const out = $('#ans'); let v = '';
   $('#lhs').textContent = p.lhs; $('#rhs').textContent = p.rhs;
+  // no need to press the tick: the answer is checked as soon as it is right, or has as many digits as the right one
+  const auto = () => { if (keyFn && v && (+v === p.ans || v.length >= String(p.ans).length)) submit(+v); };
   keyFn = k => {
     if (k === 'ok') { if (v) submit(+v); return; }
     out.className = ''; v = k === 'del' ? v.slice(0, -1) : (v + k).slice(0, 3); out.textContent = v;
     tone(k === 'del' ? 392 : 784, 0, 0.08, 0.05);
+    if (k !== 'del') auto();
   };
   $('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
   return {
+    auto,
     wrong() { v = ''; out.textContent = ''; out.className = ''; void out.offsetWidth; out.className = 'shake'; tone(150, 0, 0.45, 0.16, 'triangle'); },
     right(k = 0) { keyFn = null; out.className = 'good'; const c = mid(out); FX.burst(c.x, c.y, 140, 16 + 4 * Math.min(k, 6), 160 + 20 * Math.min(k, 6)); FX.ring(c.x, c.y, 140, c.w * 0.4, c.w * 1.2); chime([noteOf(k), noteOf(k + 2)]); }
   };
@@ -699,7 +703,8 @@ function nivell(sec, idx) {
     const say = (txt, cls) => { msg.textContent = txt; msg.className = cls || ''; };
     if (L.pic) {
       v = Viz($('#viz'), p);
-      if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { busy = false; }); }
+      // an answer typed while the first leap is being drawn is checked when it lands
+      if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { if (alive()) { busy = false; kp.auto(); } }); }
     }
     // a hint is a picture, never words: the frog makes its next move, and the place where the result goes shows "?".
     // Asked again once every move is on screen, the picture gives the result away.
@@ -709,7 +714,7 @@ function nivell(sec, idx) {
       if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); }
       if (shown < v.n) { await v.jump(shown, shown === v.n - 1); shown++; }
       else v.reveal();
-      if (alive()) busy = false;
+      if (alive()) { busy = false; kp.auto(); }
     };
     const kp = keypad(p, async val => {
       if (busy || done) return;
