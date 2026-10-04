@@ -6,8 +6,11 @@ import { SECTIONS as TRICKS, PLAN } from '../games/salts-de-granota/logic.js';
 import { LEVELS as ROCKET } from '../games/memoria-visual/logic.js';
 import { LEVELS as ABACUS } from '../games/abac-xines/logic.js';
 import { LEVELS as TIMES } from '../games/coet-multiplicador/logic.js';
+import { SECTIONS as PADS } from '../games/nenufars-a-trossos/logic.js';
 
-const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length };
+const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
+  // nine lessons and a test in each section
+  'nenufars-a-trossos': PADS.reduce((n, s) => n + s.levels.length + 1, 0) };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];
