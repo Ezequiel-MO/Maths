@@ -1,0 +1,120 @@
+/* Layout: the night pond of the other games. One centred column: the lane of lily pads the frog crosses (one pad per question), the tip,
+   then the field (the fraction as a figure) and the desk (the question in fraction notation and its controls). Two fixed canvases paint
+   the sky behind and the sparks in front. The rules are written for a phone held upright; the media queries at the end put field and desk side by side. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --leaf: #1C5A3C; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 940px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .tool, .cap, .lbl, .think { font-family: var(--display); }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#st { flex: none; color: var(--sun); letter-spacing: 0.1em; }
+/* the tenth screen of a section is its test */
+.levels button.exam { width: auto; padding: 0 14px; border-radius: 999px; }
+.pips i:last-child { width: 11px; height: 11px; }
+.pips { align-items: center; }
+
+/* the lane: one lily pad per question; --k is the pad the frog sits on. A pad turns gold when its question is answered right, red when wrong. */
+.lane { position: relative; width: 100%; max-width: 560px; height: 46px; display: grid; grid-template-columns: repeat(var(--n), 1fr); align-items: end; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.lp { justify-self: center; width: 34px; height: 14px; margin-bottom: 7px; border-radius: 50%; background: var(--leaf); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.3); transition: background 0.3s, box-shadow 0.3s; }
+.lp.ok { background: var(--sun); box-shadow: 0 0 12px rgb(247 198 78 / 0.7); }
+.lp.bad { background: var(--bad); }
+.fg { position: absolute; bottom: 12px; left: calc((var(--k) + 0.5) * 100% / var(--n)); width: 32px; height: 32px; margin-left: -16px; transition: left 0.45s cubic-bezier(0.4, 0, 0.3, 1); }
+.fg svg { display: block; width: 100%; height: 100%; }
+.fg.hop svg { animation: hop 0.45s ease-out; }
+
+.split { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px 28px; justify-content: center; align-items: center; }
+/* the field: the fraction as a figure. A lit part is gold in every figure; the cuts are dark lines over the parts. */
+.field { width: min(100%, 480px); min-height: 150px; padding: 14px; border-radius: 26px; border: 1px solid var(--edge); display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
+.field.shake, .ask.shake { animation: shake 0.35s; }
+svg.fig { display: block; }
+svg.round { width: min(62%, 230px); border-radius: 50%; box-shadow: 0 0 0 3px #2F7F40, 0 0 26px rgb(79 181 98 / 0.35); }
+svg.plank { width: 100%; height: auto; border-radius: 14px; box-shadow: 0 0 0 3px #2F7F40; }
+svg.nl { width: 100%; height: auto; overflow: visible; }
+.pt { fill: var(--leaf); transition: fill 0.2s; }
+.pt.on { fill: var(--sun); }
+.plain .pt { fill: #37965A; }
+.tap .pt, .tap .bug, .hit { cursor: pointer; }
+.ct { stroke: var(--night); stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.ct.new { animation: cutin 0.6s both; }
+.ct.gone { animation: cutout 0.6s both; }
+.ax { stroke: var(--muted); stroke-width: 3; stroke-linecap: round; }
+.gold { stroke: var(--sun); stroke-width: 7; stroke-linecap: round; }
+.tk { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.nl text { fill: var(--ink); font: 800 15px var(--display); text-anchor: middle; }
+.nl text.sm { fill: var(--sun); font-size: 10.5px; }
+.hit { fill: transparent; }
+.bugs { display: grid; grid-template-columns: repeat(var(--bc), 46px); gap: 8px; justify-content: center; }
+.bug { width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 2px solid rgb(160 230 220 / 0.3); background: radial-gradient(circle at 50% 60%, #24505F, #0C2733); transition: background 0.2s, box-shadow 0.2s; }
+.bug.on { border-color: #FFF3C4; background: radial-gradient(circle at 50% 45%, #fff, var(--sun) 45%, #C98A0E); box-shadow: 0 0 18px 4px rgb(247 198 78 / 0.65); }
+/* three figures to choose from */
+.trio { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.trio.tall { grid-template-columns: 1fr; }
+.opt { padding: 10px; border-radius: 18px; border: 2px solid var(--edge); background: rgb(8 32 44 / 0.5); display: grid; place-items: center; }
+.opt:hover { border-color: var(--sun); }
+.opt.good { border-color: var(--mint); box-shadow: 0 0 18px rgb(124 245 176 / 0.5); }
+.opt svg.round { width: 100%; }
+/* two bars one under the other, each with its fraction */
+.row { width: 100%; display: grid; grid-template-columns: 2.6em 1fr; gap: 12px; align-items: center; }
+.lbl { font-weight: 800; font-size: 1.25rem; }
+.think { font-weight: 800; font-size: 1.3rem; color: var(--muted); text-wrap: balance; }
+.cap { font-weight: 800; font-size: 1.05rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cap.ok { color: var(--mint); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tool { min-height: 46px; padding: 0 14px; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; font-weight: 800; font-size: 1.1rem; touch-action: manipulation; }
+.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+
+/* the desk: the question in fraction notation and the controls that answer it */
+.desk { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+.askrow { width: 100%; min-height: 92px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ask { display: flex; align-items: center; gap: 0.4em; font-weight: 800; font-size: clamp(1.5rem, 6vw, 1.9rem); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask i { font-style: normal; color: var(--sun); }
+.fr { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.fr > :first-child { padding: 0 0.25em 4px; border-bottom: 4px solid currentColor; }
+.fr > span { min-width: 1.6ch; text-align: center; }
+.in { min-width: 2.4ch; height: 40px; padding: 0 8px; border-radius: 12px; border: 2px solid #4D7486; background: rgb(255 255 255 / 0.05); display: inline-grid; place-items: center; cursor: pointer; }
+.in.cur { border-color: var(--sun); background: rgb(247 198 78 / 0.12); animation: beacon 1s ease-in-out infinite; }
+#ctl { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* on a phone the keys stay at the bottom of the screen while the field scrolls above them */
+.keys { position: sticky; bottom: 0; z-index: 2; width: calc(100% + 24px); margin: 0 -12px -12px; padding: 10px 12px 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.key {
+  height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.del { background: none; color: var(--muted); }
+.key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+.choices { width: 100%; display: grid; grid-template-columns: repeat(var(--c), 1fr); gap: 10px; }
+.choices .key { height: 66px; font-size: 2rem; }
+.btn.soft { flex: none; min-height: 44px; padding: 0.3em 1em; }
+
+.panel .score { font: 800 2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.panel .won { font-size: 2.6rem; line-height: 1; color: var(--sun); letter-spacing: 0.1em; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+
+.pips i:last-child { width: 11px; height: 11px; }
+
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes hop { 50% { transform: translateY(-16px); } }
+@keyframes cutin { from { opacity: 0; stroke: #fff; stroke-width: 7px; } }
+@keyframes cutout { from { stroke: #fff; } to { opacity: 0; } }
+/* a tablet or a laptop: the field and the desk side by side */
+@media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; }
+  .split { flex-direction: row; align-items: flex-start; }
+  .field { flex: 1 1 0; min-height: 300px; }
+  .desk { flex: 1 1 0; max-width: 400px; padding: 16px; }
+  .keys { position: static; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+}
+@media (min-width: 700px) and (min-height: 861px) { #app.wide h1 { display: block; } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .in.cur, .panel, .field.shake, .ask.shake, .fg.hop svg, .ct.new { animation: none; }
+  .ct.gone { animation: none; opacity: 0; }
+  .fg, .pt, .lp, .bug { transition: none; }
+  .in.cur { box-shadow: 0 0 16px 5px var(--sun); }
+}

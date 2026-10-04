@@ -32,7 +32,7 @@ A dalt, una granota travessa l'estany: cada pregunta encertada és un salt cap a
 | `name` | Veu una figura pintada i escriu la fracció | Numerador i denominador amb el teclat |
 | `line` | Posa la granota al punt de la recta que es demana, o escriu on és | Tocar una marca, o teclat |
 | `cmp` | Tria <, = o > entre dues fraccions | Tres botons |
-| `cut` | Talla cada porció en 2, 3 o 4 fins a tenir el denominador demanat, i escriu el numerador nou | Botons de tall i teclat |
+| `cut` | Talla cada porció en 2, 3 o 5 (i amb talls seguits, en 4, 6, 8…) fins a tenir el denominador demanat, i escriu el numerador nou | Botons de tall i teclat |
 | `fill` | Troba el número que falta: 2/3 = ?/12 | Teclat |
 | `join` | Ajunta porcions de 2 en 2, de 3 en 3… i escriu la fracció simplificada | Botons d'ajuntar i teclat |
 | `same` | Decideix si dues fraccions són equivalents | Sí / No |
@@ -56,23 +56,24 @@ Una secció s'obre quan es passa la prova de l'anterior; dins d'una secció les 
 
 ## Proves
 
-- La pantalla 10 de cada secció: 6 preguntes dels modes de la secció, generades a l'atzar dins dels mateixos límits que les lliçons, sense figures d'ajuda a les seccions 6 a 8.
+- La pantalla 10 de cada secció: 6 preguntes dels modes de la secció, generades a l'atzar dins dels mateixos límits que les lliçons. Sense figures d'ajuda a les seccions 6 a 8, i a la meitat de les preguntes de la secció 4.
 - No hi ha botó de pista ni segona oportunitat: cada pregunta es respon una vegada i es diu si era correcta, amb la resposta bona.
 - Amb 5 encerts o més la prova està superada i s'obre la secció següent. Amb menys, el panell final diu quins modes han fallat i quines pantalles repassar, i la prova es pot repetir (amb preguntes noves).
 - Estrelles de la prova: 3 amb 6 encerts, 2 amb 5.
 
 ## Errors, pistes i estrelles (lliçons)
 
-- Resposta equivocada: la figura o la casella tremola i el missatge diu què cal mirar; a la segona, el raonament sencer, dibuixat sobre la figura.
+- Resposta equivocada: la figura o la casella tremola i el missatge diu què cal mirar; a la segona, el raonament sencer, i la figura l'ensenya quan pot: es destapen les figures amagades, la recta escriu les fraccions a les marques, i la figura de tallar o ajuntar es posa com ha de quedar.
 - El botó Pista fa el mateix sense haver de fallar.
 - Estrelles de la pantalla: 3 sense errors ni pistes, 2 amb un o dos, 1 amb més. Es desa la millor.
 
 ## Fitxers
 
-- `src/nenufars-a-trossos.html`: el joc. La lògica (pantalles, generador de proves, correcció de respostes, estrelles) va entre `LOGIC-START` i `LOGIC-END`, sense tocar el DOM.
-- `src/index.html`: targeta nova i comptador «N de 80 pantalles».
-- `build.sh` genera els fitxers de l'arrel.
-- Progrés a `localStorage`, clau `nenufars-a-trossos`: `{ so, secs, stars }`.
+- `games/nenufars-a-trossos/logic.js`: pantalles, generador de proves, resposta correcta, estrelles, on cauen els talls d'una figura i el que diu el joc. Sense DOM.
+- `games/nenufars-a-trossos/main.js` i `style.css`: figures i pantalles, amb el codi compartit de `shared/`.
+- `nenufars-a-trossos.html`: la pàgina. `shared/games.js`: la targeta, amb el comptador «N de 80 pantalles».
+- `scripts/check.mjs` comprova el total de la targeta; `scripts/check-nenufars.mjs` comprova la lògica. Tots dos corren abans de cada construcció.
+- Progrés amb `shared/progress.js`, clau `nenufars-a-trossos`: `{ so, secs, stars }`.
 
 ## Comprovació
 
