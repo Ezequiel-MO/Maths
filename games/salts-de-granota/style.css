@@ -1,0 +1,132 @@
+/* Layout: the pond at night, like the other games. One centred column: the menu of sections (sums or subtractions), or a level with
+   its operation, its picture and a keypad of big keys on one glass card, so nothing needs the phone's keyboard. Two fixed canvases
+   paint the sky behind and the sparks in front. The rules are written for a phone held upright; the media queries at the end add
+   what a wider screen needs. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --sky: #6FE3FF; --flower: #FF8FD0; --dim: rgb(160 230 220 / 0.2); }
+#app { max-width: 680px; min-height: calc(100dvh - 38px); }
+h1, h2, .big, .btn, .chip, .key { font-family: var(--display); }
+
+/* the links stay at the top; whatever height is left over is shared above and below the game */
+.top { margin-bottom: auto; }
+h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
+/* inside a level the section's name is the title */
+#app.in h1 { display: none; }
+#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.lead { color: var(--muted); max-width: 44ch; text-wrap: pretty; }
+.btn { min-height: 44px; padding: 0.3em 1.3em; font-size: 1.25rem; }
+.btn.glow { outline: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* the menu: sums or subtractions, then the sections of that path, one under the other */
+.ops { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.ops button { min-height: 44px; display: flex; gap: 8px; align-items: center; border: 0; background: none; border-radius: 999px; padding: 2px 16px; font: 800 1.2rem/1 var(--display); color: var(--muted); }
+.ops button span { font: 800 0.9rem/1 var(--body); font-variant-numeric: tabular-nums; }
+.ops button[aria-pressed="true"] { background: var(--pad); color: var(--on-pad); box-shadow: 0 0 24px rgb(79 181 98 / 0.5); }
+.ops button[data-o="1"][aria-pressed="true"] { background: var(--flower); color: #2A0718; box-shadow: 0 0 24px rgb(255 143 208 / 0.5); }
+.foot { width: min(100%, 560px); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); font-weight: 700; font-size: 1rem; }
+
+/* the level: one glass card where everything happens */
+.play {
+  width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 16px 14px 18px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
+}
+.play h2 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.1rem); line-height: 1.1; font-weight: 800; text-wrap: balance; color: var(--mint); text-shadow: 0 0 22px rgb(124 245 176 / 0.5); animation: pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1); }
+.big { display: flex; flex-wrap: wrap; gap: 0 0.28em; align-items: center; justify-content: center; font-size: clamp(2.5rem, 10vw, 4.2rem); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.q { color: var(--sun); }
+.cap { min-height: 2.9em; font-size: 1.2rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
+.hint { color: var(--sky); font-weight: 700; text-wrap: balance; }
+.dots { display: flex; gap: 7px; min-height: 18px; align-items: center; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--dim); }
+.dots i.ok { background: var(--mint); box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); }
+.dots i.slow { background: #4D7486; }
+.dots i.now { outline: 3px solid var(--sun); outline-offset: 1px; }
+
+/* the answer is typed into the operation itself, with the keys below it */
+#rhs:empty { display: none; }
+#ans {
+  min-width: 2.3ch; height: 1.25em; padding: 0 0.2em; display: inline-grid; place-items: center; border-radius: 18px;
+  border: 3px solid var(--sun); background: rgb(160 230 220 / 0.08); box-shadow: 0 0 18px rgb(247 198 78 / 0.35);
+}
+#ans:empty::after { content: "?"; color: var(--sun); animation: blink 1.2s ease-in-out infinite; }
+#ans.good { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 26px 4px rgb(124 245 176 / 0.6); }
+#ans.shake { border-color: var(--bad); animation: shake 0.35s; }
+#msg { min-height: 1.5em; font-weight: 800; text-wrap: balance; }
+#msg.bad { color: var(--bad); }
+#msg.good { color: var(--mint); text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
+.keys { width: 100%; max-width: 460px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.key {
+  height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.del { background: none; color: var(--muted); }
+.key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+
+/* pictures: the number line, the ten lily pads, the bars and cubes */
+#viz { width: 100%; }
+svg.nl { width: 100%; height: auto; display: block; }
+.nl .axis { stroke: rgb(160 230 220 / 0.4); stroke-width: 6; stroke-linecap: round; }
+.nl .tick { stroke: var(--muted); stroke-width: 2; }
+.nl .tick.ten { stroke-width: 5; }
+.nl text { font-family: var(--display); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.nl .tl { fill: var(--muted); font-size: 26px; font-weight: 600; }
+.nl .pl { fill: var(--ink); font-size: 36px; font-weight: 800; }
+.nl .pl.q { fill: var(--sun); }
+.nl .lp { fill: var(--pad); }
+/* a jump forwards is blue, a jump backwards is yellow */
+.nl .arc { fill: none; stroke: var(--sky); stroke-width: 5; stroke-linecap: round; }
+.nl .jl { fill: var(--sky); font-size: 34px; font-weight: 800; }
+.nl .arc.back { stroke: var(--sun); }
+.nl .jl.back { fill: var(--sun); }
+.fb { fill: #4FB562; stroke: #2F7F40; stroke-width: 2; }
+.fe { fill: #fff; stroke: #2F7F40; stroke-width: 2; }
+.fp { fill: #06220D; }
+.fm { fill: none; stroke: #2F7F40; stroke-width: 2.5; stroke-linecap: round; }
+.frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 400px; margin-inline: auto; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); }
+.frame span { position: relative; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); display: grid; place-items: center; }
+.frame span::after { content: ""; width: 52%; aspect-ratio: 1; border-radius: 50%; }
+.frame .on::after, .frame .gone::after { background: radial-gradient(var(--sun) 32%, var(--flower) 34%); }
+.frame .new::after { background: radial-gradient(var(--flower) 32%, var(--sun) 34%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: grow 0.25s ease-out; }
+.frame .gone::after { animation: wilt 0.3s ease-in forwards; }
+/* a hint asked twice counts the flowers */
+.frame b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 1.15rem/1 var(--display); color: #2A1C00; animation: grow 0.25s ease-out; }
+.split { font: 800 1.6rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 12px; }
+.split b { color: var(--sun); }
+.blocks { display: flex; gap: 26px; justify-content: center; align-items: flex-end; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.col .h { font-size: 0.85rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.bars { display: flex; gap: 6px; justify-content: flex-end; min-width: 150px; height: 138px; }
+.bar { width: 20px; height: 138px; border-radius: 4px; background: repeating-linear-gradient(to bottom, var(--pad) 0 12px, var(--pad-dark) 12px 14px); }
+.bar.new { background: repeating-linear-gradient(to bottom, var(--flower) 0 12px, var(--sun) 12px 14px); box-shadow: 0 0 16px 3px rgb(247 198 78 / 0.6); }
+.cubes { display: flex; flex-direction: column-reverse; gap: 2px; width: 20px; height: 138px; }
+.cube { width: 20px; height: 12px; border-radius: 3px; background: var(--pad); flex: none; }
+.cube.new { background: var(--flower); animation: grow 0.2s ease-out; }
+.cubes.full { gap: 0; border-radius: 4px; outline: 3px solid var(--sun); outline-offset: 2px; }
+.cubes.full .cube { height: 13.8px; border-radius: 0; background: var(--flower); }
+
+@keyframes pop { from { transform: scale(0.7); opacity: 0; } }
+@keyframes grow { from { transform: scale(0.2); } }
+@keyframes wilt { to { transform: scale(0); opacity: 0; } }
+@keyframes blink { 50% { opacity: 0.25; } }
+@keyframes beacon { 50% { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); } }
+/* a tablet or a laptop: more air, and the keys grow */
+@media (min-width: 700px) {
+  body { padding-block: 20px 32px; }
+  .chip { padding-inline: 14px; }
+  .play { padding: 22px 22px 24px; gap: 14px; }
+  .key { height: 60px; }
+  .blocks { gap: 40px; }
+  .bars { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1, .play h2, .btn.glow, #ans:empty::after, #ans.shake, .frame .new::after, .frame b, .cube.new { animation: none; }
+  .frame .gone::after { animation: none; opacity: 0; }
+  .btn.glow { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); }
+  .key { transition: none; }
+}

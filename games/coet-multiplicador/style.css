@@ -1,0 +1,103 @@
+/* Layout: the night pond of the other games. One centred column: the launch lane on top, then the field of stars (the multiplication
+   as a rectangle cut by digits) and the desk (the written operation and a keypad of big keys). Two fixed canvases paint the sky behind
+   and the sparks in front. The rules are written for a phone held upright; the media queries at the end put field and desk side by side. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 940px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .sheet, .piece, .side, .tok, .fly { font-family: var(--display); }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#st { color: var(--sun); letter-spacing: 0.1em; }
+
+/* the launch lane: --p is the share of the steps done; fuel and rocket follow it towards the planet */
+.lane { position: relative; width: 100%; max-width: 560px; height: 40px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.fuel { position: absolute; inset: 5px auto 5px 5px; width: calc((100% - 84px) * var(--p) + 22px); border-radius: 999px; background: linear-gradient(90deg, rgb(247 198 78 / 0), var(--sun)); transition: width 0.5s cubic-bezier(0.4, 0, 0.3, 1); }
+.rk { position: absolute; top: 0; left: calc((100% - 84px) * var(--p)); width: 38px; height: 38px; transform: rotate(90deg); transition: left 0.5s cubic-bezier(0.4, 0, 0.3, 1), transform 0.9s, opacity 0.9s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
+.rk svg { display: block; width: 100%; height: 100%; }
+.rk .flame { transform-origin: 32px 48px; animation: flame 0.18s ease-in-out infinite alternate; }
+.planet { position: absolute; right: 5px; top: 4px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, hsl(var(--ph) 90% 82%), hsl(var(--ph) 70% 48%) 55%, hsl(var(--ph) 70% 20%)); box-shadow: 0 0 14px hsl(var(--ph) 90% 60% / 0.7); }
+.lane.won .rk { left: calc(100% - 40px); transform: rotate(90deg) scale(0.2); opacity: 0; }
+.lane.won .planet { animation: beacon 0.8s ease-in-out 3; }
+
+.split { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px 28px; justify-content: center; align-items: center; }
+/* the field: the multiplication as a rectangle, one piece per pair of digits; --h is the colour of its strip */
+.field { width: min(100%, 480px); padding: 12px; border-radius: 26px; border: 1px solid var(--edge);
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
+.rect { display: grid; gap: 6px; }
+.side { display: grid; place-items: center; padding: 0 4px; font-weight: 800; font-size: 1.15rem; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+.piece {
+  min-width: 0; min-height: 54px; padding: 4px 2px; border-radius: 14px; display: grid; place-content: center; font-weight: 800; font-size: 0.95rem; line-height: 1.1; white-space: nowrap;
+  color: hsl(var(--h) 70% 82%); border: 2px solid hsl(var(--h) 60% 45% / 0.6); font-variant-numeric: tabular-nums;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.5) 1px, transparent 1.6px) 0 0 / 15px 15px, linear-gradient(160deg, hsl(var(--h) 46% 24%), hsl(var(--h) 52% 12%));
+  transition: background 0.3s, box-shadow 0.3s, color 0.3s;
+}
+.piece b { font-size: 1.3rem; }
+.piece.now { border-color: var(--sun); animation: beacon 1s ease-in-out infinite; }
+.piece.done { color: #04131C; border-color: hsl(var(--h) 100% 88%); background: linear-gradient(160deg, hsl(var(--h) 95% 74%), hsl(var(--h) 85% 52%)); box-shadow: 0 0 22px hsl(var(--h) 100% 60% / 0.5); }
+.c0 { color: #6FE3FF; }
+.c1 { color: #FF8FD0; }
+/* section 1: a grid of tokens, each worth 10, 100 or 1000 */
+.tokens { display: grid; grid-template-columns: repeat(var(--tc), 1fr); gap: 5px; max-width: calc(var(--tc) * 66px); margin-inline: auto; }
+.tok { aspect-ratio: 1; min-width: 0; border-radius: 22%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: clamp(0.7rem, 3.2vw, 1.05rem); line-height: 1; color: var(--ink);
+  background: linear-gradient(160deg, hsl(190 60% 38%), hsl(190 60% 18%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 3px 0 rgb(0 0 0 / 0.35); transition: background 0.3s, color 0.3s; }
+.tokens.counted .tok { background: linear-gradient(160deg, hsl(190 95% 62%), hsl(190 85% 40%)); color: #04131C; }
+.tokens.lit .tok { background: linear-gradient(160deg, #FFE08A, #E0A21C); color: #2A1C00; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 3px 0 rgb(0 0 0 / 0.35), 0 0 12px rgb(247 198 78 / 0.6); }
+.cap { margin-top: 10px; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+
+/* the desk: the operation as it is written on paper, the question being asked, and the keys */
+.desk { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+.sheet { display: grid; grid-template-columns: repeat(var(--w), 36px); justify-content: center; font-weight: 800; font-size: 1.9rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.sheet span { height: 40px; display: grid; place-items: center; border-radius: 10px; }
+.sheet .sg { color: var(--muted); }
+.sheet .cy { height: 22px; font-size: 1.05rem; color: var(--sun); }
+.sheet .ln { grid-column: 1 / -1; height: 3px; margin: 4px 0; border-radius: 2px; background: var(--ink); }
+.sheet .next { box-shadow: inset 0 0 0 2px var(--sun); background: rgb(247 198 78 / 0.12); animation: beacon 1s ease-in-out infinite; }
+.sheet .bad { color: var(--bad); box-shadow: inset 0 0 0 2px var(--bad); animation: shake 0.35s; }
+.sheet.eqs { display: flex; flex-direction: column; gap: 4px; font-size: 1.5rem; color: var(--muted); }
+.sheet.eqs b { color: var(--sun); }
+.askrow { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ask { display: flex; align-items: center; gap: 0.3em; font-weight: 800; font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask i { font-style: normal; color: var(--sun); }
+.in { min-width: 2.6ch; height: 46px; padding: 0 10px; border-radius: 12px; border: 2px solid var(--sun); background: rgb(247 198 78 / 0.12); display: inline-grid; place-items: center; }
+.in.shake { border-color: var(--bad); animation: shake 0.35s; }
+/* on a phone the keys stay at the bottom of the screen while the field and the sheet scroll above them */
+.keys { position: sticky; bottom: 0; z-index: 2; width: calc(100% + 24px); margin: 0 -12px -12px; padding: 10px 12px 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.key {
+  height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.del { background: none; color: var(--muted); }
+.key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+.btn.soft { flex: none; min-height: 44px; padding: 0.3em 1em; }
+/* a result on its way from where it was worked out to where it is written */
+.fly { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; font-weight: 800; font-size: 1.9rem; line-height: 1; color: #fff; text-shadow: 0 0 14px currentColor; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.fly.cy { color: var(--sun); }
+
+.panel .score { font: 800 2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.panel .won { font-size: 2.6rem; line-height: 1; color: var(--sun); letter-spacing: 0.1em; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes flame { to { transform: scaleY(0.6); } }
+/* a tablet or a laptop: the field and the desk side by side */
+@media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; }
+  .split { flex-direction: row; align-items: flex-start; }
+  .field { flex: 1 1 0; }
+  .desk { flex: 1 1 0; max-width: 400px; padding: 16px; }
+  .keys { position: static; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+  .piece { min-height: 78px; font-size: 1.05rem; }
+  .piece b { font-size: 1.5rem; }
+}
+@media (min-width: 700px) and (min-height: 861px) { #app.wide h1 { display: block; } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .rk .flame, .piece.now, .sheet .next, .sheet .bad, .in.shake, .panel, .lane.won .planet { animation: none; }
+  .fuel, .rk, .piece, .tok { transition: none; }
+  .piece.now, .sheet .next { box-shadow: 0 0 16px 5px var(--sun); }
+}

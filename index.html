@@ -3,97 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
 <title>Jocs de l'estany</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
-<style>
-/* Layout: the pond at night, one column of game cards on a phone, two across on a tablet and three on a wide screen. */
-:root {
-  --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
-  --sun: #F7C64E;
-  --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
-  color-scheme: dark;
-}
-*, *::before, *::after { box-sizing: border-box; }
-body {
-  margin: 0; min-height: 100dvh; padding-inline: 16px; padding-block: 28px 36px;
-  background: radial-gradient(130% 90% at 50% 115%, var(--night-2), var(--night) 65%) var(--night);
-  color: var(--ink); font: 500 1.125rem/1.4 var(--body);
-}
-main { max-width: 980px; margin-inline: auto; display: flex; flex-direction: column; gap: 22px; }
-header { text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
-h1 {
-  margin: 0; font: 800 clamp(2.4rem, 9vw, 3.6rem)/1 var(--display); text-wrap: balance;
-  background: linear-gradient(90deg, #7CF5B0, #6FE3FF, #B79CFF, #FF8FD0, #7CF5B0) 0 0 / 200% 100%;
-  -webkit-background-clip: text; background-clip: text; color: transparent; animation: slide 9s linear infinite;
-}
-p { margin: 0; }
-.lead { color: var(--muted); max-width: 40ch; text-wrap: balance; }
-.games { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-.game {
-  height: 100%; display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; padding: 16px; border-radius: 24px;
-  background: var(--glass); border: 1px solid var(--edge); color: inherit; text-decoration: none; transition: transform 0.15s, border-color 0.15s;
-}
-.game:hover { transform: translateY(-3px); border-color: #7CF5B0; }
-.game:active { transform: translateY(1px); }
-.game:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
-.game svg { width: 84px; height: 84px; display: block; }
-.txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.tag { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-.game b { font: 800 1.6rem/1.1 var(--display); text-wrap: balance; }
-.what { font-size: 1rem; }
-.rec { margin-top: 4px; font-weight: 800; font-size: 0.9rem; color: var(--sun); font-variant-numeric: tabular-nums; }
-.rec:empty { display: none; }
-@media (min-width: 760px) {
-  body { padding-block: 56px; }
-  .games { grid-template-columns: repeat(2, 1fr); }
-  .game { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 24px 18px; gap: 12px; align-content: start; }
-  .game svg { width: 120px; height: 120px; }
-  .txt { align-items: center; }
-}
-@media (min-width: 1040px) { .games { grid-template-columns: repeat(3, 1fr); } }
-@keyframes slide { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { h1 { animation: none; } .game { transition: none; } }
-</style>
-
+<link rel="stylesheet" href="./hub/style.css">
+</head>
+<body>
 <main>
   <header><h1>Jocs de l'estany</h1><p class="lead">Tria un joc. A cada un, l'estany t'ensenya una cosa diferent.</p></header>
-  <ul class="games">
-    <li><a class="game" href="salts-de-granota.html">
-      <svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>
-      <span class="txt"><span class="tag">Càlcul mental</span><b>Salts de Granota</b><span class="what">Trucs per sumar i restar de cap, sense comptar amb els dits.</span><span class="rec" id="r-granota"></span></span></a></li>
-    <li><a class="game" href="memoria-visual.html">
-      <svg viewBox="0 0 68 68" aria-hidden="true"><g fill="#1B3F52"><rect x="4" y="4" width="18" height="18" rx="5"/><rect x="25" y="4" width="18" height="18" rx="5"/><rect x="46" y="4" width="18" height="18" rx="5"/><rect x="4" y="25" width="18" height="18" rx="5"/><rect x="46" y="25" width="18" height="18" rx="5"/><rect x="4" y="46" width="18" height="18" rx="5"/><rect x="25" y="46" width="18" height="18" rx="5"/></g><rect x="25" y="25" width="18" height="18" rx="5" fill="#6FE3FF"/><rect x="46" y="46" width="18" height="18" rx="5" fill="#FF8FD0"/><circle cx="34" cy="34" r="16" fill="none" stroke="#6FE3FF" stroke-width="1.5" opacity="0.6"/></svg>
-      <span class="txt"><span class="tag">Memòria visual</span><b>Repeteix els llums</b><span class="what">Mira quins llums s'encenen i toca'ls en el mateix ordre.</span><span class="rec" id="r-llums"></span></span></a></li>
-    <li><a class="game" href="memoria-visual.html#coet">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 14l1.6 3.6 3.9.4-2.9 2.7.8 3.9L10 22.600l-3.400 2 .8-3.9-2.900-2.700 3.900-.4z" fill="#F7C64E"/><g transform="rotate(35 32 32)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g></svg>
-      <span class="txt"><span class="tag">Programació</span><b>El coet</b><span class="what">Escriu les ordres perquè el coet reculli totes les estrelles.</span><span class="rec" id="r-coet"></span></span></a></li>
-    <li><a class="game" href="abac-xines.html">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="7" width="54" height="50" rx="9" fill="#6B321C" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="12" width="44" height="40" rx="4" fill="#061A24"/><path d="M19 12V52M32 12V52M45 12V52" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="25" width="44" height="4" fill="#C07A48"/><g fill="#5B4A1C"><ellipse cx="19" cy="15.5" rx="5.5" ry="3"/><ellipse cx="45" cy="15.5" rx="5.5" ry="3"/></g><g fill="#F7C64E"><ellipse cx="32" cy="21.500" rx="5.5" ry="3"/></g><g fill="#7CF5B0"><ellipse cx="45" cy="32.500" rx="5.5" ry="3"/><ellipse cx="45" cy="39" rx="5.5" ry="3"/></g><ellipse cx="32" cy="32.500" rx="5.5" ry="3" fill="#6FE3FF"/><g fill="#B79CFF"><ellipse cx="19" cy="32.500" rx="5.5" ry="3"/><ellipse cx="19" cy="39" rx="5.5" ry="3"/><ellipse cx="19" cy="45.5" rx="5.5" ry="3"/></g><g fill="#1B3F52"><ellipse cx="32" cy="42" rx="5.5" ry="3"/><ellipse cx="32" cy="48.500" rx="5.5" ry="3"/><ellipse cx="45" cy="48.500" rx="5.5" ry="3"/></g></svg>
-      <span class="txt"><span class="tag">Operacions</span><b>L'àbac xinès</b><span class="what">Mou les boles per sumar, restar i multiplicar.</span><span class="rec" id="r-abac"></span></span></a></li>
-    <li><a class="game" href="coet-multiplicador.html">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="30" width="56" height="30" rx="7" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="1.5"/><path d="M32 30V60M4 45H60" stroke="#6FE3FF" stroke-width="1.5"/><rect x="5" y="46" width="26" height="13" rx="5" fill="#FF8FD0"/><rect x="33" y="31" width="26" height="13" rx="5" fill="#6FE3FF"/><g transform="rotate(35 40 18) translate(22 0) scale(0.56)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g><path d="M9 10l10 10M19 10L9 20" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/></svg>
-      <span class="txt"><span class="tag">Multiplicar</span><b>El coet multiplicador</b><span class="what">Multiplica números grans tros a tros i fes enlairar el coet.</span><span class="rec" id="r-mult"></span></span></a></li>
-  </ul>
+  <ul class="games"></ul>
 </main>
-
-<script>
-// each game keeps its own progress in this browser: show it on the cards when there is some
-function saved(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } }
-const frog = saved('salts-de-granota'), pond = saved('memoria-visual'), abacus = saved('abac-xines');
-// the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
-// (worlds 6 and 12 were the mixes, which are no longer sections of their own)
-const leaps = Array.isArray(frog.secs) ? frog.secs.reduce((a, b) => a + (b | 0), 0) : Array.isArray(frog.stars) ? frog.stars.filter((n, i) => n > 0 && i % 6 < 5).length * 10 : 0;
-const levels = Array.isArray(pond.secs) ? pond.secs.reduce((a, b) => a + (b | 0), 0) : 0;
-if (leaps) document.querySelector('#r-granota').textContent = `${leaps} de 100 nivells`;
-if (pond.best > 0) document.querySelector('#r-llums').textContent = `Rècord: ${pond.best | 0} punts`;
-if (levels) document.querySelector('#r-coet').textContent = `${levels} de 50 nivells`;
-const beads = Array.isArray(abacus.secs) ? abacus.secs.reduce((a, b) => a + (b | 0), 0) : 0;
-if (beads) document.querySelector('#r-abac').textContent = `${beads} de 60 nivells`;
-const fuel = Array.isArray(saved('coet-multiplicador').secs) ? saved('coet-multiplicador').secs.reduce((a, b) => a + (b | 0), 0) : 0;
-if (fuel) document.querySelector('#r-mult').textContent = `${fuel} de 60 nivells`;
-</script>
+<script type="module" src="./hub/main.js"></script>
 </body>
 </html>
