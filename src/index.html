@@ -1,11 +1,10 @@
 <title>Jocs de l'estany</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <style>
-/* Layout: the pond at night, one column of game cards on a phone and three across on a wide screen. The frog's card is the one patch of daylight. */
+/* Layout: the pond at night, one column of game cards on a phone and three across on a wide screen. */
 :root {
   --night: #04131C; --night-2: #0A2A3A; --ink: #EAF8F4; --muted: #9EC3C0; --glass: rgb(8 32 44 / 0.72); --edge: rgb(160 230 220 / 0.22);
-  --day: #DDF1EE; --day-deep: #BFE3DF; --day-ink: #0F3A40; --day-muted: #3F6469;
-  --pad: #3E9B4F; --pad-dark: #2C7A3C; --sun: #F7C64E;
+  --sun: #F7C64E;
   --display: "Baloo 2", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   --body: "Nunito", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
@@ -40,9 +39,6 @@ p { margin: 0; }
 .what { font-size: 1rem; }
 .rec { margin-top: 4px; font-weight: 800; font-size: 0.9rem; color: var(--sun); font-variant-numeric: tabular-nums; }
 .rec:empty { display: none; }
-.game.day { background: radial-gradient(120% 90% at 50% 120%, var(--day-deep), var(--day) 60%); border-color: #fff; color: var(--day-ink); }
-.game.day .tag { color: var(--day-muted); }
-.game.day .rec { color: var(--pad-dark); }
 @media (min-width: 760px) {
   body { padding-block: 56px; }
   .games { grid-template-columns: repeat(3, 1fr); }
@@ -57,8 +53,8 @@ p { margin: 0; }
 <main>
   <header><h1>Jocs de l'estany</h1><p class="lead">Tria un joc. A cada un, l'estany t'ensenya una cosa diferent.</p></header>
   <ul class="games">
-    <li><a class="game day" href="salts-de-granota.html">
-      <svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#3E9B4F"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#3E9B4F" stroke="#2C7A3C" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2C7A3C" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2C7A3C" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2C7A3C" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <li><a class="game" href="salts-de-granota.html">
+      <svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>
       <span class="txt"><span class="tag">Càlcul mental</span><b>Salts de Granota</b><span class="what">Trucs per sumar de cap, sense comptar amb els dits.</span><span class="rec" id="r-granota"></span></span></a></li>
     <li><a class="game" href="memoria-visual.html">
       <svg viewBox="0 0 68 68" aria-hidden="true"><g fill="#1B3F52"><rect x="4" y="4" width="18" height="18" rx="5"/><rect x="25" y="4" width="18" height="18" rx="5"/><rect x="46" y="4" width="18" height="18" rx="5"/><rect x="4" y="25" width="18" height="18" rx="5"/><rect x="46" y="25" width="18" height="18" rx="5"/><rect x="4" y="46" width="18" height="18" rx="5"/><rect x="25" y="46" width="18" height="18" rx="5"/></g><rect x="25" y="25" width="18" height="18" rx="5" fill="#6FE3FF"/><rect x="46" y="46" width="18" height="18" rx="5" fill="#FF8FD0"/><circle cx="34" cy="34" r="16" fill="none" stroke="#6FE3FF" stroke-width="1.5" opacity="0.6"/></svg>
