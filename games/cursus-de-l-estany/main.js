@@ -90,13 +90,13 @@ function piscina() {
 async function team(t, stage) {
   stage.innerHTML = ''; tip('Quin equip vols ser?'); await sleep(SETTLE); if (!t.on) return;
   chime([523, 659, 784]);
-  panel(stage, `<h2>Tria el teu equip</h2><p class="lead">Aniràs amb ells durant tot el cursus.</p><div class="teams">${TEAMS.map((m, i) =>
+  panel(stage, `<h2>Tria el teu equip</h2><p class="lead">Hi aniràs durant tot el cursus.</p><div class="teams">${TEAMS.map((m, i) =>
     `<button class="team" data-t="${i}" style="--tc:${hsl(m.hue)}"><span>${emblem(i)}</span><b>${m.name}</b></button>`).join('')}</div>`);
   let chosen = false;
   stage.onclick = async e => {
     const b = e.target.closest('.team'); if (!b || chosen) return;
     chosen = true; prog.piscina = true; prog.equip = +b.dataset.t; save(); FX.mood(TEAMS[prog.equip].hue);
-    chime([523, 659, 784, 1047, 1319]); FX.celebrate(8); tip(`Ja ets de l'equip dels ${TEAMS[prog.equip].name}!`, 'go');
+    chime([523, 659, 784, 1047, 1319]); FX.celebrate(8); tip(`Ja ets de l'equip ${TEAMS[prog.equip].name}!`, 'go');
     await sleep(1400); if (t.on) mapa();
   };
 }
@@ -104,17 +104,30 @@ async function team(t, stage) {
 /* ---------- the map ---------- */
 // three circles of concentric rings, drawn with the rings up to this one filled
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${[140, 195, 262][c]} 60% 60%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
-const mark = n => n >= VALID ? `Nota ${n} · validat ✓` : n ? `Nota ${n} · no validat` : 'Per fer';
+const noteText = n => n >= VALID ? `Nota ${n} · validat ✓` : n ? `Nota ${n} · no validat` : 'Per fer';
+// what to do next, in the order the circles go: the Piscina, the projects of the first circle whose exam is not passed, that exam, the end
+function nextTip() {
+  if (!prog.piscina) return 'Abans de res, cal fer la Piscina.';
+  const c = [0, 1, 2].find(x => !prog.exams[x]);
+  if (c === undefined) return 'Has superat els tres exàmens: el cursus és complet! Pots tornar a fer projectes per pujar la nota, o corregir fulls.';
+  if (examOpen(prog, c)) return `Tens validats tots els projectes del cercle ${c}: ja pots fer-ne l'examen!`;
+  return `Cercle ${c}: valida ${CIRCLES[c].projects.filter(i => prog.notes[i] < VALID).map(i => PROJECTS[i].name).join(', ')} (nota de 80 o més) per obrir-ne l'examen.`;
+}
 function mapa() {
-  enter('El mapa', false); const got = badges(prog);
+  const t = enter('El mapa', false), got = badges(prog);
+  // a save with the Piscina done and no team (damaged, or from before the team panel): choose one first
+  if (prog.piscina && prog.equip < 0) {
+    $('#kick').textContent = 'El teu equip'; $('#game').innerHTML = '<p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage pool" id="stage"></div>';
+    return team(t, $('#stage'));
+  }
   const ring = (c) => {
     const open = isOpen(prog, c), exam = examOpen(prog, c), todo = CIRCLES[c].projects.filter(i => prog.notes[i] < VALID).map(i => PROJECTS[i].name);
     return `<section class="ring r${c}${open ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
       ${open ? '' : `<p class="why">${c === 0 ? 'Acaba la Piscina per obrir aquest cercle.' : `Supera l'examen del cercle ${c - 1} per obrir aquest cercle.`}</p>`}
-      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${mark(prog.notes[i])}</span></button>`).join('')}</div>
+      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}</div>
       <button class="exam${prog.exams[c] ? ' pass' : ''}" data-x="${c}"${exam ? '' : ' disabled'}><b>Examen del cercle ${c}</b><span>${prog.exams[c] ? 'Superat ✓ · el pots repetir' : exam ? 'Obert: fes-lo quan vulguis' : open ? `Falta validar: ${todo.join(', ')}` : 'Primer cal obrir el cercle'}</span></button></section>`;
   };
-  $('#game').innerHTML = `<p class="status tip" id="tip">${prog.piscina ? 'Valida tots els projectes d\'un cercle (nota de 80 o més) per obrir-ne l\'examen.' : 'Abans de res, cal fer la Piscina.'}</p>
+  $('#game').innerHTML = `<p class="status tip" id="tip">${nextTip()}</p>
     <div class="map">${prog.piscina ? '' : '<button class="btn" id="pool">Fes la Piscina</button>'}${CIRCLES.map((_, c) => ring(c)).join('')}
       <button class="btn soft" id="cor"${prog.piscina ? '' : ' disabled'}>Corregir el full d'una companya</button></div>
     <h2 class="bh">Insígnies</h2><ul class="badges" aria-label="Insígnies">${BADGES.map((b, i) => `<li class="bd${got[i] ? ' got' : ''}"><b>${b.name}</b><span>${b.what}</span><span class="st">${got[i] ? 'Aconseguida ✓' : 'Encara no'}</span></li>`).join('')}</ul>`;

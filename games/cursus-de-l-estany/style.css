@@ -50,7 +50,7 @@ h1, h2, .btn, .chip, .status, .xp-n, .proj b, .exam b, .bd b { font-family: var(
 .map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
 .ring.r0 { --rh: 140; width: 88%; } .ring.r1 { --rh: 195; width: 94%; } .ring.r2 { --rh: 262; }
-.ring.shut { opacity: 0.8; border-style: dashed; }
+.ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.3rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 30px; height: 30px; }
 .ring .why { font-weight: 700; font-size: 0.95rem; color: var(--muted); }
@@ -64,7 +64,10 @@ h1, h2, .btn, .chip, .status, .xp-n, .proj b, .exam b, .bd b { font-family: var(
 .exam { background: none; border-style: dashed; box-shadow: none; }
 .exam:not(:disabled) { border-style: solid; border-color: var(--sun); }
 .exam.pass { border-color: var(--mint); }
-.proj:disabled, .exam:disabled { opacity: 0.55; cursor: not-allowed; }
+/* a shut button is dimmed by its frame and its title only: its text stays at the full muted colour (contrast), since it says what is missing */
+.proj:disabled, .exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .exam:disabled b { color: var(--muted); }
+.proj:disabled .mk { color: var(--muted); }
 .map .btn { width: 100%; max-width: 560px; }
 .bh { margin: 6px 0 0; font-size: 1.3rem; }
 .badges { width: 100%; max-width: 560px; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }

@@ -472,6 +472,12 @@ check(!('xp' in clean({ xp: 99 })) && !('insignies' in clean({ insignies: [1] })
   check(validated(f).join() === '0,1,2,3,4,5,6,7', 'full progress: all eight validated');
   check(xpOf({ ...f, fulls: 500 }) === 1240 && xpOf({ ...f, fulls: 24 }) === 1240, 'more fulls than the cap give more XP');   // contract: spec «XP, nivell», fins a 3 fulls per projecte validat
 }
+// damaged saves cannot open a circle over a shut one: circle c needs circle c - 1 open and its exam passed
+{
+  const skip = clean({ piscina: true, notes: Array(8).fill(100), exams: [false, true, false] }), noPool = clean({ notes: Array(8).fill(100), exams: [true, true, true] });
+  check([0, 1, 2].map(c => isOpen(skip, c)).join() === 'true,false,false', `exam 1 passed over a shut circle 1: circles open ${[0, 1, 2].map(c => isOpen(skip, c))}`);   // contract: spec «El recorregut», superar l'examen obre el cercle següent: sense l'examen 0 el cercle 1 és tancat, i el 2 també
+  check([0, 1, 2].every(c => !isOpen(noPool, c) && !examOpen(noPool, c)), `three exams passed with no Piscina: circles open ${[0, 1, 2].map(c => isOpen(noPool, c))}`);   // contract: spec «El recorregut», el mapa s'obre amb la Piscina: sense ella tots els cercles són tancats
+}
 // the levels
 check(levelText(0) === '0,00' && levelText(150) === '1,00' && levelText(75) === '0,50' && levelText(1) === '0,01' && levelText(1240) === '8,27' && levelText(100) === '0,67', 'levelText');   // contract: XP ÷ 150, dos decimals, coma; 1 ÷ 150 = 0,0067 → 0,01; 100 ÷ 150 = 0,667 → 0,67
 // validation: 80 is the line; a 79 gives nothing

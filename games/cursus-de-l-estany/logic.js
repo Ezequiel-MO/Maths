@@ -270,8 +270,8 @@ export function xpOf(p) {
   return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + p.notes[i], 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
 }
 export const levelText = xp => (xp / 150).toFixed(2).replace('.', ',');
-// circle 0 opens with the Piscina, circles 1 and 2 with the exam before them; a circle that does not exist is shut
-export const isOpen = (p, c) => c === 0 ? p.piscina === true : (c === 1 || c === 2) && p.exams[c - 1] === true;
+// circle 0 opens with the Piscina, circles 1 and 2 with the exam before them, and only when the circle before is open too (a damaged save cannot skip one); a circle that does not exist is shut
+export const isOpen = (p, c) => c === 0 ? p.piscina === true : (c === 1 || c === 2) && isOpen(p, c - 1) && p.exams[c - 1] === true;
 // the exam of a circle opens when the circle is open and all its projects are validated
 export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => p.notes[i] >= VALID);
 // in the order of the spec; fulls here is the raw count, not the one that XP caps

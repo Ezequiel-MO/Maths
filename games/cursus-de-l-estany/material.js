@@ -1,17 +1,22 @@
 // The material that moves: one function per figure, each filling a host element for one question. Added so far: fireflies; grid, bars and
-// chunks come on the same pattern. Cancelling: every figure takes the screen's token t (what fresh() in main.js returns) in its options and
-// checks t.on after every wait, so a screen that was left fires and saves nothing afterwards. Results come back through callbacks (onDone ...).
-import { RM, sleep } from '../../shared/util.js';
+// chunks come on the same pattern. Cancelling: every figure needs the screen's token t (what fresh() in main.js returns; it throws without one) and
+// checks t.on after every wait, so a screen that was left fires and saves nothing afterwards. A figure also has its own stop(), and a new figure on
+// the same host stops the one that was there, so a stale instance can never fire its callbacks. Results come back through callbacks (onDone ...).
+import { $, RM, sleep } from '../../shared/util.js';
 
 const FLIGHT = 320;   // ms a firefly takes to cross to its pad
-const $ = (s, r) => r.querySelector(s);
+const LIVE = new WeakMap();   // host -> the figure now on it
 
 // D fireflies and d lily pads. A tap on a pad sends one firefly to it; when none are left, onDone() if every pad holds the same number, else onMiss(),
 // the fireflies come back and the child tries again. q is { D, d }; more fields (hands, groups, leftovers) can be read here later without a change of signature.
-// Returns { counts() }: how many fireflies each pad holds now, landed or not.
-export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} }) {
+// Returns { counts(), stop() }: how many fireflies each pad holds now (landed or not), and the cancel of this instance.
+export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+  if (!t) throw new Error('fireflies needs the token of the screen (t)');
+  LIVE.get(host)?.stop();
   const { D, d } = q, size = D <= 12 ? 24 : D <= 24 ? 18 : 13, small = Math.max(11, Math.round(size * 0.7));
-  let left, n, flying, locked;
+  let left, n, flying, locked, stopped = false;
+  const live = () => t.on && !stopped, stop = () => { stopped = true; };
+  LIVE.set(host, { stop });
   // --s sizes the fireflies at rest, --ps the ones on a pad (pads are narrower); --pc is the pads per row: two rows at most on a phone
   host.innerHTML = `<div class="fly" style="--s:${size}px;--ps:${small}px;--pc:${d > 5 ? Math.ceil(d / 2) : d}">
     <div class="fsrc" role="img" aria-label="Les cuques de llum"></div>
@@ -28,8 +33,8 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} }) 
   async function verdict() {
     locked = true;
     if (n.every(x => x === n[0])) return onDone();
-    onMiss(); wrap.classList.add('shake'); await sleep(RM ? 0 : 700); if (!t.on) return;
-    wrap.classList.remove('shake'); wrap.classList.add('leave'); await sleep(RM ? 0 : 400); if (!t.on) return;
+    onMiss(); wrap.classList.add('shake'); await sleep(RM ? 0 : 700); if (!live()) return;
+    wrap.classList.remove('shake'); wrap.classList.add('leave'); await sleep(RM ? 0 : 400); if (!live()) return;
     reset(true);
   }
   async function send(i) {
@@ -41,11 +46,11 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} }) 
     wrap.append(fl); from.remove(); void fl.offsetWidth;
     const k = small / a.width;
     fl.style.transform = `translate(${p.left + p.width / 2 - a.left - a.width / 2}px, ${p.top + p.height / 2 - a.top - a.height / 2}px) scale(${k})`;
-    await sleep(RM ? 0 : FLIGHT); if (!t.on) return;
-    fl.remove(); $('.fbugs', pads[i]).insertAdjacentHTML('beforeend', bug()); pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}: ${n[i]} cuques`);
+    await sleep(RM ? 0 : FLIGHT); if (!live()) return;
+    fl.remove(); $('.fbugs', pads[i]).insertAdjacentHTML('beforeend', bug()); pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}: ${n[i]} ${n[i] === 1 ? 'cuca' : 'cuques'}`);
     flying--; if (!left && !flying) verdict();
   }
-  wrap.onclick = e => { const b = e.target.closest('.fpad'); if (b) send(+b.dataset.i); };
+  wrap.onclick = e => { if (!live()) return; const b = e.target.closest('.fpad'); if (b) send(+b.dataset.i); };
   reset(false);
-  return { counts: () => n.slice() };
+  return { counts: () => n.slice(), stop };
 }

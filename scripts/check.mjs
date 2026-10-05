@@ -19,6 +19,11 @@ for (const g of GAMES) {
   if (!existsSync(new URL('../' + page, import.meta.url))) bad.push(`${g.id}: there is no ${page}`);
   if (g.total !== TOTALS[g.id]) bad.push(`${g.id}: total is ${g.total} in shared/games.js, and the game's data says ${TOTALS[g.id]}`);
 }
+// the home page calls record(load(store) || {}, total) for every card: one that throws on an empty or damaged save breaks the page for every game
+for (const g of GAMES) for (const saved of [{}, { notes: 'a' }]) {
+  try { const r = g.record(saved, g.total); if (typeof r !== 'string') bad.push(`${g.id}: record(${JSON.stringify(saved)}) gives ${typeof r}, not a string`); }
+  catch (e) { bad.push(`${g.id}: record(${JSON.stringify(saved)}) throws ${e.message}`); }
+}
 for (const id in TOTALS) if (!GAMES.some(g => g.id === id)) bad.push(`${id}: not in shared/games.js`);
 if (bad.length) { console.error(bad.join('\n')); process.exit(1); }
 console.log(`${GAMES.length} games checked`);
