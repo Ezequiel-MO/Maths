@@ -240,3 +240,48 @@ export function sheet(valid, rnd = Math.random) {
 }
 // right when the child sees it is right, or sees it is wrong and writes the right answer
 export const judge = (item, saysOk, fix) => item.ok ? !!saysOk : !saysOk && right(item.q, fix);
+
+/* ---------- progress ---------- */
+// What is saved is facts only: { so, piscina, equip, notes, exams, fulls }. XP, level and badges are worked out from it, never stored, so they cannot drift apart.
+export const VALID = 80;
+// a mark out of 100 from the questions right at the first try, of the 15 of an exercise
+export const mark = firsts => Math.round(100 * firsts / 15);
+// a whole number from any JSON value: truncated (never rounded, so damaged data cannot climb to a validated project), 0 when it is not a finite number
+const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
+// n items of a saved list, a missing or wrong list giving undefined items
+const slots = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] : undefined);
+// a complete progress inside its limits from any value at all; a new object, sharing nothing with d
+export function clean(d) {
+  const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+  return {
+    so: o.so !== false,
+    piscina: o.piscina === true,
+    equip: Number.isInteger(o.equip) && o.equip >= -1 && o.equip <= 2 ? o.equip + 0 : -1,   // + 0 turns -0 into 0
+    notes: slots(o.notes, 8).map(n => Math.min(100, Math.max(0, whole(n)))),
+    exams: slots(o.exams, 3).map(e => e === true),
+    fulls: Math.max(0, whole(o.fulls))
+  };
+}
+// the projects with a mark of at least VALID; the functions below take a progress that is already clean
+export const validated = p => p.notes.flatMap((n, i) => n >= VALID ? [i] : []);
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1240 at most
+export function xpOf(p) {
+  const v = validated(p);
+  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + p.notes[i], 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
+}
+export const levelText = xp => (xp / 150).toFixed(2).replace('.', ',');
+// circle 0 opens with the Piscina, circles 1 and 2 with the exam before them; a circle that does not exist is shut
+export const isOpen = (p, c) => c === 0 ? p.piscina === true : (c === 1 || c === 2) && p.exams[c - 1] === true;
+// the exam of a circle opens when the circle is open and all its projects are validated
+export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => p.notes[i] >= VALID);
+// in the order of the spec; fulls here is the raw count, not the one that XP caps
+export const BADGES = [
+  { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
+  { name: 'Primer full', what: 'Corregeix bé el primer full d\'una companya.' },
+  { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
+  { name: 'Deu fulls', what: 'Corregeix bé deu fulls.' },
+  { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
+];
+export const badges = p => [p.piscina === true, p.fulls >= 1, p.notes.some(n => n === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+// hue in degrees for CSS hsl: cyan, orange and green, each at least 60 degrees from the others and bright enough for a dark night pond
+export const TEAMS = [{ name: 'Libèl·lules', hue: 195 }, { name: 'Tritons', hue: 28 }, { name: 'Cuques', hue: 105 }];

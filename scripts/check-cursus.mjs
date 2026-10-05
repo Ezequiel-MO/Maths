@@ -1,7 +1,8 @@
 // Checks the rules of El cursus de l'estany before every build: the 120 fixed questions of the three circles, the limits of every project
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
-import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS } from '../games/cursus-de-l-estany/logic.js';
+import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
+  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS } from '../games/cursus-de-l-estany/logic.js';
 
 let fails = 0, counted = 0, exams = 0, fulls = 0;
 const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
@@ -390,6 +391,148 @@ lookSheet(sheet([0, 1, 2]), [0, 1, 2], 'sheet with Math.random');
 // the judge, by hand: 17 ÷ 5, the frog wrote 2 and 7
 const f17 = { q: { mode: 'rem', D: 17, d: 5, bare: true }, shown: [2, 7], ok: false };
 check(judge(f17, false, [3, 2]) === true && judge(f17, false, [2, 7]) === false && judge(f17, true, [3, 2]) === false, 'judge on 17 ÷ 5 written 2 and 7');   // contract: spec «El mapa», 17 ÷ 5 = 3 i en sobren 2
+
+// ---- 5. progress: marks, clean, XP, level, the map, the badges and the teams
+check(VALID === 80, `VALID is ${VALID}`);   // contract: spec «Projecte validat», de 80 a 100
+check([0, 11, 12, 15].map(mark).join() === '0,73,80,100', `mark of 0, 11, 12, 15 firsts is ${[0, 11, 12, 15].map(mark)}`);   // contract: plan, tasca 4; 11 / 15 = 73,3 %
+check(mark(14) === 93 && mark(1) === 7, `mark(14) is ${mark(14)}, mark(1) is ${mark(1)}`);   // contract: 14 / 15 = 93,3 %, 1 / 15 = 6,7 %
+// the shape clean must always return, whatever it is given
+const wellFormed = p => p && typeof p === 'object' && Object.keys(p).sort().join() === 'equip,exams,fulls,notes,piscina,so'
+  && typeof p.so === 'boolean' && typeof p.piscina === 'boolean' && int(p.equip) && p.equip >= -1 && p.equip <= 2
+  && Array.isArray(p.notes) && p.notes.length === 8 && p.notes.every(n => int(n) && n >= 0 && n <= 100 && !Object.is(n, -0))
+  && Array.isArray(p.exams) && p.exams.length === 3 && p.exams.every(e => typeof e === 'boolean')
+  && int(p.fulls) && p.fulls >= 0 && !Object.is(p.fulls, -0);   // contract: plan, forma { so, piscina, equip, notes, exams, fulls }
+const JUNK = [null, undefined, 'x', '', 0, 7, NaN, Infinity, true, false, [], [1, 2, 3], {}, () => 1,
+  { notes: 'a' }, { notes: [500, -3, 79.6] }, { fulls: -2, equip: 9 }, { fulls: 3.7 }, { fulls: Infinity }, { fulls: NaN }, { fulls: '5' }, { fulls: -0.5 },
+  { equip: '1' }, { equip: 1.5 }, { equip: -2 }, { equip: -0 }, { equip: null }, { exams: 'yes' }, { exams: 1 }, { exams: [true] }, { exams: { 0: true, length: 3 } },
+  { notes: [1, 2, 3] }, { notes: Array(20).fill(90) }, { notes: [NaN, Infinity, -Infinity, '90', null, undefined, {}, [100]] }, { notes: { 0: 100, length: 8 } },
+  { notes: [-0.5, 0.5, 99.99, 100.5, 1e300, -1e300, 80, 79] }, { so: 0, piscina: 1 }, { so: null, piscina: 'true' }, { piscina: [] }, { piscina: {} },
+  { notes: [100, 100, 100, 100, 100, 100, 100, 100], exams: [true, true, true], fulls: 24, piscina: true, equip: 2, so: false, xp: 5000, insignies: [1] }];
+JUNK.forEach(j => {
+  let c;
+  try { c = clean(j); } catch (e) { check(false, `clean(${String(j)}) throws ${e}`); return; }
+  check(wellFormed(c), `clean(${JSON.stringify(j)}) is ${JSON.stringify(c)}`);
+  check(JSON.stringify(clean(c)) === JSON.stringify(c), `clean(${JSON.stringify(j)}) is not stable when cleaned again`);   // contract: plan, forma completa dins de límits
+  try { const xp = xpOf(c), sh = badges(c); check(int(xp) && xp >= 0 && xp <= 1240 && /^\d,\d\d$/.test(levelText(xp)) && sh.length === 5 && validated(c).every(i => c.notes[i] >= 80),
+      `the rules give nonsense on clean(${JSON.stringify(j)})`); } catch (e) { check(false, `the rules throw on clean(${JSON.stringify(j)}): ${e}`); }
+});
+// what clean decides, field by field
+const same = (a, b, msg) => check(JSON.stringify(a) === JSON.stringify(b), `${msg}: got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`);
+same(clean({}), { so: true, piscina: false, equip: -1, notes: [0, 0, 0, 0, 0, 0, 0, 0], exams: [false, false, false], fulls: 0 }, 'clean({})');   // contract: plan, progrés buit
+same(clean({ notes: [500, -3, 79.6] }).notes, [100, 0, 79, 0, 0, 0, 0, 0], 'notes [500, -3, 79.6]');   // contract: plan, 500 → 100, −3 → 0, 79,6 → 79 (truncated, never rounded up to 80)
+same(clean({ notes: [79.99, 80.4] }).notes.slice(0, 2), [79, 80], 'notes 79.99 and 80.4');   // contract: 79,99 truncated is 79, so it does not validate
+same(clean({ notes: [NaN, Infinity, '90', null, {}, [100]] }).notes.slice(0, 6), [0, 0, 0, 0, 0, 0], 'notes that are not finite numbers');   // contract: plan, no-números → 0
+check(clean({ notes: Array(20).fill(90) }).notes.length === 8 && clean({ notes: [1, 2, 3] }).notes.length === 8, 'notes are always 8');   // contract: plan, 8 enters
+same(clean({ fulls: -2, equip: 9 }), { ...clean({}), fulls: 0, equip: -1 }, '{ fulls: -2, equip: 9 }');   // contract: plan, equip fora de −1..2 → −1; fulls negatiu → 0
+check(clean({ fulls: 3.7 }).fulls === 3 && clean({ fulls: Infinity }).fulls === 0 && clean({ fulls: NaN }).fulls === 0 && clean({ fulls: '5' }).fulls === 0 && clean({ fulls: 24 }).fulls === 24, 'fulls: truncated, never Infinity');   // contract: plan, fulls enter ≥ 0
+check([-1, 0, 1, 2].every(e => clean({ equip: e }).equip === e) && [3, 9, -2, 1.5, '1', null, NaN].every(e => clean({ equip: e }).equip === -1) && Object.is(clean({ equip: -0 }).equip, 0), 'equip: -1 to 2 as it is, the rest is -1');   // contract: plan, equip −1 a 2
+check(clean({ so: false }).so === false && [true, 0, null, 'false', undefined].every(v => clean({ so: v }).so === true), 'so is true unless exactly false');   // contract: plan, so cert llevat que sigui false
+check(clean({ piscina: true }).piscina === true && [1, 'true', [], {}, null].every(v => clean({ piscina: v }).piscina === false), 'piscina is true only if exactly true');   // contract: plan, piscina booleà
+same(clean({ exams: [true, 1, 'true', true, true] }).exams, [true, false, false], 'exams: true only if exactly true, three of them');   // contract: plan, exams 3 booleans
+same(clean({ exams: 'yes' }).exams, [false, false, false], 'exams: a text');
+// xp and level are never kept, whatever the saved data says
+check(!('xp' in clean({ xp: 99 })) && !('insignies' in clean({ insignies: [1] })), 'clean does not keep xp or insignies');   // contract: plan, XP i insígnies no es desen
+// no reference into the input, and a second clean is a new object
+{
+  const src = { notes: [90, 80, 70, 60, 50, 40, 30, 20], exams: [true, false, true] }, c = clean(src);
+  c.notes[0] = 0; c.exams[0] = false;
+  check(src.notes[0] === 90 && src.exams[0] === true && c.notes !== src.notes && c.exams !== src.exams, 'clean returns a reference into its input');   // contract: plan, mai una referència a l'entrada
+  const c2 = clean(c); c2.notes[1] = 1;
+  check(c.notes[1] === 80, 'clean(c) shares notes with c');
+}
+// the rules on the empty progress: nothing, and no throw
+{
+  const e = clean({});
+  check(xpOf(e) === 0 && levelText(xpOf(e)) === '0,00', `empty progress: ${xpOf(e)} XP, level ${levelText(xpOf(e))}`);   // contract: spec «XP, nivell», de 0,00
+  check([0, 1, 2].every(c => !isOpen(e, c) && !examOpen(e, c)), 'empty progress: a circle is open');   // contract: plan, progrés buit: cap cercle obert
+  check(badges(e).length === 5 && badges(e).every(b => b === false), `empty progress: badges ${badges(e)}`);   // contract: plan, cap insígnia
+  check(validated(e).length === 0, 'empty progress: a project is validated');
+}
+// the full progress: the maximum
+{
+  const f = clean({ piscina: true, notes: Array(8).fill(100), exams: [true, true, true], fulls: 24 });
+  check(xpOf(f) === 1240 && levelText(xpOf(f)) === '8,27', `full progress: ${xpOf(f)} XP, level ${levelText(xpOf(f))}`);   // contract: spec «XP, nivell», 50 + 800 + 150 + 240 = 1.240, 1.240 ÷ 150 = 8,27
+  check([0, 1, 2].every(c => isOpen(f, c) && examOpen(f, c)), 'full progress: a circle is shut');   // contract: plan, progrés ple: tot obert
+  check(badges(f).length === 5 && badges(f).every(b => b === true), `full progress: badges ${badges(f)}`);   // contract: plan, 5 insígnies
+  check(validated(f).join() === '0,1,2,3,4,5,6,7', 'full progress: all eight validated');
+  check(xpOf({ ...f, fulls: 500 }) === 1240 && xpOf({ ...f, fulls: 24 }) === 1240, 'more fulls than the cap give more XP');   // contract: spec «XP, nivell», fins a 3 fulls per projecte validat
+}
+// the levels
+check(levelText(0) === '0,00' && levelText(150) === '1,00' && levelText(75) === '0,50' && levelText(1) === '0,01' && levelText(1240) === '8,27' && levelText(100) === '0,67', 'levelText');   // contract: XP ÷ 150, dos decimals, coma; 1 ÷ 150 = 0,0067 → 0,01; 100 ÷ 150 = 0,667 → 0,67
+// validation: 80 is the line; a 79 gives nothing
+check(validated(clean({ notes: [80, 79, 100, 0, 79, 99, 50, 80] })).join() === '0,2,5,7', 'validated: 80 and up');   // contract: spec «Projecte validat», de 80 a 100
+check(xpOf(clean({ notes: Array(8).fill(79), fulls: 100, piscina: false })) === 0, 'notes of 79 give XP');   // contract: plan, notes de 79 no validen ni donen XP
+check(validated(clean({ notes: Array(8).fill(79) })).length === 0 && validated(clean({ notes: [79.6] })).length === 0, 'a 79 validates');
+check(xpOf(clean({ fulls: 100 })) === 0, '100 fulls with no project validated give XP');   // contract: plan, 100 fulls sense cap projecte validat donen 0 XP
+check(xpOf(clean({ fulls: 100, piscina: true })) === 50, 'fulls give XP with no project validated');   // contract: 50 de la Piscina, els fulls cap
+check(xpOf(clean({ notes: [80], fulls: 50 })) === 110, 'one project validated caps fulls at 3');   // contract: 80 + 10 × min(50, 3) = 110
+check(xpOf(clean({ notes: [80, 95], fulls: 4 })) === 215, 'two projects, four fulls');   // contract: 80 + 95 + 10 × min(4, 6) = 215
+check(xpOf(clean({ notes: [0, 0, 100], fulls: 1 })) === 110, 'the project index does not matter');   // contract: 100 + 10 × min(1, 3) = 110
+check(xpOf(clean({ exams: [true, false, true] })) === 100, 'an exam is worth 50');   // contract: spec «XP, nivell», examen superat 50
+check(xpOf(clean({ piscina: true })) === 50, 'the Piscina is worth 50');   // contract: spec «XP, nivell», acabar la Piscina 50
+// badges, one at a time, in the order of the spec
+const B = p => badges(clean(p)).map(Number).join('');
+check(BADGES.length === 5 && BADGES.every(b => typeof b.name === 'string' && b.name.length > 3 && typeof b.what === 'string' && b.what.length > 10 && !BAD.test(b.name + b.what)), 'BADGES: five with a name and what');   // contract: plan, 5 { name, what }
+check(new Set(BADGES.map(b => b.name)).size === 5, 'BADGES: names repeat');
+check(B({}) === '00000' && B({ piscina: true }) === '10000', 'badge 1: the Piscina');   // contract: spec «Assoliments», 1r acabar la Piscina
+check(B({ fulls: 1 }) === '01000' && B({ fulls: 0 }) === '00000', 'badge 2: the first sheet');   // contract: spec «Assoliments», 2n primer full ben corregit
+check(B({ notes: [100] }) === '00100' && B({ notes: [99, 80, 0, 0, 0, 0, 0, 0] }) === '00000' && B({ notes: [0, 0, 0, 0, 0, 0, 0, 100] }) === '00100', 'badge 3: a project with 100');   // contract: spec «Assoliments», 3r un projecte amb nota 100
+check(B({ fulls: 10 }) === '01010' && B({ fulls: 9 }) === '01000', 'badge 4: ten sheets, counted raw');   // contract: spec «Assoliments», 4t deu fulls; el compte brut, sense el límit de XP
+check(B({ exams: [true, true, true] }) === '00001' && B({ exams: [true, true, false] }) === '00000' && B({ exams: [false, true, true] }) === '00000', 'badge 5: the three exams');   // contract: spec «Assoliments», 5è cursus complet
+check(xpOf(clean({ fulls: 10 })) === 0 && badges(clean({ fulls: 10 }))[3] === true, 'ten sheets with no project: badge yes, XP no');   // contract: el comptador dels fulls no té límit; el XP sí
+// the teams
+check(TEAMS.map(t => t.name).join('|') === 'Libèl·lules|Tritons|Cuques', `team names: ${TEAMS.map(t => t.name)}`);   // contract: plan, tasca 4, TEAMS
+check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'team hues are degrees');
+{
+  const gap = (a, b) => { const x = Math.abs(a - b) % 360; return Math.min(x, 360 - x); };
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) check(gap(TEAMS[i].hue, TEAMS[j].hue) >= 60, `teams ${i} and ${j} are too close in colour`);   // contract: plan, tres colors clarament diferents
+}
+// the journey: empty, the Piscina, each project of a circle one by one, its exam, and on; isOpen, examOpen, XP and badges at every step
+{
+  const E = [false, false, false], F = [false, false, false];
+  let p = clean({}), xp = 0, n = 0;
+  const at = (label, open, ex, bd) => {
+    const t = `journey, ${label}`;
+    check([0, 1, 2].map(c => isOpen(p, c)).join() === open.join(), `${t}: isOpen is ${[0, 1, 2].map(c => isOpen(p, c))}, expected ${open}`);
+    check([0, 1, 2].map(c => examOpen(p, c)).join() === ex.join(), `${t}: examOpen is ${[0, 1, 2].map(c => examOpen(p, c))}, expected ${ex}`);
+    check(xpOf(p) === xp, `${t}: XP is ${xpOf(p)}, expected ${xp}`);
+    check(badges(p).map(Number).join('') === bd, `${t}: badges ${badges(p).map(Number).join('')}, expected ${bd}`);
+    n++;
+  };
+  at('empty', E, F, '00000');
+  // validated notes with no Piscina: the circle is shut, so is its exam
+  p = clean({ notes: [100, 100] }); xp = 200;
+  at('notes of circle 0, no Piscina', E, F, '00100'); xp = 0;
+  p = clean({}); p.piscina = true; xp = 50;
+  at('Piscina', [true, false, false], F, '10000');
+  p.notes[0] = 79;
+  at('project 0 at 79 does not count', [true, false, false], F, '10000');
+  p.notes[0] = 100; xp += 100;
+  at('project 0 validated', [true, false, false], F, '10100');
+  p.notes[1] = 80; xp += 80;
+  at('project 1 validated: exam 0 opens', [true, false, false], [true, false, false], '10100');
+  p.exams[0] = true; xp += 50;
+  at('exam 0 passed: circle 1 opens', [true, true, false], [true, false, false], '10100');
+  [2, 3].forEach(i => { p.notes[i] = 80; xp += 80; at(`project ${i} validated`, [true, true, false], [true, false, false], '10100'); });
+  p.notes[4] = 80; xp += 80;
+  at('project 4 validated: exam 1 opens', [true, true, false], [true, true, false], '10100');
+  p.exams[1] = true; xp += 50;
+  at('exam 1 passed: circle 2 opens', [true, true, true], [true, true, false], '10100');
+  [5, 6].forEach(i => { p.notes[i] = 80; xp += 80; at(`project ${i} validated`, [true, true, true], [true, true, false], '10100'); });
+  p.notes[7] = 80; xp += 80;
+  at('project 7 validated: exam 2 opens', [true, true, true], [true, true, true], '10100');
+  p.exams[2] = true; xp += 50;
+  at('exam 2 passed: cursus complete', [true, true, true], [true, true, true], '10101');
+  p.fulls = 1; xp += 10;
+  at('first sheet', [true, true, true], [true, true, true], '11101');
+  p.fulls = 24; xp += 230;
+  at('24 sheets', [true, true, true], [true, true, true], '11111');
+  check(xp === 1100, `the journey ends on ${xp} XP`);   // contract: spec «XP, nivell»; 50 + (100 + 7 × 80) + 150 + 240 = 1.100, one note of 100 and seven of 80
+  check(n === 17, `the journey has ${n} steps`);   // contract: the steps written above, counted by hand
+  // a circle that does not exist is shut, and nothing throws
+  const full = clean({ piscina: true, notes: Array(8).fill(100), exams: [true, true, true] });
+  check([3, -1, 0.5, NaN, undefined, null, 'x', '0', 'length', [0], {}].every(c => isOpen(full, c) === false && examOpen(full, c) === false), 'a circle that does not exist is open');   // contract: plan, tres cercles, 0 a 2
+}
 
 // ---- footer
 if (fails) { console.error(`${fails} failures`); process.exit(1); }
