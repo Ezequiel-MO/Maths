@@ -1,5 +1,4 @@
-// The material that moves: one function per figure, each filling a host element for one question. Added so far: fireflies; grid, bars and
-// chunks come on the same pattern. Cancelling: every figure needs the screen's token t (what fresh() in main.js returns; it throws without one) and
+// The material that moves: one function per figure, each filling a host element for one question. Added so far: fireflies, grid, bars, chunks. Cancelling: every figure needs the screen's token t (what fresh() in main.js returns; it throws without one) and
 // checks t.on after every wait, so a screen that was left fires and saves nothing afterwards. A figure also has its own stop(), and a new figure on
 // the same host stops the one that was there, so a stale instance can never fire its callbacks. Results come back through callbacks (onDone ...).
 //
@@ -148,13 +147,91 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   return { stop, solve };
 }
 
-export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid };
+// Tens (D a multiple of 10): D as plates of a hundred and bars of ten to share between d lily pads. A tap on a pad sends it a plate, or a bar once no plate is left;
+// a tap on a plate in the source breaks it into ten bars (one that does not go round has to be). When nothing is left: onDone() if every pad is worth the same,
+// else onMiss(text) and it all comes back. Same contract as the others: { stop(), solve() }; solve() shares it out right.
+export function bars(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+  if (!t) throw new Error('bars needs the token of the screen (t)');
+  LIVE.get(host)?.stop();
+  const { D, d } = q;
+  let n, locked, stopped = false;
+  const live = () => t.on && !stopped, stop = () => { stopped = true; };
+  LIVE.set(host, { stop });
+  const piece = (p, b) => '<i class="plate"></i>'.repeat(p) + '<i class="bar"></i>'.repeat(b);
+  host.innerHTML = `<div class="fly bars" style="--ps:28px;--pc:${d > 5 ? Math.ceil(d / 2) : d}"><div class="fsrc" role="group" aria-label="Les barres de deu i les plaques de cent"></div>
+    <div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div></div>`;
+  const wrap = $('.fly', host), src = $('.fsrc', wrap), pads = [...wrap.querySelectorAll('.fpad')];
+  const say = (i, p, b) => pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}${p + b ? `: ${p} ${p === 1 ? 'plaça' : 'plaques'} i ${b} ${b === 1 ? 'barra' : 'barres'}` : ''}`);
+  function reset() {
+    locked = false; n = Array(d).fill(0); wrap.classList.remove('shake'); src.hidden = false; src.style.minHeight = '';
+    src.innerHTML = '<button class="plate" aria-label="Plaça de cent: toca-la i es trenca en deu barres"></button>'.repeat(Math.floor(D / 100)) + piece(0, (D % 100) / 10);
+    pads.forEach((p, i) => { $('.fbugs', p).innerHTML = ''; say(i, 0, 0); });
+  }
+  async function send(i) {
+    const from = src.querySelector('.plate') || src.querySelector('.bar'); if (locked || !from) return;
+    const plate = from.classList.contains('plate'), b = $('.fbugs', pads[i]);
+    from.remove(); n[i] += plate ? 10 : 1; b.insertAdjacentHTML('beforeend', piece(+plate, +!plate)); say(i, b.querySelectorAll('.plate').length, b.querySelectorAll('.bar').length);
+    if (src.children.length) return;
+    locked = true;
+    if (n.every(x => x === n[0])) return onDone();
+    onMiss(`Oh! No tots en tenen el mateix. Les barres tornen: prova-ho una altra vegada. Si una plaça no es pot repartir bé, toca-la a dalt i es trenca en deu barres.`);
+    wrap.classList.add('shake'); await sleep(RM ? 0 : 900); if (live()) reset();
+  }
+  function solve() {
+    stop(); locked = true; wrap.classList.remove('shake'); src.innerHTML = ''; src.hidden = true;
+    const k = D / d / 10;   // tens in each share
+    pads.forEach((p, i) => { $('.fbugs', p).innerHTML = piece(Math.floor(k / 10), k % 10); say(i, Math.floor(k / 10), k % 10); });
+  }
+  wrap.onclick = e => {
+    if (!live() || locked) return;
+    const pad = e.target.closest('.fpad'), pl = e.target.closest('.fsrc .plate');
+    if (pad) send(+pad.dataset.i);
+    else if (pl) { pl.remove(); src.insertAdjacentHTML('beforeend', piece(0, 10)); src.style.minHeight = Math.max(src.offsetHeight, parseFloat(src.style.minHeight) || 0) + 'px'; }
+  };
+  reset();
+  return { stop, solve };
+}
+
+// The dividend of a 'split' or 'long' question in its pieces joined by +, the box of each piece's partial hanging under it, then the total and (long) the
+// remainder. There is nothing to move, so a `hands` question does not wait for it (chunks.still). The figure supplies the answer boxes: hosts has one element
+// for each box in want order, and the screen moves its boxes there. solve() writes each piece's division under it; mark(ans) frames the first piece whose partial is wrong. Returns { hosts, stop(), solve(), mark() }.
+export function chunks(host, q, { t } = {}) {
+  if (!t) throw new Error('chunks needs the token of the screen (t)');
+  LIVE.get(host)?.stop();
+  const { D, d } = q, ps = q.parts || [D], long = q.mode === 'long';
+  LIVE.set(host, { stop() {} });
+  host.innerHTML = `<div class="fly chunks"><p class="chd">${D} ÷ ${d}</p>
+    <div class="crow">${ps.map((p, i) => `${i ? '<i class="cplus" aria-hidden="true">+</i>' : ''}<div class="cc"><b class="cp">${p}</b><span class="cw" hidden></span><div class="ch"></div></div>`).join('')}</div>
+    <div class="crow ctot"><div class="ch"></div>${long ? '<div class="ch"></div>' : ''}</div></div>`;
+  const wrap = $('.chunks', host), hosts = [...wrap.querySelectorAll('.ch')];
+  function solve() {
+    wrap.querySelectorAll('.cw').forEach((e, i) => {
+      const r = ps[i] % d; e.hidden = false;
+      e.textContent = `${ps[i]} ÷ ${d} = ${Math.floor(ps[i] / d)}${long && i === ps.length - 1 && r ? ` i ${r === 1 ? 'en sobra' : 'en sobren'} ${r}` : ''}`;
+    });
+  }
+  // points at the first piece whose partial is wrong in ans (a list in want order); none when they are all right, so a good retry clears it
+  function mark(ans) {
+    const bad = Array.isArray(ans) ? ps.findIndex((p, i) => +ans[i] !== Math.floor(p / d)) : -1;
+    wrap.querySelectorAll('.cc').forEach((e, i) => e.classList.toggle('bad', i === bad));
+  }
+  return { hosts, stop() {}, solve, mark };
+}
+chunks.still = true;
+
+export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks };
 // what to do with the material of a `hands` question, in the words of its figure
 export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
   : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Fes-ne ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
+  : q.mode === 'tens' ? `Toca un nenúfar: hi va ${q.D < 100 ? 'una barra de deu' : 'una plaça de cent, o una barra de deu quan no en queden'}.${q.D < 100 ? '' : ' Si una plaça no es pot repartir, toca-la i es trenca en deu barres.'} Quan ho hagis repartit tot, escriu la resposta.`
   : q.mode === 'group' || q.mode === 'rem' ? `Prem «Fes un grup de ${q.d}» fins que no en puguis fer més.${q.mode === 'rem' ? ' Les que no arriben per fer un grup es queden a part.' : ''} Després escriu la resposta.`
   : 'Mou el material fins que estigui fet. Després escriu la resposta.';   // neutral: a new figure under `hands` adds its own line above
+
+// the labels of the boxes of a question, in want order (the pieces of a split or long question name their division)
+const LABELS = { share: ['A cada nenúfar'], group: ['Grups'], rem: ['Grups', 'En sobren'], proof: ['Dividend'] };
+export const labelsOf = q => q.mode === 'split' || q.mode === 'long'
+  ? [...(q.bare ? [] : q.parts.map(p => `${p} ÷ ${q.d}`)), q.bare ? 'Quocient' : 'Total', ...(q.mode === 'long' ? ['Residu'] : [])] : LABELS[q.mode] || ['Quocient'];
 
 /* ---------- where the child writes: the pad of keys and the boxes of the answer ---------- */
 // the 12 keys, as in Nenúfars a trossos; every one has data-k (digits, 'del', 'ok')
@@ -162,7 +239,7 @@ export const KEYS = `<div class="keys">${[1, 2, 3, 4, 5, 'del', 6, 7, 8, 9, 0, '
   `<button class="key${typeof k === 'number' ? '' : ' ' + k}" data-k="${k}"${k === 'del' ? ' aria-label="Esborra"' : k === 'ok' ? ' aria-label="Comprova"' : ''}>${k === 'del' ? '⌫' : k === 'ok' ? '✓' : k}</button>`).join('')}</div>`;
 // One box for each number want(q) asks for: a scalar is one box, a list is one per entry, in that order. hosts is the element they all go into
 // (cleared first) or a list with one element for each box, which is left as it is: the boxes need not be siblings (chunks put them under the pieces).
-// The caller routes taps: a [data-slot] under it is B.pick(slot), keys go to B.key(k). Returns B: { els, at, pick(i), key(k), ans(), clear() };
+// The caller routes taps: a [data-slot] under it is B.pick(slot), keys go to B.key(k). Returns B: { els, at, pick(i), key(k), move(hosts), ans(), clear() };
 // ans() is the answer in the shape right() wants (a number, or a list of numbers in want order; '07' is 7), null while any box is empty.
 export function boxes(hosts, q, labels = []) {
   const w = want(q), n = Array.isArray(w) ? w.length : 1, vals = Array(n).fill(''), els = [];
@@ -175,12 +252,14 @@ export function boxes(hosts, q, labels = []) {
   const B = {
     els, at: 0,
     paint() { els.forEach((e, i) => { e.textContent = vals[i]; e.classList.toggle('cur', i === B.at); }); },
-    pick(i) { if (i >= 0 && i < n) { B.at = i; B.paint(); } },
+    pick(i) { if (i >= 0 && i < n) { B.at = i; B.paint(); els[i].scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); } },
+    // the boxes go to other hosts (one for each), keeping what was typed: a figure that appears later (the hint) takes them
+    move(hs) { hs.forEach((h, i) => h.append(els[i].parentElement)); },
     // 'next' and 'prev' move between boxes (the arrow keys); a box takes three digits at most
     key(k) {
       if (k === 'next' || k === 'prev') B.at = (B.at + (k === 'next' ? 1 : n - 1)) % n;
       else vals[B.at] = k === 'del' ? vals[B.at].slice(0, -1) : (vals[B.at] + k).slice(0, 3);
-      B.paint();
+      B.paint(); els[B.at].scrollIntoView?.({ block: 'nearest', inline: 'nearest' });   // scroll-margin in the CSS keeps it clear of the dock
     },
     ans() { return vals.every(v => v !== '') ? (Array.isArray(w) ? vals.map(Number) : +vals[0]) : null; },
     clear() { vals.fill(''); B.at = 0; B.paint(); }

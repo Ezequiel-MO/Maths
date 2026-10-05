@@ -3,8 +3,8 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, want, right, tipFor, explain, said, handIn, firstTry } from './logic.js';
-import { fireflies, FIGURES, how, KEYS, boxes } from './material.js';
+import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry } from './logic.js';
+import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
 
@@ -161,8 +161,6 @@ function tapEntry(B, e) {
   if (k) keyFn?.(k.dataset.k); else if (s) B.pick(+s.dataset.slot);
   return !!(k || s);
 }
-const LABELS = { share: ['A cada nenúfar'], group: ['Grups'], rem: ['Grups', 'En sobren'], proof: ['Dividend'] };
-const labelsOf = q => LABELS[q.mode] || (Array.isArray(want(q)) ? [] : ['Quocient']);
 const eq = q => q.mode === 'proof' ? `${q.d} × ${q.q}${q.r ? ` + ${q.r}` : ''} =` : `${q.D} ÷ ${q.d} =`;
 const llista = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : a[0];
 const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
@@ -183,8 +181,11 @@ function quiz(t, qs, o) {
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
-    fig ??= FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); unfocus(); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
-      onMiss: () => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(MISS, 'oops'); } });
+    if (!fig) {
+      fig = FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); unfocus(); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
+        onMiss: m => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(m || MISS, 'oops'); } });
+      if (fig.hosts) { B.move(fig.hosts); $('#ask').classList.add('far'); }   // a figure with a place for each box (chunks) takes the boxes, whatever was typed in them stays
+    }
     if (solved) fig.solve();
   }
   function arm() {
@@ -192,7 +193,8 @@ function quiz(t, qs, o) {
     chips.forEach((c, j) => c.classList.toggle('on', j === Math.floor(k / per))); dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     $('#ask').innerHTML = `<span class="eq">${eq(q)}</span><span class="bxs"></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
     $('#keys').innerHTML = KEYS;
-    const wait = o.help && q.hands && FIGURES[q.mode];   // the keys come up when the material is done
+    $('#ask').classList.remove('far');
+    const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
     open(!wait); unfocus();
     tip(tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
     typing(B, submit, () => busy || $('#ask').hidden); showTip();
@@ -200,7 +202,7 @@ function quiz(t, qs, o) {
   async function submit(ans) {
     if (!right(q, ans)) {
       tries++; tone(150, 0, 0.45, 0.16, 'triangle'); shake(fig ? mat : $('#ask'));
-        tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); if (tries > 1) figure(true);
+        tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); fig?.mark?.(ans); if (tries > 1) figure(true);
       B.clear(); showTip(); return;
     }
     busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : 'late');
@@ -217,7 +219,6 @@ function quiz(t, qs, o) {
     helped = true; unfocus(); figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
   }
   $('#game').onclick = e => {
-    if (e.target.closest('.fly')) return;   // the pads and «Fes un grup» are the figure's own: a tap there is nothing else
     if (!tapEntry(B, e) && e.target.closest('#hintb')) hint();
   };
   arm();
