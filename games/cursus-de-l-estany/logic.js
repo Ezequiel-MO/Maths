@@ -30,11 +30,11 @@ export const PROJECTS = [
   { name: 'A trossos', sub: 'Partir el dividend en dos trossos', circle: 2, mode: 'split', ex: trio('split',
     [[26, 2, [20, 6]], [39, 3, [30, 9]], [48, 4, [40, 8]], [55, 5, [50, 5]], [64, 2, [60, 4]]],
     [[84, 4, [80, 4]], [69, 3, [60, 9]], [72, 4, [40, 32]], [91, 7, [70, 21]], [75, 5, [50, 25]]],
-    [[96, 6, [60, 36]], [78, 3, [30, 48]], [90, 5, [50, 40]], [98, 7, [70, 28]], [99, 9, [90, 9]]]) },
+    [[96, 6, [60, 36]], [78, 3, [60, 18]], [90, 5, [50, 40]], [98, 7, [70, 28]], [99, 9, [90, 9]]]) },
   { name: 'Tres xifres', sub: 'Tres xifres entre una xifra, amb residu', circle: 2, mode: 'long', ex: trio('long',
     [[126, 2, [100, 26]], [156, 3, [150, 6]], [168, 4, [160, 8]], [205, 5, [200, 5]], [189, 3, [90, 90, 9]]],
     [[235, 5, [200, 35]], [157, 4, [80, 40, 37]], [346, 3, [300, 30, 16]], [187, 8, [160, 27]], [275, 6, [240, 35]]],
-    [[458, 7, [420, 38]], [723, 9, [630, 93]], [777, 5, [500, 250, 27]], [596, 8, [480, 80, 36]], [839, 6, [780, 59]]]) }
+    [[458, 7, [420, 38]], [723, 9, [630, 93]], [777, 5, [500, 250, 27]], [596, 8, [480, 80, 36]], [839, 6, [600, 180, 59]]]) }
 ];
 export const CIRCLES = [
   { name: 'Repartir i agrupar', projects: [0, 1] },
@@ -93,18 +93,28 @@ const sobra = r => r === 0 ? 'no en sobra cap' : r === 1 ? 'en sobra 1' : `en so
 // a typed answer that is a real number (an empty box is not one)
 const fin = x => x != null && String(x).trim() !== '' && Number.isFinite(+x);
 const piecesTxt = (q, sep) => piecesOf(q).map(p => `${p} ÷ ${q.d}`).join(sep);
-const total = q => piecesOf(q).map(p => Math.floor(p / q.d)).join(' + ');
+// singular and plural, and a list of numbers: "80, 40 i 37"
+const grups = n => n === 1 ? '1 grup' : `${n} grups`;
+const desenes = n => n === 1 ? '1 desena' : `${n} desenes`;
+const list = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : String(a[0]);
+const ORD = ['primer', 'segon', 'tercer'];
+// "80 ÷ 4 + 4 ÷ 4 = 20 + 1 = ": the pieces that make at least one group, divided and added (a rest smaller than d is only what is left over);
+// nothing when the one piece is the whole division
+function chain(q) {
+  const w = piecesOf(q).filter(p => p >= q.d);
+  return w.length === 1 && w[0] === q.D ? '' : `${w.map(p => `${p} ÷ ${q.d}`).join(' + ')} = ${w.length > 1 ? `${w.map(p => Math.floor(p / q.d)).join(' + ')} = ` : ''}`;
+}
 // the whole reasoning of a split or long question: the sum of the pieces, each piece divided, then the partials added
 function reason(q, sep) {
-  const t = piecesOf(q), { D, d } = q;
-  return `${t.length > 1 ? `${D} = ${t.join(' + ')}; ` : ''}${t.map(p => `${p} ÷ ${d} = ${Math.floor(p / d)}${q.mode === 'long' && p % d ? ` i ${sobra(p % d)}` : ''}`).join(sep)}${t.length > 1 ? `; ${total(q)} = ${Math.floor(D / d)}` : ''}`;
+  const t = piecesOf(q), { D, d } = q, terms = t.filter(p => p >= d).map(p => Math.floor(p / d));
+  return `${t.length > 1 ? `${D} = ${t.join(' + ')}; ` : ''}${t.map(p => p < d ? `${p} és més petit que ${d}: ${sobra(p)}` : `${p} ÷ ${d} = ${Math.floor(p / d)}${q.mode === 'long' && p % d ? ` i ${sobra(p % d)}` : ''}`).join(sep)}${terms.length > 1 ? `; ${terms.join(' + ')} = ${Math.floor(D / d)}` : ''}`;
 }
 // the first partial of a split or long answer that is wrong, as a pointer to that piece; '' when the partials are right or the answer has none
 function slip(q, ans) {
   if (q.bare || !q.parts) return '';
   const n = q.parts.length, a = Array.isArray(ans) && ans.length === n + (q.mode === 'long' ? 2 : 1) && ans.every(fin) ? ans.map(Number) : null;
   const i = a ? q.parts.findIndex((p, k) => a[k] !== Math.floor(p / q.d)) : -1;
-  return i < 0 ? '' : `Torna a mirar el tros ${q.parts[i]}: ${q.parts[i]} ÷ ${q.d} no fa ${a[i]}. `;
+  return i < 0 ? '' : `Torna a mirar el ${q.parts.filter(x => x === q.parts[i]).length > 1 ? `${ORD[i]} tros, ` : 'tros '}${q.parts[i]}: ${q.parts[i]} ÷ ${q.d} no fa ${a[i]}. `;
 }
 export function tipFor(q) {
   const { D, d } = q;
@@ -113,10 +123,10 @@ export function tipFor(q) {
     case 'group': return `Fes grups de ${d} amb les ${D} cuques. Quants grups surten?`;
     case 'fact': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
     case 'rem': return `Fes grups de ${d} amb les ${D} cuques. Escriu quants grups surten i quantes en sobren.`;
-    case 'proof': return `S'han fet grups de ${d}: han sortit ${q.q} grups i ${sobra(q.r)}. Quantes cuques hi havia?`;
+    case 'proof': return `S'han fet grups de ${d}: han sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
     case 'tens': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
-    case 'split': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `Parteix ${D} en ${q.parts.join(' i ')}. Divideix cada tros entre ${d} i escriu el total.`;
-    case 'long': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient i el residu.` : `Parteix ${D} en ${q.parts.join(', ')}. Divideix cada tros entre ${d} i escriu el total i el residu.`;
+    case 'split': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `Parteix ${D} en ${list(q.parts)}. Divideix cada tros entre ${d} i escriu el total.`;
+    case 'long': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient i el residu.` : `Parteix ${D} en ${list(q.parts)}. Divideix cada tros entre ${d} i escriu el total i el residu.`;
   }
 }
 // a remainder as big as the divisor can still make a group; a quotient and remainder that do not add back up to D are a slip of the multiplication
@@ -136,24 +146,24 @@ export function explain(q, deep, ans) {
     case 'share': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${d} nenúfars amb ${Q} cuques cada un fan ${d} × ${Q} = ${D}.` : `Reparteix-les d'una en una entre els ${d} nenúfars, fins que no en quedi cap. Tots n'han de tenir les mateixes.`);
     case 'group': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${Q} grups de ${d} fan ${Q} × ${d} = ${D}.` : `Encercla ${d} cuques i torna-ho a fer, fins que no en quedi cap. Quants cercles has fet?`);
     case 'fact': return back(q, ans) + (deep ? `${d} × ${Q} = ${D}, per tant ${D} ÷ ${d} = ${Q}.` : `Pensa en la taula del ${d}: quin número multiplicat per ${d} fa ${D}?`);
-    case 'tens': return back(q, ans) + (deep ? `${D} són ${D / 10} desenes. ${D / 10} ÷ ${d} = ${D / 10 / d}: cada grup té ${D / 10 / d} desenes, que són ${Q}.` : `Pensa en desenes: ${D} són ${D / 10} desenes. Reparteix les desenes entre ${d}.`);
+    case 'tens': return back(q, ans) + (deep ? `${D} són ${D / 10} desenes. ${D / 10} ÷ ${d} = ${D / 10 / d}: cada grup té ${desenes(D / 10 / d)}, que són ${Q}.` : `Pensa en desenes: ${D} són ${D / 10} desenes. Reparteix les desenes entre ${d}.`);
     case 'rem': return lead(q, ans) + (deep
-      ? (R ? `Amb ${D} cuques fas ${Q} grups de ${d}: ${d} × ${Q} = ${d * Q}. En sobren ${D} − ${d * Q} = ${R}, que és més petit que ${d}: no en pots fer cap grup més.`
-        : `${d} × ${Q} = ${D}: amb ${D} cuques fas ${Q} grups de ${d} i no en sobra cap.`)
+      ? (R ? `Amb ${D} cuques fas ${grups(Q)} de ${d}: ${d} × ${Q} = ${d * Q}. ${R === 1 ? 'En sobra' : 'En sobren'} ${D} − ${d * Q} = ${R}, que és més petit que ${d}: no en pots fer cap grup més.`
+        : `${d} × ${Q} = ${D}: amb ${D} cuques fas ${grups(Q)} de ${d} i no en sobra cap.`)
       : `Fes tants grups de ${d} com puguis. Les que no arriben per fer un altre grup són les que sobren.`);
-    case 'proof': return (fin(ans) ? `Has escrit ${+ans}. ` : '') + (deep ? `${d} × ${q.q} = ${d * q.q}, i ${d * q.q} + ${q.r} = ${D}.` : `Cada grup té ${d} cuques: ${q.q} grups són ${d} × ${q.q}. Després suma les que sobren.`);
+    case 'proof': return (fin(ans) ? `Has escrit ${+ans}. ` : '') + (deep ? `${d} × ${q.q} = ${d * q.q}, i ${d * q.q} + ${q.r} = ${D}.` : `Cada grup té ${d} cuques: ${grups(q.q)} ${q.q === 1 ? 'és' : 'són'} ${d} × ${q.q}. Després suma les que sobren.`);
     case 'split': {
       const a = Array.isArray(ans) && ans.length === 3 && ans.every(fin) ? ans.map(Number) : null,
         sum = a && a[0] + a[1] !== a[2] ? 'El total és la suma dels dos resultats. ' : '';
       const bad = slip(q, ans);
       return (q.bare ? back(q, ans) : sum + bad) + (deep ? `${reason(q, ' i ')}.` : q.bare
-        ? `Parteix ${D} en trossos que es dividiran bé: ${piecesOf(q).join(' i ')}. Divideix cada tros per separat i suma.`
+        ? (piecesOf(q).length === 1 ? `Pensa en la taula del ${d}: quin número multiplicat per ${d} fa ${D}?` : `Parteix ${D} en trossos que es dividiran bé: ${list(piecesOf(q))}. Divideix cada tros per separat i suma.`)
         : bad ? 'Divideix aquest tros un altre cop i torna a sumar.' : `Divideix cada tros per separat: ${piecesTxt(q, ' i ')}. Després suma els dos resultats.`); }
     default: {   // long
       const pieces = piecesOf(q);
       return lead(q, ans) + slip(q, ans) + (deep
         ? `${reason(q, '; ')}${R ? `; el residu és ${R}` : ', sense residu'}.`
-        : `${q.bare ? `Parteix ${D} en trossos que es dividiran bé: ${pieces.join(', ')}. ` : ''}Divideix cada tros entre ${d}. Tots es divideixen bé llevat de l'últim: el que sobra d'ell és el residu.`); }
+        : `${q.bare ? `Parteix ${D} en trossos: ${list(pieces)}. ` : ''}Divideix cada tros entre ${d}. ${R ? "Tots es divideixen bé llevat de l'últim: el que sobra d'ell és el residu." : 'Tots es divideixen bé: no en sobra cap.'}`); }
   }
 }
 // what the game says after a right answer: the whole division
@@ -165,8 +175,8 @@ export function said(q) {
     case 'fact': case 'tens': return `${D} ÷ ${d} = ${Q}, perquè ${d} × ${Q} = ${D}.`;
     case 'rem': return `${D} ÷ ${d} = ${Q} i ${sobra(R)}.`;
     case 'proof': return `${d} × ${q.q} + ${q.r} = ${D}, i per això ${D} ÷ ${d} = ${q.q} i ${sobra(q.r)}.`;
-    case 'split': return `${D} ÷ ${d} = ${piecesTxt(q, ' + ')} = ${total(q)} = ${Q}.`;
-    default: return `${D} ÷ ${d} = ${piecesTxt(q, ' + ')} = ${total(q)} = ${Q} i ${sobra(R)}.`;
+    case 'split': return `${D} ÷ ${d} = ${chain(q)}${Q}.`;
+    default: return `${D} ÷ ${d} = ${chain(q)}${Q} i ${sobra(R)}.`;
   }
 }
 
@@ -206,7 +216,7 @@ export function exam(circle, rnd = Math.random) {
 }
 // A wrong answer a child might write, always checked against right(). Kinds that do not apply to this question are left out of the list,
 // so the pick falls back on the others: proof forgets the remainder (only when r > 0, else that would be the right answer) or adds d;
-// the others are the quotient ±1, [q − 1, r + d] (remainder not reduced), [q, 0] (remainder forgotten, only when r > 0) and a chunk worth 10 off.
+// the others are the quotient ±1, [q − 1, r + d] (remainder not reduced), [q, 0] (remainder forgotten, only when r > 0) and a chunk worth 10 off (only when the quotient is above 10).
 function wrongAnswer(q, rnd) {
   const w = want(q), [Q, R] = qr(q), two = Array.isArray(w), m = (x, y = R) => two ? [x, y] : x, c = [];
   if (q.mode === 'proof') { if (q.r > 0) c.push(q.D - q.r); c.push(q.D + q.d); }
@@ -215,7 +225,7 @@ function wrongAnswer(q, rnd) {
     if (Q > 1) c.push(m(Q - 1));
     if (two && Q > 1) c.push(m(Q - 1, R + q.d));
     if (two && R > 0) c.push(m(Q, 0));
-    if (q.mode === 'split' || q.mode === 'long') { c.push(m(Q + 10)); if (Q > 10) c.push(m(Q - 10)); }
+    if ((q.mode === 'split' || q.mode === 'long') && Q > 10) c.push(m(Q + 10), m(Q - 10));   // a chunk can be off by 10 only when the quotient has tens
   }
   const bad = c.filter(a => !right(q, a));
   return bad[at(bad.length, rnd)];

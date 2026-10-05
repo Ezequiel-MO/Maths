@@ -112,6 +112,17 @@ C2.filter(({ q }) => q.mode !== 'tens').forEach(({ q, where }) => {
   for (const b of [{ ...q, bare: true }, { ...q, bare: true, parts: undefined }]) check(String(want(b)) === String(isLong ? [Q, q.D % q.d] : Q), `${tag}: bare want() is ${want(b)}`);   // contract: plan, bare
   // one part changed, the total kept: refused, and the hint names that part and no other
   const x = expected(q);
+  // with the material hidden or in view (not ex00), every chunk divides as a table fact times 1, 10 or 100: k × 10^n with k from 1 to 10
+  if (!q.hands) t.forEach((x, i) => { const v = isLong && i === n - 1 ? Math.floor(x / q.d) : x / q.d;
+    check(/^[1-9]0*$/.test(String(v)), `${tag}: the chunk ${x} ÷ ${q.d} = ${v} is not a table fact times 1, 10 or 100`); });   // contract: review fix round 1, ex01 and ex02
+  // the tip lists the parts with "i" before the last
+  check(tipFor(q).includes(`${t.slice(0, -1).join(', ')} i ${t[n - 1]}`), `${tag}: the tip does not list the parts with "i" before the last: "${tipFor(q)}"`);   // contract: review fix round 1
+  // a part whose value comes twice is named by its place
+  t.forEach((p, i) => {
+    if (t.filter(o => o === p).length < 2) return;
+    const ord = ['primer', 'segon', 'tercer'][i], ans = x.map((v, k) => k === i ? v + 1 : v), txt = explain(q, false, ans);
+    check(txt.includes(`${ord} tros`), `${tag}: the part ${p} comes twice, and the hint for ${ans} does not say the ${ord}: "${txt}"`);   // contract: review fix round 1, [90, 90, 9]
+  });
   t.forEach((p, i) => {
     for (const dx of [1, -1]) {
       const ans = x.map((v, k) => k === i ? v + dx : v), txt = explain(q, false, ans);
@@ -194,14 +205,34 @@ const wrongs = q => {
   if (!Array.isArray(w)) return [undefined, w + 1, w - 1, 0, '', 'abc'];
   return [undefined, w.map(v => v + 1), w.map(() => 0), [], ['', 'x'], w.map((v, i) => i === w.length - 2 ? v - 1 : i === w.length - 1 ? v + q.d : v)];
 };
-function spoken(q, where) {
+// patterns no text may show: a division printed twice, N = N, a plural after the number 1 (or a singular after any other), a one-item list of
+// pieces, a chunk smaller than d written as "÷ d = 0". Each reports only its first three hits, so one bug does not flood the screen.
+const ODD = [[/(\d+) ÷ (\d+) = \1 ÷ \2/, 'a division written twice'], [/= (\d+) = \1(?!\d)/, 'N = N'],
+  [/(?<!\d)1 (grups|cuques|nenúfars|desenes|trossos|cercles)/, 'plural after 1'], [/(?<!\d)1 grup són/, '"1 grup són"'],
+  [/(?<!\d)(?!1\b)\d+ (grup|nenúfar|desena|cercle|tros)(?![a-zéí])/, 'singular after a number above 1'],
+  [/sobren [\d −=]*(?<!\d)1(?!\d)/, '"sobren" with 1'], [/en toquen 1(?!\d)/, '"en toquen 1"'], [/sobr[ae]n? 0(?!\d)/, 'en sobra 0'],
+  [/trossos[^:]*: \d+\./, 'a list of one piece'], [/÷ \d+ = 0(?!\d)/, '÷ d = 0']];
+const oddHits = {};
+function odd(txt, tag) {
+  for (const [re, why] of ODD) if (re.test(txt)) { oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; }
+}
+function spoken(q, where, extra = []) {
   const tag = `${where} ${JSON.stringify(q)}`;
-  for (const deep of [false, true]) for (const ans of wrongs(q)) for (const txt of [tipFor(q), explain(q, deep, ans)])
+  for (const deep of [false, true]) for (const ans of [...wrongs(q), ...extra]) for (const txt of [tipFor(q), explain(q, deep, ans)]) {
     check(typeof txt === 'string' && txt.length > 10 && !BAD.test(txt), `${tag}: says "${txt}"`);
+    odd(String(txt), tag);
+  }
   const s = said(q);
   check(typeof s === 'string' && s.length > 10 && !BAD.test(s), `${tag}: said "${s}"`);
+  odd(String(s), tag);
   const sd = String(s);
   check(sd.includes(`${q.D}`) && sd.includes(`${q.d}`), `${tag}: said does not tell the whole division ("${sd}")`);
+  // a long division with no remainder never says that something is left over from the last chunk (the question itself may ask for the remainder)
+  if (q.mode === 'long' && q.D % q.d === 0) for (const txt of [explain(q, false), explain(q, true), said(q)])
+    check(!/sobr|llevat|d.ell|residu/.test(String(txt).replace(/no en sobra cap|sense residu/g, '')), `${tag}: exact division, but "${txt}" talks of what is left`);   // contract: 126 ÷ 2 has nothing left over
+  // the full explanation ends up telling the answer
+  const w = want(q), deepTxt = String(explain(q, true));
+  if (q.mode !== 'proof') check(deepTxt.includes(String(Array.isArray(w) ? w[0] : w)) || deepTxt.includes(String(Math.floor(q.D / q.d))), `${tag}: the full explanation does not tell the answer ("${deepTxt}")`);
 }
 PROJECTS.forEach((P, p) => P.ex.forEach((E, e) => E.forEach(q => spoken(q, `${P.name} ex0${e}`))));
 hand.forEach(({ q }) => { spoken(q, 'by hand'); spoken({ ...q, hide: true, hands: true }, 'by hand, hidden'); });
@@ -280,7 +311,7 @@ function kind(q, s) {
   if (two && a === Q - 1 && b === R + q.d) return 'unreduced';
   if (two && b !== R) return 'other';
   const dq = Math.abs(a - Q);
-  return dq === 1 ? 'quotient 1' : dq === 10 && (q.mode === 'split' || q.mode === 'long') ? 'chunk 10' : 'other';
+  return dq === 1 ? 'quotient 1' : dq === 10 && Q > 10 && (q.mode === 'split' || q.mode === 'long') ? 'chunk 10' : 'other';
 }
 const KINDS = { share: ['quotient 1'], group: ['quotient 1'], fact: ['quotient 1'], tens: ['quotient 1'], proof: ['forgot remainder', 'added d'],
   rem: ['quotient 1', 'unreduced', 'forgot remainder'], split: ['quotient 1', 'chunk 10'], long: ['quotient 1', 'unreduced', 'forgot remainder', 'chunk 10'] };   // contract: plan, errors de les granotes
@@ -298,19 +329,21 @@ function lookJudge(it, tag) {
 }
 check(EXAM_PASS === 5, `EXAM_PASS is ${EXAM_PASS}`);   // contract: spec «Exàmens», 5 de 6
 const SETS = [0, 1, 2, 3, 4, 5, 6, 7].map(n => [...Array(n + 1).keys()]);   // [0], [0, 1], ... [0..7]
+const seen = new Set(), GEN = new Map();   // GEN: every generated question, with the answers shown for it
+const note = (q, shown) => { const g = GEN.get(JSON.stringify(q)) || { q, shown: [] }; if (shown !== undefined) g.shown.push(shown); GEN.set(JSON.stringify(q), g); };
 // exams: 200 per circle, seed 1000 + circle
 CIRCLES.forEach((C, c) => {
   const rnd = lcg(1000 + c);
-  for (let i = 0; i < 200; i++) { exams++; lookExam(exam(c, rnd), c, `circle ${c} exam #${i} (seed ${1000 + c})`); }
+  for (let i = 0; i < 200; i++) { exams++; const ex = exam(c, rnd); lookExam(ex, c, `circle ${c} exam #${i} (seed ${1000 + c})`); ex.forEach(q => note(q)); }
 });
 // sheets: 200 per set, seed 2000 + valid.length; 0, 1 and 2 wrong all turn up, in every position, and every kind of mistake turns up
-const seen = new Set();
 SETS.forEach(valid => {
   const rnd = lcg(2000 + valid.length), by = [0, 0, 0, 0], where = [0, 0, 0];
   for (let i = 0; i < 200; i++) {
     fulls++;
     const tag = `valid [${valid}] sheet #${i} (seed ${2000 + valid.length})`, sh = sheet(valid, rnd);
     lookSheet(sh, valid, tag);
+    sh.forEach(it => note(it.q, it.shown));
     by[sh.filter(x => !x.ok).length]++;
     sh.forEach((it, k) => {
       lookJudge(it, tag);
@@ -337,6 +370,14 @@ check(!seen.has('proof r=0: forgot remainder'), 'proof with r = 0 cannot be wron
   const rnd = lcg(2000);
   for (let i = 0; i < 200; i++) for (const v of [[], undefined, [9, -1, 'a', 2.5]]) lookSheet(sheet(v, rnd), [0], `sheet(${JSON.stringify(v)}) #${i} (seed 2000)`);   // contract: plan, si és buida, [0]
 }
+// every text, over every question the generators made, with the answers the frogs showed; then over every bare question inside the limits
+GEN.forEach(({ q, shown }) => spoken(q, 'generated', shown));
+let every = 0;
+PROJECTS.forEach((P, p) => { for (let d = 2; d <= 10; d++) for (let D = d + 1; D <= 999; D++) {
+  const q = { mode: P.mode, D, d, ...(p === 4 && { q: Math.floor(D / d), r: D % d }), bare: true, p };
+  if (problems(q, p, -1).length === 0) { every++; spoken(q, 'bare question'); }
+} });
+check(every > 5000 && GEN.size > 500, `texts checked on ${every} bare questions and ${GEN.size} generated ones`);
 // the same seed makes the same exam and the same sheet, and a random source that never changes cannot make anything repeat or hang
 check(JSON.stringify(exam(1, lcg(7))) === JSON.stringify(exam(1, lcg(7))) && JSON.stringify(sheet([0, 1, 2], lcg(7))) === JSON.stringify(sheet([0, 1, 2], lcg(7))), 'the same seed does not make the same exam and sheet');
 for (const [name, fixed] of [['0', () => 0], ['0.5', () => 0.5], ['0.9999999999', () => 0.9999999999]]) {
