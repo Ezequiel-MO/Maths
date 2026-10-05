@@ -123,7 +123,7 @@ export function tipFor(q) {
     case 'group': return `Fes grups de ${d} amb les ${D} cuques. Quants grups surten?`;
     case 'fact': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
     case 'rem': return `Fes grups de ${d} amb les ${D} cuques. Escriu quants grups surten i quantes en sobren.`;
-    case 'proof': return `S'han fet grups de ${d}: han sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
+    case 'proof': return `S'han fet grups de ${d}: ${q.q === 1 ? 'ha' : 'han'} sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
     case 'tens': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
     case 'split': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `Parteix ${D} en ${list(q.parts)}. Divideix cada tros entre ${d} i escriu el total.`;
     case 'long': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient i el residu.` : `Parteix ${D} en ${list(q.parts)}. Divideix cada tros entre ${d} i escriu el total i el residu.`;
@@ -134,7 +134,7 @@ function lead(q, a) {
   if (!Array.isArray(a) || a.length < 2 || !a.every(fin)) return '';
   const [x, y] = a.slice(-2).map(Number);
   if (y >= q.d) return `Amb ${y} encara es pot fer un grup més de ${q.d}: el residu ha de ser més petit que ${q.d}. `;
-  if (x * q.d + y !== q.D) return `Comprova multiplicant: ${q.d} × ${x} + ${y} fa ${q.d * x + y}, no ${q.D}. `;
+  if (x * q.d + y !== q.D) return `Comprova multiplicant: ${q.d} × ${x}${y ? ` + ${y}` : ''} fa ${q.d * x + y}, no ${q.D}. `;
   return '';
 }
 // a wrong single number: what it would need to be worth when multiplied back
@@ -151,7 +151,7 @@ export function explain(q, deep, ans) {
       ? (R ? `Amb ${D} cuques fas ${grups(Q)} de ${d}: ${d} × ${Q} = ${d * Q}. ${R === 1 ? 'En sobra' : 'En sobren'} ${D} − ${d * Q} = ${R}, que és més petit que ${d}: no en pots fer cap grup més.`
         : `${d} × ${Q} = ${D}: amb ${D} cuques fas ${grups(Q)} de ${d} i no en sobra cap.`)
       : `Fes tants grups de ${d} com puguis. Les que no arriben per fer un altre grup són les que sobren.`);
-    case 'proof': return (fin(ans) ? `Has escrit ${+ans}. ` : '') + (deep ? `${d} × ${q.q} = ${d * q.q}, i ${d * q.q} + ${q.r} = ${D}.` : `Cada grup té ${d} cuques: ${grups(q.q)} ${q.q === 1 ? 'és' : 'són'} ${d} × ${q.q}. Després suma les que sobren.`);
+    case 'proof': return (fin(ans) ? `Has escrit ${+ans}. ` : '') + (deep ? (q.r ? `${d} × ${q.q} = ${d * q.q}, i ${d * q.q} + ${q.r} = ${D}.` : `${d} × ${q.q} = ${D}, i no en sobra cap: el dividend és ${D}.`) : `Cada grup té ${d} cuques: ${grups(q.q)} ${q.q === 1 ? 'és' : 'són'} ${d} × ${q.q}.${q.r === 0 ? '' : q.r === 1 ? ' Després suma la que sobra.' : ' Després suma les que sobren.'}`);
     case 'split': {
       const a = Array.isArray(ans) && ans.length === 3 && ans.every(fin) ? ans.map(Number) : null,
         sum = a && a[0] + a[1] !== a[2] ? 'El total és la suma dels dos resultats. ' : '';
@@ -174,7 +174,7 @@ export function said(q) {
     case 'group': return `${D} ÷ ${d} = ${Q}: surten ${Q} grups de ${d}.`;
     case 'fact': case 'tens': return `${D} ÷ ${d} = ${Q}, perquè ${d} × ${Q} = ${D}.`;
     case 'rem': return `${D} ÷ ${d} = ${Q} i ${sobra(R)}.`;
-    case 'proof': return `${d} × ${q.q} + ${q.r} = ${D}, i per això ${D} ÷ ${d} = ${q.q} i ${sobra(q.r)}.`;
+    case 'proof': return `${d} × ${q.q}${q.r ? ` + ${q.r}` : ''} = ${D}, i per això ${D} ÷ ${d} = ${q.q} i ${sobra(q.r)}.`;
     case 'split': return `${D} ÷ ${d} = ${chain(q)}${Q}.`;
     default: return `${D} ÷ ${d} = ${chain(q)}${Q} i ${sobra(R)}.`;
   }

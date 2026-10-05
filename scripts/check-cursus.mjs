@@ -212,10 +212,16 @@ const ODD = [[/(\d+) ÷ (\d+) = \1 ÷ \2/, 'a division written twice'], [/= (\d+
   [/(?<!\d)1 (grups|cuques|nenúfars|desenes|trossos|cercles)/, 'plural after 1'], [/(?<!\d)1 grup són/, '"1 grup són"'],
   [/(?<!\d)(?!1\b)\d+ (grup|nenúfar|desena|cercle|tros)(?![a-zéí])/, 'singular after a number above 1'],
   [/sobren [\d −=]*(?<!\d)1(?!\d)/, '"sobren" with 1'], [/en toquen 1(?!\d)/, '"en toquen 1"'], [/sobr[ae]n? 0(?!\d)/, 'en sobra 0'],
-  [/trossos[^:]*: \d+\./, 'a list of one piece'], [/÷ \d+ = 0(?!\d)/, '÷ d = 0']];
+  [/trossos[^:]*: \d+\./, 'a list of one piece'], [/÷ \d+ = 0(?!\d)/, '÷ d = 0'], [/ \+ 0(?!\d)/, 'a sum with a + 0 term'],
+  // the verb agrees with the number after it: «ha sortit 1 grup», «han sortit 3 grups»
+  [/(han sortit|surten|queden|toquen|sobren) (en )?1(?!\d)/, 'plural verb before 1'],
+  [/(?<![a-zé])(ha sortit|surt|queda|toca|sobra) (?!cap)(?!\d+ −)(?!1(?!\d))\d+/, 'singular verb before a number above 1'], [/(?<!\d)(?!1\b)\d+ grups és/, 'plural subject with "és"']];
 const oddHits = {};
 function odd(txt, tag) {
-  for (const [re, why] of ODD) if (re.test(txt)) { oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; }
+  const hit = why => { oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; };
+  for (const [re, why] of ODD) if (re.test(txt)) hit(why);
+  // a piece smaller than the divisor is never divided (what is left over is said as left over), in a sum or in a chain
+  for (const [, a, b] of txt.matchAll(/(\d+) ÷ (\d+)/g)) if (+a < +b) { hit('a piece smaller than the divisor is divided'); break; }
 }
 function spoken(q, where, extra = []) {
   const tag = `${where} ${JSON.stringify(q)}`;
@@ -231,6 +237,15 @@ function spoken(q, where, extra = []) {
   // a long division with no remainder never says that something is left over from the last chunk (the question itself may ask for the remainder)
   if (q.mode === 'long' && q.D % q.d === 0) for (const txt of [explain(q, false), explain(q, true), said(q)])
     check(!/sobr|llevat|d.ell|residu/.test(String(txt).replace(/no en sobra cap|sense residu/g, '')), `${tag}: exact division, but "${txt}" talks of what is left`);   // contract: 126 ÷ 2 has nothing left over
+  // proof: with r = 0 nothing is left over, so no text tells the child to add leftovers; with r = 1 it is the one that is left
+  if (q.mode === 'proof') {
+    for (const txt of [explain(q, false), explain(q, true), said(q), tipFor(q)].map(String)) {
+      if (q.r === 0) check(!/suma|sobr|queda|sense/.test(txt.replace(/no en sobra cap/g, '')), `${tag}: r = 0, but "${txt}" talks of leftovers`);   // contract: 15 = 5 × 3 has nothing left
+      if (q.r === 1) check(!/les que sobren/.test(txt), `${tag}: r = 1, but "${txt}" is plural`);
+    }
+    if (q.r === 1) check(/la que sobra/.test(explain(q, false)), `${tag}: r = 1: the hint does not say «la que sobra»`);
+    if (q.r > 1) check(/les que sobren/.test(explain(q, false)), `${tag}: r > 1: the hint does not say «les que sobren»`);
+  }
   // the full explanation ends up telling the answer
   const w = want(q), deepTxt = String(explain(q, true));
   if (q.mode !== 'proof') check(deepTxt.includes(String(Array.isArray(w) ? w[0] : w)) || deepTxt.includes(String(Math.floor(q.D / q.d))), `${tag}: the full explanation does not tell the answer ("${deepTxt}")`);
