@@ -2,7 +2,7 @@
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
-  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told } from '../games/cursus-de-l-estany/logic.js';
+  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told, examIn } from '../games/cursus-de-l-estany/logic.js';
 
 let fails = 0, counted = 0, exams = 0, fulls = 0;
 const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
@@ -620,6 +620,47 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   check(xpOf({ ...P(Array(8).fill(100), 24), exams: [true, true, true] }) === 1240 && xpOf({ ...P(Array(8).fill(100), 99), exams: [true, true, true] }) === 1240, 'XP maximum is not 1240');   // contract: brief «XP màxim: 1.240»
   // the answer on the line of a sheet
   check(told({ mode: 'fact', D: 12, d: 4 }, 3) === '3' && told({ mode: 'long', D: 17, d: 5, bare: true }, [3, 2]) === '3 i en sobren 2' && told({ mode: 'rem', D: 20, d: 4 }, [5, 0]) === '5 i no en sobra cap' && told({}, [4, 1]) === '4 i en sobra 1', 'the answer of a sheet is not told as the quotient or as quotient and remainder');   // contract: said() de logic.js diu «3 i en sobren 2» i «en sobra 1»
+}
+
+// ---- 6c. the hand-in of an exam: 5 of 6 passes, the first pass pays 50 XP, a pass is never undone, a fail keeps nothing but names what to revise
+// examIn(p, c, qs, run) gives { prog, good, score, gain, redo, news } and never touches p; qs are the six questions (each with its project p), run one boolean per question.
+{
+  const P = (notes, exams, fulls = 0) => ({ ...clean({ piscina: true, equip: 0, notes, exams }), fulls });
+  const N0 = [80, 80, 0, 0, 0, 0, 0, 0], N1 = [80, 80, 80, 80, 80, 0, 0, 0], ALL = Array(8).fill(100);
+  const E = [false, false, false];
+  const qs0 = [0, 1, 0, 1, 1, 0].map(p => ({ mode: 'fact', D: 12, d: 3, bare: true, p }));
+  const missing = miss => Array.from({ length: 6 }, (_, i) => !miss.includes(i));
+  check(EXAM_PASS === 5, `EXAM_PASS is ${EXAM_PASS}`);   // contract: brief «Examen superat: 5 de 6»
+  const six = examIn(P(N0, E), 0, qs0, missing([])), five = examIn(P(N0, E), 0, qs0, missing([3])), four = examIn(P(N0, E), 0, qs0, missing([0, 3]));
+  check(six.good && six.score === 6 && six.prog.exams[0] === true && six.gain === 50 && six.redo.length === 0, `6 of 6: ${JSON.stringify([six.good, six.score, six.prog.exams, six.gain, six.redo])}`);   // contract: brief «Examen superat: 5 de 6»; spec «XP», 50 per examen superat
+  check(five.good && five.score === 5 && five.prog.exams[0] === true && five.gain === 50, `5 of 6 passes: ${JSON.stringify([five.good, five.score, five.prog.exams, five.gain])}`);   // contract: brief «Examen superat: 5 de 6»
+  check(!four.good && four.score === 4 && four.prog.exams[0] === false && four.gain === 0, `4 of 6 does not pass: ${JSON.stringify([four.good, four.score, four.prog.exams, four.gain])}`);   // contract: brief «Examen superat: 5 de 6», 4 de 6 no
+  // the other circles: only the exam asked is touched
+  const c1 = examIn(P(N1, [true, false, false]), 1, qs0, missing([])), c2 = examIn(P(ALL, [true, true, false]), 2, qs0, missing([]));
+  check(c1.prog.exams.join() === 'true,true,false' && c2.prog.exams.join() === 'true,true,true' && c1.gain === 50 && c2.gain === 50, `circles 1 and 2: ${JSON.stringify([c1.prog.exams, c2.prog.exams])}`);   // contract: spec «Exàmens», un per cercle; 50 XP cadascun
+  // what a pass opens, and the badge of the whole course on the third
+  check(isOpen(P(N0, E), 1) === false && isOpen(six.prog, 1) === true && isOpen(five.prog, 1) === true && isOpen(four.prog, 1) === false, 'a passed exam opens the next circle, a failed one does not');   // contract: spec «Cercles», cada cercle s'obre amb l'examen de l'anterior
+  check(c1.prog.exams[1] && isOpen(c1.prog, 2) === true && six.news.length === 0 && c2.news.join() === 'Cursus complet', `the third exam: ${JSON.stringify([c2.news, six.news])}`);   // contract: spec «Insígnies», Cursus complet = els tres exàmens superats
+  // a passed exam is never taken back, and a second pass pays nothing
+  const done = P(N0, [true, false, false]);
+  const again = examIn(done, 0, qs0, missing([0, 1, 2])), pass2 = examIn(done, 0, qs0, missing([]));
+  check(again.good === false && again.prog.exams[0] === true && again.gain === 0, `a failed retry of a passed exam: ${JSON.stringify([again.good, again.prog.exams, again.gain])}`);   // contract: spec «Exàmens», un examen superat continua superat
+  check(pass2.good === true && pass2.gain === 0 && pass2.prog.exams[0] === true && pass2.news.length === 0, `a second pass: ${JSON.stringify([pass2.good, pass2.gain, pass2.prog.exams, pass2.news])}`);   // contract: spec «XP», el XP de l'examen es paga una sola vegada
+  // a fail changes nothing at all, and names each project to revise once, in the order of the projects
+  const f = examIn(P(N0, E, 2), 0, qs0, [false, true, false, false, true, true]);
+  check(JSON.stringify(f.prog) === JSON.stringify(P(N0, E, 2)) && f.gain === 0 && f.news.length === 0, `a failed exam changed the progress: ${JSON.stringify(f.prog)}`);   // contract: plan «Tasca 10», un examen no superat no canvia res
+  check(f.redo.join() === '0,1' && examIn(P(N0, E), 0, qs0, missing([0, 2])).redo.join() === '0' && examIn(P(N0, E), 0, qs0, missing([1, 3, 4])).redo.join() === '1', `projects to revise: ${f.redo}`);   // contract: plan «Tasca 10», els projectes de les preguntes fallades, cadascun una sola vegada; qs0 és 0,1,0,1,1,0
+  check(examIn(P(N0, E), 0, qs0, missing([0, 3])).redo.join() === '0,1', 'a pass with misses should still name them');   // contract: les fallades es nomenen sempre, a l'examen superat també
+  // an exam that is not open, or a run that is not six answers, keeps nothing
+  check(examIn(P([80], E), 0, qs0, missing([])).prog.exams[0] === false && examIn(P(N0, E), 0, qs0, [true, true, true, true, true]).good === false && examIn(P(N0, E), 0, qs0, []).good === false, 'an exam that is not open, or a run of five answers, passes');   // contract: spec «Exàmens», s'obre quan els projectes del cercle estan validats; sis preguntes
+  check(examIn(P(N0, E), 7, qs0, missing([])).prog.exams.join() === 'false,false,false' && examIn(P(N0, E), 1, qs0, missing([])).prog.exams.join() === 'false,false,false', 'an exam of a circle that is shut or does not exist passes');   // contract: spec «Cercles», tres cercles; el 1 és tancat sense l'examen 0
+  // nothing is touched, and the new progress shares nothing with the old
+  const src = P(N1, [true, false, false], 4), before = JSON.stringify(src), r = examIn(src, 1, qs0, missing([]));
+  check(JSON.stringify(src) === before && r.prog !== src && r.prog.notes !== src.notes && r.prog.exams !== src.exams, 'examIn changed the progress it was given, or shares an object with it');   // contract: plan «Tasca 10», prog no es toca provisionalment
+  // everything done: the XP maximum and the level of the finished course
+  const fin = examIn({ ...P(ALL, [true, true, false], 99) }, 2, qs0, missing([]));
+  check(xpOf(fin.prog) === 1240 && levelText(xpOf(fin.prog)) === '8,27', `everything done: ${xpOf(fin.prog)} XP, level ${levelText(xpOf(fin.prog))}`);   // contract: brief «XP màxim: 1.240», 1240 / 150 = 8,27
+  check(fin.gain === 50 && fin.prog.fulls === 99, 'the last exam adds its 50 XP and nothing else');   // contract: spec «XP», 50 per examen
 }
 
 // ---- 7. no screen text of logic.js speaks of companions: the child plays alone

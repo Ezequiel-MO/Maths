@@ -307,5 +307,16 @@ export function sheetIn(p, run) {
   const had = badges(p), now = badges(next);
   return { prog: next, good, gain: xpOf(next) - xpOf(p), missed, news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
 }
+// The hand-in of a finished exam. qs are its six questions (each generated one carries p, its project) and run one boolean per question (true: right at the one try).
+// Returns { prog, good, score, gain, redo, news }: prog is a NEW progress (p is never touched) with exams[c] set when the exam passes (EXAM_PASS of 6, six answers, the exam
+// open) and left alone otherwise, so a pass is never taken back; gain the XP that adds (the difference of xpOf: 50 once, 0 for a pass of an exam already passed);
+// redo the projects (indices, each once, in order) of the questions missed, named whether it passed or not; news the names of the badges it earns.
+export function examIn(p, c, qs, run) {
+  const score = run.filter(r => r === true).length, good = run.length === 6 && score >= EXAM_PASS && examOpen(p, c), next = { ...p, notes: p.notes.slice(), exams: p.exams.slice() };
+  if (good) next.exams[c] = true;
+  const had = badges(p), now = badges(next);
+  return { prog: next, good, score, gain: xpOf(next) - xpOf(p), news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name),
+    redo: [...new Set(qs.flatMap((q, i) => run[i] !== true && Number.isInteger(q?.p) ? [q.p] : []))].sort((a, b) => a - b) };
+}
 // hue in degrees for CSS hsl: cyan, orange and green, each at least 60 degrees from the others and bright enough for a dark night pond
 export const TEAMS = [{ name: 'Libèl·lules', hue: 195 }, { name: 'Tritons', hue: 28 }, { name: 'Cuques', hue: 105 }];

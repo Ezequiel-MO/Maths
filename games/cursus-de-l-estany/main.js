@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated } from './logic.js';
+import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated, exam, examIn, EXAM_PASS } from './logic.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
@@ -147,7 +147,6 @@ function mapa() {
   ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
 
-// Screens still to come; each one starts with `const t = enter(kicker, true)` and ends in mapa(). For now they take the child straight back.
 /* ---------- a project: three exercises of five questions, one after the other ---------- */
 // The keys of the pad and of the keyboard write into the boxes B; ✓ on a filled box goes to the next empty one, and hands the whole answer to go(ans) when none is
 // left. On an empty box, or before the question has settled, it does nothing at all. off() says when the keys are dead (keyFn then says false). A screen that asks
@@ -246,41 +245,49 @@ function quiz(t, qs, o) {
   arm();
 }
 
+// The end panel of a project, a sheet and an exam. The stage is cleared and the panel comes up once a second tap on the last button has passed (SETTLE), so its buttons
+// work only from then; good (true, or a number of bursts for a bigger party) says how it sounds; again is the restart that «label» offers next to «Torna al mapa».
+async function finish(t, stage, good, said, html, label, again) {
+  keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(said);
+  await sleep(SETTLE); if (!t.on) return;
+  good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(good === true ? 8 : good)) : tone(196, 0, 0.5, 0.12, 'triangle');
+  panel(stage, `${html}<button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">${label}</button>`);
+  $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') again(); };
+}
+const nova = r => r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : '';
+const redo = r => r.redo.length ? ` Repassa ${llista(r.redo.map(i => PROJECTS[i].name))}.` : '';
+
 // Repartir, Fer grups, En sobra ... : the mark is kept (if it is the best) before the pause, and only then the panel comes
 function projecte(i) {
   const P = PROJECTS[i], t = enter(P.name, true); here = i;
   quiz(t, P.ex.flat(), { help: true, per: 5, labels: ['ex00', 'ex01', 'ex02'],
     // prog is replaced here and nowhere else (handIn works the mark out, keeps the better one and never touches prog): leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
     settle(res) { const r = handIn(prog, i, res); prog = r.prog; save(); return r; },
-    async end(r, stage) {
-      keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.');
-      await sleep(SETTLE); if (!t.on) return;   // the panel comes up once a second tap on the last ✓ has passed
-      r.n >= VALID ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(8)) : tone(196, 0, 0.5, 0.12, 'triangle');
-      panel(stage, `<h2>Nota ${r.n}</h2>
+    end: (r, stage) => finish(t, stage, r.n >= VALID, r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.', `<h2>Nota ${r.n}</h2>
         ${r.n >= VALID ? `<p class="lead go">Validat ✓${r.gain ? ` · +${r.gain} XP` : ''}</p>` : `<p class="lead">${r.best >= VALID ? `Aquesta vegada no arriba a ${VALID}, però ja el tens validat.` : `Per validar cal una nota de ${VALID}.`} Repassa ${llista(r.redo)}.</p>`}
-        ${r.best && r.best >= r.n ? `<p class="lead">La teva millor nota continua sent ${r.best}.</p>` : ''}
-        ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
-        <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Torna-hi</button>`);
-      $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') projecte(i); };
-    } });
+        ${r.best && r.best >= r.n ? `<p class="lead">La teva millor nota continua sent ${r.best}.</p>` : ''}${nova(r)}`, 'Torna-hi', () => projecte(i)) });
 }
 // Caça l'errada: a sheet of three divisions, each judged once; fulls + 1 only when all three are right, and nothing is kept before the last one is judged
 function corregir() {
   const items = sheet(validated(prog)), t = enter('Caça l\'errada', true);
   quiz(t, items.map(i => i.q), { items,
     settle(res) { const r = sheetIn(prog, res.map(firstTry)); prog = r.prog; save(); return r; },
-    async end(r, stage) {
-      keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(r.good ? 'Full ben corregit!' : 'Se t\'han escapat algunes errades.');
-      await sleep(SETTLE); if (!t.on) return;   // the panel comes up once a second tap on «Segueix» has passed
-      r.good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(8)) : tone(196, 0, 0.5, 0.12, 'triangle');
-      panel(stage, `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
-        ${r.good ? `<p class="lead go">${r.gain ? `+${r.gain} XP` : '0 XP: per guanyar-ne cal validar més projectes.'}</p>` : `<p class="lead">Aquestes se't han escapat:<br>${r.missed.map(i => `${i + 1}. ${said(items[i].q)}`).join('<br>')}</p>`}
-        ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
-        <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre full</button>`);
-      $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') corregir(); };
+    end: (r, stage) => finish(t, stage, r.good, r.good ? 'Full ben corregit!' : 'Se t\'han escapat algunes errades.', `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
+        ${r.good ? `<p class="lead go">${r.gain ? `+${r.gain} XP` : '0 XP: per guanyar-ne cal validar més projectes.'}</p>` : `<p class="lead">Aquestes se't han escapat:<br>${r.missed.map(i => `${i + 1}. ${said(items[i].q)}`).join('<br>')}</p>`}${nova(r)}`, 'Un altre full', corregir) });
+}
+// The exam of a circle: six questions with no material and no hint, one try each (the rule is examIn). Like the other two it is kept at once on the last answer, before the
+// «Segueix» pause; leaving before that keeps nothing. The third pass is the party of the whole course.
+function examen(c) {
+  const qs = exam(c), t = enter(`Examen del cercle ${c}`, true);
+  quiz(t, qs, { once: true,
+    settle(res) { const r = examIn(prog, c, qs, res.map(firstTry)); prog = r.prog; save(); return r; },
+    end(r, stage) {
+      const first = r.good && r.gain > 0, all = first && r.prog.exams.every(Boolean);
+      return finish(t, stage, r.good && (all ? 24 : true), r.good ? 'Examen superat!' : 'Examen per repassar.', `<h2>${r.good ? 'Examen superat' : 'Examen per repassar'}</h2>
+        <p class="${r.good ? 'lead go' : 'lead'}">${r.score} de 6${r.good ? ` · ${first ? `+${r.gain} XP` : '0 XP: ja el tenies superat.'}` : `: en calen ${EXAM_PASS}.${r.prog.exams[c] ? ' El teu examen superat continua superat.' : ''}`}${redo(r)}</p>
+        ${first && c < 2 ? `<p class="lead go">S'ha obert el cercle ${c + 1}: ${CIRCLES[c + 1].name}.</p>` : ''}${all ? '<p class="lead go">Has superat els tres exàmens: el cursus és complet!</p>' : ''}${nova(r)}`, 'Un altre examen', () => examen(c));
     } });
 }
-function examen(c) { mapa(); }
 
 soBtn();
 prog.piscina ? mapa() : piscina();
