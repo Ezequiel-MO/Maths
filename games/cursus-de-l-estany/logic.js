@@ -169,3 +169,64 @@ export function said(q) {
     default: return `${D} ÷ ${d} = ${piecesTxt(q, ' + ')} = ${total(q)} = ${Q} i ${sobra(R)}.`;
   }
 }
+
+/* ---------- exams and sheets ---------- */
+export const EXAM_PASS = 5;
+// a random whole number below n; clamped, so a rnd that returns 1 (or nonsense) still lands inside the list
+const at = (n, rnd) => Math.min(n - 1, Math.max(0, Math.floor(rnd() * n) || 0));
+function shuffle(a, rnd) {
+  for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+const key = q => `${q.mode}/${q.D}/${q.d}`;
+// every bare question of project p inside its limits, listed once on first use (inLimits decides; the checker works the limits out again on its own)
+const POOLS = [];
+function poolOf(p) {
+  if (POOLS[p]) return POOLS[p];
+  const out = POOLS[p] = [];
+  for (let d = 2; d <= 10; d++) for (let D = d + 1; D <= 999; D++) {
+    const q = { mode: PROJECTS[p].mode, D, d, ...(p === 4 && { q: Math.floor(D / d), r: D % d }), bare: true, p };
+    if (inLimits(q, p)) out.push(q);
+  }
+  return out;
+}
+// a question of project p that is not in used: start at a random place and walk on, so it ends even if rnd never varies
+function draw(p, rnd, used) {
+  const pool = poolOf(p);
+  let i = at(pool.length, rnd);
+  for (let n = 0; n < pool.length && used.has(key(pool[i])); n++) i = (i + 1) % pool.length;
+  used.add(key(pool[i]));
+  return { ...pool[i] };
+}
+// six different questions, at least one of each project of the circle, in a random order
+export function exam(circle, rnd = Math.random) {
+  const ps = (CIRCLES[circle] || CIRCLES[0]).projects, used = new Set(), list = ps.map(p => draw(p, rnd, used));
+  while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)], rnd, used));
+  return shuffle(list, rnd);
+}
+// A wrong answer a child might write, always checked against right(). Kinds that do not apply to this question are left out of the list,
+// so the pick falls back on the others: proof forgets the remainder (only when r > 0, else that would be the right answer) or adds d;
+// the others are the quotient ±1, [q − 1, r + d] (remainder not reduced), [q, 0] (remainder forgotten, only when r > 0) and a chunk worth 10 off.
+function wrongAnswer(q, rnd) {
+  const w = want(q), [Q, R] = qr(q), two = Array.isArray(w), m = (x, y = R) => two ? [x, y] : x, c = [];
+  if (q.mode === 'proof') { if (q.r > 0) c.push(q.D - q.r); c.push(q.D + q.d); }
+  else {
+    c.push(m(Q + 1));
+    if (Q > 1) c.push(m(Q - 1));
+    if (two && Q > 1) c.push(m(Q - 1, R + q.d));
+    if (two && R > 0) c.push(m(Q, 0));
+    if (q.mode === 'split' || q.mode === 'long') { c.push(m(Q + 10)); if (Q > 10) c.push(m(Q - 10)); }
+  }
+  const bad = c.filter(a => !right(q, a));
+  return bad[at(bad.length, rnd)];
+}
+// three divisions already done by a frog, each with the answer she wrote; 0, 1 or 2 of them wrong, never all three
+export function sheet(valid, rnd = Math.random) {
+  const ps = [...new Set((Array.isArray(valid) ? valid : []).filter(p => Number.isInteger(p) && p >= 0 && p < PROJECTS.length))], used = new Set();
+  if (!ps.length) ps.push(0);
+  const qs = [0, 1, 2].map(() => draw(ps[at(ps.length, rnd)], rnd, used));
+  const wrong = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
+  return qs.map((q, i) => wrong.has(i) ? { q, shown: wrongAnswer(q, rnd), ok: false } : { q, shown: want(q), ok: true });
+}
+// right when the child sees it is right, or sees it is wrong and writes the right answer
+export const judge = (item, saysOk, fix) => item.ok ? !!saysOk : !saysOk && right(item.q, fix);

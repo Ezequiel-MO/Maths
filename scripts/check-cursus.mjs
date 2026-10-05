@@ -1,9 +1,9 @@
 // Checks the rules of El cursus de l'estany before every build: the 120 fixed questions of the three circles, the limits of every project
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
-import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits } from '../games/cursus-de-l-estany/logic.js';
+import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS } from '../games/cursus-de-l-estany/logic.js';
 
-let fails = 0, counted = 0;
+let fails = 0, counted = 0, exams = 0, fulls = 0;
 const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
 const int = x => Number.isInteger(x);
 const BAD = /undefined|NaN|null|\[object/;
@@ -231,6 +231,125 @@ PROJECTS.forEach(P => P.ex.flat().forEach(q => {
   check(q.mode === 'proof' || deep.includes(String(last)) || deep.includes(String(Math.floor(q.D / q.d))), `${JSON.stringify(q)}: the full explanation does not tell the answer`);
 }));
 
+// ---- 4. exams and sheets, made with a seeded LCG so that a failure can be replayed (seed 1000 + circle for exams, 2000 + valid.length for sheets)
+const lcg = seed => { let x = seed >>> 0; return () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296; };   // always below 1
+const key = q => `${q.mode}/${q.D}/${q.d}`;
+// a generated question: bare, no parts, no material flags, from project p, inside the limits of that project (worked out above, then inLimits must agree)
+function lookQ(q, ps, tag) {
+  const t = `${tag} ${JSON.stringify(q)}`;
+  check(q.bare === true && !('parts' in q) && !q.hands && !q.hide, `${t}: not bare, or carries parts / material flags`);   // contract: plan, bare: sense material ni parcials
+  check(int(q.p) && ps.includes(q.p), `${t}: p is not a project of the set (${ps})`);   // contract: plan, cada pregunta porta p
+  if (!int(q.p) || !PROJECTS[q.p]) return;
+  const bad = problems(q, q.p, -1);
+  check(bad.length === 0, `${t}: out of the limits of project ${q.p} (${bad.join()})`);   // contract: plan, límits per projecte
+  check(inLimits(q, q.p) === (bad.length === 0), `${t}: inLimits disagrees`);
+}
+const noRepeats = (list, tag) => check(new Set(list.map(key)).size === list.length, `${tag}: a question is repeated ${JSON.stringify(list)}`);   // contract: plan, sense repetides
+function lookExam(ex, c, tag) {
+  const ps = CIRCLES[c].projects;
+  check(Array.isArray(ex) && ex.length === 6, `${tag}: ${ex.length} questions, not 6`);   // contract: spec «Exàmens», 6 preguntes
+  noRepeats(ex, tag);
+  ex.forEach(q => lookQ(q, ps, tag));
+  ps.forEach(p => check(ex.some(q => q.p === p), `${tag}: no question of project ${p} ${JSON.stringify(ex)}`));   // contract: plan, almenys una de cada projecte del cercle
+}
+// the shape of what the frog wrote: as want(q), whole numbers, never negative, a quotient of at least 1
+function lookShown(q, s, tag) {
+  const w = want(q), t = `${tag} ${JSON.stringify(q)} shown ${JSON.stringify(s)}`;
+  check(Array.isArray(s) === Array.isArray(w) && (!Array.isArray(w) || s.length === w.length), `${t}: not the shape of want() ${JSON.stringify(w)}`);   // contract: plan, shown té la forma de want(q)
+  const a = Array.isArray(s) ? s : [s];
+  check(a.every(x => int(x) && x >= 0) && a[0] >= 1, `${t}: a negative, a fraction or a quotient of 0`);
+}
+function lookSheet(sh, valid, tag) {
+  check(Array.isArray(sh) && sh.length === 3, `${tag}: ${sh.length} items, not 3`);   // contract: spec «Corregir una companya», 3 divisions
+  noRepeats(sh.map(i => i.q), tag);
+  sh.forEach(it => {
+    const t = `${tag} ${JSON.stringify(it)}`;
+    check(Object.keys(it).sort().join() === 'ok,q,shown' && typeof it.ok === 'boolean', `${t}: not { q, shown, ok }`);
+    lookQ(it.q, valid, tag);
+    lookShown(it.q, it.shown, tag);
+    // the label must not lie: ok says whether the written answer is right, by right() and by nothing else
+    check(it.ok === right(it.q, it.shown), `${t}: ok is ${it.ok} but right() says ${right(it.q, it.shown)}`);   // contract: spec «Corregir una companya», l'etiqueta no pot mentir
+  });
+  check(sh.filter(i => !i.ok).length <= 2, `${tag}: all three are wrong`);   // contract: plan, 0, 1 o 2 equivocades
+}
+// what kind of mistake a wrong answer is, worked out here from D and d (never from the generator)
+function kind(q, s) {
+  const Q = Math.floor(q.D / q.d), R = q.D % q.d, two = Array.isArray(s), [a, b] = two ? s : [s];
+  if (q.mode === 'proof') return q.r > 0 && s === q.D - q.r ? 'forgot remainder' : s === q.D + q.d ? 'added d' : 'other';
+  if (two && b === 0 && a === Q && R > 0) return 'forgot remainder';
+  if (two && a === Q - 1 && b === R + q.d) return 'unreduced';
+  if (two && b !== R) return 'other';
+  const dq = Math.abs(a - Q);
+  return dq === 1 ? 'quotient 1' : dq === 10 && (q.mode === 'split' || q.mode === 'long') ? 'chunk 10' : 'other';
+}
+const KINDS = { share: ['quotient 1'], group: ['quotient 1'], fact: ['quotient 1'], tens: ['quotient 1'], proof: ['forgot remainder', 'added d'],
+  rem: ['quotient 1', 'unreduced', 'forgot remainder'], split: ['quotient 1', 'chunk 10'], long: ['quotient 1', 'unreduced', 'forgot remainder', 'chunk 10'] };   // contract: plan, errors de les granotes
+// judge: right with the right decision, wrong with the other three (a wrong item: says-wrong with the right fix, a wrong fix, says-ok)
+function lookJudge(it, tag) {
+  const t = `${tag} ${JSON.stringify(it)}`, w = want(it.q), off = Array.isArray(w) ? w.map(v => v + 1) : w + 1;
+  if (it.ok) {
+    check(judge(it, true, undefined) === true && judge(it, true, off) === true, `${t}: says right about a right item, judged false`);
+    check(judge(it, false, w) === false && judge(it, false, off) === false && judge(it, false, undefined) === false, `${t}: says wrong about a right item, judged true`);
+  } else {
+    check(judge(it, false, w) === true && judge(it, false, String(w)) === true, `${t}: says wrong with the right fix, judged false`);
+    check(judge(it, false, off) === false && judge(it, false, it.shown) === false && judge(it, false, undefined) === false && judge(it, false, '') === false, `${t}: says wrong with a wrong fix, judged true`);
+    check(judge(it, true, w) === false && judge(it, true, undefined) === false, `${t}: says ok about a wrong item, judged true`);
+  }
+}
+check(EXAM_PASS === 5, `EXAM_PASS is ${EXAM_PASS}`);   // contract: spec «Exàmens», 5 de 6
+const SETS = [0, 1, 2, 3, 4, 5, 6, 7].map(n => [...Array(n + 1).keys()]);   // [0], [0, 1], ... [0..7]
+// exams: 200 per circle, seed 1000 + circle
+CIRCLES.forEach((C, c) => {
+  const rnd = lcg(1000 + c);
+  for (let i = 0; i < 200; i++) { exams++; lookExam(exam(c, rnd), c, `circle ${c} exam #${i} (seed ${1000 + c})`); }
+});
+// sheets: 200 per set, seed 2000 + valid.length; 0, 1 and 2 wrong all turn up, in every position, and every kind of mistake turns up
+const seen = new Set();
+SETS.forEach(valid => {
+  const rnd = lcg(2000 + valid.length), by = [0, 0, 0, 0], where = [0, 0, 0];
+  for (let i = 0; i < 200; i++) {
+    fulls++;
+    const tag = `valid [${valid}] sheet #${i} (seed ${2000 + valid.length})`, sh = sheet(valid, rnd);
+    lookSheet(sh, valid, tag);
+    by[sh.filter(x => !x.ok).length]++;
+    sh.forEach((it, k) => {
+      lookJudge(it, tag);
+      if (it.ok) return;
+      where[k]++;
+      const kd = kind(it.q, it.shown);
+      check((KINDS[it.q.mode] || []).includes(kd), `${tag} ${JSON.stringify(it)}: mistake "${kd}" is not one of ${it.q.mode}'s`);
+      seen.add(`${it.q.mode}: ${kd}`);
+      if (it.q.mode === 'proof') seen.add(`proof r${it.q.r ? '>0' : '=0'}: ${kd}`);
+      if (Array.isArray(it.shown) && it.q.mode === 'rem' && it.q.D % it.q.d === 0) seen.add('rem exact: wrong');
+    });
+  }
+  check(by[0] > 0 && by[1] > 0 && by[2] > 0 && by[3] === 0, `valid [${valid}]: sheets with 0, 1, 2, 3 wrong are ${by}`);   // contract: plan, fulls de les tres menes, mai 3
+  check(where.every(n => n > 0), `valid [${valid}]: the wrong item is never at some position (${where})`);
+});
+for (const [mode, kinds] of Object.entries(KINDS)) kinds.forEach(k => {
+  // the project of that mode is in the sets from index p up, so the mistake must have been seen at least once in 1600 sheets
+  if (!(mode === 'proof' && k === 'forgot remainder')) check(seen.has(`${mode}: ${k}`), `no sheet ever shows ${mode} wrong by "${k}"`);
+});
+check(seen.has('proof r>0: forgot remainder') && seen.has('proof r=0: added d') && seen.has('proof r>0: added d'), 'proof: forgot-the-remainder (r > 0) and added-d (r = 0 and r > 0) all seen');   // contract: plan, errors de les granotes
+check(!seen.has('proof r=0: forgot remainder'), 'proof with r = 0 cannot be wrong by forgetting the remainder');
+// an empty (or nonsense) list of validated projects is [0]
+{
+  const rnd = lcg(2000);
+  for (let i = 0; i < 200; i++) for (const v of [[], undefined, [9, -1, 'a', 2.5]]) lookSheet(sheet(v, rnd), [0], `sheet(${JSON.stringify(v)}) #${i} (seed 2000)`);   // contract: plan, si és buida, [0]
+}
+// the same seed makes the same exam and the same sheet, and a random source that never changes cannot make anything repeat or hang
+check(JSON.stringify(exam(1, lcg(7))) === JSON.stringify(exam(1, lcg(7))) && JSON.stringify(sheet([0, 1, 2], lcg(7))) === JSON.stringify(sheet([0, 1, 2], lcg(7))), 'the same seed does not make the same exam and sheet');
+for (const [name, fixed] of [['0', () => 0], ['0.5', () => 0.5], ['0.9999999999', () => 0.9999999999]]) {
+  CIRCLES.forEach((C, c) => lookExam(exam(c, fixed), c, `exam with rnd always ${name}`));
+  SETS.forEach(valid => lookSheet(sheet(valid, fixed), valid, `sheet [${valid}] with rnd always ${name}`));
+}
+// exams and sheets still work with no rnd given
+CIRCLES.forEach((C, c) => lookExam(exam(c), c, 'exam with Math.random'));
+lookSheet(sheet([0, 1, 2]), [0, 1, 2], 'sheet with Math.random');
+// the judge, by hand: 17 ÷ 5, the frog wrote 2 and 7
+const f17 = { q: { mode: 'rem', D: 17, d: 5, bare: true }, shown: [2, 7], ok: false };
+check(judge(f17, false, [3, 2]) === true && judge(f17, false, [2, 7]) === false && judge(f17, true, [3, 2]) === false, 'judge on 17 ÷ 5 written 2 and 7');   // contract: spec «El mapa», 17 ÷ 5 = 3 i en sobren 2
+
 // ---- footer
 if (fails) { console.error(`${fails} failures`); process.exit(1); }
-console.log(`cursus-de-l-estany: ${counted} preguntes`);
+console.log(`cursus-de-l-estany: ${counted} preguntes, ${exams} exàmens, ${fulls} fulls`);
