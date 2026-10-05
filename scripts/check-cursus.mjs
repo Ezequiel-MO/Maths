@@ -1,4 +1,4 @@
-// Checks the rules of El cursus de l'estany before every build: the 75 fixed questions of circles 0 and 1, the limits of every project
+// Checks the rules of El cursus de l'estany before every build: the 120 fixed questions of the three circles, the limits of every project
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits } from '../games/cursus-de-l-estany/logic.js';
@@ -26,10 +26,10 @@ function problems(q, p, e) {
     case 4: bad(int(q.q) && int(q.r) && d >= 2 && d <= 10 && q.q >= 1 && q.q <= 10 && q.r >= 0 && q.r < d && D === d * q.q + q.r && D <= 100, 'comprova'); break;
     case 5: bad(D % 10 === 0 && D >= 10 && D <= 990 && d >= 2 && d <= 9 && (D / 10) % d === 0, 'desenes senceres'); break;
     case 6: bad(D >= 20 && D <= 99 && d >= 2 && d <= 9 && R === 0, 'a trossos: numbers');
-      if (!q.bare || parts) bad(Array.isArray(parts) && parts.length === 2 && parts.every(x => int(x) && x > 0) && sum(parts) === D
+      if (!q.bare) bad(Array.isArray(parts) && parts.length === 2 && parts.every(x => int(x) && x > 0) && sum(parts) === D
         && parts.every(x => x % d === 0) && parts[0] % (10 * d) === 0, 'a trossos: parts'); break;
     case 7: bad(D >= 100 && D <= 999 && d >= 2 && d <= 9, 'tres xifres: numbers');
-      if (!q.bare || parts) bad(Array.isArray(parts) && (parts.length === 2 || parts.length === 3) && parts.every(x => int(x) && x > 0) && sum(parts) === D
+      if (!q.bare) bad(Array.isArray(parts) && (parts.length === 2 || parts.length === 3) && parts.every(x => int(x) && x > 0) && sum(parts) === D
         && parts.slice(0, -1).every(x => x % d === 0) && parts[0] % (10 * d) === 0, 'tres xifres: parts'); break;
   }
   return out;
@@ -58,7 +58,6 @@ check(CIRCLES.every(c => typeof c.name === 'string' && c.name.length > 3), 'ever
 
 // ---- 2. the questions
 PROJECTS.forEach((P, p) => {
-  if (P.circle === 2) { check(P.ex.length === 0, `${P.name}: circle 2 is filled by a later task`); return; }
   check(P.ex.length === 3, `${P.name}: three exercises`);
   P.ex.forEach((E, e) => {
     const where = `${P.name} ex0${e}`;
@@ -89,11 +88,48 @@ PROJECTS.forEach((P, p) => {
   });
   // limits that belong to the exercise as a whole
   if (p === 3) P.ex.forEach((E, e) => check(E.filter(q => q.D % q.d).length >= 4, `En sobra ex0${e}: at least four of five have a remainder`));   // contract: plan «Límits per projecte»
-  if (p === 7) [1, 2].forEach(e => check(P.ex[e].filter(q => q.D % q.d).length >= 2, `Tres xifres ex0${e}: at least two of five have a remainder`));   // contract: plan «Límits per projecte»
+  if (p === 7) [1, 2].forEach(e => check((P.ex[e] ?? []).filter(q => q.D % q.d).length >= 2, `Tres xifres ex0${e}: at least two of five have a remainder`));   // contract: plan «Límits per projecte»
   // the divisors vary inside an exercise, and no question comes twice in a project
   P.ex.forEach((E, e) => check(new Set(E.map(q => q.d)).size >= 3, `${P.name} ex0${e}: at least three different divisors`));
   check(new Set(P.ex.flat().map(q => q.D + '/' + q.d)).size === P.ex.flat().length, `${P.name}: a question is repeated`);
 });
+
+// ---- 2b. circle 2: the parts of every split and long question, and what a changed part does
+const C2 = PROJECTS.flatMap((P, p) => P.circle === 2 ? P.ex.flatMap((E, e) => E.map(q => ({ q, p, where: `${P.name} ex0${e}` }))) : []);
+check(C2.length === 45, `circle 2 has ${C2.length} questions, not 45`);   // contract: plan, 3 projectes × 3 exercicis × 5 preguntes
+const chunk = (q, p) => new RegExp(`(?<!\\d)${p} ÷ ${q.d}(?!\\d)`);   // "37 ÷ 4" as a whole, never inside "137 ÷ 4"
+C2.filter(({ q }) => q.mode !== 'tens').forEach(({ q, where }) => {
+  const tag = `${where} ${JSON.stringify(q)}`, t = q.parts, n = t.length, isLong = q.mode === 'long', w = want(q), Q = Math.floor(q.D / q.d);
+  check(sum(t) === q.D, `${tag}: the parts do not add up to D`);   // contract: plan, trossos que sumen D
+  check(t.slice(0, isLong ? -1 : n).every(x => x % q.d === 0), `${tag}: a part that should divide exactly does not`);   // contract: plan, tots divisibles llevat de l'últim a long
+  check(t[0] % (10 * q.d) === 0, `${tag}: the first part is not a multiple of 10 × d`);   // contract: plan, el primer múltiple de 10 × d
+  check(isLong ? n === 2 || n === 3 : n === 2, `${tag}: ${n} parts`);   // contract: plan, split 2 trossos; long 2 o 3
+  check(Array.isArray(w) && w.length === n + (isLong ? 2 : 1), `${tag}: want() has no value for each part, the total${isLong ? ' and the remainder' : ''}`);
+  check(String(w.slice(0, n)) === String(t.map(x => Math.floor(x / q.d))), `${tag}: the partials are not the quotient of each part`);
+  check(w[n] === sum(w.slice(0, n)) && w[n] === Q, `${tag}: the total is not the sum of the partials`);
+  if (isLong) check(w[n + 1] === t[n - 1] % q.d && w[n + 1] === q.D % q.d, `${tag}: the remainder does not come from the last part alone`);
+  // a bare question carries no parts: split wants q, long wants [q, r], with or without parts at hand
+  for (const b of [{ ...q, bare: true }, { ...q, bare: true, parts: undefined }]) check(String(want(b)) === String(isLong ? [Q, q.D % q.d] : Q), `${tag}: bare want() is ${want(b)}`);   // contract: plan, bare
+  // one part changed, the total kept: refused, and the hint names that part and no other
+  const x = expected(q);
+  t.forEach((p, i) => {
+    for (const dx of [1, -1]) {
+      const ans = x.map((v, k) => k === i ? v + dx : v), txt = explain(q, false, ans);
+      check(!right(q, ans), `${tag}: accepts a part changed by ${dx}`);
+      check(chunk(q, p).test(txt), `${tag}: hint for ${ans} does not name the part ${p}: "${txt}"`);
+      check(t.every((o, j) => j === i || o === p || !chunk(q, o).test(txt)), `${tag}: hint for ${ans} names a part that is right: "${txt}"`);
+    }
+  });
+  check(!/Torna a mirar/.test(explain(q, false, x.map((v, k) => k === n ? v + 1 : v))), `${tag}: a wrong total with right parts points at a part`);
+});
+// the two kinds of split of the spec: tens and units (84 = 80 + 4) and a first part that is not all the tens (72 = 40 + 32)
+const splits = PROJECTS[6].ex.flat();
+check(splits.some(q => q.parts[0] === Math.floor(q.D / 10) * 10), 'A trossos: no tens-and-units split');   // contract: spec «El mapa», 84 = 80 + 4
+check(splits.some(q => q.parts[0] < Math.floor(q.D / 10) * 10), 'A trossos: no split with a first part short of all the tens');   // contract: spec «El mapa», 72 = 40 + 32
+// Tres xifres mixes two and three parts, in each exercise
+PROJECTS[7].ex.forEach((E, e) => [2, 3].forEach(k => check(E.some(q => q.parts.length === k), `Tres xifres ex0${e}: no question with ${k} parts`)));   // contract: plan, 2 o 3 trossos
+// bare changes nothing for the modes that have no parts
+PROJECTS.forEach(P => P.ex.flat().filter(q => q.mode !== 'split' && q.mode !== 'long').forEach(q => check(String(want({ ...q, bare: true })) === String(want(q)), `${JSON.stringify(q)}: bare changes want()`)));
 
 // the limits themselves: inLimits and the table here agree on questions that sit just outside them
 PROJECTS.forEach((P, p) => P.ex.flat().forEach(q => {
@@ -128,8 +164,13 @@ edge(7, { mode: 'long', D: 157, d: 4, parts: [80, 40, 37] }, true, 'Tres xifres 
 edge(7, { mode: 'long', D: 157, d: 4, parts: [80, 37, 40] }, false, 'Tres xifres only the last may not divide');   // contract: plan, tots divisibles llevat de l'últim
 edge(7, { mode: 'long', D: 1000, d: 4, parts: [1000] }, false, 'Tres xifres D = 1000');   // contract: plan, Tres xifres D de 100 a 999
 edge(7, { mode: 'long', D: 157, d: 10, parts: [100, 57] }, false, 'Tres xifres d = 10');   // contract: plan, cercle 2 divisor de 2 a 9
+edge(6, { mode: 'split', D: 72, d: 4, bare: true }, true, 'A trossos bare without parts');   // contract: plan, bare no porta parts
+edge(6, { mode: 'split', D: 72, d: 4, bare: true, parts: [1, 71] }, true, 'A trossos bare: parts are not checked');   // contract: plan, les regles de parts valen només si no hi ha bare
+edge(6, { mode: 'split', D: 73, d: 4, bare: true }, false, 'A trossos bare is exact');   // contract: plan, A trossos exacta
+edge(7, { mode: 'long', D: 157, d: 4, bare: true }, true, 'Tres xifres bare without parts');   // contract: plan, bare no porta parts
+edge(7, { mode: 'long', D: 99, d: 4, bare: true }, false, 'Tres xifres bare D = 99');   // contract: plan, Tres xifres D de 100 a 999
 
-// the circle 2 modes have no fixed questions yet, so they are tried here on questions made by hand
+// questions made by hand: the examples of the spec, and the bare ones, which the exams and sheets will make
 const hand = [
   { q: { mode: 'tens', D: 120, d: 3 }, w: 40 },   // contract: spec «El mapa», 120 ÷ 3
   { q: { mode: 'tens', D: 600, d: 2 }, w: 300 },   // contract: spec «El mapa», 600 ÷ 2
@@ -176,6 +217,14 @@ for (const deep of [false, true]) {
 }
 // the first hint on a long division written as a remainder too large says the same
 check(/un grup més/.test(explain({ mode: 'long', D: 157, d: 4, parts: [120, 37] }, false, [30, 9, 38, 5])), 'long: a remainder of 5 with d = 4 can make another group');   // contract: 5 ≥ 4
+// a wrong partial points at its part: 84 ÷ 4 written as 20, 2 and 22 has the part 4 wrong, though the total is the sum of what was written
+const s84 = { mode: 'split', D: 84, d: 4, parts: [80, 4] }, l157 = { mode: 'long', D: 157, d: 4, parts: [120, 37] };
+check(chunk(s84, 4).test(explain(s84, false, [20, 2, 22])) && !chunk(s84, 80).test(explain(s84, false, [20, 2, 22])), `84 ÷ 4 = [20, 2, 22] must point at the part 4 only: "${explain(s84, false, [20, 2, 22])}"`);   // contract: 4 ÷ 4 = 1, not 2
+check(chunk(s84, 80).test(explain(s84, false, [21, 1, 22])) && !chunk(s84, 4).test(explain(s84, false, [21, 1, 22])), `84 ÷ 4 = [21, 1, 22] must point at the part 80 only: "${explain(s84, false, [21, 1, 22])}"`);   // contract: 80 ÷ 4 = 20, not 21
+check(chunk(l157, 37).test(explain(l157, false, [30, 8, 39, 1])) && !chunk(l157, 120).test(explain(l157, false, [30, 8, 39, 1])), `157 ÷ 4 = [30, 8, 39, 1] must point at the part 37 only: "${explain(l157, false, [30, 8, 39, 1])}"`);   // contract: 37 ÷ 4 = 9, not 8
+check(/suma/.test(explain(s84, false, [20, 1, 22])) && !/Torna a mirar/.test(explain(s84, false, [20, 1, 22])), '84 ÷ 4 = [20, 1, 22]: the parts are right, so the hint is about the sum');   // contract: 20 + 1 = 21, not 22
+for (const [q, bits] of [[s84, ['84 = 80 + 4', '80 ÷ 4 = 20', '4 ÷ 4 = 1', '20 + 1 = 21']], [l157, ['157 = 120 + 37', '120 ÷ 4 = 30', '37 ÷ 4 = 9', '30 + 9 = 39']]])   // contract: spec «El mapa» and plan, 84 = 80 + 4; 80 ÷ 4 = 20 i 4 ÷ 4 = 1; 20 + 1 = 21 (157 worked the same way)
+  for (const b of bits) check(explain(q, true).includes(b), `${q.mode} ${q.D} ÷ ${q.d}: the full explanation lacks "${b}": "${explain(q, true)}"`);
 // the full explanation ends up telling the answer
 PROJECTS.forEach(P => P.ex.flat().forEach(q => {
   const w = want(q), deep = explain(q, true), last = Array.isArray(w) ? w[0] : w;

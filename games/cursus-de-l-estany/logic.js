@@ -1,13 +1,14 @@
 // Eight projects in three circles. Each project has three exercises of five fixed questions: ex00 is solved with the hands (hands),
-// ex01 has the material in view, ex02 hides it until a hint (hide). Circle 2 is filled by a later task; its projects exist with ex: [].
+// ex01 has the material in view, ex02 hides it until a hint (hide).
 // A question is { mode, D, d, ... }: D is the dividend, d the divisor. The modes, and what the child writes (want):
 //   'share'  how many in each group      'group'  how many groups     'fact'  the quotient, from a table  'tens'  the quotient of whole tens
 //   'rem'    quotient and remainder [q, r]    'proof'  the dividend D, from d, q and r (D = d × q + r)
 //   'split'  parts: [p1, p2]; the quotient of each part, then the total [a, b, q]
 //   'long'   parts: [p1, p2(, p3)]; each part but the last divides exactly; [...partials, q, r]
-// bare (exam and sheets): no material and no partials; split wants q, long wants [q, r], and parts may be missing.
+// bare (exam and sheets): no material, no parts and no partials, so split wants q and long wants [q, r]; the rules of parts do not apply.
 const FIT = { hands: true };
-const mk = (mode, flags, list) => list.map(([D, d]) => ({ mode, D, d, ...flags }));
+// [D, d] or, for split and long, [D, d, parts]
+const mk = (mode, flags, list) => list.map(([D, d, parts]) => ({ mode, D, d, ...(parts && { parts }), ...flags }));
 // proof is written as [d, q, r]
 const pf = (flags, list) => list.map(([d, q, r]) => ({ mode: 'proof', D: d * q + r, d, q, r, ...flags }));
 const trio = (mode, a, b, c) => [mk(mode, FIT, a), mk(mode, {}, b), mk(mode, { hide: true }, c)];
@@ -24,9 +25,16 @@ export const PROJECTS = [
     pf(FIT, [[2, 3, 1], [3, 4, 0], [4, 3, 2], [5, 2, 3], [3, 5, 2]]),
     pf({}, [[6, 4, 5], [7, 5, 0], [4, 6, 3], [8, 5, 7], [9, 4, 2]]),
     pf({ hide: true }, [[6, 8, 5], [7, 9, 3], [9, 7, 8], [8, 10, 7], [10, 9, 9]])] },
-  { name: 'Desenes senceres', sub: 'Dividir 80, 120 o 600 de desena en desena', circle: 2, mode: 'tens', ex: [] },
-  { name: 'A trossos', sub: 'Partir el dividend en dos trossos', circle: 2, mode: 'split', ex: [] },
-  { name: 'Tres xifres', sub: 'Tres xifres entre una xifra, amb residu', circle: 2, mode: 'long', ex: [] }
+  { name: 'Desenes senceres', sub: 'Dividir 80, 120 o 600 de desena en desena', circle: 2, mode: 'tens', ex: trio('tens',
+    [[60, 2], [80, 4], [90, 3], [100, 5], [120, 6]], [[120, 3], [160, 4], [300, 5], [420, 7], [480, 8]], [[600, 2], [270, 9], [360, 6], [840, 7], [990, 9]]) },
+  { name: 'A trossos', sub: 'Partir el dividend en dos trossos', circle: 2, mode: 'split', ex: trio('split',
+    [[26, 2, [20, 6]], [39, 3, [30, 9]], [48, 4, [40, 8]], [55, 5, [50, 5]], [64, 2, [60, 4]]],
+    [[84, 4, [80, 4]], [69, 3, [60, 9]], [72, 4, [40, 32]], [91, 7, [70, 21]], [75, 5, [50, 25]]],
+    [[96, 6, [60, 36]], [78, 3, [30, 48]], [90, 5, [50, 40]], [98, 7, [70, 28]], [99, 9, [90, 9]]]) },
+  { name: 'Tres xifres', sub: 'Tres xifres entre una xifra, amb residu', circle: 2, mode: 'long', ex: trio('long',
+    [[126, 2, [100, 26]], [156, 3, [150, 6]], [168, 4, [160, 8]], [205, 5, [200, 5]], [189, 3, [90, 90, 9]]],
+    [[235, 5, [200, 35]], [157, 4, [80, 40, 37]], [346, 3, [300, 30, 16]], [187, 8, [160, 27]], [275, 6, [240, 35]]],
+    [[458, 7, [420, 38]], [723, 9, [630, 93]], [777, 5, [500, 250, 27]], [596, 8, [480, 80, 36]], [839, 6, [780, 59]]]) }
 ];
 export const CIRCLES = [
   { name: 'Repartir i agrupar', projects: [0, 1] },
@@ -36,9 +44,9 @@ export const CIRCLES = [
 
 // the quotient and the remainder, worked out from D and d
 const qr = q => [Math.floor(q.D / q.d), q.D % q.d];
-// the pieces of a split or long question; a bare one has none, so one is made: the biggest multiple of 10 × d below D, then the rest
+// the pieces of a split or long question; a bare one has none (its parts are not looked at), so one is made: the biggest multiple of 10 × d below D, then the rest
 function piecesOf(q) {
-  if (q.parts) return q.parts;
+  if (q.parts && !q.bare) return q.parts;
   const big = Math.floor((q.D - 1) / (10 * q.d)) * 10 * q.d;
   return big ? [big, q.D - big] : [q.D];
 }
@@ -61,9 +69,9 @@ export function inLimits(q, p) {
   const P = PROJECTS[p], { D, d } = q;
   if (!P || q.mode !== P.mode || !Number.isInteger(D) || !Number.isInteger(d) || D < 1) return false;
   const [Q, R] = qr(q), whole = x => Number.isInteger(x) && x > 0, add = a => a.reduce((x, y) => x + y, 0);
-  // the parts of a split or long question; a bare question may do without
+  // the parts of a split or long question; a bare question has none to check
   const cut = (n, last) => {
-    if (q.bare && !q.parts) return true;
+    if (q.bare) return true;
     const t = q.parts;
     return Array.isArray(t) && n.includes(t.length) && t.every(whole) && add(t) === D && t[0] % (10 * d) === 0 && t.slice(0, last ? -1 : t.length).every(x => x % d === 0);
   };
@@ -86,6 +94,18 @@ const sobra = r => r === 0 ? 'no en sobra cap' : r === 1 ? 'en sobra 1' : `en so
 const fin = x => x != null && String(x).trim() !== '' && Number.isFinite(+x);
 const piecesTxt = (q, sep) => piecesOf(q).map(p => `${p} ÷ ${q.d}`).join(sep);
 const total = q => piecesOf(q).map(p => Math.floor(p / q.d)).join(' + ');
+// the whole reasoning of a split or long question: the sum of the pieces, each piece divided, then the partials added
+function reason(q, sep) {
+  const t = piecesOf(q), { D, d } = q;
+  return `${t.length > 1 ? `${D} = ${t.join(' + ')}; ` : ''}${t.map(p => `${p} ÷ ${d} = ${Math.floor(p / d)}${q.mode === 'long' && p % d ? ` i ${sobra(p % d)}` : ''}`).join(sep)}${t.length > 1 ? `; ${total(q)} = ${Math.floor(D / d)}` : ''}`;
+}
+// the first partial of a split or long answer that is wrong, as a pointer to that piece; '' when the partials are right or the answer has none
+function slip(q, ans) {
+  if (q.bare || !q.parts) return '';
+  const n = q.parts.length, a = Array.isArray(ans) && ans.length === n + (q.mode === 'long' ? 2 : 1) && ans.every(fin) ? ans.map(Number) : null;
+  const i = a ? q.parts.findIndex((p, k) => a[k] !== Math.floor(p / q.d)) : -1;
+  return i < 0 ? '' : `Torna a mirar el tros ${q.parts[i]}: ${q.parts[i]} ÷ ${q.d} no fa ${a[i]}. `;
+}
 export function tipFor(q) {
   const { D, d } = q;
   switch (q.mode) {
@@ -125,13 +145,14 @@ export function explain(q, deep, ans) {
     case 'split': {
       const a = Array.isArray(ans) && ans.length === 3 && ans.every(fin) ? ans.map(Number) : null,
         sum = a && a[0] + a[1] !== a[2] ? 'El total és la suma dels dos resultats. ' : '';
-      return (q.bare ? back(q, ans) : sum) + (deep ? `${piecesTxt(q, ' i ')}: ${total(q)} = ${Q}.` : q.bare
+      const bad = slip(q, ans);
+      return (q.bare ? back(q, ans) : sum + bad) + (deep ? `${reason(q, ' i ')}.` : q.bare
         ? `Parteix ${D} en trossos que es dividiran bé: ${piecesOf(q).join(' i ')}. Divideix cada tros per separat i suma.`
-        : `Divideix cada tros per separat: ${piecesTxt(q, ' i ')}. Després suma els dos resultats.`); }
+        : bad ? 'Divideix aquest tros un altre cop i torna a sumar.' : `Divideix cada tros per separat: ${piecesTxt(q, ' i ')}. Després suma els dos resultats.`); }
     default: {   // long
       const pieces = piecesOf(q);
-      return lead(q, ans) + (deep
-        ? `${pieces.map(p => `${p} ÷ ${d} = ${Math.floor(p / d)}${p % d ? ` i ${sobra(p % d)}` : ''}`).join('; ')}. ${total(q)} = ${Q}${R ? `; el residu és ${R}` : ', sense residu'}.`
+      return lead(q, ans) + slip(q, ans) + (deep
+        ? `${reason(q, '; ')}${R ? `; el residu és ${R}` : ', sense residu'}.`
         : `${q.bare ? `Parteix ${D} en trossos que es dividiran bé: ${pieces.join(', ')}. ` : ''}Divideix cada tros entre ${d}. Tots es divideixen bé llevat de l'últim: el que sobra d'ell és el residu.`); }
   }
 }
