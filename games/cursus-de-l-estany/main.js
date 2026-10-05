@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry } from './logic.js';
+import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated } from './logic.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
@@ -168,14 +168,17 @@ function tapEntry(B, e) {
   if (k) keyFn?.(k.dataset.k); else if (s) B.pick(+s.dataset.slot);
   return !!(k || s);
 }
+const CHOICE = '<div class="verd"><button class="btn" id="yes">És correcta</button><button class="btn soft" id="no">No és correcta</button></div>';
 const eq = q => q.mode === 'proof' ? `${q.d} × ${q.q}${q.r ? ` + ${q.r}` : ''} =` : `${q.D} ÷ ${q.d} =`;
 const llista = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : a[0];
 const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
 const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top < 0) e.scrollIntoView({ block: 'start', behavior: RM ? 'auto' : 'smooth' }); };
 
-// The question loop. o: help (material and the hint button), per (questions in a row of the head, labels), settle(res) and end(out, stage).
-// res[k] is { tries, helped } of question k (what handIn in logic.js judges). settle runs at once on the last right answer, BEFORE any wait, and what it
-// returns goes to end() after the pause. A wrong answer repeats the question: the second one also shows the material solved.
+// The question loop. o: help (material and the hint button), per (questions in a row of the head, labels), settle(res) and end(out, stage), and two ways of asking:
+// once (one try: right or wrong, the answer is told and a «Segueix» takes the place of the keys, so no timer ends it; the exam calls quiz(t, exam(c), { once: true, settle, end })),
+// items (a sheet: each question is shown with an answer, «És correcta» / «No és correcta» come before the keys, and judge() decides; implies once).
+// res[k] is { tries, helped } of question k (what handIn in logic.js judges; a miss with once is tries 1). settle runs at once on the last answer, BEFORE any wait, and what it
+// returns goes to end() after the pause. Without once a wrong answer repeats the question: the second one also shows the material solved.
 function quiz(t, qs, o) {
   const per = o.per || qs.length, res = [];
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
@@ -184,7 +187,7 @@ function quiz(t, qs, o) {
     <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div><div id="keys"></div></div></div>`;
   const dots = [...$('#dots').children], chips = [...document.querySelectorAll('.exrow span')], stage = $('#stage'), mat = $('#mat');
   const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; };
-  let k = 0, q, B, fig, tries, helped, busy;
+  let k = 0, q, B, fig, tries, helped, busy, it, verd, go;   // it: the sheet item being judged; verd: its choice is still to be made; go: what «Segueix» resolves
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
@@ -198,25 +201,29 @@ function quiz(t, qs, o) {
   function arm() {
     fig?.stop(); fig = null; mat.innerHTML = ''; q = qs[k]; tries = 0; helped = false; busy = false; openAt = performance.now() + SETTLE;
     chips.forEach((c, j) => c.classList.toggle('on', j === Math.floor(k / per))); dots.forEach((d, j) => d.classList.toggle('cur', j === k));
-    $('#ask').innerHTML = `<span class="eq">${eq(q)}</span><span class="bxs"></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
-    $('#keys').innerHTML = KEYS;
+    it = o.items?.[k]; verd = !!it; go = null;
+    $('#ask').innerHTML = `<span class="eq${it ? ' sh' : ''}">${eq(q)}${it ? ' ' + told(q, it.shown) : ''}</span><span class="bxs"${it ? ' hidden' : ''}></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
+    $('#keys').innerHTML = it ? CHOICE : KEYS;
     $('#ask').classList.remove('far');
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
     open(!wait);
-    tip(tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
-    typing(B, submit, () => busy || $('#ask').hidden); showTip();
+    tip(it ? 'Mira bé la divisió. És correcta?' : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
+    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip();
   }
-  async function submit(ans) {
-    if (!right(q, ans)) {
+  async function submit(ans, yes) {
+    const ok = it ? judge(it, !!yes, ans) : right(q, ans), once = o.once || it;
+    if (!ok) {
       tries++; tone(150, 0, 0.45, 0.16, 'triangle'); shake(fig ? mat : $('#ask'));
-        tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); fig?.mark?.(ans); if (tries > 1) figure(true);
-      B.clear(); showTip(); return;
+      if (!once) { tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); fig?.mark?.(ans); if (tries > 1) figure(true); B.clear(); showTip(); return; }
     }
     busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : 'late');
-    tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); tip(said(q), 'go'); showTip();
-    { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
+    if (ok) { tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); }
+    tip(it ? `${ok ? 'Ben vist.' : it.ok ? 'Aquesta ja era bona.' : 'Aquesta tenia una errada.'} ${said(q)}` : ok ? said(q) : `Ui! ${explain(q, true, ans)}`, ok ? 'go' : 'oops'); showTip();
+    if (ok) { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
     const last = k === qs.length - 1, out = last ? o.settle(res) : null;
-    await sleep(1500); if (!t.on) return;
+    if (once) { $('#keys').innerHTML = '<button class="btn" id="go">Segueix</button>'; $('#keys').hidden = false; openAt = performance.now() + SETTLE; $('#go').focus({ preventScroll: true }); await new Promise(r => { go = r; }); }
+    else await sleep(1500);
+    if (!t.on) return;
     if (last) { $('#hintb')?.remove(); return o.end(out, stage); }   // the hint button is outside the stage that end() clears
     k++; arm();
   }
@@ -225,8 +232,16 @@ function quiz(t, qs, o) {
     if (busy || !ready()) return;
     helped = true; figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
   }
+  // a sheet ignores every tap for SETTLE after a choice or a new question: a second tap lands on what took the place of the first button
   $('#game').onclick = e => {
-    if (!tapEntry(B, e) && e.target.closest('#hintb')) hint();
+    if (e.target.closest('#go')) { if (ready() && go) go(); return; }
+    if (o.items && !ready()) return;
+    const c = e.target.closest('#yes, #no');
+    if (c && verd) {
+      verd = false;
+      if (c.id === 'yes') return submit(undefined, true);
+      $('#keys').innerHTML = KEYS; $('.bxs', stage).hidden = false; openAt = performance.now() + SETTLE; tip('Escriu el resultat bo.');
+    } else if (!tapEntry(B, e) && e.target.closest('#hintb')) hint();
   };
   arm();
 }
@@ -249,7 +264,22 @@ function projecte(i) {
       $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') projecte(i); };
     } });
 }
-function corregir() { mapa(); }
+// Caça l'errada: a sheet of three divisions, each judged once; fulls + 1 only when all three are right, and nothing is kept before the last one is judged
+function corregir() {
+  const items = sheet(validated(prog)), t = enter('Caça l\'errada', true);
+  quiz(t, items.map(i => i.q), { items,
+    settle(res) { const r = sheetIn(prog, res.map(firstTry)); prog = r.prog; save(); return r; },
+    async end(r, stage) {
+      keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(r.good ? 'Full ben corregit!' : 'Se t\'han escapat algunes errades.');
+      await sleep(SETTLE); if (!t.on) return;   // the panel comes up once a second tap on «Segueix» has passed
+      r.good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(8)) : tone(196, 0, 0.5, 0.12, 'triangle');
+      panel(stage, `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
+        ${r.good ? `<p class="lead go">${r.gain ? `+${r.gain} XP` : '0 XP: per guanyar-ne cal validar més projectes.'}</p>` : `<p class="lead">Aquestes se't han escapat:<br>${r.missed.map(i => `${i + 1}. ${said(items[i].q)}`).join('<br>')}</p>`}
+        ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
+        <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre full</button>`);
+      $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') corregir(); };
+    } });
+}
 function examen(c) { mapa(); }
 
 soBtn();

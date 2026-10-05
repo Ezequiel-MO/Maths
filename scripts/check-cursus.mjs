@@ -2,7 +2,7 @@
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
-  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn } from '../games/cursus-de-l-estany/logic.js';
+  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told } from '../games/cursus-de-l-estany/logic.js';
 
 let fails = 0, counted = 0, exams = 0, fulls = 0;
 const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
@@ -599,6 +599,29 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   check(handIn(seed([]), 3, []).n === 0 && handIn(seed([]), 3, []).prog.notes[3] === 0, 'an empty run is not a zero');   // contract: spec «Notes», sense respostes no hi ha nota
 }
 
+// ---- 6b. the hand-in of a finished sheet: fulls + 1 only when all three divisions were judged right, and what that adds is whatever xpOf says
+// sheetIn(p, run) gives { prog, good, gain, missed, news } and never touches p; run is one boolean per division.
+{
+  const P = (notes, fulls) => ({ ...clean({ piscina: true, equip: 0, notes }), fulls });
+  const T = [true, true, true];
+  const one = sheetIn(P([80], 0), T);
+  check(one.good && one.prog.fulls === 1 && one.gain === 10 && one.missed.length === 0, `a first good sheet: ${JSON.stringify([one.good, one.prog.fulls, one.gain, one.missed])}`);   // contract: spec «XP», 10 per full ben corregit, amb un projecte validat
+  check(one.news.join() === 'Primer full', `the first good sheet earns ${one.news.join()}, not Primer full`);   // contract: spec «Insígnies», Primer full = un full ben corregit
+  const bad = sheetIn(P([80], 0), [true, false, true]);
+  check(!bad.good && bad.prog.fulls === 0 && bad.gain === 0 && bad.missed.join() === '1' && bad.news.length === 0, `a sheet with one miss: ${JSON.stringify([bad.good, bad.prog.fulls, bad.gain, bad.missed, bad.news])}`);   // contract: spec «Fulls», només un full ben corregit compta; la segona s'ha escapat
+  check(sheetIn(P([80], 0), [false, false, false]).missed.join() === '0,1,2' && sheetIn(P([80], 0), [true, true]).good === false && sheetIn(P([80], 0), [true, true]).missed.join() === '2', 'a sheet with nothing right, or with only two divisions done, lists the wrong places or counts as good');   // contract: plan «Tasca 9», un full no acabat no es desa
+  const cap = sheetIn(P([80], 3), T);
+  check(cap.good && cap.prog.fulls === 4 && cap.gain === 0 && xpOf(cap.prog) === xpOf(P([80], 3)), `the fourth sheet with one validated project: ${JSON.stringify([cap.prog.fulls, cap.gain])}`);   // contract: spec «XP», 10 per full fins a 3 per projecte validat: amb un de validat, el quart dona 0 (però es desa i el recompte puja)
+  check(sheetIn(P([80, 90], 3), T).gain === 10 && sheetIn(P([], 0), T).gain === 0 && sheetIn(P([], 0), T).prog.fulls === 1, 'a second validated project lifts the cap, or a first sheet with none validated gains XP');   // contract: spec «XP», 3 per projecte validat (6 amb dos); sense cap de validat no hi ha XP de fulls
+  check(sheetIn(P([80], 9), T).news.join() === 'Deu fulls' && sheetIn(P([80], 10), T).news.length === 0, 'the badge Deu fulls is not new at the tenth sheet only');   // contract: spec «Insígnies», Deu fulls = deu fulls ben corregits
+  const before = JSON.stringify(P([80], 3)), src = P([80], 3), res = sheetIn(src, T);
+  check(JSON.stringify(src) === before && res.prog !== src && res.prog.notes !== src.notes && res.prog.exams !== src.exams, 'sheetIn changed the progress it was given, or shares an object with it');   // contract: plan «Tasca 9», prog no es toca provisionalment
+  // the XP maximum does not move: 8 validated projects at 100, three exams, the Piscina and 24 sheets
+  check(xpOf({ ...P(Array(8).fill(100), 24), exams: [true, true, true] }) === 1240 && xpOf({ ...P(Array(8).fill(100), 99), exams: [true, true, true] }) === 1240, 'XP maximum is not 1240');   // contract: brief «XP màxim: 1.240»
+  // the answer on the line of a sheet
+  check(told({ mode: 'fact', D: 12, d: 4 }, 3) === '3' && told({ mode: 'long', D: 17, d: 5, bare: true }, [3, 2]) === '3 i en sobren 2' && told({ mode: 'rem', D: 20, d: 4 }, [5, 0]) === '5 i no en sobra cap' && told({}, [4, 1]) === '4 i en sobra 1', 'the answer of a sheet is not told as the quotient or as quotient and remainder');   // contract: said() de logic.js diu «3 i en sobren 2» i «en sobra 1»
+}
+
 // ---- 7. no screen text of logic.js speaks of companions: the child plays alone
 {
   const texts = [];
@@ -607,7 +630,7 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   // the questions of the project screen, and the bare ones of exams and sheets (no parts, no material), each asked with the answers a child gets wrong
   const seed = n => () => (n = (n * 1664525 + 1013904223) % 4294967296) / 4294967296;
   const qs = PROJECTS.flatMap(P => P.ex.flat());
-  for (let c = 0; c < 3; c++) for (let k = 1; k <= 60; k++) { qs.push(...exam(c, seed(k * 7 + c))); qs.push(...sheet(CIRCLES[c].projects, seed(k * 11 + c)).map(it => it.q)); }
+  for (let c = 0; c < 3; c++) for (let k = 1; k <= 60; k++) { qs.push(...exam(c, seed(k * 7 + c))); for (const it of sheet(CIRCLES[c].projects, seed(k * 11 + c))) { qs.push(it.q); texts.push(told(it.q, it.shown)); } }
   qs.push(...sheet(PROJECTS.map((_, i) => i), seed(5)).map(it => it.q));
   const wrongs = q => {
     const w = want(q), many = Array.isArray(w);

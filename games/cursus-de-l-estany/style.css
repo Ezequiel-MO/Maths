@@ -178,6 +178,11 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .ask { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-end; justify-content: center; font-weight: 800; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .eq { padding-bottom: 6px; white-space: nowrap; }
 .bxs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; align-items: flex-end; }
+.bxs[hidden] { display: none; }
+/* a sheet: the division with the answer shown for it may be longer than the line, so it wraps; the choice and «Segueix» take the place of the keys, not more of the desk */
+.eq.sh { white-space: normal; text-align: center; font-size: 1.45rem; }
+.verd { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.verd .btn, #go { width: 100%; min-height: 56px; }
 .ask.far { display: none; }   /* the boxes are in the figure (chunks): the dock keeps only the keys */
 .bx { display: flex; flex-direction: column; gap: 2px; align-items: center; }
 .lab { font-size: 0.8rem; color: var(--muted); }

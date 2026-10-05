@@ -230,7 +230,7 @@ function wrongAnswer(q, rnd) {
   const bad = c.filter(a => !right(q, a));
   return bad[at(bad.length, rnd)];
 }
-// three divisions already done by a frog, each with the answer she wrote; 0, 1 or 2 of them wrong, never all three
+// three divisions already worked out on a sheet, each with the answer shown for it; 0, 1 or 2 of them wrong, never all three
 export function sheet(valid, rnd = Math.random) {
   const ps = [...new Set((Array.isArray(valid) ? valid : []).filter(p => Number.isInteger(p) && p >= 0 && p < PROJECTS.length))], used = new Set();
   if (!ps.length) ps.push(0);
@@ -240,6 +240,8 @@ export function sheet(valid, rnd = Math.random) {
 }
 // right when the child sees it is right, or sees it is wrong and writes the right answer
 export const judge = (item, saysOk, fix) => item.ok ? !!saysOk : !saysOk && right(item.q, fix);
+// the answer of a sheet as it is read on the line: a list is the quotient and the remainder
+export const told = (q, s) => Array.isArray(s) ? `${s[0]} i ${sobra(s[1])}` : String(s);
 
 /* ---------- progress ---------- */
 // What is saved is facts only: { so, piscina, equip, notes, exams, fulls }. XP, level and badges are worked out from it, never stored, so they cannot drift apart.
@@ -295,6 +297,15 @@ export function handIn(p, i, run) {
   const had = badges(p), now = badges(next);
   return { prog: next, n, best, gain: xpOf(next) - xpOf(p), redo: [0, 1, 2].filter(e => run.slice(e * 5, e * 5 + 5).some(r => !firstTry(r)) || run.length < e * 5 + 5).map(e => 'ex0' + e),
     news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
+}
+// The hand-in of a finished sheet. run has one boolean per division (true: judged right, with the fix written when it was wrong). Returns { prog, good, gain, missed, news }:
+// prog is a NEW progress (p is never touched) with fulls + 1 only when all three are right; gain the XP that adds (the difference of xpOf, so 0 once the cap of 3 per
+// validated project is reached, or with none validated); missed the places (0, 1, 2) judged wrong or not done; news the names of the badges it earns.
+export function sheetIn(p, run) {
+  const missed = [0, 1, 2].filter(i => run[i] !== true), good = !missed.length && run.length === 3, next = { ...p, notes: p.notes.slice(), exams: p.exams.slice() };
+  if (good) next.fulls = p.fulls + 1;
+  const had = badges(p), now = badges(next);
+  return { prog: next, good, gain: xpOf(next) - xpOf(p), missed, news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
 }
 // hue in degrees for CSS hsl: cyan, orange and green, each at least 60 degrees from the others and bright enough for a dark night pond
 export const TEAMS = [{ name: 'Libèl·lules', hue: 195 }, { name: 'Tritons', hue: 28 }, { name: 'Cuques', hue: 105 }];
