@@ -31,6 +31,6 @@ export const GAMES = [
     what: 'Talla, pinta i ajunta nenúfars per trobar fraccions que valen el mateix.', total: 80, record: (s, total) => screens(sum(s.secs), total),
     icon: `<svg viewBox="-34 -34 68 68" aria-hidden="true"><circle r="30" fill="#1C5A3C"/><path d="M0 0L0 -30A30 30 0 0 1 25.98 15Z M0 0L25.98 15A30 30 0 0 1 0 30Z" fill="#F7C64E"/><circle r="30" fill="none" stroke="#2F7F40" stroke-width="3"/><path d="M0 0V-30M0 0L25.98 -15M0 0L25.98 15M0 0V30M0 0L-25.98 15M0 0L-25.98 -15" stroke="#04131C" stroke-width="2.5" stroke-linecap="round"/></svg>` },
   { id: 'cursus-de-l-estany', href: 'cursus-de-l-estany.html', store: 'cursus-de-l-estany', tag: 'Dividir', title: "El cursus de l'estany",
-    what: 'Reparteix, agrupa i divideix a trossos, i corregeix els fulls de les companyes.', total: 8, record: (s, total) => projects(s, total),
+    what: 'Reparteix, agrupa i divideix a trossos, i caça les errades dels fulls.', total: 8, record: (s, total) => projects(s, total),
     icon: `<svg viewBox="-34 -34 68 68" aria-hidden="true"><circle r="31" fill="none" stroke="#B79CFF" stroke-width="3"/><circle r="21" fill="none" stroke="#6FE3FF" stroke-width="3"/><circle r="11" fill="#1C5A3C" stroke="#7CF5B0" stroke-width="3"/><g fill="#F7C64E"><rect x="-6" y="-1.500" width="12" height="3" rx="1.500"/><circle cy="-5" r="1.800"/><circle cy="5" r="1.800"/></g></svg>` }
 ];

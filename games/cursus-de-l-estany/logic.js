@@ -277,11 +277,24 @@ export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i =>
 // in the order of the spec; fulls here is the raw count, not the one that XP caps
 export const BADGES = [
   { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
-  { name: 'Primer full', what: 'Corregeix bé el primer full d\'una companya.' },
+  { name: 'Primer full', what: 'Troba bé les errades d\'un full.' },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
-  { name: 'Deu fulls', what: 'Corregeix bé deu fulls.' },
+  { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
   { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
 ];
 export const badges = p => [p.piscina === true, p.fulls >= 1, p.notes.some(n => n === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+// The hand-in of a finished project, the only place where a mark is worked out. run has one { tries, helped } per question (15 of them, five to an exercise):
+// the wrong answers before the right one, and whether the hint was asked. A question counts when it was right at the first try without the hint.
+// Returns { prog, n, best, gain, redo, news }: prog is a NEW progress (p is never touched) holding the mark if it beats the stored one; n is the mark of
+// this run; best the stored mark before it; gain the XP the run adds (the difference of xpOf, so 0 for a lower replay and the whole mark on validating);
+// redo the exercises with a question that did not count ('ex00' ...); news the names of the badges this run earns.
+export const firstTry = r => !!r && r.tries === 0 && !r.helped;
+export function handIn(p, i, run) {
+  const n = mark(run.filter(firstTry).length), best = p.notes[i], next = { ...p, notes: p.notes.slice(), exams: p.exams.slice() };
+  if (n > best) next.notes[i] = n;
+  const had = badges(p), now = badges(next);
+  return { prog: next, n, best, gain: xpOf(next) - xpOf(p), redo: [0, 1, 2].filter(e => run.slice(e * 5, e * 5 + 5).some(r => !firstTry(r)) || run.length < e * 5 + 5).map(e => 'ex0' + e),
+    news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
+}
 // hue in degrees for CSS hsl: cyan, orange and green, each at least 60 degrees from the others and bright enough for a dark night pond
 export const TEAMS = [{ name: 'Libèl·lules', hue: 195 }, { name: 'Tritons', hue: 28 }, { name: 'Cuques', hue: 105 }];

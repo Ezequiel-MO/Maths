@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, want, right, tipFor, explain, said, mark } from './logic.js';
+import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, want, right, tipFor, explain, said, handIn, firstTry } from './logic.js';
 import { fireflies, FIGURES, how, KEYS, boxes } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
@@ -38,7 +38,9 @@ function enter(kicker, inner) {
 $('#toM').onclick = () => mapa();
 function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
 $('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
-// The keys on the screen and a real keyboard both end up in keyFn (set by a screen that types; the arrows come as 'next' and 'prev'). Enter on a button that is not a key is left alone.
+// The keys on the screen and a real keyboard both end up in keyFn (set by a screen that types; the arrows come as 'next' and 'prev'). Enter on a focused button
+// that is not a key is left to that button (a «Segueix» must work from the keyboard). So a screen never leaves the focus on a control that has stopped being
+// the next thing to press (a pad once the sharing is done, the hint): it blurs it, and Enter is ✓ again.
 addEventListener('keydown', e => {
   if (!keyFn || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Enter' && e.target.closest?.('button:not([data-k]), a')) return;
@@ -91,7 +93,7 @@ function piscina() {
 async function team(t, stage) {
   stage.innerHTML = ''; tip('Quin equip vols ser?'); await sleep(SETTLE); if (!t.on) return;
   chime([523, 659, 784]);
-  panel(stage, `<h2>Tria el teu equip</h2><p class="lead">Hi aniràs durant tot el cursus.</p><div class="teams">${TEAMS.map((m, i) =>
+  panel(stage, `<h2>Tria el teu equip</h2><p class="lead">Serà el teu equip durant tot el cursus.</p><div class="teams">${TEAMS.map((m, i) =>
     `<button class="team" data-t="${i}" style="--tc:${hsl(m.hue)}"><span>${emblem(i)}</span><b>${m.name}</b></button>`).join('')}</div>`);
   let chosen = false;
   stage.onclick = async e => {
@@ -131,7 +133,7 @@ function mapa() {
   };
   $('#game').innerHTML = `<p class="status tip" id="tip">${nextTip()}</p>
     <div class="map">${prog.piscina ? '' : '<button class="btn" id="pool">Fes la Piscina</button>'}${CIRCLES.map((_, c) => ring(c)).join('')}
-      <button class="btn soft" id="cor"${prog.piscina ? '' : ' disabled'}>Corregir el full d'una companya</button></div>
+      <button class="btn soft" id="cor"${prog.piscina ? '' : ' disabled'}>Caça l'errada</button></div>
     <h2 class="bh">Insígnies</h2><ul class="badges" aria-label="Insígnies">${BADGES.map((b, i) => `<li class="bd${got[i] ? ' got' : ''}"><b>${b.name}</b><span>${b.what}</span><span class="st">${got[i] ? 'Aconseguida ✓' : 'Encara no'}</span></li>`).join('')}</ul>`;
   $('#game').onclick = e => {
     const b = e.target.closest('button');
@@ -167,20 +169,21 @@ const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classLis
 const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top < 0) e.scrollIntoView({ block: 'start', behavior: RM ? 'auto' : 'smooth' }); };
 
 // The question loop. o: help (material and the hint button), per (questions in a row of the head, labels), settle(res) and end(out, stage).
-// res[k] is true when question k was right at the first try without the hint. settle runs at once on the last right answer, BEFORE any wait, and what it
+// res[k] is { tries, helped } of question k (what handIn in logic.js judges). settle runs at once on the last right answer, BEFORE any wait, and what it
 // returns goes to end() after the pause. A wrong answer repeats the question: the second one also shows the material solved.
 function quiz(t, qs, o) {
   const per = o.per || qs.length, res = [];
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
     <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span></div>
-    <p class="status tip" id="tip" role="status" aria-live="polite"></p>
-    <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}<div id="keys"></div></div></div>`;
+    <p class="status tip" id="tip" role="status" aria-live="polite"></p>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
+    <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div><div id="keys"></div></div></div>`;
   const dots = [...$('#dots').children], chips = [...document.querySelectorAll('.exrow span')], stage = $('#stage'), mat = $('#mat');
+  const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; }, unfocus = () => document.activeElement?.blur?.();
   let k = 0, q, B, fig, tries, helped, busy;
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
-    fig ??= FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { $('#ask').hidden = $('#keys').hidden = false; tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
+    fig ??= FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); unfocus(); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
       onMiss: () => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(MISS, 'oops'); } });
     if (solved) fig.solve();
   }
@@ -190,7 +193,7 @@ function quiz(t, qs, o) {
     $('#ask').innerHTML = `<span class="eq">${eq(q)}</span><span class="bxs"></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
     $('#keys').innerHTML = KEYS;
     const wait = o.help && q.hands && FIGURES[q.mode];   // the keys come up when the material is done
-    $('#ask').hidden = $('#keys').hidden = !!wait;
+    open(!wait); unfocus();
     tip(tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
     typing(B, submit, () => busy || $('#ask').hidden); showTip();
   }
@@ -200,18 +203,18 @@ function quiz(t, qs, o) {
         tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); if (tries > 1) figure(true);
       B.clear(); showTip(); return;
     }
-    busy = true; res[k] = tries === 0 && !helped; dots[k].classList.add(res[k] ? 'ok' : 'late');
+    busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : 'late');
     tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); tip(said(q), 'go'); showTip();
     { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
     const last = k === qs.length - 1, out = last ? o.settle(res) : null;
     await sleep(1500); if (!t.on) return;
-    if (last) return o.end(out, stage);
+    if (last) { $('#hintb')?.remove(); return o.end(out, stage); }   // the hint button is outside the stage that end() clears
     k++; arm();
   }
   // the hint: the game's own explanation of what is typed (nothing, if the boxes are not all full) in the place of the tip, and the material of a hidden question; the question stops counting
   function hint() {
     if (busy || !ready()) return;
-    helped = true; figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
+    helped = true; unfocus(); figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
   }
   $('#game').onclick = e => {
     if (e.target.closest('.fly')) return;   // the pads and «Fes un grup» are the figure's own: a tap there is nothing else
@@ -224,19 +227,14 @@ function quiz(t, qs, o) {
 function projecte(i) {
   const P = PROJECTS[i], t = enter(P.name, true); here = i;
   quiz(t, P.ex.flat(), { help: true, per: 5, labels: ['ex00', 'ex01', 'ex02'],
-    // prog is touched here and nowhere else: leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
-    settle(res) {
-      const n = mark(res.filter(Boolean).length), best = prog.notes[i], xp = xpOf(prog), had = badges(prog);
-      if (n > best) { prog.notes[i] = n; save(); }
-      const now = badges(prog);
-      return { n, best, gain: xpOf(prog) - xp, news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name), redo: [0, 1, 2].filter(e => res.slice(e * 5, e * 5 + 5).some(x => !x)).map(e => 'ex0' + e) };
-    },
+    // prog is replaced here and nowhere else (handIn works the mark out and never touches it): leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
+    settle(res) { const r = handIn(prog, i, res); if (r.n > r.best) { prog = r.prog; save(); } return r; },
     async end(r, stage) {
       keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.');
       await sleep(SETTLE); if (!t.on) return;   // the panel comes up once a second tap on the last ✓ has passed
       r.n >= VALID ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(8)) : tone(196, 0, 0.5, 0.12, 'triangle');
       panel(stage, `<h2>Nota ${r.n}</h2>
-        ${r.n >= VALID ? `<p class="lead go">Validat ✓${r.gain ? ` · +${r.gain} XP` : ''}</p>` : `<p class="lead">Per validar cal una nota de ${VALID}. Repassa ${llista(r.redo)}.</p>`}
+        ${r.n >= VALID ? `<p class="lead go">Validat ✓${r.gain ? ` · +${r.gain} XP` : ''}</p>` : `<p class="lead">${r.best >= VALID ? `Aquesta vegada no arriba a ${VALID}, però ja el tens validat.` : `Per validar cal una nota de ${VALID}.`} Repassa ${llista(r.redo)}.</p>`}
         ${r.best && r.best >= r.n ? `<p class="lead">La teva millor nota continua sent ${r.best}.</p>` : ''}
         ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
         <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Torna-hi</button>`);

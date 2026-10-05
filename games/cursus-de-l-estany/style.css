@@ -123,7 +123,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .mat { width: 100%; }
 .mat:empty { display: none; }
 .shake { animation: shake 0.35s; }
-.desk { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+/* the desk (the question with its boxes, and the keys) is one block that sticks to the bottom of the screen while the material scrolls under it, so the box
+   being typed in and the question are always in view, however short the phone; the hint button is not in it but under the tip, where the hint is shown */
+.desk { position: sticky; bottom: 8px; z-index: 2; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: #0A2633; border: 1px solid var(--edge); box-shadow: 0 -8px 18px rgb(0 0 0 / 0.4); }
 .ask { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-end; justify-content: center; font-weight: 800; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .eq { padding-bottom: 6px; white-space: nowrap; }
 .bxs { display: flex; gap: 10px; align-items: flex-end; }
@@ -131,10 +133,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .lab { font-size: 0.8rem; color: var(--muted); }
 .in { min-width: 3.4ch; height: 46px; padding: 0 8px; border-radius: 12px; border: 2px solid #4D7486; background: rgb(255 255 255 / 0.05); display: inline-grid; place-items: center; cursor: pointer; }
 .in.cur { border-color: var(--sun); background: rgb(247 198 78 / 0.12); animation: beacon 1s ease-in-out infinite; }
-.desk > .btn.soft { width: 100%; min-height: 44px; }
-#keys { display: contents; }
-/* on a phone the keys stay at the bottom of the screen while the material scrolls above them */
-.keys { position: sticky; bottom: 0; z-index: 2; width: calc(100% + 24px); margin: 0 -12px -12px; padding: 10px 12px 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+#hintb { width: 100%; max-width: 480px; min-height: 44px; }
+#keys, .keys { width: 100%; }
+.keys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 .key { height: 54px; padding: 0; border-radius: 14px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
   font-size: 1.7rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s; }
 .key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
@@ -150,9 +151,10 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 @media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
   .stage.work { max-width: 900px; flex-direction: row; align-items: flex-start; justify-content: center; }
   .mat { flex: 1 1 0; }
-  .desk { flex: 1 1 0; max-width: 400px; padding: 16px; }
-  .keys { position: static; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+  .desk { position: static; flex: 1 1 0; max-width: 400px; padding: 16px; background: var(--glass); box-shadow: none; }
 }
+/* a short phone: lower keys leave the material more of the screen */
+@media (max-height: 700px) { .key { height: 46px; font-size: 1.5rem; } }
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .fly.shake, .shake, .in.cur, .fbugs .ff, .fgrp .ff, .fsrc.arrive .ff, .gc { animation: none; }
   .in.cur { box-shadow: 0 0 16px 5px var(--sun); }

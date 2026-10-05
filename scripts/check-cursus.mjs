@@ -2,7 +2,7 @@
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
-  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS } from '../games/cursus-de-l-estany/logic.js';
+  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn } from '../games/cursus-de-l-estany/logic.js';
 
 let fails = 0, counted = 0, exams = 0, fulls = 0;
 const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
@@ -553,6 +553,57 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   // a circle that does not exist is shut, and nothing throws
   const full = clean({ piscina: true, notes: Array(8).fill(100), exams: [true, true, true] });
   check([3, -1, 0.5, NaN, undefined, null, 'x', '0', 'length', [0], {}].every(c => isOpen(full, c) === false && examOpen(full, c) === false), 'a circle that does not exist is open');   // contract: plan, tres cercles, 0 a 2
+}
+
+// ---- 6. the hand-in of a finished project: the one place where a mark is worked out
+// A run is one { tries, helped } per question, 15 of them; handIn(p, i, run) gives { prog, n, best, gain, redo, news } and never touches p.
+{
+  const run = (firsts, base = { tries: 1, helped: false }) => Array.from({ length: 15 }, (_, k) => k < firsts ? { tries: 0, helped: false } : base);
+  const seed = notes => { const p = clean({ piscina: true, equip: 0, notes }); return p; };
+  // only a question right at the first try and without the hint counts
+  const mixed = [...run(5).slice(0, 5), ...Array(5).fill({ tries: 0, helped: true }), ...Array(5).fill({ tries: 2, helped: false })];
+  check(handIn(seed([]), 0, mixed).n === mark(5), `a first try, a hint and a second try: the mark is ${handIn(seed([]), 0, mixed).n}, not ${mark(5)}`);   // contract: plan «Tasca 6», compta si s'encerta a la primera i sense pista; 5 de 15 = 33
+  check(handIn(seed([]), 0, run(0, { tries: 0, helped: true })).n === 0, 'a right first try with the hint counts');   // contract: plan «Tasca 6», sense pista
+  check(handIn(seed([]), 0, run(0, { tries: 1, helped: false })).n === 0, 'a right answer after a mistake counts');   // contract: plan «Tasca 6», a la primera
+  check(handIn(seed([]), 0, run(15)).n === 100, 'fifteen clean answers do not make 100');   // contract: spec «Nota», mark(15) = 100
+  // a lower replay keeps the best mark and gains nothing; an equal one too
+  const low = handIn(seed([93]), 0, run(10));
+  check(low.n === 67 && low.best === 93 && low.gain === 0 && low.prog.notes[0] === 93, `a lower replay: ${JSON.stringify([low.n, low.best, low.gain, low.prog.notes[0]])}`);   // contract: spec «Notes», es desa la millor; 10 de 15 = 67
+  const same = handIn(seed([80]), 0, run(12));
+  check(same.n === 80 && same.gain === 0 && same.prog.notes[0] === 80, 'an equal replay changes the mark or gains XP');   // contract: spec «Notes», 12 de 15 = 80
+  // a better one gains the difference, but only once validated
+  const up = handIn(seed([80]), 0, run(14));
+  check(up.n === 93 && up.best === 80 && up.gain === 13 && up.prog.notes[0] === 93, `80 to 93: ${JSON.stringify([up.n, up.best, up.gain, up.prog.notes[0]])}`);   // contract: spec «XP», la nota de cada projecte validat compta: 93 − 80 = 13
+  const val = handIn(seed([73]), 0, run(12));
+  check(val.n === 80 && val.gain === 80 && val.prog.notes[0] === 80, `73 to 80: ${JSON.stringify([val.n, val.gain, val.prog.notes[0]])}`);   // contract: spec «XP», 73 no compta; en validar, +80
+  check(handIn(seed([]), 0, run(11)).gain === 0 && handIn(seed([]), 0, run(11)).prog.notes[0] === 73, 'a mark of 73 on a new project gains XP or is not kept');   // contract: spec «Nota per validar» 80; 11 de 15 = 73, es desa però no puja
+  // the third validated project lifts the cap on sheets: 9 sheets were 6 XP-worth of 2 projects, now 9
+  const cap = { ...seed([80, 80, 0]), fulls: 9 }, capped = handIn(cap, 2, run(12));
+  check(capped.gain === 110, `a third validated project with 9 sheets gains ${capped.gain}, not 110`);   // contract: spec «XP», 10 per full fins a 3 per projecte validat: 80 + 10 × (9 − 6) = 110
+  check(xpOf(capped.prog) - xpOf(cap) === capped.gain, 'the gain is not the difference of xpOf');   // contract: spec «XP», el guany és la diferència
+  // the exercises to redo, and the badges the run earns
+  check(handIn(seed([]), 0, run(15)).redo.length === 0, 'a clean run has exercises to redo');   // contract: plan «Tasca 6», panell: quins exercicis repassar
+  const one = run(15); one[7] = { tries: 1, helped: false };
+  check(handIn(seed([]), 0, one).redo.join() === 'ex01', `one mistake in question 8 redoes ${handIn(seed([]), 0, one).redo.join()}, not ex01`);   // contract: plan «Tasca 6», 5 preguntes per exercici, la 8 és d'ex01
+  const hint = run(15); hint[14] = { tries: 0, helped: true }; hint[0] = { tries: 2, helped: false };
+  check(handIn(seed([]), 0, hint).redo.join() === 'ex00,ex02', 'a hint and a mistake do not redo ex00 and ex02');   // contract: plan «Tasca 6», una pregunta que no compta fa repassar l'exercici
+  check(handIn(seed([]), 0, run(15)).news.join() === 'Nota 100' && handIn(seed([100]), 0, run(15)).news.length === 0, 'the badge Nota 100 is new twice or never');   // contract: spec «Insígnies», Nota 100 = un 100 en un projecte
+  check(handIn(clean({}), 0, run(15)).news.join() === 'Nota 100', 'a mark earns the badge of the Piscina');   // contract: spec «Insígnies», Piscina acabada és per acabar la Piscina, no per una nota
+  // nothing is touched: the input stays as it was, and the new progress shares nothing with it
+  const before = JSON.stringify(cap), res = handIn(cap, 2, run(15));
+  check(JSON.stringify(cap) === before, 'handIn changed the progress it was given');   // contract: plan «Tasca 6», prog no es toca provisionalment
+  check(res.prog !== cap && res.prog.notes !== cap.notes && res.prog.exams !== cap.exams, 'the new progress shares an object with the old');   // contract: plan «Tasca 6», un objecte nou
+  check(handIn(seed([]), 3, []).n === 0 && handIn(seed([]), 3, []).prog.notes[3] === 0, 'an empty run is not a zero');   // contract: spec «Notes», sense respostes no hi ha nota
+}
+
+// ---- 7. no screen text of logic.js speaks of companions: the child plays alone
+{
+  const texts = [];
+  const walk = x => { if (typeof x === 'string') texts.push(x); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
+  walk(PROJECTS.map(({ name, sub }) => ({ name, sub }))); walk(CIRCLES.map(c => c.name)); walk(BADGES); walk(TEAMS.map(m => m.name));
+  for (const P of PROJECTS) for (const q of P.ex.flat()) texts.push(tipFor(q), explain(q, false), explain(q, true), said(q));
+  check(texts.every(s => !/company/i.test(s)), `a screen text speaks of companions: "${texts.find(s => /company/i.test(s))}"`);   // contract: owner decision 2026-10-05, the child plays alone, no companions or frogs that help
+  check(texts.length >= 480, `only ${texts.length} texts looked at`);   // contract: 120 questions × 4 texts (tip, hint, full explanation, said), plus the names
 }
 
 // ---- footer

@@ -92,6 +92,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     if (b) send(+b.dataset.i); else if (e.target.closest('.fmk')) group();
   };
   reset(false);
+  if (groups && D < d) { locked = true; groupsEnd(); onDone(); }   // not even one group to make: nothing to wait for
   return { counts: () => n.slice(), stop, solve };
 }
 
@@ -152,7 +153,8 @@ export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fac
 export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
   : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Fes-ne ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
-  : `Prem «Fes un grup de ${q.d}» fins que no en puguis fer més.${q.mode === 'rem' ? ' Les que no arriben per fer un grup es queden a part.' : ''} Després escriu la resposta.`;
+  : q.mode === 'group' || q.mode === 'rem' ? `Prem «Fes un grup de ${q.d}» fins que no en puguis fer més.${q.mode === 'rem' ? ' Les que no arriben per fer un grup es queden a part.' : ''} Després escriu la resposta.`
+  : 'Mou el material fins que estigui fet. Després escriu la resposta.';   // neutral: a new figure under `hands` adds its own line above
 
 /* ---------- where the child writes: the pad of keys and the boxes of the answer ---------- */
 // the 12 keys, as in Nenúfars a trossos; every one has data-k (digits, 'del', 'ok')
