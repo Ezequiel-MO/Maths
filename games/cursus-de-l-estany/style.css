@@ -1,0 +1,83 @@
+/* Layout: the night pond of the other games. One centred column: the XP bar, then the screen (the Piscina, the map; later a project, an exam).
+   Written for a phone held upright (360 px wide); the media query at the end only gives the map more room. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --leaf: #1C5A3C; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .xp-n, .proj b, .exam b, .bd b { font-family: var(--display); }
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+
+/* the XP bar: the level as written, the part of the level done as a bar, the emblem of the team once chosen. --tc is the team's colour. */
+.xp { --tc: var(--sun); width: 100%; max-width: 560px; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.xp-bar { flex: 1; height: 12px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--tc); box-shadow: 0 0 12px var(--tc); transition: width 0.6s; }
+.xp-team { flex: none; width: 34px; height: 34px; margin: -4px -4px -4px 0; color: var(--tc); }
+.xp-team svg, .team svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+
+/* the Piscina: the stage is where the fireflies are shared out and where the panel of teams comes up (it needs room: panel() centres it in the stage) */
+.stage { position: relative; width: 100%; max-width: 560px; }
+.stage.pool { min-height: 400px; }
+.steps { display: flex; gap: 10px; }
+.steps i { width: 14px; height: 14px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 12px rgb(247 198 78 / 0.7); }
+.teams { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.team { --tc: var(--sun); display: flex; align-items: center; gap: 12px; padding: 6px 14px 6px 8px; border-radius: 20px; border: 2px solid var(--tc); background: rgb(8 32 44 / 0.6); color: var(--ink); text-align: left; }
+.team:hover { background: rgb(255 255 255 / 0.08); }
+.team > span { flex: none; width: 48px; height: 48px; color: var(--tc); }
+.team b { font: 800 1.35rem/1.1 var(--display); }
+
+/* the fireflies and the lily pads. The pads are in rows of --pc; the fireflies at rest are --s big, on a pad --ps. */
+.fly { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 12px; border-radius: 26px; border: 1px solid var(--edge);
+  background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
+.fly.shake { animation: shake 0.35s; }
+.fsrc { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-content: flex-start; padding: 8px; border-radius: 18px; background: rgb(0 0 0 / 0.2); }
+.ff { display: block; flex: none; width: var(--s); height: var(--s); border-radius: 50%; border: 2px solid #FFF3C4; background: radial-gradient(circle at 50% 45%, #fff, var(--sun) 45%, #C98A0E); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.6); }
+.flier { position: absolute; z-index: 2; pointer-events: none; transition: transform 0.32s cubic-bezier(0.4, 0, 0.3, 1); }
+.fpads { display: grid; grid-template-columns: repeat(var(--pc), minmax(0, 120px)); gap: 8px; justify-content: center; }
+.fpad { min-height: 76px; padding: 6px; border: 0; border-radius: 46% 54% 50% 50% / 55% 55% 45% 45%; display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+  background: radial-gradient(circle at 50% 40%, #37965A, var(--leaf) 80%); box-shadow: 0 0 0 3px #2F7F40, inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.fpad:hover { box-shadow: 0 0 0 3px var(--mint), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
+.fbugs { width: 100%; display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; align-content: center; min-height: var(--ps); }
+.fbugs .ff { width: var(--ps); height: var(--ps); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
+.fly.leave .fbugs .ff { opacity: 0; transform: translateY(-14px); transition: opacity 0.35s, transform 0.35s; }
+.fsrc.arrive .ff { animation: arrive 0.4s both; }
+
+/* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
+.ring.r0 { --rh: 140; width: 88%; } .ring.r1 { --rh: 195; width: 94%; } .ring.r2 { --rh: 262; }
+.ring.shut { opacity: 0.8; border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.3rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 30px; height: 30px; }
+.ring .why { font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.proj, .exam { display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; text-align: center; padding: 8px 10px; min-height: 64px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active, .exam:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b, .exam b { font-weight: 800; font-size: 1.15rem; line-height: 1.15; }
+.proj span, .exam span { font-size: 0.85rem; line-height: 1.25; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+.exam { background: none; border-style: dashed; box-shadow: none; }
+.exam:not(:disabled) { border-style: solid; border-color: var(--sun); }
+.exam.pass { border-color: var(--mint); }
+.proj:disabled, .exam:disabled { opacity: 0.55; cursor: not-allowed; }
+.map .btn { width: 100%; max-width: 560px; }
+.bh { margin: 6px 0 0; font-size: 1.3rem; }
+.badges { width: 100%; max-width: 560px; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.bd { display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 8px 10px; border-radius: 18px; border: 1px solid var(--edge); background: var(--glass); opacity: 0.6; }
+.bd b { font-weight: 800; line-height: 1.15; }
+.bd span { font-size: 0.85rem; line-height: 1.25; color: var(--muted); }
+.bd .st { font-weight: 800; }
+.bd.got { opacity: 1; border-color: var(--sun); box-shadow: 0 0 16px rgb(247 198 78 / 0.35); }
+.bd.got .st { color: var(--sun); }
+
+@keyframes land { from { transform: scale(0.4); } }
+@keyframes arrive { from { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .panel, .fly.shake, .fbugs .ff, .fsrc.arrive .ff { animation: none; }
+  .flier, .fly.leave .fbugs .ff, .xp-bar i, .steps i { transition: none; }
+}
