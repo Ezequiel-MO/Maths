@@ -299,7 +299,14 @@ function level(sec, idx) {
       return submit(kind === 'frac' ? [+buf[0], +buf[1]] : +buf[0]);
     }
     buf[slot] = key === 'del' ? buf[slot].slice(0, -1) : (buf[slot] + key).slice(0, 3);
-    tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05); drawAsk();
+    tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05);
+    // a box of a fraction is full when it has as many digits as its answer: the typing moves on to the other box,
+    // and with both full the fraction is checked without ✓
+    if (kind === 'frac' && key !== 'del') {
+      const w = want(q), full = i => buf[i].length >= String(w[i]).length;
+      if (full(slot)) { if (full(1 - slot)) { drawAsk(); return submit([+buf[0], +buf[1]]); } slot = 1 - slot; }
+    }
+    drawAsk();
   };
   ctl.onclick = e => {
     if (e.target.closest('#go')) return next();
