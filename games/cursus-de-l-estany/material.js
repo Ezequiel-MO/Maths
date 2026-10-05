@@ -1,4 +1,4 @@
-// The material that moves: one function per figure, each filling a host element for one question. Added so far: fireflies, grid, bars, chunks. Cancelling: every figure needs the screen's token t (what fresh() in main.js returns; it throws without one) and
+// The material that moves: one function per figure, each filling a host element for one question. Added so far: fireflies, grid, bars, chunks (each fits the box of the material by itself: fitter). Cancelling: every figure needs the screen's token t (what fresh() in main.js returns; it throws without one) and
 // checks t.on after every wait, so a screen that was left fires and saves nothing afterwards. A figure also has its own stop(), and a new figure on
 // the same host stops the one that was there, so a stale instance can never fire its callbacks. Results come back through callbacks (onDone ...).
 //
@@ -9,6 +9,28 @@
 // FIGURES says which figure a mode has. A mode that is not here has no material: the screen opens the keypad on its own, also under `hands`.
 import { $, RM, sleep } from '../../shared/util.js';
 import { want } from './logic.js';
+
+// On a phone the box of the material (.mat) has a height of its own, the remainder of the screen once the head and the desk have taken theirs, and a figure must fit in it. The card
+// of a figure has a size factor --u (1 = the sizes of the stylesheet: its cells, pads, fireflies, plates, boxes) and this finds the biggest factor from 1 down to lo for which the box
+// does not scroll. It is measured, not estimated, so a change above or below (the head, the desk, the hint, the solved captions) cannot clip a row again; it only ever shrinks during
+// a question, and runs again when the card changes (MutationObserver) and when the box changes size (ResizeObserver). Where the box has no height of its own (tablet, laptop) it never scrolls and u stays 1.
+const FITS = new WeakMap();
+function fitter(host, card, lo = 0.5) {
+  FITS.get(host)?.forEach(o => o.disconnect());
+  let u = 1;
+  const set = v => card.style.setProperty('--u', (u = v).toFixed(3)), fits = () => host.scrollHeight <= host.clientHeight + 0.5;
+  const run = () => {
+    if (!card.isConnected) return;
+    set(u); if (fits() || u <= lo) return;
+    let a = lo, b = u; set(a); if (!fits()) return;
+    while (b - a > 0.01) { const m = (a + b) / 2; set(m); fits() ? a = m : b = m; }
+    set(a);
+  };
+  const mo = new MutationObserver(run), ro = new ResizeObserver(run);
+  mo.observe(card, { childList: true, subtree: true }); ro.observe(host); FITS.set(host, [mo, ro]);
+  run();
+  return () => +(card.style.getPropertyValue('--u') || 1);
+}
 
 const FLIGHT = 320;   // ms a firefly takes to cross to its pad
 const LIVE = new WeakMap();   // host -> the figure now on it
@@ -39,13 +61,13 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     const more = left >= d;
     mk.hidden = !more; src.hidden = !left; src.classList.toggle('spare', !more && left > 0); cap.hidden = more || !left;
     cap.textContent = left === 1 ? 'La que sobra' : 'Les que sobren';
-    if (!more) src.style.minHeight = '';
+    if (!more) src.style.removeProperty('--sr');
   }
   // everything back at the start; the source keeps the height of its full rows so what is under it does not move up as it empties
   function reset(arrive) {
     left = D; n = Array(d).fill(0); made = 0; flying = 0; locked = false; wrap.classList.remove('leave');
-    src.hidden = false; src.style.minHeight = ''; src.innerHTML = bugs(D); src.classList.remove('spare'); src.classList.toggle('arrive', !!arrive);
-    src.style.minHeight = src.offsetHeight + 'px';
+    src.hidden = false; src.style.removeProperty('--sr'); src.innerHTML = bugs(D); src.classList.remove('spare'); src.classList.toggle('arrive', !!arrive);
+    src.style.setProperty('--sr', Math.max(1, Math.round((src.offsetHeight - 12) / (src.firstElementChild.offsetHeight + 4))));   // rows of the full source, in rows, so a smaller firefly keeps the right height
     if (groups) { ring.innerHTML = ''; mk.hidden = false; cap.hidden = true; }
     pads.forEach((p, i) => { $('.fbugs', p).innerHTML = ''; padLabel(i); });
   }
@@ -63,7 +85,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     const fl = document.createElement('i');
     fl.className = 'ff flier'; fl.style.cssText = `left:${a.left - w.left}px;top:${a.top - w.top}px;width:${a.width}px;height:${a.height}px`;
     wrap.append(fl); from.remove(); void fl.offsetWidth;
-    const k = small / a.width;
+    const k = small * u() / a.width;
     fl.style.transform = `translate(${p.left + p.width / 2 - a.left - a.width / 2}px, ${p.top + p.height / 2 - a.top - a.height / 2}px) scale(${k})`;
     await sleep(RM ? 0 : FLIGHT); if (!live()) return;
     fl.remove(); $('.fbugs', pads[i]).insertAdjacentHTML('beforeend', bug()); padLabel(i);
@@ -77,7 +99,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   }
   function solve() {
     stop(); locked = true; wrap.querySelectorAll('.flier').forEach(f => f.remove()); wrap.classList.remove('shake', 'leave');
-    src.classList.remove('arrive'); src.style.minHeight = '';
+    src.classList.remove('arrive'); src.style.removeProperty('--sr');
     if (groups) {
       left = D % d; made = Math.floor(D / d); n[0] = made; src.innerHTML = bugs(left); ring.innerHTML = Array.from({ length: made }, (_, m) => ringHtml(m + 1)).join(''); groupsEnd();
     } else {
@@ -91,6 +113,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     if (b) send(+b.dataset.i); else if (e.target.closest('.fmk')) group();
   };
   reset(false);
+  const u = fitter(host, wrap);
   if (groups && D < d) { locked = true; groupsEnd(); sleep(0).then(() => live() && onDone()); }   // not even one group to make: nothing to wait for (said once the caller has the figure in hand)
   return { counts: () => n.slice(), stop, solve };
 }
@@ -110,7 +133,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   LIVE.set(host, { stop });
   const files = n => `${n} ${n === 1 ? 'fila' : 'files'}`, caselles = n => `${n} ${n === 1 ? 'casella' : 'caselles'}`;
   const sobra = n => n === 1 ? 'En sobra 1' : `En sobren ${n}`;
-  host.innerHTML = `<div class="fly grid" style="--gc:${d};--rc:${left};--gr:${R + (left ? 1 : 0)};--go:${left ? 190 : 130}px">
+  host.innerHTML = `<div class="fly grid" style="--gc:${d};--rc:${left}">
     <div class="gbar"><span class="gcount" role="status"></span>${hands ? '<button class="btn soft gadd">Afegeix una fila</button>' : ''}</div>
     <div class="gbody"><div class="gfig" role="img"><div class="gcells"></div><div class="gspare" hidden><div class="gcells"></div><p class="gcap"></p></div></div><p class="geq" hidden></p></div></div>`;
   const wrap = $('.grid', host), cells = $('.gcells', wrap), sp = $('.gspare', wrap), spCells = $('.gcells', sp), count = $('.gcount', wrap), add = $('.gadd', wrap), eq = $('.geq', wrap), fig = $('.gfig', wrap);
@@ -120,7 +143,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   function paint() {
     const n = shown();
     fig.setAttribute('aria-label', !rows ? 'Graella buida' : `Graella de ${files(rows)} de ${caselles(d)}${proof && spare ? `. ${sobra(left)} a part` : ''}`);
-    count.textContent = proof ? (hands && !solved ? `Files: ${rows} de ${R}` : `Cada fila és un grup de ${d}`) : hands && !solved ? `Caselles: ${n} de ${D}` : `Caselles: ${D}`;
+    count.textContent = proof ? (hands && !solved ? `Files: ${rows} de ${R}` : '') : hands && !solved ? `Caselles: ${n} de ${D}` : `Caselles: ${D}`;
     $('.gbar', wrap).hidden = !count.textContent && !add;
     sp.hidden = !spare; if (spare) $('.gcap', sp).textContent = sobra(left);
   }
@@ -143,6 +166,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
     paint();
   }
   if (add) add.onclick = press;
+  fitter(host, wrap, 0.2);
   if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); }
   return { stop, solve };
 }
@@ -188,7 +212,7 @@ export function bars(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) 
     if (pad) send(+pad.dataset.i);
     else if (pl) { pl.remove(); src.insertAdjacentHTML('beforeend', piece(0, 10)); src.style.minHeight = Math.max(src.offsetHeight, parseFloat(src.style.minHeight) || 0) + 'px'; }
   };
-  reset();
+  reset(); fitter(host, wrap, 0.7);
   return { stop, solve };
 }
 
@@ -203,7 +227,7 @@ export function chunks(host, q, { t } = {}) {
   host.innerHTML = `<div class="fly chunks"><p class="chd">${D} ÷ ${d}</p>
     <div class="crow">${ps.map((p, i) => `${i ? '<i class="cplus" aria-hidden="true">+</i>' : ''}<div class="cc"><b class="cp">${p}</b><span class="cw" hidden></span><div class="ch"></div></div>`).join('')}</div>
     <div class="crow ctot"><div class="ch"></div>${long ? '<div class="ch"></div>' : ''}</div></div>`;
-  const wrap = $('.chunks', host), hosts = [...wrap.querySelectorAll('.ch')];
+  const wrap = $('.chunks', host), hosts = [...wrap.querySelectorAll('.ch')]; fitter(host, wrap, 0.7);
   function solve() {
     wrap.querySelectorAll('.cw').forEach((e, i) => {
       const r = ps[i] % d; e.hidden = false;

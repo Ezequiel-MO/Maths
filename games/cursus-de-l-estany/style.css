@@ -35,15 +35,15 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .fly { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 12px; border-radius: 26px; border: 1px solid var(--edge);
   background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
 .fly.shake { animation: shake 0.35s; }
-.fsrc { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-content: flex-start; padding: 8px; border-radius: 18px; background: rgb(0 0 0 / 0.2); }
-.ff { display: block; flex: none; width: var(--s); height: var(--s); border-radius: 50%; border: 2px solid #FFF3C4; background: radial-gradient(circle at 50% 45%, #fff, var(--sun) 45%, #C98A0E); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.6); }
+.fsrc { min-height: calc(var(--sr, 0) * (var(--s, 24px) * var(--u, 1) + 4px) + 12px); display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-content: flex-start; padding: 8px; border-radius: 18px; background: rgb(0 0 0 / 0.2); }
+.ff { display: block; flex: none; width: calc(var(--s) * var(--u, 1)); height: calc(var(--s) * var(--u, 1)); border-radius: 50%; border: 2px solid #FFF3C4; background: radial-gradient(circle at 50% 45%, #fff, var(--sun) 45%, #C98A0E); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.6); }
 .flier { position: absolute; z-index: 2; pointer-events: none; transition: transform 0.32s cubic-bezier(0.4, 0, 0.3, 1); }
 .fpads { display: grid; grid-template-columns: repeat(var(--pc), minmax(0, 120px)); gap: 8px; justify-content: center; }
-.fpad { min-height: 76px; padding: 6px; border: 0; border-radius: 46% 54% 50% 50% / 55% 55% 45% 45%; display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+.fpad { min-height: max(40px, calc(76px * var(--u, 1))); padding: 6px; border: 0; border-radius: 46% 54% 50% 50% / 55% 55% 45% 45%; display: flex; align-items: center; justify-content: center; touch-action: manipulation;
   background: radial-gradient(circle at 50% 40%, #37965A, var(--leaf) 80%); box-shadow: 0 0 0 3px #2F7F40, inset 0 -5px 0 rgb(0 0 0 / 0.25); }
 .fpad:hover { box-shadow: 0 0 0 3px var(--mint), inset 0 -5px 0 rgb(0 0 0 / 0.25); }
-.fbugs { width: 100%; display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; align-content: center; min-height: var(--ps); }
-.fbugs .ff { width: var(--ps); height: var(--ps); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
+.fbugs { width: 100%; display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; align-content: center; min-height: calc(var(--ps) * var(--u, 1)); }
+.fbugs .ff { width: calc(var(--ps) * var(--u, 1)); height: calc(var(--ps) * var(--u, 1)); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
 .fly.leave .fbugs .ff { opacity: 0; transform: translateY(-14px); transition: opacity 0.35s, transform 0.35s; }
 .fsrc.arrive .ff { animation: arrive 0.4s both; }
 
@@ -85,17 +85,13 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .fsrc.spare { outline: 2px dashed var(--muted); outline-offset: -2px; }
 .fgroups { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .fgrp { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; align-content: center; padding: 6px; border-radius: 18px; border: 2px solid var(--mint); background: rgb(124 245 176 / 0.08);
-  max-width: calc(var(--gw) * (var(--ps) + 3px) + 16px); }
-.fgrp .ff { width: var(--ps); height: var(--ps); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
+  max-width: calc(var(--gw) * (var(--ps) * var(--u, 1) + 3px) + 16px); }
+.fgrp .ff { width: calc(var(--ps) * var(--u, 1)); height: calc(var(--ps) * var(--u, 1)); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
 
 /* the grid of "La taula al revés" and "Comprova" (the card is a .fly): d columns of cells --cs wide, as many as the card holds (container units);
    the leftovers of "Comprova" are golden cells in a dashed frame under the rows */
-.grid { --gap: 3px; --cs: 26px; container-type: inline-size; align-items: center; }
-@supports (width: 1cqw) { .grid { --cs: min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc))); } }
-/* on a phone the cells also follow the height of the material box (--gr rows in all, --go the card's own height: padding, count line, the = d × q line, a caption) */
-@media not ((min-width: 700px) or ((min-width: 560px) and (orientation: landscape))) {
-  @supports (height: 1cqh) { .grid { --cs: max(14px, min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc)), calc((100cqh - var(--go) - var(--gap) * (var(--gr) - 1)) / var(--gr)))); } }
-}
+.grid { --gap: 3px; --cs: calc(26px * var(--u, 1)); container-type: inline-size; align-items: center; }
+@supports (width: 1cqw) { .grid { --cs: calc(min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc))) * var(--u, 1)); } }
 .gcount, .gcap, .geq { font-family: var(--display); }
 .gbar { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
 .gcount { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
@@ -112,9 +108,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .gplus { color: var(--sun); }
 
 /* bars and plates of "Desenes senceres": the lily pads of the fireflies, with a plate (a hundred) or a bar (ten) where the fireflies were */
-.plate, .bar { display: block; flex: none; height: 28px; border-radius: 3px; border: 0; padding: 0; background: linear-gradient(#FFE08A, var(--sun)); box-shadow: 0 0 0 1px #C98A0E, 0 0 8px rgb(247 198 78 / 0.5); animation: land 0.25s ease-out; }
-.bar { width: 7px; }
-.plate { width: 28px; background: repeating-linear-gradient(90deg, transparent 0 2.4px, rgb(150 90 0 / 0.45) 2.4px 2.8px), linear-gradient(#FFE08A, var(--sun)); }
+.plate, .bar { display: block; flex: none; height: calc(28px * var(--u, 1)); border-radius: 3px; border: 0; padding: 0; background: linear-gradient(#FFE08A, var(--sun)); box-shadow: 0 0 0 1px #C98A0E, 0 0 8px rgb(247 198 78 / 0.5); animation: land 0.25s ease-out; }
+.bar { width: calc(7px * var(--u, 1)); }
+.plate { width: calc(28px * var(--u, 1)); background: repeating-linear-gradient(90deg, transparent 0 2.4px, rgb(150 90 0 / 0.45) 2.4px 2.8px), linear-gradient(#FFE08A, var(--sun)); }
 .fsrc .plate { cursor: pointer; touch-action: manipulation; }
 .bars .fsrc { min-height: 44px; gap: 5px; align-items: flex-end; }
 
@@ -134,6 +130,10 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .ctot { gap: 16px; padding-top: 10px; border-top: 1px dashed var(--edge); }
 .ctot .ch { flex: 0 1 100px; }
 
+/* the tip of a question: a box two lines high that never changes, and the text grows upwards out of it (over the XP bar and the dots, never over the material) when it is longer */
+.tipbox { position: relative; width: 100%; max-width: 54ch; height: 2.7rem; }
+.tipbox .status.tip { position: absolute; inset: auto 0 0; z-index: 3; max-height: 138px; overflow-y: auto; }
+.tipbox .status.tall { padding: 6px 12px; border-radius: 16px; border: 1px solid var(--edge); background: #0A2633; box-shadow: 0 8px 24px rgb(0 0 0 / 0.5); font-size: 0.95rem; line-height: 1.3; }
 /* the hint takes the place of the tip, in the sun's colour */
 .status.hint { color: var(--sun); }
 /* a project: the head (the three exercises and the fifteen questions), the material, and the desk where the answer is written */
@@ -152,10 +152,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .mat:empty { display: none; }
 .shake { animation: shake 0.35s; }
 /* The project screen on a phone is ONE column as tall as the screen (dvh), and nothing on it is sticky or fixed: the head on top, the material in the space that is
-   left, the desk (the question with its boxes, and the keys) at the bottom in normal flow. The material can only ever take the height the head and the desk leave it,
-   so it cannot go under the keys, whatever is added to the desk or to the head later; the page itself never scrolls. A figure sized to that height (its cells and pads
-   follow the box in cqh units) fits; one that still cannot fit scrolls inside its own box, which then shows a scroll bar of its own, and the box being typed in is
-   scrolled into view (boxes.key). */
+   left, the desk (the question with its boxes, and the keys) at the bottom in normal flow. The head never changes height inside a question: the tip lives in a box of
+   two lines (.tipbox) and a longer text grows upwards over the XP bar and the dots, not down over the material. So the box of the material (.mat) has the same height at
+   every step of a question, and the figure sizes itself to it: its card carries a size factor --u that material.js lowers (fitter) until the box does not scroll. */
 @media not ((min-width: 700px) or ((min-width: 560px) and (orientation: landscape))) {
   body:has(.stage.work) { padding-block: 8px; }
   #app:has(.stage.work) { height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
@@ -164,10 +163,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   .mat { flex: 1 1 0; min-height: 0; overflow: hidden auto; container-type: size; }
   .desk { flex: none; margin-top: auto; }
   .stage.work .fly { padding: 8px; gap: 8px; }
-  .stage.work .fpad { min-height: clamp(44px, calc((100cqh - 190px) / var(--pr, 1)), 76px); }
-  .plate, .bar { height: 24px; } .plate { width: 24px; }
-  .cp { padding-block: 3px; font-size: 1.25rem; } .chunks .in { height: 40px; }
-  #hintb { min-height: 38px; padding-block: 0; }
+  .cp { padding-block: 3px; font-size: 1.25rem; } .chunks .in { height: calc(40px * var(--u, 1)); }
+  #app #hintb { min-height: 36px; padding-block: 0; }
+  #app:has(.stage.work) .xp { padding-block: 2px; } #app:has(.stage.work) .xp-team { width: 26px; height: 26px; margin-block: -2px; }
   @media (max-height: 800px) { #app:has(.stage.work) header { display: none; } }
   .mat::-webkit-scrollbar { width: 8px; }
   .mat::-webkit-scrollbar-track { background: rgb(160 230 220 / 0.12); border-radius: 4px; }
@@ -208,6 +206,17 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   .stage.work { max-width: 900px; flex-direction: row; align-items: flex-start; justify-content: center; }
   .mat { flex: 1 1 0; }
   .desk { flex: 1 1 0; max-width: 400px; padding: 16px; background: var(--glass); box-shadow: none; }
+  /* d × q goes beside the grid, not under it: the cells leave it room */
+  @supports (width: 1cqw) { .grid { --cs: calc(min(40px, max(14px, calc((100cqw - 190px - var(--gap) * (var(--gc) - 1)) / var(--gc)))) * var(--u, 1)); } }
+  /* a screen tall enough: the same column as on a phone (the head, then the stage as tall as what is left), so the material fits its box instead of the page scrolling */
+  @media (min-height: 640px) {
+    body:has(.stage.work) { padding-block: 8px; }
+    #app:has(.stage.work) { height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
+    #app:has(.stage.work) #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
+    .stage.work { flex: 1 1 0; min-height: 0; align-items: stretch; }
+    .mat { min-height: 0; overflow: hidden auto; container-type: size; }
+    .desk { align-self: flex-start; }
+  }
 }
 /* a short phone: lower keys leave the material more of the screen */
 @media (max-height: 700px) { .key { height: 46px; font-size: 1.5rem; } }

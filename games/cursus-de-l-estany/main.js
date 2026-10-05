@@ -73,7 +73,8 @@ function paintXp() {
   box.style.setProperty('--tc', team ? hsl(team.hue) : 'var(--sun)');
 }
 const MISS = 'Oh! No tots en tenen les mateixes. Les cuques tornen: prova-ho una altra vegada.';
-const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+// A tip in a question screen lives in a box of two lines (.tipbox) and grows upwards from it, over the head, when the text is longer: it never moves what is under it (.tall paints it as a card)
+const tip = (txt, cls) => { const e = $('#tip'), box = e.parentElement; e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; if (box.classList.contains('tipbox')) e.classList.toggle('tall', e.offsetHeight > box.offsetHeight + 1); };
 
 /* ---------- the Piscina: three sharings with no numbers, then the team ---------- */
 const POOL = [{ D: 6, d: 2 }, { D: 12, d: 3 }, { D: 15, d: 5 }];
@@ -185,7 +186,7 @@ function quiz(t, qs, o) {
   const per = o.per || qs.length, res = []; tight = true;
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
     <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span></div>
-    <p class="status tip" id="tip" role="status" aria-live="polite"></p>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
+    <div class="tipbox"><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
     <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div><div id="keys"></div></div></div>`;
   const dots = [...$('#dots').children], chips = [...document.querySelectorAll('.exrow span')], stage = $('#stage'), mat = $('#mat');
   const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; };
