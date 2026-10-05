@@ -10,6 +10,8 @@ Supòsits: el progrés és per nen i per als sis jocs; els jocs funcionen sense 
 
 Fora d'aquest canvi: esborrar o canviar el nom d'un perfil, fusionar el progrés camp a camp, limitar qui pot crear un compte, un compte per nen.
 
+> **Esmena (2026-10-05, en escriure el pla):** el progrés antic se'l queda el primer perfil que queda actiu al dispositiu (no el primer que s'hi crea: amb núvol, un perfil pot arribar baixat). Els `-` del principi i del final de l'identificador es treuen. Si al dispositiu s'obre sessió amb un altre compte, tots els documents tornen a quedar pendents i sense `base`. Sense configuració de Firebase, el botó del compte no es mostra.
+
 ## Perfils
 
 - La portada pregunta «Qui juga?» i mostra els perfils del dispositiu i «Afegeix un jugador». Un perfil és un nom d'1 a 12 caràcters.
