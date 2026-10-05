@@ -92,6 +92,10 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
    the leftovers of "Comprova" are golden cells in a dashed frame under the rows */
 .grid { --gap: 3px; --cs: 26px; container-type: inline-size; align-items: center; }
 @supports (width: 1cqw) { .grid { --cs: min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc))); } }
+/* on a phone the cells also follow the height of the material box (--gr rows in all, --go the card's own height: padding, count line, the = d × q line, a caption) */
+@media not ((min-width: 700px) or ((min-width: 560px) and (orientation: landscape))) {
+  @supports (height: 1cqh) { .grid { --cs: max(14px, min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc)), calc((100cqh - var(--go) - var(--gap) * (var(--gr) - 1)) / var(--gr)))); } }
+}
 .gcount, .gcap, .geq { font-family: var(--display); }
 .gbar { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
 .gcount { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
@@ -114,8 +118,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .fsrc .plate { cursor: pointer; touch-action: manipulation; }
 .bars .fsrc { min-height: 44px; gap: 5px; align-items: flex-end; }
 
-/* "A trossos" and "Tres xifres": the pieces side by side with a + between, the box of each partial under its piece, then the total and the remainder.
-   scroll-margin keeps a box scrolled into view clear of the dock at the bottom of a phone */
+/* "A trossos" and "Tres xifres": the pieces side by side with a + between, the box of each partial under its piece, then the total and the remainder. */
 .chunks { align-items: center; gap: 10px; }
 .chd { margin: 0; font: 800 1.3rem/1.1 var(--display); }
 .crow { width: 100%; display: flex; align-items: flex-start; justify-content: center; gap: 4px; }
@@ -127,7 +130,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .cw { font-size: 0.85rem; line-height: 1.2; text-align: center; color: var(--sun); }
 .ch { width: 100%; display: flex; justify-content: center; }
 .chunks .bx { width: 100%; font: 800 1.5rem/1.1 var(--display); }
-.chunks .in { width: 100%; max-width: 76px; min-width: 0; padding: 0; scroll-margin-bottom: 240px; }
+.chunks .in { width: 100%; max-width: 76px; min-width: 0; padding: 0; }
 .ctot { gap: 16px; padding-top: 10px; border-top: 1px dashed var(--edge); }
 .ctot .ch { flex: 0 1 100px; }
 
@@ -143,13 +146,35 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 #dots i.gap { margin-left: 8px; }
 #dots i.late { background: var(--mint); opacity: 0.55; box-shadow: none; }
 #dots i.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
-.stage.work { max-width: 560px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.stage.work { max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .mat { width: 100%; }
 .mat:empty { display: none; }
 .shake { animation: shake 0.35s; }
-/* the desk (the question with its boxes, and the keys) is one block that sticks to the bottom of the screen while the material scrolls under it, so the box
-   being typed in and the question are always in view, however short the phone; the hint button is not in it but under the tip, where the hint is shown */
-.desk { position: sticky; bottom: 8px; z-index: 2; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: #0A2633; border: 1px solid var(--edge); box-shadow: 0 -8px 18px rgb(0 0 0 / 0.4); }
+/* The project screen on a phone is ONE column as tall as the screen (dvh), and nothing on it is sticky or fixed: the head on top, the material in the space that is
+   left, the desk (the question with its boxes, and the keys) at the bottom in normal flow. The material can only ever take the height the head and the desk leave it,
+   so it cannot go under the keys, whatever is added to the desk or to the head later; the page itself never scrolls. A figure sized to that height (its cells and pads
+   follow the box in cqh units) fits; one that still cannot fit scrolls inside its own box, which then shows a scroll bar of its own, and the box being typed in is
+   scrolled into view (boxes.key). */
+@media not ((min-width: 700px) or ((min-width: 560px) and (orientation: landscape))) {
+  body:has(.stage.work) { padding-block: 8px; }
+  #app:has(.stage.work) { height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
+  #app:has(.stage.work) #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
+  .stage.work { flex: 1 1 0; min-height: 0; }
+  .mat { flex: 1 1 0; min-height: 0; overflow: hidden auto; container-type: size; }
+  .desk { flex: none; margin-top: auto; }
+  .fly { padding: 8px; gap: 8px; }
+  .fpad { min-height: clamp(44px, calc((100cqh - 190px) / var(--pr, 1)), 76px); }
+  .plate, .bar { height: 24px; } .plate { width: 24px; }
+  .cp { padding-block: 3px; font-size: 1.25rem; } .chunks .in { height: 40px; }
+  #hintb { min-height: 38px; padding-block: 0; }
+  @media (max-height: 800px) { #app:has(.stage.work) header { display: none; } }
+  .mat::-webkit-scrollbar { width: 8px; }
+  .mat::-webkit-scrollbar-track { background: rgb(160 230 220 / 0.12); border-radius: 4px; }
+  .mat::-webkit-scrollbar-thumb { background: var(--sun); border-radius: 4px; }
+  @supports not selector(::-webkit-scrollbar) { .mat { scrollbar-color: var(--sun) rgb(160 230 220 / 0.12); scrollbar-width: thin; } }
+}
+/* the desk: the question with its boxes, and the keys; the hint button is not in it but under the tip, where the hint is shown */
+.desk { z-index: 2; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 10px; border-radius: 24px; background: #0A2633; border: 1px solid var(--edge); }
 .ask { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-end; justify-content: center; font-weight: 800; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .eq { padding-bottom: 6px; white-space: nowrap; }
 .bxs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; align-items: flex-end; }
@@ -176,8 +201,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 @media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
   .stage.work { max-width: 900px; flex-direction: row; align-items: flex-start; justify-content: center; }
   .mat { flex: 1 1 0; }
-  .chunks .in { scroll-margin-bottom: 0; }
-  .desk { position: static; flex: 1 1 0; max-width: 400px; padding: 16px; background: var(--glass); box-shadow: none; }
+  .desk { flex: 1 1 0; max-width: 400px; padding: 16px; background: var(--glass); box-shadow: none; }
 }
 /* a short phone: lower keys leave the material more of the screen */
 @media (max-height: 700px) { .key { height: 46px; font-size: 1.5rem; } }

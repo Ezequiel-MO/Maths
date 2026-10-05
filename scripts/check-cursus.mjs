@@ -569,6 +569,8 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   // a lower replay keeps the best mark and gains nothing; an equal one too
   const low = handIn(seed([93]), 0, run(10));
   check(low.n === 67 && low.best === 93 && low.gain === 0 && low.prog.notes[0] === 93, `a lower replay: ${JSON.stringify([low.n, low.best, low.gain, low.prog.notes[0]])}`);   // contract: spec «Notes», es desa la millor; 10 de 15 = 67
+  const lowValid = handIn(seed([100]), 0, run(13));
+  check(lowValid.n === 87 && lowValid.best === 100 && lowValid.gain === 0 && lowValid.prog.notes[0] === 100, `a validated lower replay: ${JSON.stringify([lowValid.n, lowValid.best, lowValid.gain, lowValid.prog.notes[0]])}`);   // contract: spec «Notes», es desa la millor encara que la nova sigui de 80 o més: 13 de 15 = 87, el 100 es queda i el guany és 0
   const same = handIn(seed([80]), 0, run(12));
   check(same.n === 80 && same.gain === 0 && same.prog.notes[0] === 80, 'an equal replay changes the mark or gains XP');   // contract: spec «Notes», 12 de 15 = 80
   // a better one gains the difference, but only once validated
@@ -585,6 +587,7 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   check(handIn(seed([]), 0, run(15)).redo.length === 0, 'a clean run has exercises to redo');   // contract: plan «Tasca 6», panell: quins exercicis repassar
   const one = run(15); one[7] = { tries: 1, helped: false };
   check(handIn(seed([]), 0, one).redo.join() === 'ex01', `one mistake in question 8 redoes ${handIn(seed([]), 0, one).redo.join()}, not ex01`);   // contract: plan «Tasca 6», 5 preguntes per exercici, la 8 és d'ex01
+  check(handIn(seed([]), 0, run(15).slice(0, 5)).redo.join() === 'ex01,ex02', 'a run of five questions does not leave ex01 and ex02 to redo');   // contract: plan «Tasca 6», un exercici que no s'ha fet sencer es repassa
   const hint = run(15); hint[14] = { tries: 0, helped: true }; hint[0] = { tries: 2, helped: false };
   check(handIn(seed([]), 0, hint).redo.join() === 'ex00,ex02', 'a hint and a mistake do not redo ex00 and ex02');   // contract: plan «Tasca 6», una pregunta que no compta fa repassar l'exercici
   check(handIn(seed([]), 0, run(15)).news.join() === 'Nota 100' && handIn(seed([100]), 0, run(15)).news.length === 0, 'the badge Nota 100 is new twice or never');   // contract: spec «Insígnies», Nota 100 = un 100 en un projecte
@@ -601,9 +604,24 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
   const texts = [];
   const walk = x => { if (typeof x === 'string') texts.push(x); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
   walk(PROJECTS.map(({ name, sub }) => ({ name, sub }))); walk(CIRCLES.map(c => c.name)); walk(BADGES); walk(TEAMS.map(m => m.name));
-  for (const P of PROJECTS) for (const q of P.ex.flat()) texts.push(tipFor(q), explain(q, false), explain(q, true), said(q));
+  // the questions of the project screen, and the bare ones of exams and sheets (no parts, no material), each asked with the answers a child gets wrong
+  const seed = n => () => (n = (n * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const qs = PROJECTS.flatMap(P => P.ex.flat());
+  for (let c = 0; c < 3; c++) for (let k = 1; k <= 60; k++) { qs.push(...exam(c, seed(k * 7 + c))); qs.push(...sheet(CIRCLES[c].projects, seed(k * 11 + c)).map(it => it.q)); }
+  qs.push(...sheet(PROJECTS.map((_, i) => i), seed(5)).map(it => it.q));
+  const wrongs = q => {
+    const w = want(q), many = Array.isArray(w);
+    return many ? [...w.map((_, i) => w.map((x, j) => j === i ? x + 1 : x)), w.map(() => 0), [...w.slice(0, -1), q.d], [...w.slice(0, -2), w[w.length - 2] - 1, q.d + 1], w.slice(0, -1)] : [w + 1, w - 1, w + 10, 0, '', 'x'];
+  };
+  const wrongTexts = [];
+  for (const q of qs) { texts.push(tipFor(q), explain(q, false), explain(q, true), said(q)); for (const a of wrongs(q)) for (const deep of [false, true]) { const t = explain(q, deep, a); texts.push(t); wrongTexts.push(t); } }
   check(texts.every(s => !/company/i.test(s)), `a screen text speaks of companions: "${texts.find(s => /company/i.test(s))}"`);   // contract: owner decision 2026-10-05, the child plays alone, no companions or frogs that help
   check(texts.length >= 480, `only ${texts.length} texts looked at`);   // contract: 120 questions × 4 texts (tip, hint, full explanation, said), plus the names
+  // the walk really reached each kind of wrong-answer text and the bare questions of exams and sheets
+  for (const [part, why] of [['Has escrit', 'proof: what was written'], ['El total és la suma', 'split: the total'], ['Torna a mirar el', 'split and long: the piece that is wrong'], ['Comprova multiplicant', 'rem and long: the product'],
+    ['encara es pot fer un grup', 'rem and long: the remainder too big'], [' fa ', 'a single number multiplied back']])
+    check(wrongTexts.some(t => t.includes(part)), `the walk of wrong answers never reached «${part}» (${why})`);   // contract: the prefixes written in logic.js (lead, back, slip, proof, split), all of them on screen after a wrong answer
+  check(qs.some(q => q.bare && q.mode === 'split') && qs.some(q => q.bare && q.mode === 'long'), 'the walk met no bare split or long question');   // contract: exams and sheets ask split and long with no parts (bare)
 }
 
 // ---- footer

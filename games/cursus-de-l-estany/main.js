@@ -38,14 +38,18 @@ function enter(kicker, inner) {
 $('#toM').onclick = () => mapa();
 function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
 $('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
-// The keys on the screen and a real keyboard both end up in keyFn (set by a screen that types; the arrows come as 'next' and 'prev'). Enter on a focused button
-// that is not a key is left to that button (a «Segueix» must work from the keyboard). So a screen never leaves the focus on a control that has stopped being
-// the next thing to press (a pad once the sharing is done, the hint): it blurs it, and Enter is ✓ again.
+// The keys on the screen and a real keyboard both end up in keyFn (set by a screen that types; the arrows come as 'next' and 'prev'); keyFn says false when the
+// keys are not live, and then the key keeps its own job. This is the rule of the shell for every screen: while the keys are live Enter is ✓, unless the focus is on a
+// control that is not part of the figure (the hint, a «Segueix», the choices of a later screen) and nothing was typed since it took the focus: then Enter is that
+// control's. Pads, cells and boxes are the figure's and never swallow it. No screen blurs anything: the focus (so the Tab order) stays where the child put it.
+let typed = false;
+addEventListener('focusin', () => { typed = false; });
 addEventListener('keydown', e => {
   if (!keyFn || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'Enter' && e.target.closest?.('button:not([data-k]), a')) return;
   const k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : e.key === 'ArrowRight' ? 'next' : e.key === 'ArrowLeft' ? 'prev' : /^\d$/.test(e.key) ? e.key : null;
-  if (k) { e.preventDefault(); keyFn(k); }
+  const own = e.target.closest?.('button:not([data-k]):not(.mat *), a');   // a control that is not a key and not part of the figure
+  if (!k || (own && k === 'ok' && !typed) || keyFn(k) === false) return;
+  e.preventDefault(); if (k !== 'ok') typed = true;
 });
 
 // one emblem per team, drawn in the colour of the team (currentColor)
@@ -145,14 +149,17 @@ function mapa() {
 
 // Screens still to come; each one starts with `const t = enter(kicker, true)` and ends in mapa(). For now they take the child straight back.
 /* ---------- a project: three exercises of five questions, one after the other ---------- */
-// The keys of the pad and of the keyboard write into the boxes B; ✓ hands the whole answer to go(ans). With a box empty, or before the question has settled, it does
-// nothing at all. off() says when the keys are dead. A screen that asks for numbers (a project, the exam, correcting) uses these two and boxes().
+// The keys of the pad and of the keyboard write into the boxes B; ✓ on a filled box goes to the next empty one, and hands the whole answer to go(ans) when none is
+// left. On an empty box, or before the question has settled, it does nothing at all. off() says when the keys are dead (keyFn then says false). A screen that asks
+// for numbers (a project, the exam, correcting) uses these two and boxes().
 function typing(B, go, off) {
+  typed = false;
   keyFn = k => {
-    if (off()) return;
-    if (k !== 'ok') { B.key(k); tone(k === 'del' ? 392 : 660, 0, 0.08, 0.05); return; }
+    if (off()) return false;
+    if (k !== 'ok') { B.key(k); tone(k === 'del' ? 392 : 660, 0, 0.08, 0.05); return true; }
     const a = B.ans();
-    if (a !== null && ready()) go(a);
+    if (a !== null) { if (ready()) go(a); } else if (B.skip()) tone(660, 0, 0.08, 0.05);
+    return true;
   };
 }
 // a tap on a key or on a box; true when it was one
@@ -176,13 +183,13 @@ function quiz(t, qs, o) {
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
     <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div><div id="keys"></div></div></div>`;
   const dots = [...$('#dots').children], chips = [...document.querySelectorAll('.exrow span')], stage = $('#stage'), mat = $('#mat');
-  const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; }, unfocus = () => document.activeElement?.blur?.();
+  const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; };
   let k = 0, q, B, fig, tries, helped, busy;
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
     if (!fig) {
-      fig = FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); unfocus(); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
+      fig = FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
         onMiss: m => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(m || MISS, 'oops'); } });
       if (fig.hosts) { B.move(fig.hosts); $('#ask').classList.add('far'); }   // a figure with a place for each box (chunks) takes the boxes, whatever was typed in them stays
     }
@@ -195,7 +202,7 @@ function quiz(t, qs, o) {
     $('#keys').innerHTML = KEYS;
     $('#ask').classList.remove('far');
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
-    open(!wait); unfocus();
+    open(!wait);
     tip(tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
     typing(B, submit, () => busy || $('#ask').hidden); showTip();
   }
@@ -216,7 +223,7 @@ function quiz(t, qs, o) {
   // the hint: the game's own explanation of what is typed (nothing, if the boxes are not all full) in the place of the tip, and the material of a hidden question; the question stops counting
   function hint() {
     if (busy || !ready()) return;
-    helped = true; unfocus(); figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
+    helped = true; figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
   }
   $('#game').onclick = e => {
     if (!tapEntry(B, e) && e.target.closest('#hintb')) hint();
@@ -228,8 +235,8 @@ function quiz(t, qs, o) {
 function projecte(i) {
   const P = PROJECTS[i], t = enter(P.name, true); here = i;
   quiz(t, P.ex.flat(), { help: true, per: 5, labels: ['ex00', 'ex01', 'ex02'],
-    // prog is replaced here and nowhere else (handIn works the mark out and never touches it): leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
-    settle(res) { const r = handIn(prog, i, res); if (r.n > r.best) { prog = r.prog; save(); } return r; },
+    // prog is replaced here and nowhere else (handIn works the mark out, keeps the better one and never touches prog): leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
+    settle(res) { const r = handIn(prog, i, res); prog = r.prog; save(); return r; },
     async end(r, stage) {
       keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.');
       await sleep(SETTLE); if (!t.on) return;   // the panel comes up once a second tap on the last ✓ has passed

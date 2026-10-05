@@ -26,7 +26,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   const live = () => t.on && !stopped, stop = () => { stopped = true; };
   LIVE.set(host, { stop });
   // --s sizes the fireflies at rest, --ps the ones on a pad or in a ring; --pc is the pads per row (two rows at most on a phone), --gw the fireflies per row of a ring
-  host.innerHTML = `<div class="fly" style="--s:${size}px;--ps:${small}px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--gw:${d > 5 ? Math.ceil(d / 2) : d}">
+  host.innerHTML = `<div class="fly" style="--s:${size}px;--ps:${small}px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--pr:${d > 5 ? 2 : 1};--gw:${d > 5 ? Math.ceil(d / 2) : d}">
     <div class="fsrc" role="img" aria-label="Les cuques de llum"></div>
     ${groups ? `<p class="fcap" hidden></p><button class="btn soft fmk">Fes un grup de ${d}</button><div class="fgroups"></div>`
       : `<div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div>`}</div>`;
@@ -91,7 +91,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     if (b) send(+b.dataset.i); else if (e.target.closest('.fmk')) group();
   };
   reset(false);
-  if (groups && D < d) { locked = true; groupsEnd(); onDone(); }   // not even one group to make: nothing to wait for
+  if (groups && D < d) { locked = true; groupsEnd(); sleep(0).then(() => live() && onDone()); }   // not even one group to make: nothing to wait for (said once the caller has the figure in hand)
   return { counts: () => n.slice(), stop, solve };
 }
 
@@ -110,7 +110,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   LIVE.set(host, { stop });
   const files = n => `${n} ${n === 1 ? 'fila' : 'files'}`, caselles = n => `${n} ${n === 1 ? 'casella' : 'caselles'}`;
   const sobra = n => n === 1 ? 'En sobra 1' : `En sobren ${n}`;
-  host.innerHTML = `<div class="fly grid" style="--gc:${d};--rc:${left}">
+  host.innerHTML = `<div class="fly grid" style="--gc:${d};--rc:${left};--gr:${R + (left ? 1 : 0)};--go:${left ? 190 : 130}px">
     <div class="gbar"><span class="gcount" role="status"></span>${hands ? '<button class="btn soft gadd">Afegeix una fila</button>' : ''}</div>
     <div class="gbody"><div class="gfig" role="img"><div class="gcells"></div><div class="gspare" hidden><div class="gcells"></div><p class="gcap"></p></div></div><p class="geq" hidden></p></div></div>`;
   const wrap = $('.grid', host), cells = $('.gcells', wrap), sp = $('.gspare', wrap), spCells = $('.gcells', sp), count = $('.gcount', wrap), add = $('.gadd', wrap), eq = $('.geq', wrap), fig = $('.gfig', wrap);
@@ -158,7 +158,7 @@ export function bars(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) 
   const live = () => t.on && !stopped, stop = () => { stopped = true; };
   LIVE.set(host, { stop });
   const piece = (p, b) => '<i class="plate"></i>'.repeat(p) + '<i class="bar"></i>'.repeat(b);
-  host.innerHTML = `<div class="fly bars" style="--ps:28px;--pc:${d > 5 ? Math.ceil(d / 2) : d}"><div class="fsrc" role="group" aria-label="Les barres de deu i les plaques de cent"></div>
+  host.innerHTML = `<div class="fly bars" style="--ps:28px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--pr:${d > 5 ? 2 : 1}"><div class="fsrc" role="group" aria-label="Les barres de deu i les plaques de cent"></div>
     <div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div></div>`;
   const wrap = $('.fly', host), src = $('.fsrc', wrap), pads = [...wrap.querySelectorAll('.fpad')];
   const say = (i, p, b) => pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}${p + b ? `: ${p} ${p === 1 ? 'plaça' : 'plaques'} i ${b} ${b === 1 ? 'barra' : 'barres'}` : ''}`);
@@ -239,7 +239,7 @@ export const KEYS = `<div class="keys">${[1, 2, 3, 4, 5, 'del', 6, 7, 8, 9, 0, '
   `<button class="key${typeof k === 'number' ? '' : ' ' + k}" data-k="${k}"${k === 'del' ? ' aria-label="Esborra"' : k === 'ok' ? ' aria-label="Comprova"' : ''}>${k === 'del' ? '⌫' : k === 'ok' ? '✓' : k}</button>`).join('')}</div>`;
 // One box for each number want(q) asks for: a scalar is one box, a list is one per entry, in that order. hosts is the element they all go into
 // (cleared first) or a list with one element for each box, which is left as it is: the boxes need not be siblings (chunks put them under the pieces).
-// The caller routes taps: a [data-slot] under it is B.pick(slot), keys go to B.key(k). Returns B: { els, at, pick(i), key(k), move(hosts), ans(), clear() };
+// The caller routes taps: a [data-slot] under it is B.pick(slot), keys go to B.key(k). Returns B: { els, at, pick(i), key(k), skip(), move(hosts), ans(), clear() };
 // ans() is the answer in the shape right() wants (a number, or a list of numbers in want order; '07' is 7), null while any box is empty.
 export function boxes(hosts, q, labels = []) {
   const w = want(q), n = Array.isArray(w) ? w.length : 1, vals = Array(n).fill(''), els = [];
@@ -259,8 +259,10 @@ export function boxes(hosts, q, labels = []) {
     key(k) {
       if (k === 'next' || k === 'prev') B.at = (B.at + (k === 'next' ? 1 : n - 1)) % n;
       else vals[B.at] = k === 'del' ? vals[B.at].slice(0, -1) : (vals[B.at] + k).slice(0, 3);
-      B.paint(); els[B.at].scrollIntoView?.({ block: 'nearest', inline: 'nearest' });   // scroll-margin in the CSS keeps it clear of the dock
+      B.paint(); els[B.at].scrollIntoView?.({ block: 'nearest', inline: 'nearest' });   // a figure that scrolls in its own box (mat) shows the box being typed in
     },
+    // ✓ on a filled box: to the next empty box after it (true); on an empty box, or with none empty, nothing (false)
+    skip() { const j = vals[B.at] === '' ? -1 : [...vals.keys()].map(x => (B.at + 1 + x) % n).find(x => vals[x] === ''); if (j === undefined || j < 0) return false; B.pick(j); return true; },
     ans() { return vals.every(v => v !== '') ? (Array.isArray(w) ? vals.map(Number) : +vals[0]) : null; },
     clear() { vals.fill(''); B.at = 0; B.paint(); }
   };
