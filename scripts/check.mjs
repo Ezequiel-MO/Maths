@@ -7,15 +7,22 @@ import { LEVELS as ROCKET } from '../games/memoria-visual/logic.js';
 import { LEVELS as ABACUS } from '../games/abac-xines/logic.js';
 import { LEVELS as TIMES } from '../games/coet-multiplicador/logic.js';
 import { SECTIONS as PADS } from '../games/nenufars-a-trossos/logic.js';
+import { PROJECTS } from '../games/cursus-de-l-estany/logic.js';
 
 const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   // nine lessons and a test in each section
-  'nenufars-a-trossos': PADS.reduce((n, s) => n + s.levels.length + 1, 0) };
+  'nenufars-a-trossos': PADS.reduce((n, s) => n + s.levels.length + 1, 0),
+  'cursus-de-l-estany': PROJECTS.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];
   if (!existsSync(new URL('../' + page, import.meta.url))) bad.push(`${g.id}: there is no ${page}`);
   if (g.total !== TOTALS[g.id]) bad.push(`${g.id}: total is ${g.total} in shared/games.js, and the game's data says ${TOTALS[g.id]}`);
+}
+// the home page calls record(load(store) || {}, total) for every card: one that throws on an empty or damaged save breaks the page for every game
+for (const g of GAMES) for (const saved of [{}, { notes: 'a' }]) {
+  try { const r = g.record(saved, g.total); if (typeof r !== 'string') bad.push(`${g.id}: record(${JSON.stringify(saved)}) gives ${typeof r}, not a string`); }
+  catch (e) { bad.push(`${g.id}: record(${JSON.stringify(saved)}) throws ${e.message}`); }
 }
 for (const id in TOTALS) if (!GAMES.some(g => g.id === id)) bad.push(`${id}: not in shared/games.js`);
 if (bad.length) { console.error(bad.join('\n')); process.exit(1); }

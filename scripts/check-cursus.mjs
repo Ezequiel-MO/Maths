@@ -1,0 +1,794 @@
+// Checks the rules of El cursus de l'estany before every build: the 120 fixed questions of the three circles, the limits of every project
+// (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
+// Sections below each end before the footer; a later task appends its own section above it.
+import { readFileSync } from 'node:fs';
+import { GAMES } from '../shared/games.js';
+import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
+  VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told, examIn } from '../games/cursus-de-l-estany/logic.js';
+
+let fails = 0, counted = 0, exams = 0, fulls = 0;
+const check = (ok, msg) => { if (!ok) { fails++; console.error('FAIL', msg); } };
+const int = x => Number.isInteger(x);
+const BAD = /undefined|NaN|null|\[object/;
+const MODES = ['share', 'group', 'fact', 'rem', 'proof', 'tens', 'split', 'long'];
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+// the limits table, recomputed: the problems of question q in project p (e is the exercise, or -1 when the exercise is not known)
+function problems(q, p, e) {
+  const out = [], bad = (cond, why) => { if (!cond) out.push(why); };
+  const { D, d } = q;
+  bad(q.mode === MODES[p], 'mode');
+  bad(int(D) && int(d) && D >= 1, 'whole numbers');
+  if (out.length) return out;
+  const Q = Math.floor(D / d), R = D % d, parts = q.parts;
+  switch (p) {
+    case 0: bad(D <= (e === 0 ? 12 : 30) && d >= 2 && d <= 5 && R === 0, 'repartir'); break;
+    case 1: bad(D <= 40 && d >= 2 && d <= 10 && R === 0, 'fer grups'); break;
+    case 2: bad(D <= 100 && d >= 2 && d <= 10 && R === 0 && Q >= 1 && Q <= 10, 'la taula al revés'); break;
+    case 3: bad(D <= (e === 2 || e === -1 ? 100 : 50) && d >= 2 && d <= 10 && Q >= 1 && Q <= 10, 'en sobra'); break;
+    case 4: bad(int(q.q) && int(q.r) && d >= 2 && d <= 10 && q.q >= 1 && q.q <= 10 && q.r >= 0 && q.r < d && D === d * q.q + q.r && D <= 100, 'comprova'); break;
+    case 5: bad(D % 10 === 0 && D >= 10 && D <= 990 && d >= 2 && d <= 9 && (D / 10) % d === 0, 'desenes senceres'); break;
+    case 6: bad(D >= 20 && D <= 99 && d >= 2 && d <= 9 && R === 0, 'a trossos: numbers');
+      if (!q.bare) bad(Array.isArray(parts) && parts.length === 2 && parts.every(x => int(x) && x > 0) && sum(parts) === D
+        && parts.every(x => x % d === 0) && parts[0] % (10 * d) === 0, 'a trossos: parts'); break;
+    case 7: bad(D >= 100 && D <= 999 && d >= 2 && d <= 9, 'tres xifres: numbers');
+      if (!q.bare) bad(Array.isArray(parts) && (parts.length === 2 || parts.length === 3) && parts.every(x => int(x) && x > 0) && sum(parts) === D
+        && parts.slice(0, -1).every(x => x % d === 0) && parts[0] % (10 * d) === 0, 'tres xifres: parts'); break;
+  }
+  return out;
+}
+// what the child has to write, worked out here from D and d alone
+function expected(q) {
+  const Q = Math.floor(q.D / q.d), R = q.D % q.d;
+  switch (q.mode) {
+    case 'share': case 'group': case 'fact': case 'tens': return Q;
+    case 'proof': return q.D;
+    case 'rem': return [Q, R];
+    case 'split': return q.bare ? Q : [...q.parts.map(x => x / q.d), Q];
+    case 'long': return q.bare ? [Q, R] : [...q.parts.slice(0, -1).map(x => x / q.d), Math.floor(q.parts[q.parts.length - 1] / q.d), Q, R];
+  }
+}
+
+// ---- 1. the shape of the data
+check(PROJECTS.length === 8, 'eight projects');
+check(CIRCLES.length === 3, 'three circles');
+check(CIRCLES.map(c => c.projects.join()).join('|') === '0,1|2,3,4|5,6,7', 'circles hold projects 0-1, 2-4, 5-7');   // contract: spec «El mapa», plan
+check(PROJECTS.map(p => p.circle).join('') === '00111222', 'circle of each project');   // contract: spec «El mapa»
+check(PROJECTS.map(p => p.mode).join() === MODES.join(), 'one mode per project, in the order of the data table');   // contract: plan «Dades»
+check(PROJECTS.map(p => p.name).join('|') === 'Repartir|Fer grups|La taula al revés|En sobra|Comprova|Desenes senceres|A trossos|Tres xifres', 'project names');   // contract: spec «El mapa»
+check(PROJECTS.every(p => typeof p.sub === 'string' && p.sub.length > 10 && !BAD.test(p.sub)), 'every project has a subtitle');
+check(CIRCLES.every(c => typeof c.name === 'string' && c.name.length > 3), 'every circle has a name');
+
+// ---- 2. the questions
+PROJECTS.forEach((P, p) => {
+  check(P.ex.length === 3, `${P.name}: three exercises`);
+  P.ex.forEach((E, e) => {
+    const where = `${P.name} ex0${e}`;
+    check(E.length === 5, `${where}: five questions`);
+    E.forEach(q => {
+      counted++;
+      const tag = `${where} ${JSON.stringify(q)}`, w = want(q), x = expected(q);
+      // mode, limits, and D = d × q + r with 0 ≤ r < d
+      check(q.mode === P.mode, `${tag}: mode of the project`);
+      const bad = problems(q, p, e);
+      check(bad.length === 0, `${tag}: out of limits (${bad.join()})`);
+      const Q = q.mode === 'proof' ? q.q : Math.floor(q.D / q.d), R = q.mode === 'proof' ? q.r : q.D % q.d;
+      check(q.D === q.d * Q + R && R >= 0 && R < q.d, `${tag}: D = d × q + r`);
+      check(inLimits(q, p) === (problems(q, p, -1).length === 0) && inLimits(q, p) === true, `${tag}: inLimits disagrees`);
+      // hands at ex00, material in view at ex01, hidden at ex02
+      check(!q.bare, `${tag}: fixed questions carry material`);
+      check(e === 0 ? q.hands === true && !q.hide : e === 1 ? !q.hands && !q.hide : q.hide === true && !q.hands, `${tag}: hands / view / hide`);
+      // the answer, and the neighbours that must be refused
+      check(String(w) === String(x), `${tag}: want() is ${w}, worked out here ${x}`);
+      check(right(q, w) && right(q, String(w)), `${tag}: right() rejects want()`);
+      if (Array.isArray(x)) {
+        const at = q.mode === 'split' ? x.length - 1 : q.mode === 'long' ? x.length - 2 : 0;   // index of the quotient
+        for (const dx of [1, -1]) check(!right(q, x.map((v, i) => i === at ? v + dx : v)), `${tag}: accepts the quotient ${dx > 0 ? '+' : '-'} 1`);
+        if (q.mode !== 'split') check(!right(q, x.map((v, i) => i === at ? v - 1 : i === at + 1 ? v + q.d : v)), `${tag}: accepts [q - 1, r + d]`);
+      } else for (const dx of [1, -1]) check(!right(q, x + dx), `${tag}: accepts ${x + dx}`);
+      check(q.mode !== 'proof' || (q.q === Q && q.r === R), `${tag}: proof keeps q and r`);
+    });
+  });
+  // limits that belong to the exercise as a whole
+  if (p === 3) P.ex.forEach((E, e) => check(E.filter(q => q.D % q.d).length >= 4, `En sobra ex0${e}: at least four of five have a remainder`));   // contract: plan «Límits per projecte»
+  if (p === 7) [1, 2].forEach(e => check((P.ex[e] ?? []).filter(q => q.D % q.d).length >= 2, `Tres xifres ex0${e}: at least two of five have a remainder`));   // contract: plan «Límits per projecte»
+  // the divisors vary inside an exercise, and no question comes twice in a project
+  P.ex.forEach((E, e) => check(new Set(E.map(q => q.d)).size >= 3, `${P.name} ex0${e}: at least three different divisors`));
+  check(new Set(P.ex.flat().map(q => q.D + '/' + q.d)).size === P.ex.flat().length, `${P.name}: a question is repeated`);
+});
+
+// ---- 2b. circle 2: the parts of every split and long question, and what a changed part does
+const C2 = PROJECTS.flatMap((P, p) => P.circle === 2 ? P.ex.flatMap((E, e) => E.map(q => ({ q, p, where: `${P.name} ex0${e}` }))) : []);
+check(C2.length === 45, `circle 2 has ${C2.length} questions, not 45`);   // contract: plan, 3 projectes × 3 exercicis × 5 preguntes
+const chunk = (q, p) => new RegExp(`(?<!\\d)${p} ÷ ${q.d}(?!\\d)`);   // "37 ÷ 4" as a whole, never inside "137 ÷ 4"
+C2.filter(({ q }) => q.mode !== 'tens').forEach(({ q, where }) => {
+  const tag = `${where} ${JSON.stringify(q)}`, t = q.parts, n = t.length, isLong = q.mode === 'long', w = want(q), Q = Math.floor(q.D / q.d);
+  check(sum(t) === q.D, `${tag}: the parts do not add up to D`);   // contract: plan, trossos que sumen D
+  check(t.slice(0, isLong ? -1 : n).every(x => x % q.d === 0), `${tag}: a part that should divide exactly does not`);   // contract: plan, tots divisibles llevat de l'últim a long
+  check(t[0] % (10 * q.d) === 0, `${tag}: the first part is not a multiple of 10 × d`);   // contract: plan, el primer múltiple de 10 × d
+  check(isLong ? n === 2 || n === 3 : n === 2, `${tag}: ${n} parts`);   // contract: plan, split 2 trossos; long 2 o 3
+  check(Array.isArray(w) && w.length === n + (isLong ? 2 : 1), `${tag}: want() has no value for each part, the total${isLong ? ' and the remainder' : ''}`);
+  check(String(w.slice(0, n)) === String(t.map(x => Math.floor(x / q.d))), `${tag}: the partials are not the quotient of each part`);
+  check(w[n] === sum(w.slice(0, n)) && w[n] === Q, `${tag}: the total is not the sum of the partials`);
+  if (isLong) check(w[n + 1] === t[n - 1] % q.d && w[n + 1] === q.D % q.d, `${tag}: the remainder does not come from the last part alone`);
+  // a bare question carries no parts: split wants q, long wants [q, r], with or without parts at hand
+  for (const b of [{ ...q, bare: true }, { ...q, bare: true, parts: undefined }]) check(String(want(b)) === String(isLong ? [Q, q.D % q.d] : Q), `${tag}: bare want() is ${want(b)}`);   // contract: plan, bare
+  // one part changed, the total kept: refused, and the hint names that part and no other
+  const x = expected(q);
+  // with the material hidden or in view (not ex00), every chunk divides as a table fact times 1, 10 or 100: k × 10^n with k from 1 to 10
+  if (!q.hands) t.forEach((x, i) => { const v = isLong && i === n - 1 ? Math.floor(x / q.d) : x / q.d;
+    check(/^[1-9]0*$/.test(String(v)), `${tag}: the chunk ${x} ÷ ${q.d} = ${v} is not a table fact times 1, 10 or 100`); });   // contract: review fix round 1, ex01 and ex02
+  // the tip lists the parts with "i" before the last
+  check(tipFor(q).includes(`${t.slice(0, -1).join(', ')} i ${t[n - 1]}`), `${tag}: the tip does not list the parts with "i" before the last: "${tipFor(q)}"`);   // contract: review fix round 1
+  // a part whose value comes twice is named by its place
+  t.forEach((p, i) => {
+    if (t.filter(o => o === p).length < 2) return;
+    const ord = ['primer', 'segon', 'tercer'][i], ans = x.map((v, k) => k === i ? v + 1 : v), txt = explain(q, false, ans);
+    check(txt.includes(`${ord} tros`), `${tag}: the part ${p} comes twice, and the hint for ${ans} does not say the ${ord}: "${txt}"`);   // contract: review fix round 1, [90, 90, 9]
+  });
+  t.forEach((p, i) => {
+    for (const dx of [1, -1]) {
+      const ans = x.map((v, k) => k === i ? v + dx : v), txt = explain(q, false, ans);
+      check(!right(q, ans), `${tag}: accepts a part changed by ${dx}`);
+      check(chunk(q, p).test(txt), `${tag}: hint for ${ans} does not name the part ${p}: "${txt}"`);
+      check(t.every((o, j) => j === i || o === p || !chunk(q, o).test(txt)), `${tag}: hint for ${ans} names a part that is right: "${txt}"`);
+    }
+  });
+  check(!/Torna a mirar/.test(explain(q, false, x.map((v, k) => k === n ? v + 1 : v))), `${tag}: a wrong total with right parts points at a part`);
+});
+// the two kinds of split of the spec: tens and units (84 = 80 + 4) and a first part that is not all the tens (72 = 40 + 32)
+const splits = PROJECTS[6].ex.flat();
+check(splits.some(q => q.parts[0] === Math.floor(q.D / 10) * 10), 'A trossos: no tens-and-units split');   // contract: spec «El mapa», 84 = 80 + 4
+check(splits.some(q => q.parts[0] < Math.floor(q.D / 10) * 10), 'A trossos: no split with a first part short of all the tens');   // contract: spec «El mapa», 72 = 40 + 32
+// Tres xifres mixes two and three parts, in each exercise
+PROJECTS[7].ex.forEach((E, e) => [2, 3].forEach(k => check(E.some(q => q.parts.length === k), `Tres xifres ex0${e}: no question with ${k} parts`)));   // contract: plan, 2 o 3 trossos
+// bare changes nothing for the modes that have no parts
+PROJECTS.forEach(P => P.ex.flat().filter(q => q.mode !== 'split' && q.mode !== 'long').forEach(q => check(String(want({ ...q, bare: true })) === String(want(q)), `${JSON.stringify(q)}: bare changes want()`)));
+
+// the limits themselves: inLimits and the table here agree on questions that sit just outside them
+PROJECTS.forEach((P, p) => P.ex.flat().forEach(q => {
+  const near = [{ ...q, D: q.D + 1 }, { ...q, D: q.D * 5 }, { ...q, d: q.d + 1 }, { ...q, d: 1 }, { ...q, d: 11 }, { ...q, mode: MODES[(p + 1) % 8] },
+    ...(q.mode === 'proof' ? [{ ...q, r: q.r + q.d }, { ...q, q: 11 }, { ...q, q: 0, D: q.r }] : [])];
+  near.forEach(m => check(inLimits(m, p) === (problems(m, p, -1).length === 0), `inLimits disagrees on ${JSON.stringify(m)} in ${P.name}`));
+}));
+// the exact edges of the table, one by one
+const edge = (p, q, ok, why) => { check(inLimits(q, p) === ok, `inLimits(${why})`); check((problems(q, p, -1).length === 0) === ok, `limits table here (${why})`); };
+edge(0, { mode: 'share', D: 30, d: 5 }, true, 'Repartir 30 ÷ 5');   // contract: plan, Repartir D ≤ 30, d 2–5
+edge(0, { mode: 'share', D: 31, d: 1 }, false, 'Repartir d = 1');   // contract: plan, Repartir d 2–5
+edge(0, { mode: 'share', D: 36, d: 6 }, false, 'Repartir d = 6');   // contract: plan, Repartir d 2–5
+edge(0, { mode: 'share', D: 7, d: 2 }, false, 'Repartir is exact');   // contract: plan, Repartir exacta
+edge(1, { mode: 'group', D: 40, d: 10 }, true, 'Fer grups 40 ÷ 10');   // contract: plan, Fer grups D ≤ 40, d 2–10
+edge(1, { mode: 'group', D: 44, d: 11 }, false, 'Fer grups d = 11');   // contract: plan, Fer grups d 2–10
+edge(2, { mode: 'fact', D: 100, d: 10 }, true, 'La taula 100 ÷ 10');   // contract: plan, La taula al revés D ≤ 100, quocient 1–10
+edge(2, { mode: 'fact', D: 99, d: 3 }, false, 'La taula quotient 33');   // contract: plan, quocient 1–10
+edge(3, { mode: 'rem', D: 100, d: 10 }, true, 'En sobra 100 ÷ 10');   // contract: plan, En sobra D ≤ 100 a ex02, quocient ≤ 10
+edge(3, { mode: 'rem', D: 100, d: 9 }, false, 'En sobra quotient 11');   // contract: plan, En sobra quocient ≤ 10
+edge(4, { mode: 'proof', D: 17, d: 5, q: 3, r: 2 }, true, 'Comprova 5 × 3 + 2');   // contract: spec «El mapa», 17 ÷ 5 = 3 i en sobren 2
+edge(4, { mode: 'proof', D: 20, d: 5, q: 3, r: 5 }, false, 'Comprova r = d');   // contract: plan, Comprova r de 0 a d − 1
+edge(5, { mode: 'tens', D: 990, d: 9 }, true, 'Desenes 990 ÷ 9');   // contract: plan, Desenes senceres D fins a 990, D / 10 divisible per d
+edge(5, { mode: 'tens', D: 80, d: 3 }, false, 'Desenes 8 desenes ÷ 3');   // contract: plan, D / 10 divisible per d
+edge(5, { mode: 'tens', D: 85, d: 5 }, false, 'Desenes D not a multiple of 10');   // contract: plan, D múltiple de 10
+edge(6, { mode: 'split', D: 84, d: 4, parts: [80, 4] }, true, 'A trossos 84 ÷ 4');   // contract: spec «El mapa», 84 ÷ 4 = 80 ÷ 4 + 4 ÷ 4
+edge(6, { mode: 'split', D: 72, d: 4, parts: [40, 32] }, true, 'A trossos 72 ÷ 4');   // contract: spec «El mapa», 72 ÷ 4 = 40 ÷ 4 + 32 ÷ 4
+edge(6, { mode: 'split', D: 72, d: 4, parts: [32, 40] }, false, 'A trossos first not a multiple of 10 × d');   // contract: plan, el primer múltiple de 10 × d
+edge(6, { mode: 'split', D: 84, d: 4, parts: [80, 3] }, false, 'A trossos parts do not add up');   // contract: plan, trossos que sumen D
+edge(6, { mode: 'split', D: 100, d: 4, parts: [80, 20] }, false, 'A trossos D = 100');   // contract: plan, A trossos D de 20 a 99
+edge(7, { mode: 'long', D: 157, d: 4, parts: [120, 37] }, true, 'Tres xifres two parts, remainder');   // contract: plan, tots divisibles llevat de l'últim
+edge(7, { mode: 'long', D: 157, d: 4, parts: [80, 40, 37] }, true, 'Tres xifres three parts');   // contract: plan, 2 o 3 trossos
+edge(7, { mode: 'long', D: 157, d: 4, parts: [80, 37, 40] }, false, 'Tres xifres only the last may not divide');   // contract: plan, tots divisibles llevat de l'últim
+edge(7, { mode: 'long', D: 1000, d: 4, parts: [1000] }, false, 'Tres xifres D = 1000');   // contract: plan, Tres xifres D de 100 a 999
+edge(7, { mode: 'long', D: 157, d: 10, parts: [100, 57] }, false, 'Tres xifres d = 10');   // contract: plan, cercle 2 divisor de 2 a 9
+edge(6, { mode: 'split', D: 72, d: 4, bare: true }, true, 'A trossos bare without parts');   // contract: plan, bare no porta parts
+edge(6, { mode: 'split', D: 72, d: 4, bare: true, parts: [1, 71] }, true, 'A trossos bare: parts are not checked');   // contract: plan, les regles de parts valen només si no hi ha bare
+edge(6, { mode: 'split', D: 73, d: 4, bare: true }, false, 'A trossos bare is exact');   // contract: plan, A trossos exacta
+edge(7, { mode: 'long', D: 157, d: 4, bare: true }, true, 'Tres xifres bare without parts');   // contract: plan, bare no porta parts
+edge(7, { mode: 'long', D: 99, d: 4, bare: true }, false, 'Tres xifres bare D = 99');   // contract: plan, Tres xifres D de 100 a 999
+
+// questions made by hand: the examples of the spec, and the bare ones, which the exams and sheets will make
+const hand = [
+  { q: { mode: 'tens', D: 120, d: 3 }, w: 40 },   // contract: spec «El mapa», 120 ÷ 3
+  { q: { mode: 'tens', D: 600, d: 2 }, w: 300 },   // contract: spec «El mapa», 600 ÷ 2
+  { q: { mode: 'split', D: 84, d: 4, parts: [80, 4] }, w: [20, 1, 21] },   // contract: spec «El mapa», 84 ÷ 4 = 80 ÷ 4 + 4 ÷ 4
+  { q: { mode: 'split', D: 72, d: 4, parts: [40, 32] }, w: [10, 8, 18] },   // contract: spec «El mapa», 72 ÷ 4 = 40 ÷ 4 + 32 ÷ 4
+  { q: { mode: 'split', D: 72, d: 4, bare: true }, w: 18 },   // contract: plan, bare split vol q
+  { q: { mode: 'long', D: 157, d: 4, parts: [120, 37] }, w: [30, 9, 39, 1] },   // contract: 157 = 4 × 39 + 1; 120 ÷ 4 = 30, 37 ÷ 4 = 9 r 1
+  { q: { mode: 'long', D: 157, d: 4, parts: [80, 40, 37] }, w: [20, 10, 9, 39, 1] },   // contract: 157 = 4 × 39 + 1
+  { q: { mode: 'long', D: 157, d: 4, bare: true }, w: [39, 1] }   // contract: plan, bare long vol [q, r]
+];
+hand.forEach(({ q, w }) => {
+  const tag = JSON.stringify(q);
+  check(String(want(q)) === String(w), `${tag}: want() is ${want(q)}, expected ${w}`);
+  check(right(q, w), `${tag}: right() rejects the answer`);
+  check(!right(q, Array.isArray(w) ? w.map((v, i) => i === w.length - 1 ? v + 1 : v) : w + 1), `${tag}: accepts a wrong answer`);
+});
+
+// ---- 3. what the game says
+const wrongs = q => {
+  const w = want(q);
+  if (!Array.isArray(w)) return [undefined, w + 1, w - 1, 0, '', 'abc'];
+  return [undefined, w.map(v => v + 1), w.map(() => 0), [], ['', 'x'], w.map((v, i) => i === w.length - 2 ? v - 1 : i === w.length - 1 ? v + q.d : v)];
+};
+// patterns no text may show: a division printed twice, N = N, a plural after the number 1 (or a singular after any other), a one-item list of
+// pieces, a chunk smaller than d written as "÷ d = 0". Each reports only its first three hits, so one bug does not flood the screen.
+const ODD = [[/(\d+) ÷ (\d+) = \1 ÷ \2/, 'a division written twice'], [/= (\d+) = \1(?!\d)/, 'N = N'],
+  [/(?<!\d)1 (grups|cuques|nenúfars|desenes|trossos|cercles)/, 'plural after 1'], [/(?<!\d)1 grup són/, '"1 grup són"'],
+  [/(?<!\d)(?!1\b)\d+ (grup|nenúfar|desena|cercle|tros)(?![a-zéí])/, 'singular after a number above 1'],
+  [/sobren [\d −=]*(?<!\d)1(?!\d)/, '"sobren" with 1'], [/en toquen 1(?!\d)/, '"en toquen 1"'], [/sobr[ae]n? 0(?!\d)/, 'en sobra 0'],
+  [/trossos[^:]*: \d+\./, 'a list of one piece'], [/÷ \d+ = 0(?!\d)/, '÷ d = 0'], [/ \+ 0(?!\d)/, 'a sum with a + 0 term'],
+  // the verb agrees with the number after it: «ha sortit 1 grup», «han sortit 3 grups»
+  [/(han sortit|surten|queden|toquen|sobren) (en )?1(?!\d)/, 'plural verb before 1'],
+  [/(?<![a-zé])(ha sortit|surt|queda|toca|sobra) (?!cap)(?!\d+ −)(?!1(?!\d))\d+/, 'singular verb before a number above 1'], [/(?<!\d)(?!1\b)\d+ grups és/, 'plural subject with "és"']];
+const oddHits = {};
+function odd(txt, tag) {
+  const hit = why => { oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; };
+  for (const [re, why] of ODD) if (re.test(txt)) hit(why);
+  // a piece smaller than the divisor is never divided (what is left over is said as left over), in a sum or in a chain
+  for (const [, a, b] of txt.matchAll(/(\d+) ÷ (\d+)/g)) if (+a < +b) { hit('a piece smaller than the divisor is divided'); break; }
+}
+// What a text says must be TRUE, worked out here from the numbers in the text itself and from D and d (never from logic.js).
+// the value of "80 ÷ 4 + 4 ÷ 4" (× and ÷ before + and −); NaN when a division in it is not exact
+function value(expr) {
+  const tk = expr.split(' ');
+  let total = 0, sign = 1, term = +tk[0];
+  for (let i = 1; i < tk.length; i += 2) {
+    const n = +tk[i + 1];
+    if (tk[i] === '×') term *= n; else if (tk[i] === '÷') term = n && term % n === 0 ? term / n : NaN;
+    else { total += sign * term; sign = tk[i] === '+' ? 1 : -1; term = n; }
+  }
+  return total + sign * term;
+}
+const EX = '\\d+(?: [÷×+−] \\d+)*', OPS = '\\d+(?: [÷×+−] \\d+)+';
+// "a = b = c", and what may follow a division: "i en sobren 2", "i en sobra 1", "i no en sobra cap"
+const CHAIN = new RegExp(`(${EX})((?: = ${EX})+)( i (?:en sobren (\\d+)|en sobra (1)(?!\\d)|no en sobra cap))?`, 'g');
+const FA = new RegExp(`(${OPS}) (no )?fan? (\\d+)(?:, no (\\d+))?`, 'g');   // "4 × 6 fa 24, no 25", "37 ÷ 4 no fa 8"
+// a number said next to these words is that number of the question: [pattern, what each group must be worth]
+const SAYS = [[/÷ (\d+)/g, 'd'], [/toquen (\d+)/g, 'Q'], [/(?:surten|sortit|fas) (\d+) grup/g, 'Q'], [/(\d+) cuques cada/g, 'Q'], [/grups? (?:més )?de (\d+)/g, 'd'],
+  [/(\d+) nenúfars/g, 'd'], [/(?:les|Amb) (\d+) cuques/g, 'D'], [/Encercla (\d+)/g, 'd'], [/Cada grup té (\d+) cuques/g, 'd'], [/taula del (\d+)/g, 'd'],
+  [/entre (?:els )?(\d+)/g, 'd'], [/multiplicat per (\d+) fa (\d+)/g, 'd', 'D'], [/el residu és (\d+)/g, 'R'], [/en sobr(?:a|en) (\d+)/g, 'R'], [/dividend és (\d+)/g, 'D'],
+  [/Quant és (\d+) ÷/g, 'D'], [/Parteix (\d+) en/g, 'D'], [/més petit que (\d+)/g, 'd'], [/fan? \d+, no (\d+)/g, 'D'], [/(\d+) són (\d+) desen/g, 'D', 'T'], [/(\d+) desen(?:a|es), que són (\d+)/g, 'QT', 'Q']];
+let mute = false;   // the self-test below counts what is caught without printing it
+function truth(txt, q, tag) {
+  const lie = why => { if (mute) { fails++; return; } oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; };
+  const D = q.D, d = q.d, N = { D, d, Q: Math.floor(D / d), R: D % d, T: D / 10, QT: Math.floor(D / d) / 10 };
+  for (const [all, first, rest, tail, many, one] of txt.matchAll(CHAIN)) {
+    const sides = [first, ...rest.split(' = ').slice(1)], v = sides.map(value), r = many ? +many : one ? 1 : 0;
+    // with something left over only "a ÷ b = q" can be said, and it means a = b × q + r with r < b; any other chain is a row of equal values
+    if (r) { const m = /^(\d+) ÷ (\d+)$/.exec(first); if (!m || sides.length !== 2 || !/^\d+$/.test(sides[1]) || +m[1] !== +m[2] * +sides[1] + r || r >= +m[2]) lie(`"${all}" is not true`); }
+    else if (!v.every(x => Number.isFinite(x) && x === v[0])) lie(tail ? `"${all}" is not true` : `"${all}" is not an equality`);
+  }
+  // "37 ÷ 4 no fa 8" speaks of the quotient of a piece, which may leave something over: it is false when 8 is that quotient
+  for (const [all, expr, not, n, other] of txt.matchAll(FA)) { const [a, op, b] = expr.split(' '), v = not && op === '÷' && expr.split(' ').length === 3 ? Math.floor(a / b) : value(expr);
+    if ((v === +n) === !!not || +n === +other) lie(`"${all}" is not true`); }
+  for (const [all, a, b] of txt.matchAll(/(\d+)(?:, que)? és més petit que (\d+)/g)) if (!(+a < +b)) lie(`"${all}" is not true`);
+  for (const [all, a, b] of txt.matchAll(/Amb (\d+) encara es pot fer un grup més de (\d+)/g)) if (+a < +b) lie(`"${all}" is not true`);
+  for (const [all, n, list] of txt.matchAll(/Parteix (\d+) en (?:trossos[^:]*: )?(\d+(?:, \d+)*(?: i \d+)?)/g)) if (sum(list.match(/\d+/g).map(Number)) !== +n) lie(`"${all}": the pieces do not add up`);
+  for (const [re, ...names] of SAYS) for (const m of txt.matchAll(re)) names.forEach((k, i) => { if (+m[i + 1] !== N[k]) lie(`"${m[0]}" (it is ${N[k]})`); });
+  if (/no en sobra cap|sense residu/.test(txt) && N.R) lie('nothing left over, but there is a remainder');
+  if (/el residu és/.test(txt) && !N.R) lie('a remainder that is 0');
+}
+// the mistakes the checks above must catch: a text made false on purpose is seen as false, and the true one beside it is not
+{
+  const q = { mode: 'long', D: 187, d: 8 }, before = fails; mute = true;
+  const FALSE = ['187 ÷ 8 = 160 ÷ 8 = 20 i en sobren 3.', '187 ÷ 8 = 160 ÷ 8 + 27 ÷ 8 = 20 + 3 = 23 i en sobren 3.', '187 ÷ 8 = 23 i en sobren 4.', '187 ÷ 8 = 22 i en sobren 11.', '187 ÷ 8 = 24.', '187 = 160 + 26.',
+    '8 × 23 fa 185, no 187.', '8 × 23 fa 187, no 187.', '27 ÷ 8 no fa 3.', '9 és més petit que 8.', 'Amb 7 encara es pot fer un grup més de 8.', 'Parteix 187 en 160 i 28.', '187 ÷ 9 = 23 i en sobren 3.',
+    'Fes grups de 9.', 'el residu és 4.', '187 ÷ 8 = 23 i no en sobra cap.', 'Amb 187 cuques fas 22 grups de 8.', 'Amb 186 cuques fas 23 grups de 8.'];
+  const TRUE = ['187 ÷ 8 = 23 i en sobren 3, perquè 8 × 23 + 3 = 187.', '187 = 160 + 27; 160 ÷ 8 = 20; 27 ÷ 8 = 3 i en sobren 3; 20 + 3 = 23; el residu és 3.', '8 × 22 fa 176, no 187.', '27 ÷ 8 no fa 4.',
+    'Amb 9 encara es pot fer un grup més de 8: el residu ha de ser més petit que 8.', 'Parteix 187 en 160 i 27.'];
+  const seen = FALSE.map(t => { const f = fails; truth(t, q, 'self-test'); return fails > f; }), clear = TRUE.map(t => { const f = fails; truth(t, q, 'self-test'); return fails === f; });
+  fails = before; mute = false;
+  FALSE.forEach((t, i) => { if (!seen[i]) check(false, `the check of truth does not see that "${t}" is false`); });
+  TRUE.forEach((t, i) => { if (!clear[i]) check(false, `the check of truth takes "${t}" for false`); });
+}
+const sobraTxt = r => r === 0 ? 'no en sobra cap' : r === 1 ? 'en sobra 1' : `en sobren ${r}`;
+function spoken(q, where, extra = []) {
+  const tag = `${where} ${JSON.stringify(q)}`, met = new Set();   // the same text comes back for many answers: its truth is looked at once
+  for (const deep of [false, true]) for (const ans of [...wrongs(q), ...extra]) for (const txt of [tipFor(q), explain(q, deep, ans)]) {
+    check(typeof txt === 'string' && txt.length > 10 && !BAD.test(txt), `${tag}: says "${txt}"`);
+    odd(String(txt), tag);
+    if (!met.has(txt)) { met.add(txt); truth(String(txt), q, tag); }
+  }
+  const s = said(q);
+  check(typeof s === 'string' && s.length > 10 && !BAD.test(s), `${tag}: said "${s}"`);
+  odd(String(s), tag); truth(String(s), q, tag);
+  const sd = String(s);
+  // said tells the division itself, D ÷ d = q (truth() has checked the value after the =), with what is left over when the answer has a remainder
+  const leftover = q.mode === 'rem' || q.mode === 'long' || q.mode === 'proof';
+  check(new RegExp(`(?<!\\d)${q.D} ÷ ${q.d} = [^.,:;]*${Math.floor(q.D / q.d)}${leftover ? ` i ${sobraTxt(q.D % q.d)}` : ''}(?!\\d)`).test(sd), `${tag}: said does not tell the whole division ("${sd}")`);   // contract: review of the branch, «122 ÷ 3 = 120 ÷ 3 = 40 i en sobren 2» is not an equality
+  // the tip asks about the numbers of the question, and the full explanation of a proof ends at the dividend
+  check(String(tipFor(q)).includes(String(q.mode === 'proof' ? q.q : q.D)) && String(tipFor(q)).includes(String(q.d)), `${tag}: the tip does not name the numbers of the question ("${tipFor(q)}")`);
+  if (q.mode === 'proof') check(new RegExp(`= ${q.D}(?!\\d)`).test(String(explain(q, true))), `${tag}: the full explanation does not end at the dividend ("${explain(q, true)}")`);
+  // a long division with no remainder never says that something is left over from the last chunk (the question itself may ask for the remainder)
+  if (q.mode === 'long' && q.D % q.d === 0) for (const txt of [explain(q, false), explain(q, true), said(q)])
+    check(!/sobr|llevat|d.ell|residu/.test(String(txt).replace(/no en sobra cap|sense residu/g, '')), `${tag}: exact division, but "${txt}" talks of what is left`);   // contract: 126 ÷ 2 has nothing left over
+  // proof: with r = 0 nothing is left over, so no text tells the child to add leftovers; with r = 1 it is the one that is left
+  if (q.mode === 'proof') {
+    for (const txt of [explain(q, false), explain(q, true), said(q), tipFor(q)].map(String)) {
+      if (q.r === 0) check(!/suma|sobr|queda|sense/.test(txt.replace(/no en sobra cap/g, '')), `${tag}: r = 0, but "${txt}" talks of leftovers`);   // contract: 15 = 5 × 3 has nothing left
+      if (q.r === 1) check(!/les que sobren/.test(txt), `${tag}: r = 1, but "${txt}" is plural`);
+    }
+    if (q.r === 1) check(/la que sobra/.test(explain(q, false)), `${tag}: r = 1: the hint does not say «la que sobra»`);
+    if (q.r > 1) check(/les que sobren/.test(explain(q, false)), `${tag}: r > 1: the hint does not say «les que sobren»`);
+  }
+  // the full explanation ends up telling the answer
+  const w = want(q), deepTxt = String(explain(q, true));
+  if (q.mode !== 'proof') check(deepTxt.includes(String(Array.isArray(w) ? w[0] : w)) || deepTxt.includes(String(Math.floor(q.D / q.d))), `${tag}: the full explanation does not tell the answer ("${deepTxt}")`);
+}
+PROJECTS.forEach((P, p) => P.ex.forEach((E, e) => E.forEach(q => spoken(q, `${P.name} ex0${e}`))));
+hand.forEach(({ q }) => { spoken(q, 'by hand'); spoken({ ...q, hide: true, hands: true }, 'by hand, hidden'); });
+// the mistake that matters: 17 ÷ 5 written as 2 and 7 satisfies D = d × q + r and is still wrong, because with 7 one more group can be made
+const r17 = { mode: 'rem', D: 17, d: 5 };
+check(!right(r17, [2, 7]) && right(r17, [3, 2]), '17 ÷ 5 is 3 and 2');   // contract: spec «El mapa», 17 ÷ 5 = 3 i en sobren 2
+check(2 * 5 + 7 === 17, '[2, 7] does satisfy D = d × q + r');   // contract: 5 × 2 + 7 = 17
+for (const deep of [false, true]) {
+  check(/un grup més/.test(explain(r17, deep, [2, 7])), `17 ÷ 5 = [2, 7] (deep ${deep}) must say one more group can be made: "${explain(r17, deep, [2, 7])}"`);
+  check(!/multiplicant/.test(explain(r17, deep, [2, 7])), '[2, 7] is not a multiplication slip');
+  check(/multiplicant/.test(explain(r17, deep, [3, 3])), `17 ÷ 5 = [3, 3] (deep ${deep}) must say to check by multiplying: "${explain(r17, deep, [3, 3])}"`);   // contract: 5 × 3 + 3 = 18, not 17
+  check(/multiplicant/.test(explain(r17, deep, [4, 1])), `17 ÷ 5 = [4, 1] (deep ${deep}) must say to check by multiplying`);   // contract: 5 × 4 + 1 = 21, not 17
+}
+// the first hint on a long division written as a remainder too large says the same
+check(/un grup més/.test(explain({ mode: 'long', D: 157, d: 4, parts: [120, 37] }, false, [30, 9, 38, 5])), 'long: a remainder of 5 with d = 4 can make another group');   // contract: 5 ≥ 4
+// a wrong partial points at its part: 84 ÷ 4 written as 20, 2 and 22 has the part 4 wrong, though the total is the sum of what was written
+const s84 = { mode: 'split', D: 84, d: 4, parts: [80, 4] }, l157 = { mode: 'long', D: 157, d: 4, parts: [120, 37] };
+check(chunk(s84, 4).test(explain(s84, false, [20, 2, 22])) && !chunk(s84, 80).test(explain(s84, false, [20, 2, 22])), `84 ÷ 4 = [20, 2, 22] must point at the part 4 only: "${explain(s84, false, [20, 2, 22])}"`);   // contract: 4 ÷ 4 = 1, not 2
+check(chunk(s84, 80).test(explain(s84, false, [21, 1, 22])) && !chunk(s84, 4).test(explain(s84, false, [21, 1, 22])), `84 ÷ 4 = [21, 1, 22] must point at the part 80 only: "${explain(s84, false, [21, 1, 22])}"`);   // contract: 80 ÷ 4 = 20, not 21
+check(chunk(l157, 37).test(explain(l157, false, [30, 8, 39, 1])) && !chunk(l157, 120).test(explain(l157, false, [30, 8, 39, 1])), `157 ÷ 4 = [30, 8, 39, 1] must point at the part 37 only: "${explain(l157, false, [30, 8, 39, 1])}"`);   // contract: 37 ÷ 4 = 9, not 8
+check(/suma/.test(explain(s84, false, [20, 1, 22])) && !/Torna a mirar/.test(explain(s84, false, [20, 1, 22])), '84 ÷ 4 = [20, 1, 22]: the parts are right, so the hint is about the sum');   // contract: 20 + 1 = 21, not 22
+for (const [q, bits] of [[s84, ['84 = 80 + 4', '80 ÷ 4 = 20', '4 ÷ 4 = 1', '20 + 1 = 21']], [l157, ['157 = 120 + 37', '120 ÷ 4 = 30', '37 ÷ 4 = 9', '30 + 9 = 39']]])   // contract: spec «El mapa» and plan, 84 = 80 + 4; 80 ÷ 4 = 20 i 4 ÷ 4 = 1; 20 + 1 = 21 (157 worked the same way)
+  for (const b of bits) check(explain(q, true).includes(b), `${q.mode} ${q.D} ÷ ${q.d}: the full explanation lacks "${b}": "${explain(q, true)}"`);
+// the full explanation ends up telling the answer
+PROJECTS.forEach(P => P.ex.flat().forEach(q => {
+  const w = want(q), deep = explain(q, true), last = Array.isArray(w) ? w[0] : w;
+  check(q.mode === 'proof' || deep.includes(String(last)) || deep.includes(String(Math.floor(q.D / q.d))), `${JSON.stringify(q)}: the full explanation does not tell the answer`);
+}));
+
+// ---- 4. exams and sheets, made with a seeded LCG so that a failure can be replayed (seed 1000 + circle for exams, 2000 + valid.length for sheets)
+const lcg = seed => { let x = seed >>> 0; return () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296; };   // always below 1
+const key = q => `${q.mode}/${q.D}/${q.d}`;
+// a generated question: bare, no parts, no material flags, from project p, inside the limits of that project (worked out above, then inLimits must agree)
+function lookQ(q, ps, tag) {
+  const t = `${tag} ${JSON.stringify(q)}`;
+  check(q.bare === true && !('parts' in q) && !q.hands && !q.hide, `${t}: not bare, or carries parts / material flags`);   // contract: plan, bare: sense material ni parcials
+  check(int(q.p) && ps.includes(q.p), `${t}: p is not a project of the set (${ps})`);   // contract: plan, cada pregunta porta p
+  if (!int(q.p) || !PROJECTS[q.p]) return;
+  const bad = problems(q, q.p, -1);
+  check(bad.length === 0, `${t}: out of the limits of project ${q.p} (${bad.join()})`);   // contract: plan, límits per projecte
+  check(inLimits(q, q.p) === (bad.length === 0), `${t}: inLimits disagrees`);
+}
+const noRepeats = (list, tag) => check(new Set(list.map(key)).size === list.length, `${tag}: a question is repeated ${JSON.stringify(list)}`);   // contract: plan, sense repetides
+function lookExam(ex, c, tag) {
+  const ps = CIRCLES[c].projects;
+  check(Array.isArray(ex) && ex.length === 6, `${tag}: ${ex.length} questions, not 6`);   // contract: spec «Exàmens», 6 preguntes
+  noRepeats(ex, tag);
+  ex.forEach(q => lookQ(q, ps, tag));
+  ps.forEach(p => check(ex.some(q => q.p === p), `${tag}: no question of project ${p} ${JSON.stringify(ex)}`));   // contract: plan, almenys una de cada projecte del cercle
+}
+// the shape of what the frog wrote: as want(q), whole numbers, never negative, a quotient of at least 1
+function lookShown(q, s, tag) {
+  const w = want(q), t = `${tag} ${JSON.stringify(q)} shown ${JSON.stringify(s)}`;
+  check(Array.isArray(s) === Array.isArray(w) && (!Array.isArray(w) || s.length === w.length), `${t}: not the shape of want() ${JSON.stringify(w)}`);   // contract: plan, shown té la forma de want(q)
+  const a = Array.isArray(s) ? s : [s];
+  check(a.every(x => int(x) && x >= 0) && a[0] >= 1, `${t}: a negative, a fraction or a quotient of 0`);
+}
+function lookSheet(sh, valid, tag) {
+  check(Array.isArray(sh) && sh.length === 3, `${tag}: ${sh.length} items, not 3`);   // contract: spec «Corregir una companya», 3 divisions
+  noRepeats(sh.map(i => i.q), tag);
+  sh.forEach(it => {
+    const t = `${tag} ${JSON.stringify(it)}`;
+    check(Object.keys(it).sort().join() === 'ok,q,shown' && typeof it.ok === 'boolean', `${t}: not { q, shown, ok }`);
+    lookQ(it.q, valid, tag);
+    lookShown(it.q, it.shown, tag);
+    // the label must not lie: ok says whether the written answer is right, by right() and by nothing else
+    check(it.ok === right(it.q, it.shown), `${t}: ok is ${it.ok} but right() says ${right(it.q, it.shown)}`);   // contract: spec «Corregir una companya», l'etiqueta no pot mentir
+  });
+  check(sh.filter(i => !i.ok).length <= 2, `${tag}: all three are wrong`);   // contract: plan, 0, 1 o 2 equivocades
+}
+// what kind of mistake a wrong answer is, worked out here from D and d (never from the generator)
+function kind(q, s) {
+  const Q = Math.floor(q.D / q.d), R = q.D % q.d, two = Array.isArray(s), [a, b] = two ? s : [s];
+  if (q.mode === 'proof') return q.r > 0 && s === q.D - q.r ? 'forgot remainder' : s === q.D + q.d ? 'added d' : 'other';
+  if (two && b === 0 && a === Q && R > 0) return 'forgot remainder';
+  if (two && a === Q - 1 && b === R + q.d) return 'unreduced';
+  if (two && b !== R) return 'other';
+  const dq = Math.abs(a - Q);
+  return dq === 1 ? 'quotient 1' : dq === 10 && Q > 10 && (q.mode === 'split' || q.mode === 'long') ? 'chunk 10' : 'other';
+}
+const KINDS = { share: ['quotient 1'], group: ['quotient 1'], fact: ['quotient 1'], tens: ['quotient 1'], proof: ['forgot remainder', 'added d'],
+  rem: ['quotient 1', 'unreduced', 'forgot remainder'], split: ['quotient 1', 'chunk 10'], long: ['quotient 1', 'unreduced', 'forgot remainder', 'chunk 10'] };   // contract: plan, errors de les granotes
+// judge: right with the right decision, wrong with the other three (a wrong item: says-wrong with the right fix, a wrong fix, says-ok)
+function lookJudge(it, tag) {
+  const t = `${tag} ${JSON.stringify(it)}`, w = want(it.q), off = Array.isArray(w) ? w.map(v => v + 1) : w + 1;
+  if (it.ok) {
+    check(judge(it, true, undefined) === true && judge(it, true, off) === true, `${t}: says right about a right item, judged false`);
+    check(judge(it, false, w) === false && judge(it, false, off) === false && judge(it, false, undefined) === false, `${t}: says wrong about a right item, judged true`);
+  } else {
+    check(judge(it, false, w) === true && judge(it, false, String(w)) === true, `${t}: says wrong with the right fix, judged false`);
+    check(judge(it, false, off) === false && judge(it, false, it.shown) === false && judge(it, false, undefined) === false && judge(it, false, '') === false, `${t}: says wrong with a wrong fix, judged true`);
+    check(judge(it, true, w) === false && judge(it, true, undefined) === false, `${t}: says ok about a wrong item, judged true`);
+  }
+}
+check(EXAM_PASS === 5, `EXAM_PASS is ${EXAM_PASS}`);   // contract: spec «Exàmens», 5 de 6
+const SETS = [0, 1, 2, 3, 4, 5, 6, 7].map(n => [...Array(n + 1).keys()]);   // [0], [0, 1], ... [0..7]
+const seen = new Set(), GEN = new Map();   // GEN: every generated question, with the answers shown for it
+const note = (q, shown) => { const g = GEN.get(JSON.stringify(q)) || { q, shown: [] }; if (shown !== undefined) g.shown.push(shown); GEN.set(JSON.stringify(q), g); };
+// exams: 200 per circle, seed 1000 + circle
+CIRCLES.forEach((C, c) => {
+  const rnd = lcg(1000 + c);
+  for (let i = 0; i < 200; i++) { exams++; const ex = exam(c, rnd); lookExam(ex, c, `circle ${c} exam #${i} (seed ${1000 + c})`); ex.forEach(q => note(q)); }
+});
+// sheets: 200 per set, seed 2000 + valid.length; 0, 1 and 2 wrong all turn up, in every position, and every kind of mistake turns up
+SETS.forEach(valid => {
+  const rnd = lcg(2000 + valid.length), by = [0, 0, 0, 0], where = [0, 0, 0];
+  for (let i = 0; i < 200; i++) {
+    fulls++;
+    const tag = `valid [${valid}] sheet #${i} (seed ${2000 + valid.length})`, sh = sheet(valid, rnd);
+    lookSheet(sh, valid, tag);
+    sh.forEach(it => note(it.q, it.shown));
+    by[sh.filter(x => !x.ok).length]++;
+    sh.forEach((it, k) => {
+      lookJudge(it, tag);
+      if (it.ok) return;
+      where[k]++;
+      const kd = kind(it.q, it.shown);
+      check((KINDS[it.q.mode] || []).includes(kd), `${tag} ${JSON.stringify(it)}: mistake "${kd}" is not one of ${it.q.mode}'s`);
+      seen.add(`${it.q.mode}: ${kd}`);
+      if (it.q.mode === 'proof') seen.add(`proof r${it.q.r ? '>0' : '=0'}: ${kd}`);
+      if (Array.isArray(it.shown) && it.q.mode === 'rem' && it.q.D % it.q.d === 0) seen.add('rem exact: wrong');
+    });
+  }
+  check(by[0] > 0 && by[1] > 0 && by[2] > 0 && by[3] === 0, `valid [${valid}]: sheets with 0, 1, 2, 3 wrong are ${by}`);   // contract: plan, fulls de les tres menes, mai 3
+  check(where.every(n => n > 0), `valid [${valid}]: the wrong item is never at some position (${where})`);
+});
+for (const [mode, kinds] of Object.entries(KINDS)) kinds.forEach(k => {
+  // the project of that mode is in the sets from index p up, so the mistake must have been seen at least once in 1600 sheets
+  if (!(mode === 'proof' && k === 'forgot remainder')) check(seen.has(`${mode}: ${k}`), `no sheet ever shows ${mode} wrong by "${k}"`);
+});
+check(seen.has('proof r>0: forgot remainder') && seen.has('proof r=0: added d') && seen.has('proof r>0: added d'), 'proof: forgot-the-remainder (r > 0) and added-d (r = 0 and r > 0) all seen');   // contract: plan, errors de les granotes
+check(!seen.has('proof r=0: forgot remainder'), 'proof with r = 0 cannot be wrong by forgetting the remainder');
+// an empty (or nonsense) list of validated projects is [0]
+{
+  const rnd = lcg(2000);
+  for (let i = 0; i < 200; i++) for (const v of [[], undefined, [9, -1, 'a', 2.5]]) lookSheet(sheet(v, rnd), [0], `sheet(${JSON.stringify(v)}) #${i} (seed 2000)`);   // contract: plan, si és buida, [0]
+}
+// every text, over every question the generators made, with the answers the frogs showed; then over every bare question inside the limits
+GEN.forEach(({ q, shown }) => spoken(q, 'generated', shown));
+let every = 0;
+PROJECTS.forEach((P, p) => { for (let d = 2; d <= 10; d++) for (let D = d + 1; D <= 999; D++) {
+  const q = { mode: P.mode, D, d, ...(p === 4 && { q: Math.floor(D / d), r: D % d }), bare: true, p };
+  if (problems(q, p, -1).length === 0) { every++; spoken(q, 'bare question'); }
+} });
+check(every > 5000 && GEN.size > 500, `texts checked on ${every} bare questions and ${GEN.size} generated ones`);
+// the same seed makes the same exam and the same sheet, and a random source that never changes cannot make anything repeat or hang
+check(JSON.stringify(exam(1, lcg(7))) === JSON.stringify(exam(1, lcg(7))) && JSON.stringify(sheet([0, 1, 2], lcg(7))) === JSON.stringify(sheet([0, 1, 2], lcg(7))), 'the same seed does not make the same exam and sheet');
+for (const [name, fixed] of [['0', () => 0], ['0.5', () => 0.5], ['0.9999999999', () => 0.9999999999]]) {
+  CIRCLES.forEach((C, c) => lookExam(exam(c, fixed), c, `exam with rnd always ${name}`));
+  SETS.forEach(valid => lookSheet(sheet(valid, fixed), valid, `sheet [${valid}] with rnd always ${name}`));
+}
+// exams and sheets still work with no rnd given
+CIRCLES.forEach((C, c) => lookExam(exam(c), c, 'exam with Math.random'));
+lookSheet(sheet([0, 1, 2]), [0, 1, 2], 'sheet with Math.random');
+// the judge, by hand: 17 ÷ 5, the frog wrote 2 and 7
+const f17 = { q: { mode: 'rem', D: 17, d: 5, bare: true }, shown: [2, 7], ok: false };
+check(judge(f17, false, [3, 2]) === true && judge(f17, false, [2, 7]) === false && judge(f17, true, [3, 2]) === false, 'judge on 17 ÷ 5 written 2 and 7');   // contract: spec «El mapa», 17 ÷ 5 = 3 i en sobren 2
+
+// ---- 5. progress: marks, clean, XP, level, the map, the badges and the teams
+check(VALID === 80, `VALID is ${VALID}`);   // contract: spec «Projecte validat», de 80 a 100
+check([0, 11, 12, 15].map(mark).join() === '0,73,80,100', `mark of 0, 11, 12, 15 firsts is ${[0, 11, 12, 15].map(mark)}`);   // contract: plan, tasca 4; 11 / 15 = 73,3 %
+check(mark(14) === 93 && mark(1) === 7, `mark(14) is ${mark(14)}, mark(1) is ${mark(1)}`);   // contract: 14 / 15 = 93,3 %, 1 / 15 = 6,7 %
+// the shape clean must always return, whatever it is given
+const wellFormed = p => p && typeof p === 'object' && Object.keys(p).sort().join() === 'equip,exams,fulls,notes,piscina,so'
+  && typeof p.so === 'boolean' && typeof p.piscina === 'boolean' && int(p.equip) && p.equip >= -1 && p.equip <= 2
+  && Array.isArray(p.notes) && p.notes.length === 8 && p.notes.every(n => int(n) && n >= 0 && n <= 100 && !Object.is(n, -0))
+  && Array.isArray(p.exams) && p.exams.length === 3 && p.exams.every(e => typeof e === 'boolean')
+  && int(p.fulls) && p.fulls >= 0 && !Object.is(p.fulls, -0);   // contract: plan, forma { so, piscina, equip, notes, exams, fulls }
+const JUNK = [null, undefined, 'x', '', 0, 7, NaN, Infinity, true, false, [], [1, 2, 3], {}, () => 1,
+  { notes: 'a' }, { notes: [500, -3, 79.6] }, { fulls: -2, equip: 9 }, { fulls: 3.7 }, { fulls: Infinity }, { fulls: NaN }, { fulls: '5' }, { fulls: -0.5 },
+  { equip: '1' }, { equip: 1.5 }, { equip: -2 }, { equip: -0 }, { equip: null }, { exams: 'yes' }, { exams: 1 }, { exams: [true] }, { exams: { 0: true, length: 3 } },
+  { notes: [1, 2, 3] }, { notes: Array(20).fill(90) }, { notes: [NaN, Infinity, -Infinity, '90', null, undefined, {}, [100]] }, { notes: { 0: 100, length: 8 } },
+  { notes: [-0.5, 0.5, 99.99, 100.5, 1e300, -1e300, 80, 79] }, { so: 0, piscina: 1 }, { so: null, piscina: 'true' }, { piscina: [] }, { piscina: {} },
+  { notes: [100, 100, 100, 100, 100, 100, 100, 100], exams: [true, true, true], fulls: 24, piscina: true, equip: 2, so: false, xp: 5000, insignies: [1] }];
+JUNK.forEach(j => {
+  let c;
+  try { c = clean(j); } catch (e) { check(false, `clean(${String(j)}) throws ${e}`); return; }
+  check(wellFormed(c), `clean(${JSON.stringify(j)}) is ${JSON.stringify(c)}`);
+  check(JSON.stringify(clean(c)) === JSON.stringify(c), `clean(${JSON.stringify(j)}) is not stable when cleaned again`);   // contract: plan, forma completa dins de límits
+  try { const xp = xpOf(c), sh = badges(c); check(int(xp) && xp >= 0 && xp <= 1240 && /^\d,\d\d$/.test(levelText(xp)) && sh.length === 5 && validated(c).every(i => c.notes[i] >= 80),
+      `the rules give nonsense on clean(${JSON.stringify(j)})`); } catch (e) { check(false, `the rules throw on clean(${JSON.stringify(j)}): ${e}`); }
+});
+// what clean decides, field by field
+const same = (a, b, msg) => check(JSON.stringify(a) === JSON.stringify(b), `${msg}: got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`);
+same(clean({}), { so: true, piscina: false, equip: -1, notes: [0, 0, 0, 0, 0, 0, 0, 0], exams: [false, false, false], fulls: 0 }, 'clean({})');   // contract: plan, progrés buit
+same(clean({ notes: [500, -3, 79.6] }).notes, [100, 0, 79, 0, 0, 0, 0, 0], 'notes [500, -3, 79.6]');   // contract: plan, 500 → 100, −3 → 0, 79,6 → 79 (truncated, never rounded up to 80)
+same(clean({ notes: [79.99, 80.4] }).notes.slice(0, 2), [79, 80], 'notes 79.99 and 80.4');   // contract: 79,99 truncated is 79, so it does not validate
+same(clean({ notes: [NaN, Infinity, '90', null, {}, [100]] }).notes.slice(0, 6), [0, 0, 0, 0, 0, 0], 'notes that are not finite numbers');   // contract: plan, no-números → 0
+check(clean({ notes: Array(20).fill(90) }).notes.length === 8 && clean({ notes: [1, 2, 3] }).notes.length === 8, 'notes are always 8');   // contract: plan, 8 enters
+same(clean({ fulls: -2, equip: 9 }), { ...clean({}), fulls: 0, equip: -1 }, '{ fulls: -2, equip: 9 }');   // contract: plan, equip fora de −1..2 → −1; fulls negatiu → 0
+check(clean({ fulls: 3.7 }).fulls === 3 && clean({ fulls: Infinity }).fulls === 0 && clean({ fulls: NaN }).fulls === 0 && clean({ fulls: '5' }).fulls === 0 && clean({ fulls: 24 }).fulls === 24, 'fulls: truncated, never Infinity');   // contract: plan, fulls enter ≥ 0
+check([-1, 0, 1, 2].every(e => clean({ equip: e }).equip === e) && [3, 9, -2, 1.5, '1', null, NaN].every(e => clean({ equip: e }).equip === -1) && Object.is(clean({ equip: -0 }).equip, 0), 'equip: -1 to 2 as it is, the rest is -1');   // contract: plan, equip −1 a 2
+check(clean({ so: false }).so === false && [true, 0, null, 'false', undefined].every(v => clean({ so: v }).so === true), 'so is true unless exactly false');   // contract: plan, so cert llevat que sigui false
+check(clean({ piscina: true }).piscina === true && [1, 'true', [], {}, null].every(v => clean({ piscina: v }).piscina === false), 'piscina is true only if exactly true');   // contract: plan, piscina booleà
+same(clean({ exams: [true, 1, 'true', true, true] }).exams, [true, false, false], 'exams: true only if exactly true, three of them');   // contract: plan, exams 3 booleans
+same(clean({ exams: 'yes' }).exams, [false, false, false], 'exams: a text');
+// xp and level are never kept, whatever the saved data says
+check(!('xp' in clean({ xp: 99 })) && !('insignies' in clean({ insignies: [1] })), 'clean does not keep xp or insignies');   // contract: plan, XP i insígnies no es desen
+// no reference into the input, and a second clean is a new object
+{
+  const src = { notes: [90, 80, 70, 60, 50, 40, 30, 20], exams: [true, false, true] }, c = clean(src);
+  c.notes[0] = 0; c.exams[0] = false;
+  check(src.notes[0] === 90 && src.exams[0] === true && c.notes !== src.notes && c.exams !== src.exams, 'clean returns a reference into its input');   // contract: plan, mai una referència a l'entrada
+  const c2 = clean(c); c2.notes[1] = 1;
+  check(c.notes[1] === 80, 'clean(c) shares notes with c');
+}
+// the rules on the empty progress: nothing, and no throw
+{
+  const e = clean({});
+  check(xpOf(e) === 0 && levelText(xpOf(e)) === '0,00', `empty progress: ${xpOf(e)} XP, level ${levelText(xpOf(e))}`);   // contract: spec «XP, nivell», de 0,00
+  check([0, 1, 2].every(c => !isOpen(e, c) && !examOpen(e, c)), 'empty progress: a circle is open');   // contract: plan, progrés buit: cap cercle obert
+  check(badges(e).length === 5 && badges(e).every(b => b === false), `empty progress: badges ${badges(e)}`);   // contract: plan, cap insígnia
+  check(validated(e).length === 0, 'empty progress: a project is validated');
+}
+// the full progress: the maximum
+{
+  const f = clean({ piscina: true, notes: Array(8).fill(100), exams: [true, true, true], fulls: 24 });
+  check(xpOf(f) === 1240 && levelText(xpOf(f)) === '8,27', `full progress: ${xpOf(f)} XP, level ${levelText(xpOf(f))}`);   // contract: spec «XP, nivell», 50 + 800 + 150 + 240 = 1.240, 1.240 ÷ 150 = 8,27
+  check([0, 1, 2].every(c => isOpen(f, c) && examOpen(f, c)), 'full progress: a circle is shut');   // contract: plan, progrés ple: tot obert
+  check(badges(f).length === 5 && badges(f).every(b => b === true), `full progress: badges ${badges(f)}`);   // contract: plan, 5 insígnies
+  check(validated(f).join() === '0,1,2,3,4,5,6,7', 'full progress: all eight validated');
+  check(xpOf({ ...f, fulls: 500 }) === 1240 && xpOf({ ...f, fulls: 24 }) === 1240, 'more fulls than the cap give more XP');   // contract: spec «XP, nivell», fins a 3 fulls per projecte validat
+}
+// damaged saves cannot open a circle over a shut one: circle c needs circle c - 1 open and its exam passed
+{
+  const skip = clean({ piscina: true, notes: Array(8).fill(100), exams: [false, true, false] }), noPool = clean({ notes: Array(8).fill(100), exams: [true, true, true] });
+  check([0, 1, 2].map(c => isOpen(skip, c)).join() === 'true,false,false', `exam 1 passed over a shut circle 1: circles open ${[0, 1, 2].map(c => isOpen(skip, c))}`);   // contract: spec «El recorregut», superar l'examen obre el cercle següent: sense l'examen 0 el cercle 1 és tancat, i el 2 també
+  check([0, 1, 2].every(c => !isOpen(noPool, c) && !examOpen(noPool, c)), `three exams passed with no Piscina: circles open ${[0, 1, 2].map(c => isOpen(noPool, c))}`);   // contract: spec «El recorregut», el mapa s'obre amb la Piscina: sense ella tots els cercles són tancats
+}
+// the levels
+check(levelText(0) === '0,00' && levelText(150) === '1,00' && levelText(75) === '0,50' && levelText(1) === '0,01' && levelText(1240) === '8,27' && levelText(100) === '0,67', 'levelText');   // contract: XP ÷ 150, dos decimals, coma; 1 ÷ 150 = 0,0067 → 0,01; 100 ÷ 150 = 0,667 → 0,67
+// validation: 80 is the line; a 79 gives nothing
+check(validated(clean({ notes: [80, 79, 100, 0, 79, 99, 50, 80] })).join() === '0,2,5,7', 'validated: 80 and up');   // contract: spec «Projecte validat», de 80 a 100
+check(xpOf(clean({ notes: Array(8).fill(79), fulls: 100, piscina: false })) === 0, 'notes of 79 give XP');   // contract: plan, notes de 79 no validen ni donen XP
+check(validated(clean({ notes: Array(8).fill(79) })).length === 0 && validated(clean({ notes: [79.6] })).length === 0, 'a 79 validates');
+check(xpOf(clean({ fulls: 100 })) === 0, '100 fulls with no project validated give XP');   // contract: plan, 100 fulls sense cap projecte validat donen 0 XP
+check(xpOf(clean({ fulls: 100, piscina: true })) === 50, 'fulls give XP with no project validated');   // contract: 50 de la Piscina, els fulls cap
+check(xpOf(clean({ notes: [80], fulls: 50 })) === 110, 'one project validated caps fulls at 3');   // contract: 80 + 10 × min(50, 3) = 110
+check(xpOf(clean({ notes: [80, 95], fulls: 4 })) === 215, 'two projects, four fulls');   // contract: 80 + 95 + 10 × min(4, 6) = 215
+check(xpOf(clean({ notes: [0, 0, 100], fulls: 1 })) === 110, 'the project index does not matter');   // contract: 100 + 10 × min(1, 3) = 110
+check(xpOf(clean({ exams: [true, false, true] })) === 100, 'an exam is worth 50');   // contract: spec «XP, nivell», examen superat 50
+check(xpOf(clean({ piscina: true })) === 50, 'the Piscina is worth 50');   // contract: spec «XP, nivell», acabar la Piscina 50
+// badges, one at a time, in the order of the spec
+const B = p => badges(clean(p)).map(Number).join('');
+check(BADGES.length === 5 && BADGES.every(b => typeof b.name === 'string' && b.name.length > 3 && typeof b.what === 'string' && b.what.length > 10 && !BAD.test(b.name + b.what)), 'BADGES: five with a name and what');   // contract: plan, 5 { name, what }
+check(new Set(BADGES.map(b => b.name)).size === 5, 'BADGES: names repeat');
+check(B({}) === '00000' && B({ piscina: true }) === '10000', 'badge 1: the Piscina');   // contract: spec «Assoliments», 1r acabar la Piscina
+check(B({ fulls: 1 }) === '01000' && B({ fulls: 0 }) === '00000', 'badge 2: the first sheet');   // contract: spec «Assoliments», 2n primer full ben corregit
+check(B({ notes: [100] }) === '00100' && B({ notes: [99, 80, 0, 0, 0, 0, 0, 0] }) === '00000' && B({ notes: [0, 0, 0, 0, 0, 0, 0, 100] }) === '00100', 'badge 3: a project with 100');   // contract: spec «Assoliments», 3r un projecte amb nota 100
+check(B({ fulls: 10 }) === '01010' && B({ fulls: 9 }) === '01000', 'badge 4: ten sheets, counted raw');   // contract: spec «Assoliments», 4t deu fulls; el compte brut, sense el límit de XP
+check(B({ exams: [true, true, true] }) === '00001' && B({ exams: [true, true, false] }) === '00000' && B({ exams: [false, true, true] }) === '00000', 'badge 5: the three exams');   // contract: spec «Assoliments», 5è cursus complet
+check(xpOf(clean({ fulls: 10 })) === 0 && badges(clean({ fulls: 10 }))[3] === true, 'ten sheets with no project: badge yes, XP no');   // contract: el comptador dels fulls no té límit; el XP sí
+// the teams
+check(TEAMS.map(t => t.name).join('|') === 'Libèl·lules|Tritons|Cuques', `team names: ${TEAMS.map(t => t.name)}`);   // contract: plan, tasca 4, TEAMS
+check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'team hues are degrees');
+{
+  const gap = (a, b) => { const x = Math.abs(a - b) % 360; return Math.min(x, 360 - x); };
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) check(gap(TEAMS[i].hue, TEAMS[j].hue) >= 60, `teams ${i} and ${j} are too close in colour`);   // contract: plan, tres colors clarament diferents
+}
+// the journey: empty, the Piscina, each project of a circle one by one, its exam, and on; isOpen, examOpen, XP and badges at every step
+{
+  const E = [false, false, false], F = [false, false, false];
+  let p = clean({}), xp = 0, n = 0;
+  const at = (label, open, ex, bd) => {
+    const t = `journey, ${label}`;
+    check([0, 1, 2].map(c => isOpen(p, c)).join() === open.join(), `${t}: isOpen is ${[0, 1, 2].map(c => isOpen(p, c))}, expected ${open}`);
+    check([0, 1, 2].map(c => examOpen(p, c)).join() === ex.join(), `${t}: examOpen is ${[0, 1, 2].map(c => examOpen(p, c))}, expected ${ex}`);
+    check(xpOf(p) === xp, `${t}: XP is ${xpOf(p)}, expected ${xp}`);
+    check(badges(p).map(Number).join('') === bd, `${t}: badges ${badges(p).map(Number).join('')}, expected ${bd}`);
+    n++;
+  };
+  at('empty', E, F, '00000');
+  // validated notes with no Piscina: the circle is shut, so is its exam
+  p = clean({ notes: [100, 100] }); xp = 200;
+  at('notes of circle 0, no Piscina', E, F, '00100'); xp = 0;
+  p = clean({}); p.piscina = true; xp = 50;
+  at('Piscina', [true, false, false], F, '10000');
+  p.notes[0] = 79;
+  at('project 0 at 79 does not count', [true, false, false], F, '10000');
+  p.notes[0] = 100; xp += 100;
+  at('project 0 validated', [true, false, false], F, '10100');
+  p.notes[1] = 80; xp += 80;
+  at('project 1 validated: exam 0 opens', [true, false, false], [true, false, false], '10100');
+  p.exams[0] = true; xp += 50;
+  at('exam 0 passed: circle 1 opens', [true, true, false], [true, false, false], '10100');
+  [2, 3].forEach(i => { p.notes[i] = 80; xp += 80; at(`project ${i} validated`, [true, true, false], [true, false, false], '10100'); });
+  p.notes[4] = 80; xp += 80;
+  at('project 4 validated: exam 1 opens', [true, true, false], [true, true, false], '10100');
+  p.exams[1] = true; xp += 50;
+  at('exam 1 passed: circle 2 opens', [true, true, true], [true, true, false], '10100');
+  [5, 6].forEach(i => { p.notes[i] = 80; xp += 80; at(`project ${i} validated`, [true, true, true], [true, true, false], '10100'); });
+  p.notes[7] = 80; xp += 80;
+  at('project 7 validated: exam 2 opens', [true, true, true], [true, true, true], '10100');
+  p.exams[2] = true; xp += 50;
+  at('exam 2 passed: cursus complete', [true, true, true], [true, true, true], '10101');
+  p.fulls = 1; xp += 10;
+  at('first sheet', [true, true, true], [true, true, true], '11101');
+  p.fulls = 24; xp += 230;
+  at('24 sheets', [true, true, true], [true, true, true], '11111');
+  check(xp === 1100, `the journey ends on ${xp} XP`);   // contract: spec «XP, nivell»; 50 + (100 + 7 × 80) + 150 + 240 = 1.100, one note of 100 and seven of 80
+  check(n === 17, `the journey has ${n} steps`);   // contract: the steps written above, counted by hand
+  // a circle that does not exist is shut, and nothing throws
+  const full = clean({ piscina: true, notes: Array(8).fill(100), exams: [true, true, true] });
+  check([3, -1, 0.5, NaN, undefined, null, 'x', '0', 'length', [0], {}].every(c => isOpen(full, c) === false && examOpen(full, c) === false), 'a circle that does not exist is open');   // contract: plan, tres cercles, 0 a 2
+}
+
+// ---- 6. the hand-in of a finished project: the one place where a mark is worked out
+// A run is one { tries, helped } per question, 15 of them; handIn(p, i, run) gives { prog, n, best, gain, redo, news } and never touches p.
+{
+  const run = (firsts, base = { tries: 1, helped: false }) => Array.from({ length: 15 }, (_, k) => k < firsts ? { tries: 0, helped: false } : base);
+  const seed = notes => { const p = clean({ piscina: true, equip: 0, notes }); return p; };
+  // only a question right at the first try and without the hint counts
+  const mixed = [...run(5).slice(0, 5), ...Array(5).fill({ tries: 0, helped: true }), ...Array(5).fill({ tries: 2, helped: false })];
+  check(handIn(seed([]), 0, mixed).n === mark(5), `a first try, a hint and a second try: the mark is ${handIn(seed([]), 0, mixed).n}, not ${mark(5)}`);   // contract: plan «Tasca 6», compta si s'encerta a la primera i sense pista; 5 de 15 = 33
+  check(handIn(seed([]), 0, run(0, { tries: 0, helped: true })).n === 0, 'a right first try with the hint counts');   // contract: plan «Tasca 6», sense pista
+  check(handIn(seed([]), 0, run(0, { tries: 1, helped: false })).n === 0, 'a right answer after a mistake counts');   // contract: plan «Tasca 6», a la primera
+  check(handIn(seed([]), 0, run(15)).n === 100, 'fifteen clean answers do not make 100');   // contract: spec «Nota», mark(15) = 100
+  // a lower replay keeps the best mark and gains nothing; an equal one too
+  const low = handIn(seed([93]), 0, run(10));
+  check(low.n === 67 && low.best === 93 && low.gain === 0 && low.prog.notes[0] === 93, `a lower replay: ${JSON.stringify([low.n, low.best, low.gain, low.prog.notes[0]])}`);   // contract: spec «Notes», es desa la millor; 10 de 15 = 67
+  const lowValid = handIn(seed([100]), 0, run(13));
+  check(lowValid.n === 87 && lowValid.best === 100 && lowValid.gain === 0 && lowValid.prog.notes[0] === 100, `a validated lower replay: ${JSON.stringify([lowValid.n, lowValid.best, lowValid.gain, lowValid.prog.notes[0]])}`);   // contract: spec «Notes», es desa la millor encara que la nova sigui de 80 o més: 13 de 15 = 87, el 100 es queda i el guany és 0
+  const same = handIn(seed([80]), 0, run(12));
+  check(same.n === 80 && same.gain === 0 && same.prog.notes[0] === 80, 'an equal replay changes the mark or gains XP');   // contract: spec «Notes», 12 de 15 = 80
+  // a better one gains the difference, but only once validated
+  const up = handIn(seed([80]), 0, run(14));
+  check(up.n === 93 && up.best === 80 && up.gain === 13 && up.prog.notes[0] === 93, `80 to 93: ${JSON.stringify([up.n, up.best, up.gain, up.prog.notes[0]])}`);   // contract: spec «XP», la nota de cada projecte validat compta: 93 − 80 = 13
+  const val = handIn(seed([73]), 0, run(12));
+  check(val.n === 80 && val.gain === 80 && val.prog.notes[0] === 80, `73 to 80: ${JSON.stringify([val.n, val.gain, val.prog.notes[0]])}`);   // contract: spec «XP», 73 no compta; en validar, +80
+  check(handIn(seed([]), 0, run(11)).gain === 0 && handIn(seed([]), 0, run(11)).prog.notes[0] === 73, 'a mark of 73 on a new project gains XP or is not kept');   // contract: spec «Nota per validar» 80; 11 de 15 = 73, es desa però no puja
+  // the third validated project lifts the cap on sheets: 9 sheets were 6 XP-worth of 2 projects, now 9
+  const cap = { ...seed([80, 80, 0]), fulls: 9 }, capped = handIn(cap, 2, run(12));
+  check(capped.gain === 110, `a third validated project with 9 sheets gains ${capped.gain}, not 110`);   // contract: spec «XP», 10 per full fins a 3 per projecte validat: 80 + 10 × (9 − 6) = 110
+  check(xpOf(capped.prog) - xpOf(cap) === capped.gain, 'the gain is not the difference of xpOf');   // contract: spec «XP», el guany és la diferència
+  // the exercises to redo, and the badges the run earns
+  check(handIn(seed([]), 0, run(15)).redo.length === 0, 'a clean run has exercises to redo');   // contract: plan «Tasca 6», panell: quins exercicis repassar
+  const one = run(15); one[7] = { tries: 1, helped: false };
+  check(handIn(seed([]), 0, one).redo.join() === 'ex01', `one mistake in question 8 redoes ${handIn(seed([]), 0, one).redo.join()}, not ex01`);   // contract: plan «Tasca 6», 5 preguntes per exercici, la 8 és d'ex01
+  check(handIn(seed([]), 0, run(15).slice(0, 5)).redo.join() === 'ex01,ex02', 'a run of five questions does not leave ex01 and ex02 to redo');   // contract: plan «Tasca 6», un exercici que no s'ha fet sencer es repassa
+  const hint = run(15); hint[14] = { tries: 0, helped: true }; hint[0] = { tries: 2, helped: false };
+  check(handIn(seed([]), 0, hint).redo.join() === 'ex00,ex02', 'a hint and a mistake do not redo ex00 and ex02');   // contract: plan «Tasca 6», una pregunta que no compta fa repassar l'exercici
+  check(handIn(seed([]), 0, run(15)).news.join() === 'Nota 100' && handIn(seed([100]), 0, run(15)).news.length === 0, 'the badge Nota 100 is new twice or never');   // contract: spec «Insígnies», Nota 100 = un 100 en un projecte
+  check(handIn(clean({}), 0, run(15)).news.join() === 'Nota 100', 'a mark earns the badge of the Piscina');   // contract: spec «Insígnies», Piscina acabada és per acabar la Piscina, no per una nota
+  // nothing is touched: the input stays as it was, and the new progress shares nothing with it
+  const before = JSON.stringify(cap), res = handIn(cap, 2, run(15));
+  check(JSON.stringify(cap) === before, 'handIn changed the progress it was given');   // contract: plan «Tasca 6», prog no es toca provisionalment
+  check(res.prog !== cap && res.prog.notes !== cap.notes && res.prog.exams !== cap.exams, 'the new progress shares an object with the old');   // contract: plan «Tasca 6», un objecte nou
+  check(handIn(seed([]), 3, []).n === 0 && handIn(seed([]), 3, []).prog.notes[3] === 0, 'an empty run is not a zero');   // contract: spec «Notes», sense respostes no hi ha nota
+}
+
+// ---- 6b. the hand-in of a finished sheet: fulls + 1 only when all three divisions were judged right, and what that adds is whatever xpOf says
+// sheetIn(p, run) gives { prog, good, gain, missed, news } and never touches p; run is one boolean per division.
+{
+  const P = (notes, fulls) => ({ ...clean({ piscina: true, equip: 0, notes }), fulls });
+  const T = [true, true, true];
+  const one = sheetIn(P([80], 0), T);
+  check(one.good && one.prog.fulls === 1 && one.gain === 10 && one.missed.length === 0, `a first good sheet: ${JSON.stringify([one.good, one.prog.fulls, one.gain, one.missed])}`);   // contract: spec «XP», 10 per full ben corregit, amb un projecte validat
+  check(one.news.join() === 'Primer full', `the first good sheet earns ${one.news.join()}, not Primer full`);   // contract: spec «Insígnies», Primer full = un full ben corregit
+  const bad = sheetIn(P([80], 0), [true, false, true]);
+  check(!bad.good && bad.prog.fulls === 0 && bad.gain === 0 && bad.missed.join() === '1' && bad.news.length === 0, `a sheet with one miss: ${JSON.stringify([bad.good, bad.prog.fulls, bad.gain, bad.missed, bad.news])}`);   // contract: spec «Fulls», només un full ben corregit compta; la segona s'ha escapat
+  check(sheetIn(P([80], 0), [false, false, false]).missed.join() === '0,1,2' && sheetIn(P([80], 0), [true, true]).good === false && sheetIn(P([80], 0), [true, true]).missed.join() === '2', 'a sheet with nothing right, or with only two divisions done, lists the wrong places or counts as good');   // contract: plan «Tasca 9», un full no acabat no es desa
+  const cap = sheetIn(P([80], 3), T);
+  check(cap.good && cap.prog.fulls === 4 && cap.gain === 0 && xpOf(cap.prog) === xpOf(P([80], 3)), `the fourth sheet with one validated project: ${JSON.stringify([cap.prog.fulls, cap.gain])}`);   // contract: spec «XP», 10 per full fins a 3 per projecte validat: amb un de validat, el quart dona 0 (però es desa i el recompte puja)
+  check(sheetIn(P([80, 90], 3), T).gain === 10 && sheetIn(P([], 0), T).gain === 0 && sheetIn(P([], 0), T).prog.fulls === 1, 'a second validated project lifts the cap, or a first sheet with none validated gains XP');   // contract: spec «XP», 3 per projecte validat (6 amb dos); sense cap de validat no hi ha XP de fulls
+  check(sheetIn(P([80], 9), T).news.join() === 'Deu fulls' && sheetIn(P([80], 10), T).news.length === 0, 'the badge Deu fulls is not new at the tenth sheet only');   // contract: spec «Insígnies», Deu fulls = deu fulls ben corregits
+  const before = JSON.stringify(P([80], 3)), src = P([80], 3), res = sheetIn(src, T);
+  check(JSON.stringify(src) === before && res.prog !== src && res.prog.notes !== src.notes && res.prog.exams !== src.exams, 'sheetIn changed the progress it was given, or shares an object with it');   // contract: plan «Tasca 9», prog no es toca provisionalment
+  // the XP maximum does not move: 8 validated projects at 100, three exams, the Piscina and 24 sheets
+  check(xpOf({ ...P(Array(8).fill(100), 24), exams: [true, true, true] }) === 1240 && xpOf({ ...P(Array(8).fill(100), 99), exams: [true, true, true] }) === 1240, 'XP maximum is not 1240');   // contract: brief «XP màxim: 1.240»
+  // the answer on the line of a sheet
+  check(told({ mode: 'fact', D: 12, d: 4 }, 3) === '3' && told({ mode: 'long', D: 17, d: 5, bare: true }, [3, 2]) === '3 i en sobren 2' && told({ mode: 'rem', D: 20, d: 4 }, [5, 0]) === '5 i no en sobra cap' && told({}, [4, 1]) === '4 i en sobra 1', 'the answer of a sheet is not told as the quotient or as quotient and remainder');   // contract: said() de logic.js diu «3 i en sobren 2» i «en sobra 1»
+}
+
+// ---- 6c. the hand-in of an exam: 5 of 6 passes, the first pass pays 50 XP, a pass is never undone, a fail keeps nothing but names what to revise
+// examIn(p, c, qs, run) gives { prog, good, score, gain, redo, news } and never touches p; qs are the six questions (each with its project p), run one boolean per question.
+{
+  const P = (notes, exams, fulls = 0) => ({ ...clean({ piscina: true, equip: 0, notes, exams }), fulls });
+  const N0 = [80, 80, 0, 0, 0, 0, 0, 0], N1 = [80, 80, 80, 80, 80, 0, 0, 0], ALL = Array(8).fill(100);
+  const E = [false, false, false];
+  const qs0 = [0, 1, 0, 1, 1, 0].map(p => ({ mode: 'fact', D: 12, d: 3, bare: true, p }));
+  const missing = miss => Array.from({ length: 6 }, (_, i) => !miss.includes(i));
+  check(EXAM_PASS === 5, `EXAM_PASS is ${EXAM_PASS}`);   // contract: brief «Examen superat: 5 de 6»
+  const six = examIn(P(N0, E), 0, qs0, missing([])), five = examIn(P(N0, E), 0, qs0, missing([3])), four = examIn(P(N0, E), 0, qs0, missing([0, 3]));
+  check(six.good && six.score === 6 && six.prog.exams[0] === true && six.gain === 50 && six.redo.length === 0, `6 of 6: ${JSON.stringify([six.good, six.score, six.prog.exams, six.gain, six.redo])}`);   // contract: brief «Examen superat: 5 de 6»; spec «XP», 50 per examen superat
+  check(five.good && five.score === 5 && five.prog.exams[0] === true && five.gain === 50, `5 of 6 passes: ${JSON.stringify([five.good, five.score, five.prog.exams, five.gain])}`);   // contract: brief «Examen superat: 5 de 6»
+  check(!four.good && four.score === 4 && four.prog.exams[0] === false && four.gain === 0, `4 of 6 does not pass: ${JSON.stringify([four.good, four.score, four.prog.exams, four.gain])}`);   // contract: brief «Examen superat: 5 de 6», 4 de 6 no
+  // the other circles: only the exam asked is touched
+  const c1 = examIn(P(N1, [true, false, false]), 1, qs0, missing([])), c2 = examIn(P(ALL, [true, true, false]), 2, qs0, missing([]));
+  check(c1.prog.exams.join() === 'true,true,false' && c2.prog.exams.join() === 'true,true,true' && c1.gain === 50 && c2.gain === 50, `circles 1 and 2: ${JSON.stringify([c1.prog.exams, c2.prog.exams])}`);   // contract: spec «Exàmens», un per cercle; 50 XP cadascun
+  // what a pass opens, and the badge of the whole course on the third
+  check(isOpen(P(N0, E), 1) === false && isOpen(six.prog, 1) === true && isOpen(five.prog, 1) === true && isOpen(four.prog, 1) === false, 'a passed exam opens the next circle, a failed one does not');   // contract: spec «Cercles», cada cercle s'obre amb l'examen de l'anterior
+  check(c1.prog.exams[1] && isOpen(c1.prog, 2) === true && six.news.length === 0 && c2.news.join() === 'Cursus complet', `the third exam: ${JSON.stringify([c2.news, six.news])}`);   // contract: spec «Insígnies», Cursus complet = els tres exàmens superats
+  // a passed exam is never taken back, and a second pass pays nothing
+  const done = P(N0, [true, false, false]);
+  const again = examIn(done, 0, qs0, missing([0, 1, 2])), pass2 = examIn(done, 0, qs0, missing([]));
+  check(again.good === false && again.prog.exams[0] === true && again.gain === 0, `a failed retry of a passed exam: ${JSON.stringify([again.good, again.prog.exams, again.gain])}`);   // contract: spec «Exàmens», un examen superat continua superat
+  check(pass2.good === true && pass2.gain === 0 && pass2.prog.exams[0] === true && pass2.news.length === 0, `a second pass: ${JSON.stringify([pass2.good, pass2.gain, pass2.prog.exams, pass2.news])}`);   // contract: spec «XP», el XP de l'examen es paga una sola vegada
+  // a fail changes nothing at all, and names each project to revise once, in the order of the projects
+  const f = examIn(P(N0, E, 2), 0, qs0, [false, true, false, false, true, true]);
+  check(JSON.stringify(f.prog) === JSON.stringify(P(N0, E, 2)) && f.gain === 0 && f.news.length === 0, `a failed exam changed the progress: ${JSON.stringify(f.prog)}`);   // contract: plan «Tasca 10», un examen no superat no canvia res
+  check(f.redo.join() === '0,1' && examIn(P(N0, E), 0, qs0, missing([0, 2])).redo.join() === '0' && examIn(P(N0, E), 0, qs0, missing([1, 3, 4])).redo.join() === '1', `projects to revise: ${f.redo}`);   // contract: plan «Tasca 10», els projectes de les preguntes fallades, cadascun una sola vegada; qs0 és 0,1,0,1,1,0
+  check(examIn(P(N0, E), 0, qs0, missing([0, 3])).redo.join() === '0,1', 'a pass with misses should still name them');   // contract: les fallades es nomenen sempre, a l'examen superat també
+  // an exam that is not open, or a run that is not six answers, keeps nothing
+  check(examIn(P([80], E), 0, qs0, missing([])).prog.exams[0] === false && examIn(P(N0, E), 0, qs0, [true, true, true, true, true]).good === false && examIn(P(N0, E), 0, qs0, []).good === false, 'an exam that is not open, or a run of five answers, passes');   // contract: spec «Exàmens», s'obre quan els projectes del cercle estan validats; sis preguntes
+  check(examIn(P(N0, E), 7, qs0, missing([])).prog.exams.join() === 'false,false,false' && examIn(P(N0, E), 1, qs0, missing([])).prog.exams.join() === 'false,false,false', 'an exam of a circle that is shut or does not exist passes');   // contract: spec «Cercles», tres cercles; el 1 és tancat sense l'examen 0
+  // nothing is touched, and the new progress shares nothing with the old
+  const src = P(N1, [true, false, false], 4), before = JSON.stringify(src), r = examIn(src, 1, qs0, missing([]));
+  check(JSON.stringify(src) === before && r.prog !== src && r.prog.notes !== src.notes && r.prog.exams !== src.exams, 'examIn changed the progress it was given, or shares an object with it');   // contract: plan «Tasca 10», prog no es toca provisionalment
+  // everything done: the XP maximum and the level of the finished course
+  const fin = examIn({ ...P(ALL, [true, true, false], 99) }, 2, qs0, missing([]));
+  check(xpOf(fin.prog) === 1240 && levelText(xpOf(fin.prog)) === '8,27', `everything done: ${xpOf(fin.prog)} XP, level ${levelText(xpOf(fin.prog))}`);   // contract: brief «XP màxim: 1.240», 1240 / 150 = 8,27
+  check(fin.gain === 50 && fin.prog.fulls === 99, 'the last exam adds its 50 XP and nothing else');   // contract: spec «XP», 50 per examen
+}
+
+// ---- 7. no screen text of logic.js speaks of companions: the child plays alone
+{
+  const texts = [];
+  const walk = x => { if (typeof x === 'string') texts.push(x); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
+  walk(PROJECTS.map(({ name, sub }) => ({ name, sub }))); walk(CIRCLES.map(c => c.name)); walk(BADGES); walk(TEAMS.map(m => m.name));
+  // the questions of the project screen, and the bare ones of exams and sheets (no parts, no material), each asked with the answers a child gets wrong
+  const seed = n => () => (n = (n * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const qs = PROJECTS.flatMap(P => P.ex.flat());
+  for (let c = 0; c < 3; c++) for (let k = 1; k <= 60; k++) { qs.push(...exam(c, seed(k * 7 + c))); for (const it of sheet(CIRCLES[c].projects, seed(k * 11 + c))) { qs.push(it.q); texts.push(told(it.q, it.shown)); } }
+  qs.push(...sheet(PROJECTS.map((_, i) => i), seed(5)).map(it => it.q));
+  const wrongs = q => {
+    const w = want(q), many = Array.isArray(w);
+    return many ? [...w.map((_, i) => w.map((x, j) => j === i ? x + 1 : x)), w.map(() => 0), [...w.slice(0, -1), q.d], [...w.slice(0, -2), w[w.length - 2] - 1, q.d + 1], w.slice(0, -1)] : [w + 1, w - 1, w + 10, 0, '', 'x'];
+  };
+  const wrongTexts = [];
+  for (const q of qs) { texts.push(tipFor(q), explain(q, false), explain(q, true), said(q)); for (const a of wrongs(q)) for (const deep of [false, true]) { const t = explain(q, deep, a); texts.push(t); wrongTexts.push(t); } }
+  check(texts.every(s => !/company/i.test(s)), `a screen text speaks of companions: "${texts.find(s => /company/i.test(s))}"`);   // contract: owner decision 2026-10-05, the child plays alone, no companions or frogs that help
+  check(texts.length >= 480, `only ${texts.length} texts looked at`);   // contract: 120 questions × 4 texts (tip, hint, full explanation, said), plus the names
+  // the walk really reached each kind of wrong-answer text and the bare questions of exams and sheets
+  for (const [part, why] of [['Has escrit', 'proof: what was written'], ['El total és la suma', 'split: the total'], ['Torna a mirar el', 'split and long: the piece that is wrong'], ['Comprova multiplicant', 'rem and long: the product'],
+    ['encara es pot fer un grup', 'rem and long: the remainder too big'], [' fa ', 'a single number multiplied back']])
+    check(wrongTexts.some(t => t.includes(part)), `the walk of wrong answers never reached «${part}» (${why})`);   // contract: the prefixes written in logic.js (lead, back, slip, proof, split), all of them on screen after a wrong answer
+  check(qs.some(q => q.bare && q.mode === 'split') && qs.some(q => q.bare && q.mode === 'long'), 'the walk met no bare split or long question');   // contract: exams and sheets ask split and long with no parts (bare)
+  // the texts written in main.js and material.js (comments left out) are outside every walk above: read the source itself
+  const code = f => readFileSync(new URL(`../games/cursus-de-l-estany/${f}`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const f of ['main.js', 'material.js']) {
+    const src = code(f);
+    check(src.includes('Segueix') || src.includes('Afegeix una fila'), `${f}: the source was not read (no screen text found)`);   // contract: the screen texts «Segueix» (main.js) and «Afegeix una fila» (material.js) are in the code
+    check(!/company/i.test(src), `${f}: a screen text speaks of companions`);   // contract: owner decision 2026-10-05, the child plays alone, no companions or frogs that help
+    check(!/plaça/i.test(src), `${f}: «plaça» (a town square) where a plate is meant: «placa»`);   // contract: review T7+T8+T9 Important 2, the singular of «plaques» is «placa»
+    check(!/se't/i.test(src), `${f}: «se't» is written «se t'han»`);   // contract: review T7+T8+T9 Important 3, «se t'han escapat»
+  }
+}
+
+// ---- 8. the card of the home page: «n de 8 projectes» counts the validated projects, as the game itself counts them, on any save at all
+{
+  const card = GAMES.find(g => g.id === 'cursus-de-l-estany'), rec = s => card.record(s, card.total);
+  check(!!card && card.total === PROJECTS.length && card.store === 'cursus-de-l-estany', 'the card of the game is missing, or its total or its store is wrong');   // contract: main.js saves under 'cursus-de-l-estany'; 8 projects
+  if (card) {
+    check(rec({}) === '' && rec({ notes: [] }) === '' && rec({ notes: [79, 0, 50] }) === '', `a save with nothing validated shows "${rec({ notes: [79, 0, 50] })}"`);   // contract: games.js, empty until there is something to show; 79 does not validate
+    check(rec({ notes: [80] }) === '1 de 8 projectes' && rec({ notes: [80, 79, 100, 0, 93] }) === '3 de 8 projectes' && rec({ notes: Array(8).fill(100) }) === '8 de 8 projectes', `the card counts wrong: "${rec({ notes: [80, 79, 100, 0, 93] })}"`);   // contract: spec «Projecte validat», de 80 a 100
+    check(rec({ notes: Array(20).fill(90) }) === '8 de 8 projectes', `a save with 20 marks shows "${rec({ notes: Array(20).fill(90) })}"`);   // contract: there are 8 projects
+    // whatever the browser holds, the card and the game agree (the game reads it through clean)
+    for (const j of [...JUNK, { notes: [80.9, 79.9, '80', true, [80], null, Infinity, 1e300] }]) {
+      const s = j || {}, n = validated(clean(j)).length;
+      let r; try { r = rec(s); } catch (e) { r = `throws ${e.message}`; }
+      check(r === (n ? `${n} de 8 projectes` : ''), `the card says "${r}" of ${JSON.stringify(j)}, and the game has ${n} validated`);
+    }
+  }
+}
+
+// ---- 9. the stylesheet: the project screen may not hang on :has(), which older browsers do not know (the material was 0 px tall there); main.js puts the class instead
+{
+  const css = readFileSync(new URL('../games/cursus-de-l-estany/style.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''), js = readFileSync(new URL('../games/cursus-de-l-estany/main.js', import.meta.url), 'utf8');
+  check(!css.includes(':has('), 'style.css uses :has()');   // contract: review of the branch, browsers without :has()
+  check(/body\.work #app \{[^}]*height: calc\(100vh - 16px\); height: calc\(100dvh - 16px\)/.test(css), 'style.css: the column of the project screen has no vh height before the dvh one');   // contract: a browser without dvh drops that line, and the column has no height
+  check(js.includes("classList.add('work')") && js.includes("classList.remove('work')"), 'main.js does not put and take off body.work');
+  // the two choices of a sheet are the same button: one that stands out is right by itself in one sheet of five
+  const choice = /const CHOICE = '(.*)';/.exec(js)?.[1] || '', btns = [...choice.matchAll(/<button class="([^"]*)" id="(yes|no)">/g)];
+  check(btns.length === 2 && btns[0][1] === btns[1][1], `the choices of a sheet do not look the same: ${btns.map(b => b[1]).join(' / ')}`);   // contract: review of the branch, «És correcta» no pot destacar
+  check(!/#yes'\)\??\.focus/.test(js), 'main.js puts the focus on «És correcta»');   // contract: the same: Enter would then choose it
+}
+
+// ---- footer
+if (fails) { console.error(`${fails} failures`); process.exit(1); }
+console.log(`cursus-de-l-estany: ${counted} preguntes, ${exams} exàmens, ${fulls} fulls`);
