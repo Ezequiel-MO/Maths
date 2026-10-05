@@ -12,6 +12,7 @@
 
 ## Regles per a totes les tasques
 
+- **Esmena (2026-10-05, decisió de l'Oliver):** el nen juga sol. Cap text de pantalla parla de companyes ni de granotes que ajuden o que es corregeixen. El botó de pista es diu «Dona'm una pista». L'activitat de la tasca 9 es diu «Caça l'errada» (al mapa i a la pantalla); les regles, el XP i les insígnies no canvien.
 - Textos de pantalla en català. Comentaris i identificadors del codi en anglès, amb el mateix estil dens que `games/nenufars-a-trossos/` (punt i coma, cometes simples, comentaris curts que diuen el perquè). Els noms de dades que la spec dona en català es queden en català (`notes`, `exams`, `fulls`, `equip`, `piscina`).
 - `logic.js` no toca `document`, `window` ni `localStorage`, i no importa res de `shared/util.js` (trenca sota Node). L'atzar entra per un paràmetre `rnd = Math.random`.
 - No es fan servir `sectionMenu`, `levelRow` ni `wireLevels` de `shared/sections.js`: suposen seccions de 10 nivells. Sí `panel()`, que necessita un `<button>` dins de l'html i un amfitrió amb `position: relative`.

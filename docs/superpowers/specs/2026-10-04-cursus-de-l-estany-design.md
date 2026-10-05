@@ -8,6 +8,8 @@ Supòsits: el nen té 9 anys i ja sap les taules de multiplicar; juga amb taulet
 
 Fora d'aquest joc: punts d'avaluació (corregir no és cap peatge per entregar), Forat Negre (compte enrere), competició entre equips, dividir entre dues xifres, decimals.
 
+> **Esmena (2026-10-05, decisió de l'Oliver):** el nen juga sol, i a la pantalla no es parla de companyes. La pista es diu «Dona'm una pista» i la dona el joc. Corregir un full es queda com a activitat, amb el nom «Caça l'errada»: tres divisions ja resoltes, i cal dir quines són bones i arreglar les que no. Les regles, el XP i les insígnies no canvien. On aquest document diu «companya» o «granota», llegiu-ho així.
+
 ## Què es pren de 42
 
 | A 42 | Al joc |
