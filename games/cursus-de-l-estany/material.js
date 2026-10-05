@@ -95,9 +95,63 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   return { counts: () => n.slice(), stop, solve };
 }
 
-export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies };
+// A grid of cells in d columns. 'fact' (D ÷ d): D cells, the rows are the quotient; with `hands` the child adds the rows one by one with a button
+// ("Afegeix una fila", the last one adds what is missing, so it never goes past D) under a running count "Caselles: k de D" that never says the number
+// of rows. 'proof' (d, q, r given, D asked): q rows of d and r cells set apart; with `hands` the rows come one by one and then the leftovers in one go
+// (no total is ever shown, it is the answer). Without `hands` the grid is whole; onDone only fires after the last press. The button comes before the
+// grid so it stays put while the grid grows. Cells are sized by the card (container units in the CSS), so 10 × 10 fits 360 px. Solved: the whole grid
+// and `d × q` (+ r) beside it. Returns { stop(), solve() }.
+export function grid(host, q, { t, onDone = () => {} } = {}) {
+  if (!t) throw new Error('grid needs the token of the screen (t)');
+  LIVE.get(host)?.stop();
+  const { D, d } = q, proof = q.mode === 'proof', R = proof ? q.q : Math.ceil(D / d), left = proof ? q.r : 0, hands = !!q.hands;
+  let rows = 0, spare = false, solved = false, stopped = false;
+  const stop = () => { stopped = true; };
+  LIVE.set(host, { stop });
+  const files = n => `${n} ${n === 1 ? 'fila' : 'files'}`, caselles = n => `${n} ${n === 1 ? 'casella' : 'caselles'}`;
+  const sobra = n => n === 1 ? 'En sobra 1' : `En sobren ${n}`;
+  host.innerHTML = `<div class="fly grid" style="--gc:${d};--rc:${left}">
+    <div class="gbar"><span class="gcount" role="status"></span>${hands ? '<button class="btn soft gadd">Afegeix una fila</button>' : ''}</div>
+    <div class="gbody"><div class="gfig" role="img"><div class="gcells"></div><div class="gspare" hidden><div class="gcells"></div><p class="gcap"></p></div></div><p class="geq" hidden></p></div></div>`;
+  const wrap = $('.grid', host), cells = $('.gcells', wrap), sp = $('.gspare', wrap), spCells = $('.gcells', sp), count = $('.gcount', wrap), add = $('.gadd', wrap), eq = $('.geq', wrap), fig = $('.gfig', wrap);
+  const cell = n => '<i class="gc"></i>'.repeat(n);
+  const shown = () => proof ? rows * d : Math.min(D, rows * d);
+  // the text alternative says what the grid shows now; the count line is the visible one
+  function paint() {
+    const n = shown();
+    fig.setAttribute('aria-label', !rows ? 'Graella buida' : `Graella de ${files(rows)} de ${caselles(d)}${proof && spare ? `. ${sobra(left)} a part` : ''}`);
+    count.textContent = proof ? (hands && !solved ? `Files: ${rows} de ${R}` : '') : hands && !solved ? `Caselles: ${n} de ${D}` : `Caselles: ${D}`;
+    $('.gbar', wrap).hidden = !count.textContent && !add;
+    sp.hidden = !spare; if (spare) $('.gcap', sp).textContent = sobra(left);
+  }
+  function finish() { add.hidden = true; onDone(); }
+  function press() {
+    if (stopped || !t.on || solved) return;
+    if (rows < R) {
+      cells.insertAdjacentHTML('beforeend', cell(proof ? d : Math.min(d, D - shown()))); rows++;
+      add.textContent = proof && rows === R && left ? (left === 1 ? 'Afegeix la que sobra' : 'Afegeix les que sobren') : 'Afegeix una fila';
+      paint(); if (rows === R && !(proof && left)) finish();
+    } else if (proof && left && !spare) {
+      spCells.innerHTML = cell(left); spare = true; paint(); finish();
+    }
+  }
+  function solve() {
+    stop(); solved = true; rows = R; spare = proof && left > 0;
+    cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left);
+    if (add) add.hidden = true;
+    eq.hidden = false; eq.innerHTML = `${d} × ${proof ? q.q : D / d}${proof && left ? ` <span class="gplus">+ ${left}</span>` : ''}`;
+    paint();
+  }
+  if (add) add.onclick = press;
+  if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); }
+  return { stop, solve };
+}
+
+export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid };
 // what to do with the material of a `hands` question, in the words of its figure
 export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
+  : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
+  : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Fes-ne ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
   : `Prem «Fes un grup de ${q.d}» fins que no en puguis fer més.${q.mode === 'rem' ? ' Les que no arriben per fer un grup es queden a part.' : ''} Després escriu la resposta.`;
 
 /* ---------- where the child writes: the pad of keys and the boxes of the answer ---------- */

@@ -88,6 +88,25 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   max-width: calc(var(--gw) * (var(--ps) + 3px) + 16px); }
 .fgrp .ff { width: var(--ps); height: var(--ps); border-width: 1.5px; box-shadow: 0 0 9px 2px rgb(247 198 78 / 0.6); animation: land 0.25s ease-out; }
 
+/* the grid of "La taula al revés" and "Comprova" (the card is a .fly): d columns of cells --cs wide, as many as the card holds (container units);
+   the leftovers of "Comprova" are golden cells in a dashed frame under the rows */
+.grid { --gap: 3px; --cs: 26px; container-type: inline-size; align-items: center; }
+@supports (width: 1cqw) { .grid { --cs: min(40px, calc((100cqw - var(--gap) * (var(--gc) - 1)) / var(--gc))); } }
+.gcount, .gcap, .geq { font-family: var(--display); }
+.gbar { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+.gcount { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.gadd { min-height: 44px; margin-left: auto; }
+.gbody { width: 100%; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: center; }
+.gfig { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.gcells { display: grid; grid-template-columns: repeat(var(--gc), var(--cs)); grid-auto-rows: var(--cs); gap: var(--gap); }
+.gc { display: block; border-radius: 24%; background: radial-gradient(circle at 50% 40%, #37965A, var(--leaf) 80%); box-shadow: 0 0 0 1px #2F7F40, inset 0 -3px 0 rgb(0 0 0 / 0.25); animation: land 0.25s ease-out; }
+.gspare { display: flex; flex-direction: column; gap: 6px; align-items: center; margin: 4px; }
+.gspare .gcells { grid-template-columns: repeat(var(--rc), var(--cs)); outline: 2px dashed var(--sun); outline-offset: 4px; }
+.gspare .gc { background: radial-gradient(circle at 50% 40%, #FFE08A, var(--sun) 70%); box-shadow: 0 0 0 1px #C98A0E, inset 0 -3px 0 rgb(0 0 0 / 0.2); }
+.gcap { margin: 6px 0 0; font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.geq { margin: 0; font-weight: 800; font-size: 1.7rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gplus { color: var(--sun); }
+
 /* the hint takes the place of the tip, in the sun's colour */
 .status.hint { color: var(--sun); }
 /* a project: the head (the three exercises and the fifteen questions), the material, and the desk where the answer is written */
@@ -135,7 +154,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   .keys { position: static; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  h1, .panel, .fly.shake, .shake, .in.cur, .fbugs .ff, .fgrp .ff, .fsrc.arrive .ff { animation: none; }
+  h1, .panel, .fly.shake, .shake, .in.cur, .fbugs .ff, .fgrp .ff, .fsrc.arrive .ff, .gc { animation: none; }
   .in.cur { box-shadow: 0 0 16px 5px var(--sun); }
   .flier, .fly.leave .fbugs .ff, .xp-bar i, .steps i { transition: none; }
 }
