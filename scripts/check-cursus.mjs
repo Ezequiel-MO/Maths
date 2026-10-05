@@ -2,6 +2,7 @@
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
 import { readFileSync } from 'node:fs';
+import { GAMES } from '../shared/games.js';
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
   VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told, examIn } from '../games/cursus-de-l-estany/logic.js';
 
@@ -224,17 +225,78 @@ function odd(txt, tag) {
   // a piece smaller than the divisor is never divided (what is left over is said as left over), in a sum or in a chain
   for (const [, a, b] of txt.matchAll(/(\d+) ÷ (\d+)/g)) if (+a < +b) { hit('a piece smaller than the divisor is divided'); break; }
 }
+// What a text says must be TRUE, worked out here from the numbers in the text itself and from D and d (never from logic.js).
+// the value of "80 ÷ 4 + 4 ÷ 4" (× and ÷ before + and −); NaN when a division in it is not exact
+function value(expr) {
+  const tk = expr.split(' ');
+  let total = 0, sign = 1, term = +tk[0];
+  for (let i = 1; i < tk.length; i += 2) {
+    const n = +tk[i + 1];
+    if (tk[i] === '×') term *= n; else if (tk[i] === '÷') term = n && term % n === 0 ? term / n : NaN;
+    else { total += sign * term; sign = tk[i] === '+' ? 1 : -1; term = n; }
+  }
+  return total + sign * term;
+}
+const EX = '\\d+(?: [÷×+−] \\d+)*', OPS = '\\d+(?: [÷×+−] \\d+)+';
+// "a = b = c", and what may follow a division: "i en sobren 2", "i en sobra 1", "i no en sobra cap"
+const CHAIN = new RegExp(`(${EX})((?: = ${EX})+)( i (?:en sobren (\\d+)|en sobra (1)(?!\\d)|no en sobra cap))?`, 'g');
+const FA = new RegExp(`(${OPS}) (no )?fan? (\\d+)(?:, no (\\d+))?`, 'g');   // "4 × 6 fa 24, no 25", "37 ÷ 4 no fa 8"
+// a number said next to these words is that number of the question: [pattern, what each group must be worth]
+const SAYS = [[/÷ (\d+)/g, 'd'], [/toquen (\d+)/g, 'Q'], [/(?:surten|sortit|fas) (\d+) grup/g, 'Q'], [/(\d+) cuques cada/g, 'Q'], [/grups? (?:més )?de (\d+)/g, 'd'],
+  [/(\d+) nenúfars/g, 'd'], [/(?:les|Amb) (\d+) cuques/g, 'D'], [/Encercla (\d+)/g, 'd'], [/Cada grup té (\d+) cuques/g, 'd'], [/taula del (\d+)/g, 'd'],
+  [/entre (?:els )?(\d+)/g, 'd'], [/multiplicat per (\d+) fa (\d+)/g, 'd', 'D'], [/el residu és (\d+)/g, 'R'], [/en sobr(?:a|en) (\d+)/g, 'R'], [/dividend és (\d+)/g, 'D'],
+  [/Quant és (\d+) ÷/g, 'D'], [/Parteix (\d+) en/g, 'D'], [/més petit que (\d+)/g, 'd'], [/fan? \d+, no (\d+)/g, 'D'], [/(\d+) són (\d+) desen/g, 'D', 'T'], [/(\d+) desen(?:a|es), que són (\d+)/g, 'QT', 'Q']];
+let mute = false;   // the self-test below counts what is caught without printing it
+function truth(txt, q, tag) {
+  const lie = why => { if (mute) { fails++; return; } oddHits[why] = (oddHits[why] || 0) + 1; if (oddHits[why] <= 3) check(false, `${tag}: ${why} in "${txt}"`); else fails++; };
+  const D = q.D, d = q.d, N = { D, d, Q: Math.floor(D / d), R: D % d, T: D / 10, QT: Math.floor(D / d) / 10 };
+  for (const [all, first, rest, tail, many, one] of txt.matchAll(CHAIN)) {
+    const sides = [first, ...rest.split(' = ').slice(1)], v = sides.map(value), r = many ? +many : one ? 1 : 0;
+    // with something left over only "a ÷ b = q" can be said, and it means a = b × q + r with r < b; any other chain is a row of equal values
+    if (r) { const m = /^(\d+) ÷ (\d+)$/.exec(first); if (!m || sides.length !== 2 || !/^\d+$/.test(sides[1]) || +m[1] !== +m[2] * +sides[1] + r || r >= +m[2]) lie(`"${all}" is not true`); }
+    else if (!v.every(x => Number.isFinite(x) && x === v[0])) lie(tail ? `"${all}" is not true` : `"${all}" is not an equality`);
+  }
+  // "37 ÷ 4 no fa 8" speaks of the quotient of a piece, which may leave something over: it is false when 8 is that quotient
+  for (const [all, expr, not, n, other] of txt.matchAll(FA)) { const [a, op, b] = expr.split(' '), v = not && op === '÷' && expr.split(' ').length === 3 ? Math.floor(a / b) : value(expr);
+    if ((v === +n) === !!not || +n === +other) lie(`"${all}" is not true`); }
+  for (const [all, a, b] of txt.matchAll(/(\d+)(?:, que)? és més petit que (\d+)/g)) if (!(+a < +b)) lie(`"${all}" is not true`);
+  for (const [all, a, b] of txt.matchAll(/Amb (\d+) encara es pot fer un grup més de (\d+)/g)) if (+a < +b) lie(`"${all}" is not true`);
+  for (const [all, n, list] of txt.matchAll(/Parteix (\d+) en (?:trossos[^:]*: )?(\d+(?:, \d+)*(?: i \d+)?)/g)) if (sum(list.match(/\d+/g).map(Number)) !== +n) lie(`"${all}": the pieces do not add up`);
+  for (const [re, ...names] of SAYS) for (const m of txt.matchAll(re)) names.forEach((k, i) => { if (+m[i + 1] !== N[k]) lie(`"${m[0]}" (it is ${N[k]})`); });
+  if (/no en sobra cap|sense residu/.test(txt) && N.R) lie('nothing left over, but there is a remainder');
+  if (/el residu és/.test(txt) && !N.R) lie('a remainder that is 0');
+}
+// the mistakes the checks above must catch: a text made false on purpose is seen as false, and the true one beside it is not
+{
+  const q = { mode: 'long', D: 187, d: 8 }, before = fails; mute = true;
+  const FALSE = ['187 ÷ 8 = 160 ÷ 8 = 20 i en sobren 3.', '187 ÷ 8 = 160 ÷ 8 + 27 ÷ 8 = 20 + 3 = 23 i en sobren 3.', '187 ÷ 8 = 23 i en sobren 4.', '187 ÷ 8 = 22 i en sobren 11.', '187 ÷ 8 = 24.', '187 = 160 + 26.',
+    '8 × 23 fa 185, no 187.', '8 × 23 fa 187, no 187.', '27 ÷ 8 no fa 3.', '9 és més petit que 8.', 'Amb 7 encara es pot fer un grup més de 8.', 'Parteix 187 en 160 i 28.', '187 ÷ 9 = 23 i en sobren 3.',
+    'Fes grups de 9.', 'el residu és 4.', '187 ÷ 8 = 23 i no en sobra cap.', 'Amb 187 cuques fas 22 grups de 8.', 'Amb 186 cuques fas 23 grups de 8.'];
+  const TRUE = ['187 ÷ 8 = 23 i en sobren 3, perquè 8 × 23 + 3 = 187.', '187 = 160 + 27; 160 ÷ 8 = 20; 27 ÷ 8 = 3 i en sobren 3; 20 + 3 = 23; el residu és 3.', '8 × 22 fa 176, no 187.', '27 ÷ 8 no fa 4.',
+    'Amb 9 encara es pot fer un grup més de 8: el residu ha de ser més petit que 8.', 'Parteix 187 en 160 i 27.'];
+  const seen = FALSE.map(t => { const f = fails; truth(t, q, 'self-test'); return fails > f; }), clear = TRUE.map(t => { const f = fails; truth(t, q, 'self-test'); return fails === f; });
+  fails = before; mute = false;
+  FALSE.forEach((t, i) => { if (!seen[i]) check(false, `the check of truth does not see that "${t}" is false`); });
+  TRUE.forEach((t, i) => { if (!clear[i]) check(false, `the check of truth takes "${t}" for false`); });
+}
+const sobraTxt = r => r === 0 ? 'no en sobra cap' : r === 1 ? 'en sobra 1' : `en sobren ${r}`;
 function spoken(q, where, extra = []) {
-  const tag = `${where} ${JSON.stringify(q)}`;
+  const tag = `${where} ${JSON.stringify(q)}`, met = new Set();   // the same text comes back for many answers: its truth is looked at once
   for (const deep of [false, true]) for (const ans of [...wrongs(q), ...extra]) for (const txt of [tipFor(q), explain(q, deep, ans)]) {
     check(typeof txt === 'string' && txt.length > 10 && !BAD.test(txt), `${tag}: says "${txt}"`);
     odd(String(txt), tag);
+    if (!met.has(txt)) { met.add(txt); truth(String(txt), q, tag); }
   }
   const s = said(q);
   check(typeof s === 'string' && s.length > 10 && !BAD.test(s), `${tag}: said "${s}"`);
-  odd(String(s), tag);
+  odd(String(s), tag); truth(String(s), q, tag);
   const sd = String(s);
-  check(sd.includes(`${q.D}`) && sd.includes(`${q.d}`), `${tag}: said does not tell the whole division ("${sd}")`);
+  // said tells the division itself, D ÷ d = q (truth() has checked the value after the =), with what is left over when the answer has a remainder
+  const leftover = q.mode === 'rem' || q.mode === 'long' || q.mode === 'proof';
+  check(new RegExp(`(?<!\\d)${q.D} ÷ ${q.d} = [^.,:;]*${Math.floor(q.D / q.d)}${leftover ? ` i ${sobraTxt(q.D % q.d)}` : ''}(?!\\d)`).test(sd), `${tag}: said does not tell the whole division ("${sd}")`);   // contract: review of the branch, «122 ÷ 3 = 120 ÷ 3 = 40 i en sobren 2» is not an equality
+  // the tip asks about the numbers of the question, and the full explanation of a proof ends at the dividend
+  check(String(tipFor(q)).includes(String(q.mode === 'proof' ? q.q : q.D)) && String(tipFor(q)).includes(String(q.d)), `${tag}: the tip does not name the numbers of the question ("${tipFor(q)}")`);
+  if (q.mode === 'proof') check(new RegExp(`= ${q.D}(?!\\d)`).test(String(explain(q, true))), `${tag}: the full explanation does not end at the dividend ("${explain(q, true)}")`);
   // a long division with no remainder never says that something is left over from the last chunk (the question itself may ask for the remainder)
   if (q.mode === 'long' && q.D % q.d === 0) for (const txt of [explain(q, false), explain(q, true), said(q)])
     check(!/sobr|llevat|d.ell|residu/.test(String(txt).replace(/no en sobra cap|sense residu/g, '')), `${tag}: exact division, but "${txt}" talks of what is left`);   // contract: 126 ÷ 2 has nothing left over
@@ -696,6 +758,35 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
     check(!/plaça/i.test(src), `${f}: «plaça» (a town square) where a plate is meant: «placa»`);   // contract: review T7+T8+T9 Important 2, the singular of «plaques» is «placa»
     check(!/se't/i.test(src), `${f}: «se't» is written «se t'han»`);   // contract: review T7+T8+T9 Important 3, «se t'han escapat»
   }
+}
+
+// ---- 8. the card of the home page: «n de 8 projectes» counts the validated projects, as the game itself counts them, on any save at all
+{
+  const card = GAMES.find(g => g.id === 'cursus-de-l-estany'), rec = s => card.record(s, card.total);
+  check(!!card && card.total === PROJECTS.length && card.store === 'cursus-de-l-estany', 'the card of the game is missing, or its total or its store is wrong');   // contract: main.js saves under 'cursus-de-l-estany'; 8 projects
+  if (card) {
+    check(rec({}) === '' && rec({ notes: [] }) === '' && rec({ notes: [79, 0, 50] }) === '', `a save with nothing validated shows "${rec({ notes: [79, 0, 50] })}"`);   // contract: games.js, empty until there is something to show; 79 does not validate
+    check(rec({ notes: [80] }) === '1 de 8 projectes' && rec({ notes: [80, 79, 100, 0, 93] }) === '3 de 8 projectes' && rec({ notes: Array(8).fill(100) }) === '8 de 8 projectes', `the card counts wrong: "${rec({ notes: [80, 79, 100, 0, 93] })}"`);   // contract: spec «Projecte validat», de 80 a 100
+    check(rec({ notes: Array(20).fill(90) }) === '8 de 8 projectes', `a save with 20 marks shows "${rec({ notes: Array(20).fill(90) })}"`);   // contract: there are 8 projects
+    // whatever the browser holds, the card and the game agree (the game reads it through clean)
+    for (const j of [...JUNK, { notes: [80.9, 79.9, '80', true, [80], null, Infinity, 1e300] }]) {
+      const s = j || {}, n = validated(clean(j)).length;
+      let r; try { r = rec(s); } catch (e) { r = `throws ${e.message}`; }
+      check(r === (n ? `${n} de 8 projectes` : ''), `the card says "${r}" of ${JSON.stringify(j)}, and the game has ${n} validated`);
+    }
+  }
+}
+
+// ---- 9. the stylesheet: the project screen may not hang on :has(), which older browsers do not know (the material was 0 px tall there); main.js puts the class instead
+{
+  const css = readFileSync(new URL('../games/cursus-de-l-estany/style.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''), js = readFileSync(new URL('../games/cursus-de-l-estany/main.js', import.meta.url), 'utf8');
+  check(!css.includes(':has('), 'style.css uses :has()');   // contract: review of the branch, browsers without :has()
+  check(/body\.work #app \{[^}]*height: calc\(100vh - 16px\); height: calc\(100dvh - 16px\)/.test(css), 'style.css: the column of the project screen has no vh height before the dvh one');   // contract: a browser without dvh drops that line, and the column has no height
+  check(js.includes("classList.add('work')") && js.includes("classList.remove('work')"), 'main.js does not put and take off body.work');
+  // the two choices of a sheet are the same button: one that stands out is right by itself in one sheet of five
+  const choice = /const CHOICE = '(.*)';/.exec(js)?.[1] || '', btns = [...choice.matchAll(/<button class="([^"]*)" id="(yes|no)">/g)];
+  check(btns.length === 2 && btns[0][1] === btns[1][1], `the choices of a sheet do not look the same: ${btns.map(b => b[1]).join(' / ')}`);   // contract: review of the branch, «És correcta» no pot destacar
+  check(!/#yes'\)\??\.focus/.test(js), 'main.js puts the focus on «És correcta»');   // contract: the same: Enter would then choose it
 }
 
 // ---- footer

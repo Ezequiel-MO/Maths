@@ -98,11 +98,11 @@ const grups = n => n === 1 ? '1 grup' : `${n} grups`;
 const desenes = n => n === 1 ? '1 desena' : `${n} desenes`;
 const list = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : String(a[0]);
 const ORD = ['primer', 'segon', 'tercer'];
-// "80 ÷ 4 + 4 ÷ 4 = 20 + 1 = ": the pieces that make at least one group, divided and added (a rest smaller than d is only what is left over);
+// "80 ÷ 4 + 4 ÷ 4 = 20 + 1 = ": the pieces divided and added, for a division with no remainder only (every piece divides exactly, so each = is true);
 // nothing when the one piece is the whole division
 function chain(q) {
-  const w = piecesOf(q).filter(p => p >= q.d);
-  return w.length === 1 && w[0] === q.D ? '' : `${w.map(p => `${p} ÷ ${q.d}`).join(' + ')} = ${w.length > 1 ? `${w.map(p => Math.floor(p / q.d)).join(' + ')} = ` : ''}`;
+  const w = piecesOf(q);
+  return w.length === 1 ? '' : `${w.map(p => `${p} ÷ ${q.d}`).join(' + ')} = ${w.map(p => p / q.d).join(' + ')} = `;
 }
 // the whole reasoning of a split or long question: the sum of the pieces, each piece divided, then the partials added
 function reason(q, sep) {
@@ -176,7 +176,8 @@ export function said(q) {
     case 'rem': return `${D} ÷ ${d} = ${Q} i ${sobra(R)}.`;
     case 'proof': return `${d} × ${q.q}${q.r ? ` + ${q.r}` : ''} = ${D}, i per això ${D} ÷ ${d} = ${q.q} i ${sobra(q.r)}.`;
     case 'split': return `${D} ÷ ${d} = ${chain(q)}${Q}.`;
-    default: return `${D} ÷ ${d} = ${chain(q)}${Q} i ${sobra(R)}.`;
+    // with a remainder the pieces do not add up to the quotient with an = (27 ÷ 8 is not 3), so the division is told with its proof
+    default: return R ? `${D} ÷ ${d} = ${Q} i ${sobra(R)}, perquè ${d} × ${Q} + ${R} = ${D}.` : `${D} ÷ ${d} = ${chain(q)}${Q} i ${sobra(R)}.`;
   }
 }
 

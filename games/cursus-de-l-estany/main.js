@@ -34,7 +34,7 @@ const HUB = /cursus-de-l-estany\.html$/.test(location.pathname);
 // inner screens show ← Mapa instead of ← Tots els jocs; the pond drifts to the colour of the team once there is one
 function enter(kicker, inner) {
   const t = fresh(); keyFn = null; tight = false; openAt = performance.now() + SETTLE;
-  $('#app').classList.toggle('wide', inner); $('#toG').hidden = inner || !HUB; $('#toM').hidden = !inner; $('#kick').textContent = kicker;
+  $('#app').classList.toggle('wide', inner); document.body.classList.remove('work'); $('#toG').hidden = inner || !HUB; $('#toM').hidden = !inner; $('#kick').textContent = kicker;
   $('#game').onclick = null; FX.mood(TEAMS[prog.equip]?.hue ?? 165); paintXp();
   return t;
 }
@@ -171,7 +171,8 @@ function tapEntry(B, e) {
   if (k) keyFn?.(k.dataset.k); else if (s) B.pick(+s.dataset.slot);
   return !!(k || s);
 }
-const CHOICE = '<div class="verd"><button class="btn" id="yes">És correcta</button><button class="btn soft" id="no">No és correcta</button></div>';
+// the two choices of a sheet look the same and neither is chosen beforehand (the focus goes to the group): one sheet in five has no mistake, and a button that stands out would be right by itself
+const CHOICE = '<div class="verd" role="group" aria-label="És correcta?" tabindex="-1"><button class="btn soft" id="yes">És correcta</button><button class="btn soft" id="no">No és correcta</button></div>';
 const eq = q => q.mode === 'proof' ? `${q.d} × ${q.q}${q.r ? ` + ${q.r}` : ''} =` : `${q.D} ÷ ${q.d} =`;
 const llista = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : a[0];
 const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
@@ -183,7 +184,7 @@ const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top <
 // res[k] is { tries, helped } of question k (what handIn in logic.js judges; a miss with once is tries 1). settle runs at once on the last answer, BEFORE any wait, and what it
 // returns goes to end() after the pause. Without once a wrong answer repeats the question: the second one also shows the material solved.
 function quiz(t, qs, o) {
-  const per = o.per || qs.length, res = []; tight = true;
+  const per = o.per || qs.length, res = []; tight = true; document.body.classList.add('work');   // the column as tall as the screen (style.css)
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
     <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span></div>
     <div class="tipbox"><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
@@ -211,7 +212,7 @@ function quiz(t, qs, o) {
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
     open(!wait);
     tip(it ? `Mira bé ${q.mode === 'proof' ? 'l\'operació' : 'la divisió'}. És correcta?` : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
-    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip(); $('#yes')?.focus({ preventScroll: true });
+    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip(); $('.verd', stage)?.focus({ preventScroll: true });
   }
   async function submit(ans, yes) {
     const ok = it ? judge(it, !!yes, ans) : right(q, ans), once = o.once || it;

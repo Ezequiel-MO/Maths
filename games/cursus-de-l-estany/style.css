@@ -155,18 +155,19 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
    left, the desk (the question with its boxes, and the keys) at the bottom in normal flow. The head never changes height inside a question: the tip lives in a box of
    two lines (.tipbox) and a longer text grows upwards over the XP bar and the dots, not down over the material. So the box of the material (.mat) has the same height at
    every step of a question, and the figure sizes itself to it: its card carries a size factor --u that material.js lowers (fitter) until the box does not scroll. */
+/* body.work is put by quiz() and taken off by enter() (main.js): a class, not :has(.stage.work), which older browsers do not know and without which the material is 0 px tall */
 @media not ((min-width: 700px) or ((min-width: 560px) and (orientation: landscape))) {
-  body:has(.stage.work) { padding-block: 8px; }
-  #app:has(.stage.work) { height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
-  #app:has(.stage.work) #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
+  body.work { padding-block: 8px; }
+  body.work #app { height: calc(100vh - 16px); height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
+  body.work #app #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
   .stage.work { flex: 1 1 0; min-height: 0; }
   .mat { flex: 1 1 0; min-height: 0; overflow: hidden auto; container-type: size; }
   .desk { flex: none; margin-top: auto; }
   .stage.work .fly { padding: 8px; gap: 8px; }
   .cp { padding-block: 3px; font-size: 1.25rem; } .chunks .in { height: calc(40px * var(--u, 1)); }
   #app #hintb { min-height: 36px; padding-block: 0; }
-  #app:has(.stage.work) .xp { padding-block: 2px; } #app:has(.stage.work) .xp-team { width: 26px; height: 26px; margin-block: -2px; }
-  @media (max-height: 800px) { #app:has(.stage.work) header { display: none; } }
+  body.work #app .xp { padding-block: 2px; } body.work #app .xp-team { width: 26px; height: 26px; margin-block: -2px; }
+  @media (max-height: 800px) { body.work #app header { display: none; } }
   .mat::-webkit-scrollbar { width: 8px; }
   .mat::-webkit-scrollbar-track { background: rgb(160 230 220 / 0.12); border-radius: 4px; }
   .mat::-webkit-scrollbar-thumb { background: var(--sun); border-radius: 4px; }
@@ -210,9 +211,9 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   @supports (width: 1cqw) { .grid { --cs: calc(min(40px, max(14px, calc((100cqw - 190px - var(--gap) * (var(--gc) - 1)) / var(--gc)))) * var(--u, 1)); } }
   /* a screen tall enough: the same column as on a phone (the head, then the stage as tall as what is left), so the material fits its box instead of the page scrolling */
   @media (min-height: 640px) {
-    body:has(.stage.work) { padding-block: 8px; }
-    #app:has(.stage.work) { height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
-    #app:has(.stage.work) #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
+    body.work { padding-block: 8px; }
+    body.work #app { height: calc(100vh - 16px); height: calc(100dvh - 16px); min-height: 0; gap: 6px; }
+    body.work #app #game { flex: 1 1 0; min-height: 0; margin-bottom: 0; gap: 6px; }
     .stage.work { flex: 1 1 0; min-height: 0; align-items: stretch; }
     .mat { min-height: 0; overflow: hidden auto; container-type: size; }
     .desk { align-self: flex-start; }

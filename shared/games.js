@@ -6,7 +6,7 @@ const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 const screens = (n, total) => n ? `${n} de ${total} pantalles` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
-const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => typeof x === 'number' && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
+const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => Number.isFinite(x) && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
 // the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
 // (worlds 6 and 12 were the mixes, which are no longer sections of their own)
 const leaps = s => Array.isArray(s.secs) ? sum(s.secs) : Array.isArray(s.stars) ? s.stars.filter((n, i) => n > 0 && i % 6 < 5).length * 10 : 0;
