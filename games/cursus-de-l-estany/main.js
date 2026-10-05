@@ -21,8 +21,11 @@ const { tone, chime } = voice(() => prog.so);
 const FX = pond(tone);
 
 const SETTLE = 450;   // after a screen comes up, touches on what advances are ignored for this long: a second tap must not press what is under the first
-let openAt = 0, keyFn = null;
+let openAt = 0, keyFn = null, tight = false;
 const ready = () => performance.now() >= openAt;
+// A question screen (tight) ignores every tap for SETTLE after a new question, a choice, «Segueix» coming up or a panel: a second tap lands on what took the place of the first
+// button, and so must reach neither a key nor a pad nor the hint. The capture phase stops it before the figure's own handler.
+$('#game').addEventListener('click', e => { if (tight && !ready()) e.stopPropagation(); }, true);
 const hsl = (h, l = 62) => `hsl(${h} 75% ${l}%)`;
 
 /* ---------- the shell: every screen starts with enter() and gets its token back ---------- */
@@ -30,7 +33,7 @@ const hsl = (h, l = 62) => `hsl(${h} 75% ${l}%)`;
 const HUB = /cursus-de-l-estany\.html$/.test(location.pathname);
 // inner screens show ← Mapa instead of ← Tots els jocs; the pond drifts to the colour of the team once there is one
 function enter(kicker, inner) {
-  const t = fresh(); keyFn = null; openAt = performance.now() + SETTLE;
+  const t = fresh(); keyFn = null; tight = false; openAt = performance.now() + SETTLE;
   $('#app').classList.toggle('wide', inner); $('#toG').hidden = inner || !HUB; $('#toM').hidden = !inner; $('#kick').textContent = kicker;
   $('#game').onclick = null; FX.mood(TEAMS[prog.equip]?.hue ?? 165); paintXp();
   return t;
@@ -179,7 +182,7 @@ const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top <
 // res[k] is { tries, helped } of question k (what handIn in logic.js judges; a miss with once is tries 1). settle runs at once on the last answer, BEFORE any wait, and what it
 // returns goes to end() after the pause. Without once a wrong answer repeats the question: the second one also shows the material solved.
 function quiz(t, qs, o) {
-  const per = o.per || qs.length, res = [];
+  const per = o.per || qs.length, res = []; tight = true;
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
     <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span></div>
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
@@ -206,8 +209,8 @@ function quiz(t, qs, o) {
     $('#ask').classList.remove('far');
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
     open(!wait);
-    tip(it ? 'Mira bé la divisió. És correcta?' : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
-    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip();
+    tip(it ? `Mira bé ${q.mode === 'proof' ? 'l\'operació' : 'la divisió'}. És correcta?` : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
+    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip(); $('#yes')?.focus({ preventScroll: true });
   }
   async function submit(ans, yes) {
     const ok = it ? judge(it, !!yes, ans) : right(q, ans), once = o.once || it;
@@ -215,7 +218,7 @@ function quiz(t, qs, o) {
       tries++; tone(150, 0, 0.45, 0.16, 'triangle'); shake(fig ? mat : $('#ask'));
       if (!once) { tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); fig?.mark?.(ans); if (tries > 1) figure(true); B.clear(); showTip(); return; }
     }
-    busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : 'late');
+    busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : once ? 'miss' : 'late');
     if (ok) { tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); }
     tip(it ? `${ok ? 'Ben vist.' : it.ok ? 'Aquesta ja era bona.' : 'Aquesta tenia una errada.'} ${said(q)}` : ok ? said(q) : `Ui! ${explain(q, true, ans)}`, ok ? 'go' : 'oops'); showTip();
     if (ok) { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
@@ -231,10 +234,8 @@ function quiz(t, qs, o) {
     if (busy || !ready()) return;
     helped = true; figure(false); tip(explain(q, false, B.ans() ?? undefined), 'hint'); showTip();
   }
-  // a sheet ignores every tap for SETTLE after a choice or a new question: a second tap lands on what took the place of the first button
   $('#game').onclick = e => {
-    if (e.target.closest('#go')) { if (ready() && go) go(); return; }
-    if (o.items && !ready()) return;
+    if (e.target.closest('#go')) { go?.(); return; }
     const c = e.target.closest('#yes, #no');
     if (c && verd) {
       verd = false;
@@ -250,11 +251,14 @@ function quiz(t, qs, o) {
 async function finish(t, stage, good, said, html, label, again) {
   keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(said);
   await sleep(SETTLE); if (!t.on) return;
+  openAt = performance.now() + SETTLE;   // the buttons of the panel ignore a tap that was meant for what was here before
   good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(good === true ? 8 : good)) : tone(196, 0, 0.5, 0.12, 'triangle');
   panel(stage, `${html}<button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">${label}</button>`);
   $('#game').onclick = e => { const b = e.target.closest('button'); if (!b || !ready()) return; if (b.id === 'bk') mapa(); else if (b.id === 'rp') again(); };
 }
 const nova = r => r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : '';
+// what is true of the misses of a sheet (ok: the division of that miss was a good one, that was called wrong); a miss may be an error not found or a good division called wrong
+const missText = oks => oks.every(Boolean) ? (oks.length > 1 ? 'Algunes divisions bones no tenien cap errada.' : 'Una divisió bona no tenia cap errada.') : oks.length > 1 ? 'Se t\'han escapat algunes errades.' : 'Se t\'ha escapat una errada.';
 const redo = r => r.redo.length ? ` Repassa ${llista(r.redo.map(i => PROJECTS[i].name))}.` : '';
 
 // Repartir, Fer grups, En sobra ... : the mark is kept (if it is the best) before the pause, and only then the panel comes
@@ -272,8 +276,8 @@ function corregir() {
   const items = sheet(validated(prog)), t = enter('Caça l\'errada', true);
   quiz(t, items.map(i => i.q), { items,
     settle(res) { const r = sheetIn(prog, res.map(firstTry)); prog = r.prog; save(); return r; },
-    end: (r, stage) => finish(t, stage, r.good, r.good ? 'Full ben corregit!' : 'Se t\'han escapat algunes errades.', `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
-        ${r.good ? `<p class="lead go">${r.gain ? `+${r.gain} XP` : '0 XP: per guanyar-ne cal validar més projectes.'}</p>` : `<p class="lead">Aquestes se't han escapat:<br>${r.missed.map(i => `${i + 1}. ${said(items[i].q)}`).join('<br>')}</p>`}${nova(r)}`, 'Un altre full', corregir) });
+    end: (r, stage) => finish(t, stage, r.good, r.good ? 'Full ben corregit!' : missText(r.missed.map(i => items[i].ok)), `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
+        ${r.good ? `<p class="lead go">${r.gain ? `+${r.gain} XP` : '0 XP: per guanyar-ne cal validar més projectes.'}</p>` : `<p class="lead">${r.missed.length > 1 ? 'Aquestes no les has jutjades bé' : 'Aquesta no l\'has jutjada bé'}:<br>${r.missed.map(i => `${i + 1}. ${said(items[i].q)}`).join('<br>')}</p>`}${nova(r)}`, 'Un altre full', corregir) });
 }
 // The exam of a circle: six questions with no material and no hint, one try each (the rule is examIn). Like the other two it is kept at once on the last answer, before the
 // «Segueix» pause; leaving before that keeps nothing. The third pass is the party of the whole course.

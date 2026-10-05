@@ -145,6 +145,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 #dots i { width: 12px; height: 12px; }
 #dots i.gap { margin-left: 8px; }
 #dots i.late { background: var(--mint); opacity: 0.55; box-shadow: none; }
+#dots i.miss { background: var(--bad); box-shadow: none; }   /* a one-try miss (sheet, exam): red, not the dim mint of a second-try success */
 #dots i.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
 .stage.work { max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .mat { width: 100%; }
@@ -162,8 +163,8 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   .stage.work { flex: 1 1 0; min-height: 0; }
   .mat { flex: 1 1 0; min-height: 0; overflow: hidden auto; container-type: size; }
   .desk { flex: none; margin-top: auto; }
-  .fly { padding: 8px; gap: 8px; }
-  .fpad { min-height: clamp(44px, calc((100cqh - 190px) / var(--pr, 1)), 76px); }
+  .stage.work .fly { padding: 8px; gap: 8px; }
+  .stage.work .fpad { min-height: clamp(44px, calc((100cqh - 190px) / var(--pr, 1)), 76px); }
   .plate, .bar { height: 24px; } .plate { width: 24px; }
   .cp { padding-block: 3px; font-size: 1.25rem; } .chunks .in { height: 40px; }
   #hintb { min-height: 38px; padding-block: 0; }

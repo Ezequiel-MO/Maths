@@ -120,7 +120,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   function paint() {
     const n = shown();
     fig.setAttribute('aria-label', !rows ? 'Graella buida' : `Graella de ${files(rows)} de ${caselles(d)}${proof && spare ? `. ${sobra(left)} a part` : ''}`);
-    count.textContent = proof ? (hands && !solved ? `Files: ${rows} de ${R}` : '') : hands && !solved ? `Caselles: ${n} de ${D}` : `Caselles: ${D}`;
+    count.textContent = proof ? (hands && !solved ? `Files: ${rows} de ${R}` : `Cada fila és un grup de ${d}`) : hands && !solved ? `Caselles: ${n} de ${D}` : `Caselles: ${D}`;
     $('.gbar', wrap).hidden = !count.textContent && !add;
     sp.hidden = !spare; if (spare) $('.gcap', sp).textContent = sobra(left);
   }
@@ -161,10 +161,10 @@ export function bars(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) 
   host.innerHTML = `<div class="fly bars" style="--ps:28px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--pr:${d > 5 ? 2 : 1}"><div class="fsrc" role="group" aria-label="Les barres de deu i les plaques de cent"></div>
     <div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div></div>`;
   const wrap = $('.fly', host), src = $('.fsrc', wrap), pads = [...wrap.querySelectorAll('.fpad')];
-  const say = (i, p, b) => pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}${p + b ? `: ${p} ${p === 1 ? 'plaça' : 'plaques'} i ${b} ${b === 1 ? 'barra' : 'barres'}` : ''}`);
+  const say = (i, p, b) => pads[i].setAttribute('aria-label', `Nenúfar ${i + 1}${p + b ? `: ${[p && `${p} ${p === 1 ? 'placa' : 'plaques'}`, b && `${b} ${b === 1 ? 'barra' : 'barres'}`].filter(Boolean).join(' i ')}` : ''}`);
   function reset() {
     locked = false; n = Array(d).fill(0); wrap.classList.remove('shake'); src.hidden = false; src.style.minHeight = '';
-    src.innerHTML = '<button class="plate" aria-label="Plaça de cent: toca-la i es trenca en deu barres"></button>'.repeat(Math.floor(D / 100)) + piece(0, (D % 100) / 10);
+    src.innerHTML = '<button class="plate" aria-label="Placa de cent: toca-la i es trenca en deu barres"></button>'.repeat(Math.floor(D / 100)) + piece(0, (D % 100) / 10);
     pads.forEach((p, i) => { $('.fbugs', p).innerHTML = ''; say(i, 0, 0); });
   }
   async function send(i) {
@@ -174,7 +174,7 @@ export function bars(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) 
     if (src.children.length) return;
     locked = true;
     if (n.every(x => x === n[0])) return onDone();
-    onMiss(`Oh! No tots en tenen el mateix. Les barres tornen: prova-ho una altra vegada. Si una plaça no es pot repartir bé, toca-la a dalt i es trenca en deu barres.`);
+    onMiss(`Oh! No tots en tenen el mateix. Les barres tornen: prova-ho una altra vegada. Si una placa no es pot repartir bé, toca-la a dalt i es trenca en deu barres.`);
     wrap.classList.add('shake'); await sleep(RM ? 0 : 900); if (live()) reset();
   }
   function solve() {
@@ -223,14 +223,14 @@ export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fac
 // what to do with the material of a `hands` question, in the words of its figure
 export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
-  : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Fes-ne ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
-  : q.mode === 'tens' ? `Toca un nenúfar: hi va ${q.D < 100 ? 'una barra de deu' : 'una plaça de cent, o una barra de deu quan no en queden'}.${q.D < 100 ? '' : ' Si una plaça no es pot repartir, toca-la i es trenca en deu barres.'} Quan ho hagis repartit tot, escriu la resposta.`
+  : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila és un grup de ${q.d} caselles. Fes ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
+  : q.mode === 'tens' ? `Toca un nenúfar: hi va ${q.D < 100 ? 'una barra de deu' : 'una placa de cent, o una barra de deu quan no en queden'}.${q.D < 100 ? '' : ' Si una placa no es pot repartir, toca-la i es trenca en deu barres.'} Quan ho hagis repartit tot, escriu la resposta.`
   : q.mode === 'group' || q.mode === 'rem' ? `Prem «Fes un grup de ${q.d}» fins que no en puguis fer més.${q.mode === 'rem' ? ' Les que no arriben per fer un grup es queden a part.' : ''} Després escriu la resposta.`
   : 'Mou el material fins que estigui fet. Després escriu la resposta.';   // neutral: a new figure under `hands` adds its own line above
 
 // the labels of the boxes of a question, in want order (the pieces of a split or long question name their division)
 const LABELS = { share: ['A cada nenúfar'], group: ['Grups'], rem: ['Grups', 'En sobren'], proof: ['Dividend'] };
-export const labelsOf = q => q.mode === 'split' || q.mode === 'long'
+export const labelsOf = q => q.bare && q.mode === 'share' ? ['Quocient'] : q.mode === 'split' || q.mode === 'long'
   ? [...(q.bare ? [] : q.parts.map(p => `${p} ÷ ${q.d}`)), q.bare ? 'Quocient' : 'Total', ...(q.mode === 'long' ? ['Residu'] : [])] : LABELS[q.mode] || ['Quocient'];
 
 /* ---------- where the child writes: the pad of keys and the boxes of the answer ---------- */

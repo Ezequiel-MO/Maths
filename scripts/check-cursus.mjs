@@ -1,6 +1,7 @@
 // Checks the rules of El cursus de l'estany before every build: the 120 fixed questions of the three circles, the limits of every project
 // (worked out again here, never asked of inLimits) and what the game says. Run: node scripts/check-cursus.mjs
 // Sections below each end before the footer; a later task appends its own section above it.
+import { readFileSync } from 'node:fs';
 import { PROJECTS, CIRCLES, want, right, tipFor, explain, said, inLimits, exam, sheet, judge, EXAM_PASS,
   VALID, mark, clean, validated, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, handIn, sheetIn, told, examIn } from '../games/cursus-de-l-estany/logic.js';
 
@@ -686,6 +687,15 @@ check(TEAMS.every(t => Number.isFinite(t.hue) && t.hue >= 0 && t.hue < 360), 'te
     ['encara es pot fer un grup', 'rem and long: the remainder too big'], [' fa ', 'a single number multiplied back']])
     check(wrongTexts.some(t => t.includes(part)), `the walk of wrong answers never reached «${part}» (${why})`);   // contract: the prefixes written in logic.js (lead, back, slip, proof, split), all of them on screen after a wrong answer
   check(qs.some(q => q.bare && q.mode === 'split') && qs.some(q => q.bare && q.mode === 'long'), 'the walk met no bare split or long question');   // contract: exams and sheets ask split and long with no parts (bare)
+  // the texts written in main.js and material.js (comments left out) are outside every walk above: read the source itself
+  const code = f => readFileSync(new URL(`../games/cursus-de-l-estany/${f}`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const f of ['main.js', 'material.js']) {
+    const src = code(f);
+    check(src.includes('Segueix') || src.includes('Afegeix una fila'), `${f}: the source was not read (no screen text found)`);   // contract: the screen texts «Segueix» (main.js) and «Afegeix una fila» (material.js) are in the code
+    check(!/company/i.test(src), `${f}: a screen text speaks of companions`);   // contract: owner decision 2026-10-05, the child plays alone, no companions or frogs that help
+    check(!/plaça/i.test(src), `${f}: «plaça» (a town square) where a plate is meant: «placa»`);   // contract: review T7+T8+T9 Important 2, the singular of «plaques» is «placa»
+    check(!/se't/i.test(src), `${f}: «se't» is written «se t'han»`);   // contract: review T7+T8+T9 Important 3, «se t'han escapat»
+  }
 }
 
 // ---- footer
