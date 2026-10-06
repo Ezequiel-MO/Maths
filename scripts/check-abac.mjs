@@ -1,7 +1,7 @@
 // Checks the questions of l'àbac before every build: the 9 projects of 3 exercises of 5, the three circles, the pool of the Piscina and the rule of each project
 // (worked out again here with arithmetic of its own: plan only tells what the abacus is asked to show, never what the answer is).
 // Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js]   (the path is for trying the checker itself)
-// One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add partC and the next ones above the footer.
+// One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add the next parts above the footer.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inspect, isDeepStrictEqual } from 'node:util';
@@ -535,11 +535,221 @@ function partB(m) {
   });
 }
 
+// ---- C. the exam and the sheet of «Caça l'errada»
+const CIRCLE_PROJECTS = [[0, 1], [2, 3, 4, 5], [6, 7, 8]];   // contract: spec «El mapa» table, written again here so that a wrong CIRCLES cannot hide a wrong exam
+const KINDS = ['veïna', 'dalt', 'girat'];                    // contract: spec «Caça l'errada», els tres errors que es generen
+const sectionC = (name, fn) => { try { fn(); } catch (e) { check(false, `C: ${name} stopped on ${e.message}`); } };
+const propertyC = (name, inputs, test) => {
+  const bad = [];
+  for (const x of inputs) {
+    const shown = show(x); let why;
+    try { why = test(x); } catch (e) { why = `throws ${e.message}`; }
+    if (why) bad.push(`${why}, for ${shown}`);
+  }
+  check(!bad.length, `C: ${name}: ${bad.length} of ${inputs.length} fail: ${bad.slice(0, 3).join(' | ')}`);
+};
+// what an abacus shows, read column by column (the units first): each lower bead is worth 1, the upper bead 5
+const readRods = rods => rods.reduce((a, r, p) => a + (r.lo + 5 * r.hi) * 10 ** p, 0);
+// three columns, each { lo, hi } with 0 to 4 lower beads up and the upper bead down or not: the checker's own idea of a tidy board
+const rodsShape = rods => !Array.isArray(rods) || rods.length !== 3 ? 'not three columns'
+  : rods.some(r => !r || typeof r !== 'object' || Object.keys(r).sort().join() !== 'hi,lo') ? 'a column is not { lo, hi }'
+  : rods.some(r => !int(r.lo) || r.lo < 0 || r.lo > 4 || (r.hi !== 0 && r.hi !== 1)) ? 'a board that is not tidy (lo from 0 to 4, hi 0 or 1)' : '';
+// does moving one single bead, upper or lower, from a column to the one beside it make the board show says (and tidy)?
+function oneBeadAway(rods, says) {
+  for (let p = 0; p < 3; p++) for (const deck of ['lo', 'hi']) for (const q of [p - 1, p + 1]) {
+    if (q < 0 || q > 2 || rods[p][deck] < 1) continue;
+    const to = rods.map(r => ({ ...r })); to[p][deck]--; to[q][deck]++;
+    if (to[q].lo <= 4 && to[q].hi <= 1 && readRods(to) === says) return true;
+  }
+  return false;
+}
+// does swapping two different digits of the number the board shows give says (no zero made on the left)?
+function twoDigitsSwapped(v, says) {
+  const s = String(v);
+  for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) {
+    if (s[i] === s[j]) continue;
+    const a = [...s]; [a[i], a[j]] = [a[j], a[i]];
+    if (a.join('') === String(says)) return true;
+  }
+  return false;
+}
+// what is wrong with one board of a sheet, or ''
+function boardProblem(b) {
+  if (!b || typeof b !== 'object') return 'a board is not an object';
+  const shape = rodsShape(b.rods);
+  if (shape) return shape;
+  if (!int(b.says) || b.says < 10 || b.says > 999) return `says is ${show(b.says)}, not a whole number from 10 to 999`;   // contract: plan Task 5, says entre 10 i 999
+  if (b.bad !== null && !KINDS.includes(b.bad)) return `bad is ${show(b.bad)}, not null, 'veïna', 'dalt' or 'girat'`;
+  const v = readRods(b.rods);
+  if (b.bad === null) return v === b.says ? '' : `a good board shows ${v}, not ${b.says}`;   // contract: spec «Caça l'errada», un àbac bo marca el número
+  if (v === b.says) return `a ${b.bad} board shows what says says (${v})`;
+  if (b.bad === 'veïna') return oneBeadAway(b.rods, b.says) ? '' : `a veïna board from which no single bead moved to the column beside it shows ${b.says} (it shows ${v})`;   // contract: spec «Caça l'errada», una bola en una columna veïna
+  if (b.bad === 'dalt') return [0, 1, 2].some(p => b.rods[p].hi === 1 && v - b.says === 4 * 10 ** p) ? '' : `a dalt board must show 4 x 10^p more than says in a column with the upper bead down: it shows ${v}, says ${b.says}`;   // contract: spec «Caça l'errada», la bola de dalt comptada com a 1 (5 - 1 = 4 de la columna)
+  return twoDigitsSwapped(v, b.says) ? '' : `a girat board does not show says with two different digits swapped: it shows ${v}, says ${b.says}`;   // contract: spec «Caça l'errada», dues xifres girades (47 per 74)
+}
+
+function partC(m) {
+  const names = ['exam', 'examIn', 'sheet', 'sheetIn', 'PROJECTS', 'BADGES'];
+  const missing = names.filter(n => m[n] === undefined);
+  if (missing.length) { check(false, `C: logic.js does not export ${missing.join(', ')}`); return; }
+  const { PROJECTS, BADGES } = m;
+  const snap = x => JSON.stringify(x);
+  const sameC = (name, got, want) => check(isDeepStrictEqual(got, want), `C: ${name}: got ${show(got)}, expected ${show(want)}`);
+  const fixedBefore = snap(PROJECTS);
+  // a progress where circle c is open and so is its exam: the Piscina, the exams before it, and 80 in each project of the circle
+  const examBase = (c, o) => {
+    const notes = Array(9).fill(0); CIRCLE_PROJECTS[c].forEach(i => { notes[i] = 80; });
+    return base({ piscina: true, notes, exams: [0, 1, 2].map(j => j < c), ...o });
+  };
+  // the same list sorted and without repeats, or what is wrong with it
+  const asSet = a => Array.isArray(a) && a.every(int) && new Set(a).size === a.length ? [...a].sort((x, y) => x - y) : null;
+  const sharing = (p, out) => out.prog === p || ['secs', 'notes', 'exams'].some(k => out.prog[k] === p[k]);
+
+  sectionC('the exam', () => {
+    // contract: spec «L'examen» and «Com es comprova»: six questions from the projects of the circle, at least one of each project, all solvable, 200 exams per circle
+    for (let c = 0; c < 3; c++) {
+      const rnd = seeded(20261100 + c), exams = Array.from({ length: 200 }, () => m.exam(c, rnd));
+      propertyC(`exam(${c}): six different questions, all fixed ones of a project of the circle, one at least of each project`, exams, qs => {
+        if (!Array.isArray(qs) || qs.length !== 6) return `${Array.isArray(qs) ? qs.length : 'not a list'} questions, expected 6`;   // contract: spec «L'examen», sis operacions
+        const keys = new Set(), seen = new Set();
+        for (const q of qs) {
+          if (!q || typeof q !== 'object' || !int(q.p)) return `a question without p (${show(q)})`;
+          if (!CIRCLE_PROJECTS[c].includes(q.p)) return `a question of project ${q.p}, which is not in circle ${c}`;
+          const { p, ...rest } = q, P = PROJECTS[p];
+          if (!P || !Array.isArray(P.ex) || !P.ex.flat().some(f => isDeepStrictEqual(f, rest))) return `a question that is not one of the 15 of project ${p}: ${show(rest)}`;   // contract: plan Task 5, totes de les 15 fixes d'algun projecte del cercle
+          if (rest.q !== undefined) { const v = evaluate(rest.q); if (v.problems.length) return `${rest.q}: ${v.problems.join()}`; }
+          keys.add(key(rest)); seen.add(p);
+        }
+        if (keys.size !== 6) return `${keys.size} different questions, expected 6`;
+        const lack = CIRCLE_PROJECTS[c].filter(p => !seen.has(p));
+        return lack.length ? `no question of project ${lack.join()}` : '';   // contract: spec «L'examen», almenys una de cada projecte
+      });
+      const kinds = new Set(exams.map(snap)).size;
+      check(kinds > 20, `C: 200 exams of circle ${c} are only ${kinds} different ones`);
+      sameC(`exam(${c}) with the same random generator twice`, m.exam(c, seeded(5)), m.exam(c, seeded(5)));   // contract: spec «Fitxers», l'atzar entra per rnd
+    }
+    check(snap(PROJECTS) === fixedBefore, 'C: exam changed PROJECTS (it must copy a question before adding p)');
+  });
+
+  sectionC('examIn', () => {
+    // contract: spec «L'examen» and «XP»: 5 of 6 pass it, 50 XP once, a passed exam is never lost, a closed circle passes nothing; redo names the projects of the missed questions
+    const runs = Array.from({ length: 64 }, (_, k) => Array.from({ length: 6 }, (_, i) => !!(k >> i & 1)));
+    const cases = [];
+    for (let c = 0; c < 3; c++) { const qs = m.exam(c, seeded(300 + c)); runs.forEach(run => cases.push({ c, qs, run })); }
+    propertyC('examIn on the 64 runs of six, in each circle, with its exam open', cases, ({ c, qs, run }) => {
+      const p = examBase(c), before = snap(p), out = m.examIn(p, c, qs, run);
+      const score = run.filter(Boolean).length, good = score >= 5;   // contract: spec «L'examen», se supera amb 5 de 6
+      if (snap(p) !== before) return 'examIn changed its progress';
+      if (!out || snap(Object.keys(out).sort()) !== snap(['gain', 'good', 'news', 'prog', 'redo', 'score'])) return `the keys are ${out && Object.keys(out).sort()}, expected gain, good, news, prog, redo, score`;
+      if (out.score !== score) return `score is ${out.score}, expected ${score}`;
+      if (out.good !== good) return `good is ${out.good}, expected ${good}`;
+      if (out.gain !== (good ? 50 : 0)) return `gain is ${out.gain}, expected ${good ? 50 : 0}`;   // contract: spec «XP», examen 50, un cop
+      const want = { ...p, exams: p.exams.map((e, j) => j === c ? good : e) };
+      if (snap(out.prog) !== snap(want)) return `prog is ${snap(out.prog)}, expected ${snap(want)}`;
+      const redo = asSet(out.redo), missed = [...new Set(qs.filter((_, i) => !run[i]).map(q => q.p))].sort((a, b) => a - b);
+      if (!redo || snap(redo) !== snap(missed)) return `redo is ${show(out.redo)}, expected the projects ${show(missed)} once each`;
+      // contract: spec «XP, nivell i insígnies»: the badge of the three exams is news when this one is the third
+      const news = good && c === 2 ? [BADGES[4].name] : [];
+      return snap(out.news) === snap(news) ? '' : `news is ${show(out.news)}, expected ${show(news)}`;
+    });
+    // hand written: the second circle with 4 of 6 changes nothing; 5 of 6 and 6 of 6 give 50
+    const qs1 = m.exam(1, seeded(11)), p1 = examBase(1);
+    const four = m.examIn(p1, 1, qs1, [true, false, true, true, false, true]);
+    check(four.good === false && four.score === 4 && four.gain === 0 && snap(four.prog) === snap(p1), `C: examIn with 4 of 6: good ${four.good}, score ${four.score}, gain ${four.gain}, prog ${snap(four.prog)}; expected false, 4, 0 and the same progress`);   // contract: plan Task 5, amb 4 no canvia res
+    const five = m.examIn(p1, 1, qs1, [true, true, true, false, true, true]);
+    check(five.good === true && five.score === 5 && five.gain === 50 && five.prog.exams.join() === 'true,true,false', `C: examIn with 5 of 6: good ${five.good}, score ${five.score}, gain ${five.gain}, exams ${five.prog.exams}; expected true, 5, 50 and true,true,false`);   // contract: plan Task 5, amb 5 o 6 encerts posa exams[c] a cert i dona 50 XP
+    const six = m.examIn(p1, 1, qs1, Array(6).fill(true));
+    check(six.score === 6 && six.gain === 50 && six.good === true && six.prog.exams[1] === true, `C: examIn with 6 of 6: score ${six.score}, gain ${six.gain}, exams ${six.prog.exams}; expected 6, 50 and exams[1] true`);
+    // the third exam completes the three: news carries the badge, once
+    const third = m.examIn(examBase(2), 2, m.exam(2, seeded(12)), Array(6).fill(true));
+    sameC('examIn that passes the third exam: news', third.news, [BADGES[4].name]);   // contract: spec «XP, nivell i insígnies», els tres exàmens
+    // a passed exam is not lost and gives nothing a second time, whatever the new run
+    for (let c = 0; c < 3; c++) {
+      const had = examBase(c, { exams: [0, 1, 2].map(j => j <= c) }), qs = m.exam(c, seeded(20 + c));
+      [Array(6).fill(false), [false, false, false, false, true, true], Array(6).fill(true)].forEach(run => {
+        const out = m.examIn(had, c, qs, run);
+        check(out.prog.exams[c] === true && snap(out.prog) === snap(had) && out.gain === 0 && snap(out.news) === '[]', `C: examIn of the exam ${c} that was passed, with ${run.filter(Boolean).length} right: exams ${out.prog.exams}, gain ${out.gain}, news ${snap(out.news)}; expected it still passed, gain 0, no news and the same progress`);   // contract: spec «L'examen», un examen superat no es perd mai
+      });
+    }
+    // a closed circle passes nothing, even with all the marks at 80
+    [[0, examBase(0, { piscina: false })], [1, examBase(1, { exams: [false, false, false] })], [2, examBase(2, { exams: [true, false, false] })]].forEach(([c, closed]) => {
+      const out = m.examIn(closed, c, m.exam(c, seeded(30 + c)), Array(6).fill(true));
+      check(out.good === false && out.gain === 0 && out.prog.exams[c] === false && snap(out.prog) === snap(closed), `C: examIn with circle ${c} closed and 6 of 6: good ${out.good}, gain ${out.gain}, exams ${out.prog.exams}; expected false, 0 and exams[${c}] false`);   // contract: plan Task 5, amb el cercle tancat no es dona per superat
+    });
+    // nothing is shared with the progress that was given
+    const p = examBase(0, { secs: [10, 3, 0, 0, 0, 0], fulls: 2, so: false }), before = snap(p), q0 = m.exam(0, seeded(40));
+    const out = m.examIn(p, 0, q0, Array(6).fill(true));
+    check(!sharing(p, out), 'C: examIn returns a progress that shares an object or a list with the one it was given');
+    out.prog.notes[0] = 1; out.prog.exams[1] = true; out.prog.secs[0] = 0;
+    check(snap(p) === before, 'C: a change in the progress that examIn returns changed the one it was given');
+    sameC('examIn carries the rest of the progress over', (({ so, secs, piscina, notes, fulls }) => ({ so, secs, piscina, notes, fulls }))(m.examIn(p, 0, q0, Array(6).fill(true)).prog), { so: false, secs: [10, 3, 0, 0, 0, 0], piscina: true, notes: p.notes, fulls: 2 });
+  });
+
+  sectionC('the sheet', () => {
+    // contract: spec «Caça l'errada» and «Com es comprova»: three boards, from 0 to 2 bad, each bad one of the three kinds, a good one shows its number and a bad one does not
+    const rnd = seeded(20261200), sheets = Array.from({ length: 200 }, () => m.sheet(rnd));
+    propertyC('sheet: three tidy boards of three columns, from 0 to 2 bad, each one reads as its kind says', sheets, s => {
+      if (!Array.isArray(s) || s.length !== 3) return `${Array.isArray(s) ? s.length : 'not a list'} boards, expected 3`;   // contract: spec «Caça l'errada», tres àbacs
+      for (const [i, b] of s.entries()) { const why = boardProblem(b); if (why) return `board ${i}: ${why}`; }
+      const bads = s.filter(b => b.bad !== null).length;
+      if (bads > 2) return `${bads} bad boards, expected 0 to 2`;   // contract: spec «Caça l'errada», de cap a dos estan malament
+      const objs = new Set(s.flatMap(b => [b.rods, ...b.rods]));
+      return objs.size === 12 ? '' : 'two boards share a list or a column';
+    });
+    const kinds = new Set(sheets.flatMap(s => s.map(b => b.bad)).filter(Boolean));
+    check(KINDS.every(k => kinds.has(k)), `C: in 200 sheets the kinds that come out are ${show([...kinds])}, expected veïna, dalt and girat`);   // contract: plan Task 5, en 200 fulls surten els tres tipus
+    const counts = [0, 1, 2].map(n => sheets.filter(s => s.filter(b => b.bad !== null).length === n).length);
+    check(counts.every(x => x > 0), `C: in 200 sheets, the number with 0, 1 and 2 bad boards is ${counts.join(', ')}; none may be 0`);   // contract: plan Task 5, fulls amb 0, 1 i 2 dolents
+    const different = new Set(sheets.map(snap)).size;
+    check(different > 100, `C: 200 sheets are only ${different} different ones`);
+    sameC('sheet with the same random generator twice', m.sheet(seeded(5)), m.sheet(seeded(5)));   // contract: spec «Fitxers», l'atzar entra per rnd
+  });
+
+  sectionC('sheetIn', () => {
+    // contract: spec «Caça l'errada» and «XP»: a sheet with the three right adds 1 to fulls; 10 XP each up to 3 sheets per validated project (from 80), then 0
+    const notesOf = k => Array.from({ length: 9 }, (_, i) => i < k ? 80 + i : 79);   // k projects validated; the others at 79, which is not
+    const hand = [[0, 0, 0], [1, 0, 10], [1, 2, 10], [1, 3, 0], [1, 5, 0], [2, 5, 10], [2, 6, 0], [9, 26, 10], [9, 27, 0]];   // contract: spec «XP», [validated projects, fulls before, XP of this sheet]
+    hand.forEach(([k, fulls, gain]) => {
+      const p = base({ notes: notesOf(k), fulls }), out = m.sheetIn(p, [true, true, true]);
+      check(out.gain === gain && out.prog.fulls === fulls + 1 && out.good === true, `C: sheetIn with 3 right, ${k} projects validated and ${fulls} fulls: gain ${out.gain}, fulls ${out.prog.fulls}, good ${out.good}; expected ${gain}, ${fulls + 1}, true`);
+    });
+    const sweep = [];
+    for (let k = 0; k <= 9; k++) for (let fulls = 0; fulls <= 30; fulls++) sweep.push({ k, fulls });
+    propertyC('sheetIn with three right, for 0 to 9 validated projects and 0 to 30 fulls', sweep, ({ k, fulls }) => {
+      const p = base({ so: false, piscina: true, notes: notesOf(k), exams: [true, false, true], fulls }), before = snap(p), out = m.sheetIn(p, [true, true, true]);
+      if (snap(p) !== before) return 'sheetIn changed its progress';
+      if (!out || snap(Object.keys(out).sort()) !== snap(['gain', 'good', 'missed', 'news', 'prog'])) return `the keys are ${out && Object.keys(out).sort()}, expected gain, good, missed, news, prog`;
+      const gain = fulls < 3 * k ? 10 : 0;   // contract: spec «XP», fins a 3 fulls per projecte validat
+      if (out.good !== true || out.gain !== gain) return `good ${out.good}, gain ${out.gain}, expected true and ${gain}`;
+      if (snap(out.prog) !== snap({ ...p, fulls: fulls + 1 })) return `prog is ${snap(out.prog)}, expected only fulls to grow to ${fulls + 1}`;
+      if (snap(out.missed) !== '[]') return `missed is ${show(out.missed)}, expected []`;
+      const news = [fulls === 0 ? BADGES[1].name : null, fulls === 9 ? BADGES[3].name : null].filter(Boolean);   // contract: spec «XP, nivell i insígnies», un full perfecte i deu fulls perfectes
+      return snap(out.news) === snap(news) ? '' : `news is ${show(out.news)}, expected ${show(news)}`;
+    });
+    // anything else adds nothing, and missed says which boards were not right
+    const wrong = [[false, true, true], [true, false, true], [true, true, false], [false, false, true], [false, true, false], [true, false, false], [false, false, false]];
+    wrong.forEach(run => {
+      const p = base({ notes: notesOf(3), fulls: 4 }), out = m.sheetIn(p, run), want = run.flatMap((r, i) => r ? [] : [i]);
+      check(out.good === false && out.gain === 0 && snap(out.prog) === snap(p) && snap(out.missed) === snap(want) && snap(out.news) === '[]', `C: sheetIn with ${snap(run)}: good ${out.good}, gain ${out.gain}, fulls ${out.prog.fulls}, missed ${snap(out.missed)}, news ${snap(out.news)}; expected false, 0, 4, ${snap(want)} and no news`);   // contract: plan Task 5, amb qualsevol altra cosa no suma i missed diu quins
+    });
+    [[true, true, 1], [true, true, 'true'], [true, true, null], [true, true], []].forEach(run => {
+      const p = base({ notes: notesOf(3), fulls: 4 }), out = m.sheetIn(p, run);
+      check(out.good === false && out.gain === 0 && out.prog.fulls === 4, `C: sheetIn with ${snap(run)}, which is not three booleans all true: good ${out.good}, gain ${out.gain}, fulls ${out.prog.fulls}; expected false, 0, 4`);   // contract: plan Task 5, amb qualsevol altra cosa no suma
+    });
+    // nothing is shared with the progress that was given
+    const p = base({ so: false, secs: [10, 3, 0, 0, 0, 0], piscina: true, notes: notesOf(2), exams: [true, false, false], fulls: 1 }), before = snap(p);
+    const out = m.sheetIn(p, [true, true, true]);
+    check(!sharing(p, out), 'C: sheetIn returns a progress that shares an object or a list with the one it was given');
+    out.prog.notes[0] = 1; out.prog.exams[1] = true; out.prog.secs[0] = 0;
+    check(snap(p) === before, 'C: a change in the progress that sheetIn returns changed the one it was given');
+  });
+}
+
 // ---- the logic under check
 const target = process.argv[2] ? pathToFileURL(resolve(process.argv[2])) : new URL('../games/abac-xines/logic.js', import.meta.url);
 let mod = null;
 try { mod = await import(target); } catch (e) { check(false, `the logic cannot be loaded: ${e.message}`); }
-if (mod) for (const part of [partA, partB]) {
+if (mod) for (const part of [partA, partB, partC]) {
   try { part(mod); } catch (e) { check(false, `${part.name} stopped on ${e.message}`); }
 }
 
