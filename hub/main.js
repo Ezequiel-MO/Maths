@@ -61,6 +61,66 @@ $('adder').onsubmit = e => {
   render();
   // focus goes to the name (it takes no tap, unlike a card or Canvia) or back to the box that still needs fixing
   if (bad) $('nom').focus(); else $('name').focus({ preventScroll: true });
+  if (id && who !== null) sync();   // a profile added with a session open goes up at once
 };
 
+// The adult's account. cloud.js is loaded after the first paint (never statically: Firebase must not delay the hub) and its
+// button exists only when there is a Firebase config. who is the account name, or null with no session
+let cloud = null, who = null, busy = 0, tail = Promise.resolve();
+let btn, acct, err;
+
+// the button is disabled while anything is in flight; its label follows the session
+function paint() {
+  btn.disabled = busy > 0;
+  btn.textContent = who === null ? 'Desa el progrés al núvol' : 'Tanca la sessió';
+  acct.textContent = who || '';   // an account name can be anything: text only
+  acct.hidden = !who;
+}
+
+async function refresh() { const s = await cloud.session(); who = s ? s.name : null; }
+
+// one syncAll after another (a second call during a run would be given the run that is already going); the hub is repainted
+// only when the device changed, and the sync path never moves the focus
+function sync() {
+  busy++; paint();
+  return tail = tail.then(() => cloud.syncAll()).then(changed => { if (changed) render(); }, () => {}).finally(() => { busy--; paint(); });
+}
+
+function mount() {
+  const foot = document.createElement('div');
+  btn = document.createElement('button'); acct = document.createElement('span'); err = document.createElement('p');
+  foot.className = 'cloud'; btn.className = 'btn'; btn.type = 'button'; acct.className = 'acct';
+  err.className = 'bad'; err.setAttribute('role', 'alert'); err.hidden = true;
+  err.textContent = "No s'ha pogut entrar. Torna-ho a provar.";
+  btn.onclick = async () => {
+    if (busy) return;
+    busy++; err.hidden = true; paint();   // disabled before the first await: a double tap opens one popup
+    try {
+      if (who === null) {
+        const ok = await cloud.signIn();
+        if (ok) await refresh();
+        if (ok && who !== null) await sync(); else err.hidden = false;
+      } else {
+        await cloud.signOut();   // nothing on the device is erased
+        await refresh();
+      }
+    } catch (e) {}
+    busy--; paint();
+  };
+  foot.append(btn, acct, err);
+  document.querySelector('main').append(foot);
+}
+
+async function start() {
+  try {
+    const c = await import('../shared/cloud.js');
+    if (!c.enabled) return;
+    cloud = c;
+    await refresh();   // the button waits for the answer, so it never shows the wrong label
+    mount(); paint();
+    if (who !== null) await sync();
+  } catch (e) {}
+}
+
 render();
+start();

@@ -314,6 +314,15 @@ section('save: the document write fails', () => {   // review N1
   for (const sel of ['.me .btn', '.who .btn', '.adder input']) check(minHeight(sel) >= 44, `style.css: ${sel} has min-height ${minHeight(sel)}px, under 44`);   // contract: Task 3 brief, no control under 44 px
   check(/seen === 'who'\)? \{[^}]*classList\.add\('wait'\)[^}]*setTimeout\([^}]*classList\.remove\('wait'\)/.test(main) && /seen = /.test(main), 'main.js: the tap guard is not set only when the view changes from «Qui juga?», or is not removed by a timer');   // contract: fix round 1 Important 1, a double tap on Fet landed on the card under the finger
   check(/\.games\.wait\s*\{[^}]*pointer-events:\s*none/.test(css), 'style.css: .games.wait does not turn pointer-events off');   // contract: fix round 1 Important 1
+  // the account button (Task 5): present only with a Firebase config, loaded after the first paint, texts and sizes fixed
+  check(!/^\s*import\b[^;]*cloud\.js/m.test(main) && !/^\s*export\b[^;]*from\s*['"][^'"]*cloud\.js/m.test(main), 'main.js: cloud.js is imported statically, Firebase would delay the hub');   // contract: Task 5 decision 1, import() after the first paint
+  check(/import\(\s*['"]\.\.\/shared\/cloud\.js['"]\s*\)/.test(main), 'main.js: cloud.js is not loaded with import()');   // contract: Task 5 decision 1
+  check(!html.includes('Desa el progrés al núvol') && !html.includes('Tanca la sessió'), 'index.html: the account button is in the page, it must not exist without a config');   // contract: Task 5 decision 2 and plan rule «Si enabled és false, el botó no existeix a la pàgina»
+  for (const t of ['Desa el progrés al núvol', 'Tanca la sessió', "No s'ha pogut entrar. Torna-ho a provar."]) check(main.includes(`'${t}'`) || main.includes(`"${t}"`), `main.js: the text «${t}» is missing`);   // contract: Task 5 decision 3, the three screen texts
+  check(/\bacct\.textContent = /.test(main), 'main.js: the account name is not written with textContent');   // contract: Task 5 decision 3, textContent only
+  check(minHeight('.cloud .btn') >= 44, `style.css: .cloud .btn has min-height ${minHeight('.cloud .btn')}px, under 44`);   // contract: Task 5 decision 7, the account button is at least 44 px
+  check(/btn\.onclick = async \(\) => \{\s*if \(busy\) return;\s*busy\+\+;[^;]*;\s*paint\(\);/.test(main) && /btn\.disabled = busy > 0/.test(main), 'main.js: the account button is not disabled synchronously at the start of its click handler');   // contract: Task 5 decision 4, a double tap opens one popup
+  check(/\.then\(changed => \{ if \(changed\) render\(\); \}/.test(main) && !/\.focus\(/.test(/function sync\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '.focus('), 'main.js: sync() does not repaint only when syncAll returned true, or it moves the focus');   // contract: Task 5 decision 6
 }
 
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }
