@@ -100,14 +100,16 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 /* a screen on its side (a phone, a laptop): the head over the tail on the left, the stage the whole height on the right. Both are auto rows
    that share what is left, the head sits at the bottom of its row and the tail at the top of its own, so they stay together in the middle;
    the stage spans both rows (it adds its minimum to them, so the rows are never shorter than the board at the floor), and it is stretched
-   because the rest of #joc centres its children. */
+   because the rest of #joc centres its children. The stage is never taller than what the screen shows under the row of the back button
+   (80px: the 38px of #app, and the 30px of that row with its 12px gap), whatever the left column needs: when the head and the tail do not
+   fit the screen the page scrolls for them, the board keeps the size the screen gives it and stays in view (sticky) while they pass. */
 @media (orientation: landscape) {
   #app.wide { max-width: 900px; }
   #app.wide header { display: none; }
   #joc.lvl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; column-gap: 24px; justify-items: center; }
   #joc.lvl > .head { grid-area: 1 / 1; align-self: end; padding-bottom: 6px; }
   #joc.lvl > .tail { grid-area: 2 / 1; align-self: start; padding-top: 6px; }
-  #joc.lvl > .stage { grid-area: 1 / 2 / 3 / 3; align-self: stretch; max-height: none; }
+  #joc.lvl > .stage { grid-area: 1 / 2 / 3 / 3; align-self: stretch; max-height: calc(100dvh - 80px); position: sticky; top: 14px; }
   .head, .tail { gap: 8px; }
 }
 /* and when it is short as well, the left column spends less */

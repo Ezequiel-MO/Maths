@@ -854,7 +854,7 @@ function partD() {
     if (boardText === null) return;
     const code = boardText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
     for (const call of ['document.querySelector', 'document.getElementById', 'document.querySelectorAll']) check(!code.includes(call), `D: board.js uses ${call}, which finds a board's pieces in whatever board is first on the page (the sheet has three)`);   // contract: plan Task 8, diversos àbacs alhora a la mateixa pantalla
-    for (const prop of ['--board-min', '--board-max']) check(code.includes(`setProperty('${prop}'`), `D: board.js does not set ${prop} on its host, so the stylesheet cannot keep the stage from being smaller than the board`);   // contract: plan Task 8 (fix round 3), l'escenari no pot ser mai més petit que l'àbac a la mida mínima
+    for (const prop of ['--board-min', '--board-max']) check(new RegExp(`setProperty\\(\\s*(['"\`])${prop}\\1`).test(code), `D: board.js does not set ${prop} on its host, so the stylesheet cannot keep the stage from being smaller than the board`);   // contract: plan Task 8 (fix round 3), l'escenari no pot ser mai més petit que l'àbac a la mida mínima
   });
   // what keeps the measuring of the board independent of the board: the stage has no size of its own from its content (contain: size), is never
   // smaller than the board at its floor, and when the screen is on its side is stretched over both rows of the left column (its own box)
@@ -867,6 +867,12 @@ function partD() {
     check(base.some(r => /min-height:\s*var\(--board-min\b/.test(r.body)), 'D: the .stage rule of style.css has no `min-height: var(--board-min…)`: on a small screen the board would cover the buttons instead of the page growing');   // contract: plan Task 8 (fix round 3), regla 1 i 2
     check(base.some(r => /max-height:\s*var\(--board-max\b/.test(r.body)), 'D: the .stage rule of style.css has no `max-height: var(--board-max…)`: on a tall screen the buttons would float far from the board');   // contract: plan Task 8 (fix round 3), regla 7
     check(side.some(r => /align-self:\s*stretch\b/.test(r.body)), 'D: the `#joc.lvl > .stage` rule of style.css has no `align-self: stretch`: on a screen on its side the stage would be as tall as the board and measure itself');   // contract: plan Task 8 (fix round 2), regla 3
+    check(side.some(r => /max-height:\s*calc\(\s*100dvh\s*-/.test(r.body)), 'D: the `#joc.lvl > .stage` rule of style.css has no `max-height: calc(100dvh - …)`: on a screen on its side a left column taller than the screen would make the stage, and the board, taller than the screen');   // contract: sizing contract of Task 8, rule 8 (fix round 4)
+    check(side.some(r => /position:\s*sticky\b/.test(r.body)), 'D: the `#joc.lvl > .stage` rule of style.css has no `position: sticky`: when the page scrolls for a tall left column the board would go out of view');   // contract: sizing contract of Task 8, rule 8 (fix round 4)
+    // the two columns are for every screen on its side: the @media block that holds the grid of #joc.lvl names the orientation and nothing else
+    const grid = /#joc\.lvl\s*\{[^}]*display:\s*grid\b/.exec(css), medias = grid ? [...css.slice(0, grid.index).matchAll(/@media([^{]*)\{/g)] : [];
+    const query = medias.length ? medias[medias.length - 1][1].replace(/\s+/g, ' ').trim() : '';
+    check(/^\(\s*orientation:\s*landscape\s*\)$/.test(query), `D: the grid of #joc.lvl in style.css is under «@media ${query}», expected «@media (orientation: landscape)» alone: with a limit of height the laptop windows fall back to one column and the board is left at the floor`);   // contract: sizing contract of Task 8, rule 6 (fix round 3)
   });
 }
 // the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call
