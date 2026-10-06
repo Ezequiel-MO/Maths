@@ -188,7 +188,7 @@ await section('failures', async () => {
 
 // ---- 7. another account on the same device
 await section('other account', async () => {
-  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('a', { n: 1 }); await cloud.syncAll();
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('a', { n: 1, m: 9 }); await cloud.syncAll();
   check(synced(mark(A, 'xavi:a'), 5000), 'synced as U1');
   await cloud.signOut();
   check(await cloud.session() === null && await cloud.syncAll() === false && A.getItem('compte') === 'U1', 'signed out: no session, no sync, compte kept');
@@ -196,7 +196,7 @@ await section('other account', async () => {
   auth.next = U('U2'); await cloud.signIn();
   const r = await cloud.syncAll();
   check(A.getItem('compte') === 'U2', 'compte is the new account');   // contract: spec amendment «Canvi de compte»
-  check(A.getItem('xavi:a') === J({ n: 77 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 77 }, at: 100 }) && synced(mark(A, 'xavi:a'), 100), `the marks of U1 are void: the device's save and U2's document are joined (the larger n), and the join equals U2's, so it is pulled and nothing is sent (${A.getItem('xavi:a')})`);   // contract: spec amendment: all documents pending without a base; plan «El progrés no baixa mai», tasca 3: a pending document and a different cloud one are merged (was: the newer at went up)
+  check(A.getItem('xavi:a') === J({ n: 77, m: 9 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 77, m: 9 }, at: 5001 }) && synced(mark(A, 'xavi:a'), 5001), `the marks of U1 are void: the device's {n:1, m:9} and U2's {n:77} are joined and the join goes up with a new at, so U2 does not lose m (${A.getItem('xavi:a')} ${J(C.docs.get('users/U2/profiles/xavi/games/a'))})`);   // contract: spec amendment: all documents pending without a base; plan «El progrés no baixa mai», tasca 3: a pending document and a different cloud one are merged (was: the newer at went up); revisió de la tasca 3, Important 2: with the marks of U1 left as synced, the device would take {n:77} and lose m
   check(r === true && P.profiles().some(p => p.id === 'nil'), 'the profile U2 has is added');
 });
 
@@ -322,8 +322,8 @@ await section('join: two devices without network', async () => {
   const { pa, pb } = await twin({ secs: [0, 0] });
   t = 2000; on(A); pa.save('g', { secs: [5, 0] }); t = 3000; on(B); pb.save('g', { secs: [0, 7] });
   check(pend(mark(A, 'xavi:g'), 2000, 1000) && pend(mark(B, 'xavi:g'), 3000, 1000), 'setup: both pending over the same base');
-  on(A); await cloud.syncAll();
-  on(B); await cloud.syncAll();
+  on(A); check(await cloud.syncAll() === false, 'A only sent: syncAll is false');
+  on(B); check(await cloud.syncAll() === true, 'B joined the cloud copy and its document changed: syncAll is true');   // contract: revisió de la tasca 3, Minor 4 (the hub repaints on this value)
   check(B.getItem('xavi:g') === J({ secs: [5, 7] }) && synced(mark(B, 'xavi:g'), 3001), `B joins and sends: [5, 7] (${B.getItem('xavi:g')} ${J(mark(B, 'xavi:g'))})`);
   on(A); const before = atm(A, 'xavi:g'); await cloud.syncAll();
   check(A.getItem('xavi:g') === J({ secs: [5, 7] }) && B.getItem('xavi:g') === J({ secs: [5, 7] }) && J(game('xavi', 'g')) === J({ data: { secs: [5, 7] }, at: 3001 }), `both and the cloud have [5, 7] (${A.getItem('xavi:g')} ${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
@@ -349,6 +349,42 @@ await section('join: the sound follows the newer copy, whichever side runs the j
   t = 2000; on(B); pb.save('g', { so: true, secs: [5] }); await cloud.push('xavi', 'g'); t = 3000; on(A); pa.save('g', { so: false, secs: [1] });
   await cloud.syncAll();
   check(A.getItem('xavi:g') === J({ so: false, secs: [5] }) && J(game('xavi', 'g').data) === J({ so: false, secs: [5] }), `syncAll, device newer: its sound wins (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+});
+
+await section('join: the save that lands during the read of a send', async () => {
+  const { pa, pb } = await twin({ so: true, secs: [10] });
+  t = 2000; on(B); pb.save('g', { so: true, secs: [30] }); await cloud.push('xavi', 'g');
+  t = 3000; on(A); pa.save('g', { so: false, secs: [10] });
+  let done = false;
+  C.hook = op => { if (op === 'get' && !done) { done = true; t = 4000; pa.save('g', { so: false, secs: [11] }); } };   // the same old page saves again while the first send reads the cloud
+  C.log.length = 0; await cloud.push('xavi', 'g'); C.hook = null;
+  check(sets().length === 0 && J(game('xavi', 'g')) === J({ data: { so: true, secs: [30] }, at: 2000 }), `the first send does not write: its entry was saved again meanwhile (${J(C.log)} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 1
+  await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ so: false, secs: [30] }) && A.getItem('xavi:g') === J({ so: false, secs: [30] }), `the push of the second save leaves the cloud and A at [30] (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 1
+});
+
+await section('join: a forced send reads the cloud too', async () => {
+  const { pa } = await twin({ so: true, secs: [10] });
+  t = 3000; on(A); pa.save('g', { so: false, secs: [10] });   // pending over base 1000
+  // syncAll lists the cloud still at base ('push'); before the forced send reads it, another device writes [30]
+  C.hook = op => { if (op === 'get') { C.docs.set('users/U1/profiles/xavi/games/g', { data: { so: true, secs: [30] }, at: 2000 }); C.hook = null; } };
+  await cloud.syncAll();
+  check(J(game('xavi', 'g')) === J({ data: { so: false, secs: [30] }, at: 3001 }) && A.getItem('xavi:g') === J({ so: false, secs: [30] }), `a forced send does not step on what landed after the listing (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 3
+});
+
+await section('join: a tie of at, and a cloud at that is not a number', async () => {
+  const setup = (data, at) => {
+    reset('U1'); C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/g', { data: { so: true, secs: [2] }, at });
+    P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); A.setItem('xavi:g', J(data)); A.setItem('sync', J({ 'xavi:g': { at: 6000, base: 1000, pending: true } }));
+  };
+  // the same at on both: the cloud copy is the newer one for the sound (a tie goes to the cloud)
+  setup({ so: false, secs: [1] }, 6000); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ so: true, secs: [2] }) && J(game('xavi', 'g').data) === J({ so: true, secs: [2] }), `syncAll, equal at: the sound of the cloud copy (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 6; sync.js: aNewer is local.at > remote.at
+  setup({ so: false, secs: [1] }, 6000); await cloud.push('xavi', 'g');
+  check(A.getItem('xavi:g') === J({ so: true, secs: [2] }) && J(game('xavi', 'g').data) === J({ so: true, secs: [2] }), `push, equal at: the sound of the cloud copy (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 6
+  // a cloud document whose at is not a number is written over as before, not merged
+  setup({ so: false, secs: [1] }, '7'); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { so: false, secs: [1] }, at: 6000 }), `push over a cloud document with a text at writes the entry as before (${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 7; plan, tasca 3: «el seu at no és un nombre finit → escriu com ara»
 });
 
 await section('join: a migrated document, in either order', async () => {

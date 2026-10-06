@@ -87,8 +87,8 @@ export async function push(profile, game) {
   } catch (e) {}
 }
 
-// Settles every profile and game between the device and the cloud. True when the device changed (a profile added or a document
-// pulled), false when nothing did, and false when it failed before anything changed. Overlapping calls share one run
+// Settles every profile and game between the device and the cloud. True when the device changed (a profile added, a document
+// pulled or a document merged), false when nothing did, and false when it failed before anything changed. Overlapping calls share one run
 let running = null;
 export function syncAll() {
   if (!enabled) return Promise.resolve(false);
