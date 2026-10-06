@@ -73,7 +73,11 @@ export function save(id, data) {
   const key = doc(p, id), prev = marks()[key];
   // mark first: a changed document over a mark that says synced would never be sent
   if (!setMark(key, { at: Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0), base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
-  if (set(key, s)) return;
+  if (set(key, s)) {
+    // the document stuck: send it without waiting; the cloud code is only loaded in a browser, never under Node
+    if (typeof window !== 'undefined') import('./cloud.js').then(m => m.push(p, id)).catch(() => {});
+    return;
+  }
   // the old document stays, so its old mark must too: pending over it could push a stale copy over newer cloud progress.
   // If this restore fails as well, the state is the pending mark over the old document
   const m = marks();
