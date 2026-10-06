@@ -1,8 +1,8 @@
 // in-memory Firestore: path -> data. C.hook(op, path, data) (op is 'list', 'get' or 'set') may throw (a network error) or return a promise (a slow request)
 // before the op happens. setDoc refuses what the real one refuses: undefined values and arrays inside arrays.
 (globalThis.__fakeLoaded ||= []).push('firestore');
-export const C = globalThis.__cloud = { docs: new Map(), log: [], hook: null };
-const tick = () => new Promise(r => setTimeout(r, 1));
+export const C = globalThis.__cloud = { docs: new Map(), log: [], hook: null, delay: 1 };
+const tick = () => new Promise(r => setTimeout(r, C.delay));
 export const getFirestore = () => ({});
 export const collection = (db, ...seg) => ({ path: seg.join('/') });
 export const doc = (db, ...seg) => ({ path: seg.join('/') });
