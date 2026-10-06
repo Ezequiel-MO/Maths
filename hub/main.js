@@ -13,7 +13,8 @@ let seen = null;
 // Reasons: tap, 500 ms after its buttons were rebuilt where a finger may still be; cloud, the first sync of the page has not answered.
 // «Qui juga?» gates only its list of profiles, so the name box and Fet stay usable
 const gates = { games: { el: list }, who: { el: $('profiles') } };
-const gate = g => { g.el.inert = !!(g.tap || g.cloud); };
+// the attribute, not the property: where inert is not known the property is a plain one and the [inert] rule of style.css never matches
+const gate = g => { g.el.toggleAttribute('inert', !!(g.tap || g.cloud)); };
 // a running tap hold is never cancelled or shortened, only extended
 function hold(g, ms) {
   const end = Date.now() + ms;
@@ -112,8 +113,11 @@ function mount() {
     try {
       if (who === null) {
         const ok = await cloud.signIn();
-        if (ok) await refresh();
-        if (ok && who !== null) await sync(); else err.hidden = false;
+        if (ok) lock();   // the device may be stale: the cards wait for this sync as they did for the first one
+        try {
+          if (ok) await refresh();
+          if (ok && who !== null) await sync(); else err.hidden = false;
+        } finally { unlock(); }
       } else {
         await cloud.signOut();   // nothing on the device is erased
         await refresh();
@@ -131,6 +135,7 @@ let cap = 0;
 function lock() {
   if (navigator.onLine === false) return;
   gates.games.cloud = true; gate(gates.games);
+  clearTimeout(cap);
   cap = setTimeout(unlock, 4000);
 }
 function unlock() { if (!gates.games.cloud) return; clearTimeout(cap); gates.games.cloud = false; gate(gates.games); }
