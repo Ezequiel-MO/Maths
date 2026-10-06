@@ -11,9 +11,15 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 /* inside a level the big title gives its height to the abacus */
 #app.wide h1 { display: none; }
 #joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
-/* inside a level the page is exactly one screen tall, so the stage can be measured: it is what is left once the others have their height */
-#app.wide { height: calc(100dvh - 38px); }
-#app.wide #joc { flex: 1 1 0; min-height: 0; margin-bottom: 0; }
+/* A level is three blocks: the head (level, tip, operation), the stage (the box the board measures) and the tail (the buttons).
+   The page is at least one screen tall and #joc takes what the title leaves. The stage takes what the head and the tail leave but never
+   less than the board at the floor of its size (--board-min, set by board.js) and, in one column, never more than the board itself
+   (--board-max): so on a screen that is too small the page grows and scrolls instead of the board covering the buttons, and on a big
+   one the buttons stay under the board. `contain: size` keeps the board out of the stage's own size, which is what makes the
+   measuring come out the same whatever size the board had before. */
+#app.wide #joc { flex: 1 1 0; margin-bottom: 0; justify-content: center; }
+.head > .levels { flex: none; }
+.head, .tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .status { font-weight: 800; }
 
@@ -23,7 +29,7 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 
 /* the abacus: a rosewood frame with a gold inlay around a dark well. Each column is a rod; the beads are buttons placed by --s,
    the slot they sit in, counted from the top of their deck. A bead that counts is lit like a lantern. */
-.stage { position: relative; width: 100%; flex: 1 1 0; min-height: 0; display: grid; justify-items: center; }
+.stage { position: relative; width: 100%; flex: 1 1 0; min-height: var(--board-min, 0px); max-height: var(--board-max, none); contain: size; display: grid; justify-items: center; }
 .abacus {
   --u: 28px;   /* until board.js has measured the stage */
   position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); margin-block: auto; padding: 14px 14px 8px; border-radius: 26px;
@@ -91,18 +97,21 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   body { padding-bottom: 14px; }
   #app.wide h1 { display: none; }
 }
-/* a phone on its side: the stage takes the whole height on the right, the rest stacks on the left. The stage spans every row of the left
-   column and a last row of its own (the 1fr one) that has the height the others leave, which is what the board measures. */
-@media (orientation: landscape) and (max-height: 520px) {
-  #app { max-width: 900px; }
+/* a screen on its side (a phone, a laptop): the head over the tail on the left, the stage the whole height on the right. Both are auto rows
+   that share what is left, the head sits at the bottom of its row and the tail at the top of its own, so they stay together in the middle;
+   the stage spans both rows (it adds its minimum to them, so the rows are never shorter than the board at the floor), and it is stretched
+   because the rest of #joc centres its children. */
+@media (orientation: landscape) {
+  #app.wide { max-width: 900px; }
   #app.wide header { display: none; }
-  #joc.lvl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, auto) minmax(0, 1fr); gap: 8px 24px; justify-items: center; align-content: stretch; }
-  #joc.lvl > * { grid-column: 1; }
-  /* the stage is stretched (the #joc rule centres the others) and contributes no size of its own to the rows: its box is the grid area,
-     whatever the board inside is doing, which is what makes the measuring the same from any starting size */
-  #joc.lvl .stage { grid-column: 2; grid-row: 1 / -1; width: 100%; align-self: stretch; contain: size; }
-  /* the left column has to fit the 310 or so px that are left: a smaller task line and smaller buttons, and the level row keeps its height */
-  #joc.lvl .levels { min-height: 56px; }
+  #joc.lvl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; column-gap: 24px; justify-items: center; }
+  #joc.lvl > .head { grid-area: 1 / 1; align-self: end; padding-bottom: 6px; }
+  #joc.lvl > .tail { grid-area: 2 / 1; align-self: start; padding-top: 6px; }
+  #joc.lvl > .stage { grid-area: 1 / 2 / 3 / 3; align-self: stretch; max-height: none; }
+  .head, .tail { gap: 8px; }
+}
+/* and when it is short as well, the left column spends less */
+@media (orientation: landscape) and (max-height: 520px) {
   .task { font-size: 1.6rem; }
   .opts .btn { min-height: 40px; }
 }

@@ -66,13 +66,15 @@ function nivell(sec, idx) {
   // stage is how many of the values on the way have been reached. Hint state: how many were asked, the abacus as it stood
   // at the last one (asking again without moving gives the bead away), and what is glowing.
   let rods = write(pl.start, n), stage = 0, asks = 0, seen = '', mark = null, done = false, digits = !!lv.show;
-  root.innerHTML = `<div class="hud"><span class="chip">Nivell ${idx + 1} · ${lv.name}</span></div>
+  // three blocks: what is above the abacus, the stage (the box the board measures) and what is under it. The stylesheet puts them in one
+  // column, or the head and the tail on the left and the stage on the right (a screen on its side)
+  root.innerHTML = `<div class="head"><div class="hud"><span class="chip">Nivell ${idx + 1} · ${lv.name}</span></div>
     ${levelRow(SECTIONS[sec].levels, prog.secs[sec], idx)}
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
-    <p class="task" id="task"></p>
+    <p class="task" id="task"></p></div>
     <div class="stage" id="stage"></div>
-    ${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
-      : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}`;
+    <div class="tail">${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
+      : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}</div>`;
   // the abacus measures the box of the stage by itself (board.js); its state is the rods above
   bd = board($('#stage'), { n, feet: digits ? 'full' : 'letter', tone });
   const ab = bd.el, beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')];

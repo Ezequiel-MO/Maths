@@ -3,7 +3,9 @@
 //
 //   board(host, { n, feet, tone }) -> { el, rods(), set(rods), lock(on), feet(mode), onMove(fn), fit(), bead(p, deck, j), rod(p), stop() }
 //   host   an element that is attached and has a size of its own (its box does not grow with the board: the stylesheet gives it the
-//          rest of the screen). The board is appended to it and fits inside it.
+//          rest of the screen, and `contain: size`). The board is appended to it and fits inside it. fit() leaves two custom properties on
+//          the host for the stylesheet: --board-min (the board at the floor of --u) and --board-max (the board at the most its width allows),
+//          to be used as min-height and, where the host should hug the board, max-height
 //   n      columns, 3 to 5. Place p = 0 is the units, drawn on the right.
 //   feet   'full' (under each column its digit and what it is worth: 4 and 40), 'letter' (U, D, C, UM, DM) or 'none'. The room under the
 //          columns is reserved in all three, so changing the mode never moves the beads.
@@ -66,9 +68,14 @@ export function board(host, { n, feet = 'none', tone } = {}) {
     const was = el.style.getPropertyValue('--u');
     const at = u => { el.style.setProperty('--u', u + 'px'); return el.offsetHeight; };   // a custom property has no unit of its own: calc(var(--u) * 2) needs the px
     const h1 = at(10), h2 = at(30), a = (h2 - h1) / 20, b = h1 - 10 * a, pad = el.offsetWidth - well.offsetWidth;
-    const u = Math.max(MIN, Math.min(MAX, (H - b - SAFE) / a, (W - pad) / (n * KOL)));
+    const uW = Math.max(MIN, Math.min(MAX, (W - pad) / (n * KOL)));   // what the width allows: it does not depend on the height or on how big the board was
+    const u = Math.max(MIN, Math.min(uW, (H - b - SAFE) / a));
     if (!(a > 0) || !Number.isFinite(u)) { was ? el.style.setProperty('--u', was) : el.style.removeProperty('--u'); return false; }
     el.style.setProperty('--u', Math.floor(u * 4) / 4 + 'px');
+    // what the host has to be, for the stylesheet to use: never smaller than the board at the floor (then the page grows, it never overlaps),
+    // and where the host would take the free height of the screen, no taller than the board at the most the width allows (so the buttons stay under it)
+    host.style.setProperty('--board-min', Math.ceil(a * MIN + b + SAFE) + 'px');
+    host.style.setProperty('--board-max', Math.ceil(a * uW + b + SAFE) + 'px');
     return true;
   }
   // runs again only when the box really changed (it is also what a rotation or a resized window does)

@@ -1,6 +1,6 @@
 // Checks the questions of l'àbac before every build: the 9 projects of 3 exercises of 5, the three circles, the pool of the Piscina and the rule of each project
 // (worked out again here with arithmetic of its own: plan only tells what the abacus is asked to show, never what the answer is).
-// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js]   (the paths are for trying the checker itself)
+// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js] [path of a style.css to check instead of games/abac-xines/style.css]   (the paths are for trying the checker itself)
 // One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add the next parts above the footer.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -812,7 +812,7 @@ function partC(m) {
   });
 }
 
-// ---- D. the card of the home page, and the unit of --u in board.js
+// ---- D. the card of the home page, and what board.js and the stylesheet must keep (read as text)
 // what the home page asks of the card: record(load('abac-xines') || {}, total), once per visit. The save is read here by hand, never through clean.
 const sectionD = (name, fn) => { try { fn(); } catch (e) { check(false, `D: ${name} stopped on ${e.message}`); } };
 function partD() {
@@ -849,6 +849,25 @@ function partD() {
       check(px || restores, `D: board.js sets --u to ${arg}, which does not end in px (a bare number makes every calc() with var(--u) invalid and the board collapses)`);   // contract: defect found in the browser, 2026-10-06: --u was set without its unit
     }
   });
+  // a board must work with several on one page: it looks things up inside its own element, never in the document
+  sectionD('board.js looks nothing up in the document', () => {
+    if (boardText === null) return;
+    const code = boardText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    for (const call of ['document.querySelector', 'document.getElementById', 'document.querySelectorAll']) check(!code.includes(call), `D: board.js uses ${call}, which finds a board's pieces in whatever board is first on the page (the sheet has three)`);   // contract: plan Task 8, diversos àbacs alhora a la mateixa pantalla
+    for (const prop of ['--board-min', '--board-max']) check(code.includes(`setProperty('${prop}'`), `D: board.js does not set ${prop} on its host, so the stylesheet cannot keep the stage from being smaller than the board`);   // contract: plan Task 8 (fix round 3), l'escenari no pot ser mai més petit que l'àbac a la mida mínima
+  });
+  // what keeps the measuring of the board independent of the board: the stage has no size of its own from its content (contain: size), is never
+  // smaller than the board at its floor, and when the screen is on its side is stretched over both rows of the left column (its own box)
+  sectionD('the stage in style.css', () => {
+    if (cssText === null) { check(false, `D: style.css cannot be read: ${cssError}`); return; }
+    const rules = [], css = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (let m, re = /(?:^|[{};])\s*([^{}@;]*?\.stage)\s*\{([^}]*)\}/g; (m = re.exec(css));) rules.push({ sel: m[1].trim(), body: m[2] });
+    const base = rules.filter(r => r.sel === '.stage'), side = rules.filter(r => /#joc\.lvl\s*>\s*\.stage$/.test(r.sel));
+    check(base.some(r => /contain:\s*size\b/.test(r.body)), 'D: the .stage rule of style.css has no `contain: size`: the board inside would make the stage as big as the board, and the size it measures would depend on the size it had');   // contract: plan Task 8 (fix rounds 2 and 3), la mesura no pot dependre de la mida anterior de l'àbac
+    check(base.some(r => /min-height:\s*var\(--board-min\b/.test(r.body)), 'D: the .stage rule of style.css has no `min-height: var(--board-min…)`: on a small screen the board would cover the buttons instead of the page growing');   // contract: plan Task 8 (fix round 3), regla 1 i 2
+    check(base.some(r => /max-height:\s*var\(--board-max\b/.test(r.body)), 'D: the .stage rule of style.css has no `max-height: var(--board-max…)`: on a tall screen the buttons would float far from the board');   // contract: plan Task 8 (fix round 3), regla 7
+    check(side.some(r => /align-self:\s*stretch\b/.test(r.body)), 'D: the `#joc.lvl > .stage` rule of style.css has no `align-self: stretch`: on a screen on its side the stage would be as tall as the board and measure itself');   // contract: plan Task 8 (fix round 2), regla 3
+  });
 }
 // the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call
 function uCalls(text) {
@@ -876,9 +895,10 @@ if (mod) for (const part of [partA, partB, partC]) {
   try { part(mod); } catch (e) { check(false, `${part.name} stopped on ${e.message}`); }
 }
 // part D does not need the logic under check: the card is the real one, and board.js is read as text (argv[3] names another file, to try the pin itself)
-let hub = null, boardText = null, boardError = '';
+let hub = null, boardText = null, boardError = '', cssText = null, cssError = '';
 try { hub = await import('../shared/games.js'); } catch (e) { check(false, `D: shared/games.js cannot be loaded: ${e.message}`); }
 try { boardText = readFileSync(process.argv[3] ? resolve(process.argv[3]) : new URL('../games/abac-xines/board.js', import.meta.url), 'utf8'); } catch (e) { boardError = e.message; }
+try { cssText = readFileSync(process.argv[4] ? resolve(process.argv[4]) : new URL('../games/abac-xines/style.css', import.meta.url), 'utf8'); } catch (e) { cssError = e.message; }
 try { partD(); } catch (e) { check(false, `partD stopped on ${e.message}`); }
 
 // ---- footer
