@@ -7,8 +7,21 @@ const list = document.querySelector('.games');
 const stores = [...new Set(GAMES.map(g => g.store))];
 // view state that render() must not lose when it is called again: the name box open or not, and its error
 let adding = false, bad = false;
-// the view painted last ('who', 'games', or null before the first paint) and the timer of the tap guard
-let seen = null, timer = 0;
+// the view painted last ('who', 'games', or null before the first paint)
+let seen = null;
+// Each list a tap could hit is gated: it takes no input (inert stops the keyboard as well as the finger) while any reason holds it.
+// Reasons: tap, 500 ms after its buttons were rebuilt where a finger may still be; cloud, the first sync of the page has not answered.
+// «Qui juga?» gates only its list of profiles, so the name box and Fet stay usable
+const gates = { games: { el: list }, who: { el: $('profiles') } };
+const gate = g => { g.el.inert = !!(g.tap || g.cloud); };
+// a running tap hold is never cancelled or shortened, only extended
+function hold(g, ms) {
+  const end = Date.now() + ms;
+  if (g.tap && end <= g.end) return;
+  g.tap = true; g.end = end; clearTimeout(g.timer);
+  g.timer = setTimeout(() => { g.tap = false; gate(g); }, ms);
+  gate(g);
+}
 
 // one card per game, with what this player has won in it when there is something saved
 function cards() {
@@ -17,22 +30,22 @@ function cards() {
   <span class="txt"><span class="tag">${g.tag}</span><b>${g.title}</b><span class="what">${g.what}</span><span class="rec">${g.record(load(g.store) || {}, g.total)}</span></span></a></li>`).join('');
 }
 
-// paints whichever view the device is in, from profiles() and active(); safe to call at any time
-function render() {
+// paints whichever view the device is in, from profiles() and active(); safe to call at any time. sync is true for a repaint
+// that follows a sync: what it rebuilds may be under a finger, so it is held like a change of view
+function render(sync) {
   const me = active();
+  const changed = !!me && seen === 'who';
   if (!adding) $('nom').value = '';   // text typed in a box that closed must not wait in it for the next time
   $('me').hidden = $('lead').hidden = list.hidden = !me;
   $('who').hidden = !!me;
-  // the games list takes no taps for a moment after «Qui juga?» gives way to it: a double tap on Fet or on a profile
-  // would otherwise land on the card that is then under the finger. Only that change arms it, not a repaint
-  clearTimeout(timer);
-  if (me && seen === 'who') { list.classList.add('wait'); timer = setTimeout(() => list.classList.remove('wait'), 500); }
-  else list.classList.remove('wait');
+  // a double tap on Fet or on a profile would land on the card that is then under the finger, and a sync that adds profiles moves
+  // the buttons: both hold the rebuilt list. The first paint (seen is null) holds nothing, and no render ever lifts a hold
   seen = me ? 'games' : 'who';
   if (me) {
     // names are text, never html: they can come from the cloud
     $('name').textContent = (profiles().find(p => p.id === me) || {}).name || '';
     cards();
+    if (changed || sync) hold(gates.games, 500);
     return;
   }
   list.replaceChildren();
@@ -43,6 +56,7 @@ function render() {
     li.append(b);
     return li;
   }));
+  if (sync) hold(gates.who, 500);
   $('open').hidden = adding;
   $('adder').hidden = !adding;
   $('bad').hidden = !bad;
@@ -83,7 +97,7 @@ async function refresh() { const s = await cloud.session(); who = s ? s.name : n
 // only when the device changed, and the sync path never moves the focus
 function sync() {
   busy++; paint();
-  return tail = tail.then(() => cloud.syncAll()).then(changed => { if (changed) render(); }, () => {}).finally(() => { busy--; paint(); });
+  return tail = tail.then(() => cloud.syncAll()).then(changed => { if (changed) render(true); }, () => {}).finally(() => { busy--; paint(); });
 }
 
 function mount() {
@@ -111,15 +125,26 @@ function mount() {
   document.querySelector('main').append(foot);
 }
 
+// A device that is online but stale must not save over newer cloud progress: until the page has heard from the cloud the cards
+// take no input. Capped at 4 s, and no wait at all offline. With no config nothing in here ever runs
+let cap = 0;
+function lock() {
+  if (navigator.onLine === false) return;
+  gates.games.cloud = true; gate(gates.games);
+  cap = setTimeout(unlock, 4000);
+}
+function unlock() { if (!gates.games.cloud) return; clearTimeout(cap); gates.games.cloud = false; gate(gates.games); }
+
 async function start() {
   try {
     const c = await import('../shared/cloud.js');
     if (!c.enabled) return;
     cloud = c;
+    lock();
     await refresh();   // the button waits for the answer, so it never shows the wrong label
     mount(); paint();
     if (who !== null) await sync();
-  } catch (e) {}
+  } catch (e) {} finally { unlock(); }   // the cards wait until the first session() or the first syncAll() has answered
 }
 
 render();
