@@ -280,16 +280,16 @@ const ask = (...a) => a.map(q => ({ q }));
 const rd = (read, ...opts) => ({ read, opts });
 export const PROJECTS = [
   { name: "Les boles", sub: "Una columna: de l'1 al 9, amb la bola de dalt", circle: 0, ex: [
-    [...ask('3', '1', '4', '2'), rd(5, 3, 5, 2, 7)],
-    [...ask('5', '6', '7'), rd(8, 3, 8, 6, 9), rd(3, 3, 8, 2, 5)],
-    [...ask('9', '8'), rd(6, 6, 9, 1, 7), rd(9, 6, 9, 4, 5), rd(7, 2, 7, 9, 5)]
+    [...ask('3', '1', '4', '2'), rd(5, 5, 3, 2, 7)],
+    [...ask('5', '6', '7'), rd(8, 3, 8, 4, 9), rd(3, 3, 8, 2, 5)],
+    [...ask('9', '8'), rd(6, 6, 9, 1, 7), rd(9, 6, 9, 4, 5), rd(7, 2, 9, 5, 7)]
   ] },
-  { name: "Les columnes", sub: "Desenes i centenes: llegir i escriure fins a 999", circle: 0, ex: [
+  { name: "Les columnes", sub: "Desenes i centenes; llegir i escriure fins a 999", circle: 0, ex: [
     [...ask('20', '36'), rd(74, 47, 24, 74, 79), ...ask('12'), rd(45, 54, 45, 15, 46)],
-    [...ask('58', '81'), rd(136, 163, 136, 316, 138), ...ask('250', '104')],
-    [...ask('407', '615', '908'), rd(692, 629, 692, 962, 296), rd(380, 308, 380, 830, 381)]
+    [...ask('58', '81'), rd(136, 163, 316, 136, 138), ...ask('250', '104')],
+    [...ask('407', '615', '908'), rd(692, 642, 296, 962, 692), rd(380, 308, 830, 381, 380)]
   ] },
-  { name: "Sumes", sub: "Sumar sense cap canvi: cada columna té lloc per a les boles", circle: 1, ex: [
+  { name: "Sumes", sub: "Sumar sense cap canvi", circle: 1, ex: [
     ask('2+2', '1+3', '2+6', '3+5', '1+7'),
     ask('21+7', '32+15', '12+25', '41+8', '20+17'),
     ask('211+36', '312+125', '121+206', '1201+3105', '1123+3111')
@@ -304,22 +304,22 @@ export const PROJECTS = [
     ask('28+14', '36+47', '65+38', '19+25', '57+16'),
     ask('157+68', '486+237', '999+1', '3768+2475', '4856+5379')
   ] },
-  { name: "Restes", sub: "Restar, i demanar prestat a la columna de l'esquerra", circle: 1, ex: [
+  { name: "Restes", sub: "Restar, i demanar prestat a l'esquerra", circle: 1, ex: [
     ask('4-2', '9-5', '7-4', '48-16', '56-23'),
     ask('10-3', '15-8', '32-5', '54-28', '81-46'),
     ask('100-1', '423-167', '305-48', '6034-2578', '9875-4321')
   ] },
-  { name: "Multiplica", sub: "Multiplicar és sumar el mateix nombre moltes vegades", circle: 2, ex: [
+  { name: "Multiplica", sub: "Multiplicar com a sumes repetides", circle: 2, ex: [
     ask('2x3', '3x4', '4x5', '6x2', '2x5'),
     ask('3x7', '5x8', '6x9', '12x3', '23x4'),
     ask('45x6', '124x3', '86x7', '231x4', '99x9')
   ] },
-  { name: "Reparteix", sub: "Dividir és restar el mateix nombre moltes vegades", circle: 2, ex: [
+  { name: "Reparteix", sub: "Dividir com a restes repetides", circle: 2, ex: [
     ask('6:2', '12:3', '10:5', '8:2', '20:4'),
     ask('35:5', '48:6', '27:3', '63:7', '56:8'),
     ask('84:4', '96:8', '144:6', '432:9', '810:9')
   ] },
-  { name: "Barreja", sub: "Operacions encadenades i números fins als milers", circle: 2, ex: [
+  { name: "Barreja", sub: "Operacions encadenades", circle: 2, ex: [
     ask('12+9-5', '25+17-8', '60-25+9', '3x4+8', '20-6+9'),
     ask('1250+375', '2000-750', '7x8-6', '1500+480', '3000-1250'),
     ask('125x4+500', '5200-1875', '9x7+38-15', '2500+3750-4000', '36:4+1250')
@@ -471,14 +471,18 @@ export function sheet(rnd) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)])), used = new Set();
   return [0, 1, 2].map(i => {
     const kind = bads.has(i) ? KINDS[at(3, rnd)] : null;
-    // numbers of two or of three digits; a number that has no mistake of this kind is dropped and another one drawn (the last resort, 47, has all three)
+    // numbers of two or of three digits; a number already used, or with no mistake of this kind, is dropped and another one drawn
+    const make = says => { const rods = kind ? MISTAKE[kind](says, rnd) : write(says, 3); return rods && { rods, says, bad: kind }; };
     for (let n = 0; n < 60; n++) {
       const lo = [10, 100][at(2, rnd)], says = lo + at(lo === 10 ? 90 : 900, rnd);
-      if (used.has(says)) continue;
-      const rods = kind ? MISTAKE[kind](says, rnd) : write(says, 3);
-      if (rods) { used.add(says); return { rods, says, bad: kind }; }
+      const board = !used.has(says) && make(says);
+      if (board) { used.add(says); return board; }
     }
-    return { rods: kind ? MISTAKE[kind](47, rnd) : write(47, 3), says: 47, bad: kind };
+    // the last resort, for a rnd that never varies: 47 (which has all three mistakes) and then the numbers upwards, the first one not used that has the mistake
+    for (const says of [47, ...Array.from({ length: 990 }, (_, i) => 10 + i)]) {
+      const board = !used.has(says) && make(says);
+      if (board) { used.add(says); return board; }
+    }
   });
 }
 // The hand-in of a finished sheet. run has one boolean per board (true: judged right, with the fix made when it was wrong). Returns { prog, good, gain, missed, news }:

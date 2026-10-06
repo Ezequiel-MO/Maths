@@ -112,7 +112,7 @@ const RULES = [
 ];
 
 // Follows nextMove from the number written, to each stage and to the goal. Returns the number of touches, or a text with what went wrong.
-function walk(m, q, p) {
+function walk(m, p) {
   let rods = m.write(p.start, COLS), moves = 0;
   for (const target of [...p.stages, p.goal]) {
     for (;;) {
@@ -137,12 +137,29 @@ function partA(m) {
     check(Array.isArray(CIRCLES) && CIRCLES.length === 3, 'A: three circles');   // contract: spec «El mapa»
     check(Array.isArray(CIRCLES) && CIRCLES.map(c => (c.projects || []).join()).join('|') === '0,1|2,3,4,5|6,7,8', 'A: circles hold projects 0-1, 2-5, 6-8');   // contract: spec «El mapa» table
     check(Array.isArray(CIRCLES) && CIRCLES.every(c => typeof c.name === 'string' && c.name.length > 3), 'A: every circle has a name');
+    // contract: spec «El recorregut» table, column «Cercle», the words after the number
+    check(Array.isArray(CIRCLES) && isDeepStrictEqual(CIRCLES.map(c => c.name), ['Llegir i escriure', 'Sumar i restar', 'Multiplicar i repartir']), `A: the names of the circles are ${show(Array.isArray(CIRCLES) ? CIRCLES.map(c => c.name) : CIRCLES)}, not the ones of the spec table`);
   }
   if (POOL !== undefined) check(Array.isArray(POOL) && POOL.join() === '3,5,7' && POOL.every(x => typeof x === 'string'), `A: the pool of the Piscina is ['3', '5', '7'], not ${JSON.stringify(POOL)}`);   // contract: spec «La Piscina»
   if (PROJECTS === undefined) return;
   check(Array.isArray(PROJECTS) && PROJECTS.length === 9, 'A: nine projects');   // contract: spec «El mapa»
   if (!Array.isArray(PROJECTS)) return;
   const circleOf = [0, 0, 1, 1, 1, 1, 2, 2, 2];   // contract: spec «El mapa» table
+  // contract: spec «El recorregut» table, columns «Projecte» and «Què es descobreix», copied letter by letter (the minus is the sign U+2212)
+  const NAMES_SUBS = [
+    ['Les boles', "Una columna: de l'1 al 9, amb la bola de dalt"], ['Les columnes', 'Desenes i centenes; llegir i escriure fins a 999'],
+    ['Sumes', 'Sumar sense cap canvi'], ['El canvi de 5', 'Sumar passant pel 5: +4 = +5 −1'], ["Me'n porto una", 'Sumar passant pel 10: +8 = +10 −2'],
+    ['Restes', "Restar, i demanar prestat a l'esquerra"], ['Multiplica', 'Multiplicar com a sumes repetides'], ['Reparteix', 'Dividir com a restes repetides'],
+    ['Barreja', 'Operacions encadenades']
+  ];
+  NAMES_SUBS.forEach(([n, sub], p) => check(PROJECTS[p] && PROJECTS[p].name === n && PROJECTS[p].sub === sub, `A: project ${p} reads ${show(PROJECTS[p] && [PROJECTS[p].name, PROJECTS[p].sub])}, the spec table says ${show([n, sub])}`));
+  // contract: spec «Com es comprova» (les 60 d'avui) and the old LEVELS: the option lists of the three questions to read that exist today are kept as they are
+  const TODAY_OPTS = { 8: [3, 8, 4, 9], 74: [47, 24, 74, 79], 692: [642, 296, 962, 692] };
+  const allReads = PROJECTS.flatMap(P => P && Array.isArray(P.ex) ? P.ex.flat().filter(Q => Q && Q.read !== undefined) : []);
+  Object.entries(TODAY_OPTS).forEach(([r, opts]) => { const Q = allReads.find(x => x.read === +r); check(Q && isDeepStrictEqual(Q.opts, opts), `A: read ${r} has the options ${show(Q && Q.opts)}, today it has ${show(opts)}`); });
+  // contract: plan Task 1 (fix round 1): the right option must not sit in one place; over the 11 reads it takes all four places, none of them more than 4 times
+  const places = [0, 1, 2, 3].map(i => allReads.filter(Q => Array.isArray(Q.opts) && Q.opts[i] === Q.read).length);
+  check(allReads.length === 11 && places.every(n => n >= 1 && n <= 4), `A: the right option of the ${allReads.length} reads sits in place 0, 1, 2, 3 ${places.join(', ')} times; every place at least once and at most 4`);
   PROJECTS.forEach((P, p) => {
     const name = `${p} ${P && P.name}`;
     if (!P) { check(false, `A: project ${p} is missing`); return; }
@@ -152,7 +169,7 @@ function partA(m) {
     check(Array.isArray(P.ex) && P.ex.length === 3 && P.ex.every(E => Array.isArray(E) && E.length === 5), `A: ${name}: three exercises of five questions`);   // contract: spec «Un projecte»
     if (!Array.isArray(P.ex)) return;
     const seen = new Set(), reads = [];
-    let borrowing = 0, ex00borrow = 0, ex00 = 0;
+    let ex00borrow = 0;
     P.ex.forEach((E, e) => (E || []).forEach(Q => {
       counted++;
       const tag = `${name} ex0${e} ${JSON.stringify(Q)}`;
@@ -175,14 +192,10 @@ function partA(m) {
       check(!v.problems.length, `A: ${tag}: ${v.problems.join()}`);
       check(v.res === pl.goal, `A: ${tag}: the result is ${v.res}, plan says ${pl.goal}`);
       check([pl.start, ...pl.stages, pl.goal].every(x => int(x) && x >= 0 && x <= MAX), `A: ${tag}: plan has a value out of 0..${MAX}`);
-      const w = walk(m, Q.q, pl);
+      const w = walk(m, pl);
       check(typeof w === 'number', `A: ${tag}: ${w}`);
       const t = parse(Q.q);
-      if (p === 5 && t) {
-        const b = borrows(...t.nums);
-        if (b) borrowing++;
-        if (e === 0) { ex00++; if (b) ex00borrow++; }
-      }
+      if (p === 5 && t && e === 0 && borrows(...t.nums)) ex00borrow++;
     }));
     if (p <= 1) check(reads.length >= 3, `A: ${name}: at least 3 questions to read, there are ${reads.length}`);   // contract: plan Task 1
     if (p === 5) {
@@ -577,14 +590,15 @@ const readRods = rods => rods.reduce((a, r, p) => a + (r.lo + 5 * r.hi) * 10 ** 
 const rodsShape = rods => !Array.isArray(rods) || rods.length !== 3 ? 'not three columns'
   : rods.some(r => !r || typeof r !== 'object' || Object.keys(r).sort().join() !== 'hi,lo') ? 'a column is not { lo, hi }'
   : rods.some(r => !int(r.lo) || r.lo < 0 || r.lo > 4 || (r.hi !== 0 && r.hi !== 1)) ? 'a board that is not tidy (lo from 0 to 4, hi 0 or 1)' : '';
-// does moving one single bead, upper or lower, from a column to the one beside it make the board show says (and tidy)?
-function oneBeadAway(rods, says) {
+// the decks ('lo', 'hi') of the beads that, moved from a column to the one beside it, make the board show says (and tidy); none when no single bead does
+function fixDecks(rods, says) {
+  const out = [];
   for (let p = 0; p < 3; p++) for (const deck of ['lo', 'hi']) for (const q of [p - 1, p + 1]) {
     if (q < 0 || q > 2 || rods[p][deck] < 1) continue;
     const to = rods.map(r => ({ ...r })); to[p][deck]--; to[q][deck]++;
-    if (to[q].lo <= 4 && to[q].hi <= 1 && readRods(to) === says) return true;
+    if (to[q].lo <= 4 && to[q].hi <= 1 && readRods(to) === says) out.push(deck);
   }
-  return false;
+  return out;
 }
 // does swapping two different digits of the number the board shows give says (no zero made on the left)?
 function twoDigitsSwapped(v, says) {
@@ -606,7 +620,7 @@ function boardProblem(b) {
   const v = readRods(b.rods);
   if (b.bad === null) return v === b.says ? '' : `a good board shows ${v}, not ${b.says}`;   // contract: spec «Caça l'errada», un àbac bo marca el número
   if (v === b.says) return `a ${b.bad} board shows what says says (${v})`;
-  if (b.bad === 'veïna') return oneBeadAway(b.rods, b.says) ? '' : `a veïna board from which no single bead moved to the column beside it shows ${b.says} (it shows ${v})`;   // contract: spec «Caça l'errada», una bola en una columna veïna
+  if (b.bad === 'veïna') return fixDecks(b.rods, b.says).length ? '' : `a veïna board from which no single bead moved to the column beside it shows ${b.says} (it shows ${v})`;   // contract: spec «Caça l'errada», una bola en una columna veïna
   if (b.bad === 'dalt') return [0, 1, 2].some(p => b.rods[p].hi === 1 && v - b.says === 4 * 10 ** p) ? '' : `a dalt board must show 4 x 10^p more than says in a column with the upper bead down: it shows ${v}, says ${b.says}`;   // contract: spec «Caça l'errada», la bola de dalt comptada com a 1 (5 - 1 = 4 de la columna)
   return twoDigitsSwapped(v, b.says) ? '' : `a girat board does not show says with two different digits swapped: it shows ${v}, says ${b.says}`;   // contract: spec «Caça l'errada», dues xifres girades (47 per 74)
 }
@@ -649,6 +663,12 @@ function partC(m) {
       });
       const kinds = new Set(exams.map(snap)).size;
       check(kinds > 20, `C: 200 exams of circle ${c} are only ${kinds} different ones`);
+      // contract: plan Task 5 (fix round 1): the exams must not lean; in 200 of them every fixed question of the circle comes out, and every project of the circle opens one (place 0)
+      const drawn = new Set(exams.flatMap(qs => qs.map(q => `${q.p} ${key(q)}`)));
+      const never = CIRCLE_PROJECTS[c].flatMap(p => PROJECTS[p].ex.flat().map(Q => `${p} ${key(Q)}`)).filter(k => !drawn.has(k));
+      check(!never.length, `C: in 200 exams of circle ${c}, ${never.length} fixed questions never come out, such as ${never.slice(0, 3).join(' | ')}`);
+      const opens = CIRCLE_PROJECTS[c].filter(p => !exams.some(qs => qs[0].p === p));
+      check(!opens.length, `C: in 200 exams of circle ${c}, no exam opens with a question of project ${opens.join()}`);
       sameC(`exam(${c}) with the same random generator twice`, m.exam(c, seeded(5)), m.exam(c, seeded(5)));   // contract: spec «Fitxers», l'atzar entra per rnd
     }
     check(snap(PROJECTS) === fixedBefore, 'C: exam changed PROJECTS (it must copy a question before adding p)');
@@ -699,6 +719,12 @@ function partC(m) {
       const out = m.examIn(closed, c, m.exam(c, seeded(30 + c)), Array(6).fill(true));
       check(out.good === false && out.gain === 0 && out.prog.exams[c] === false && snap(out.prog) === snap(closed), `C: examIn with circle ${c} closed and 6 of 6: good ${out.good}, gain ${out.gain}, exams ${out.prog.exams}; expected false, 0 and exams[${c}] false`);   // contract: plan Task 5, amb el cercle tancat no es dona per superat
     });
+    // contract: spec «El mapa» (l'examen s'obre quan tots els projectes del cercle tenen 80 o més) and the Cursus: with the circle open but one project at 79, six right pass nothing
+    for (let c = 0; c < 3; c++) for (const short of CIRCLE_PROJECTS[c]) {
+      const notes = examBase(c).notes.map((n, i) => i === short ? 79 : n), open = examBase(c, { notes });
+      const out = m.examIn(open, c, m.exam(c, seeded(50 + c)), Array(6).fill(true));
+      check(out.good === false && out.gain === 0 && out.prog.exams[c] === false && snap(out.prog) === snap(open), `C: examIn of circle ${c}, open, with project ${short} at 79 and 6 of 6: good ${out.good}, gain ${out.gain}, exams ${out.prog.exams}; expected false, 0 and the progress as it was`);
+    }
     // nothing is shared with the progress that was given
     const p = examBase(0, { secs: [10, 3, 0, 0, 0, 0], fulls: 2, so: false }), before = snap(p), q0 = m.exam(0, seeded(40));
     const out = m.examIn(p, 0, q0, Array(6).fill(true));
@@ -715,6 +741,7 @@ function partC(m) {
       if (!Array.isArray(s) || s.length !== 3) return `${Array.isArray(s) ? s.length : 'not a list'} boards, expected 3`;   // contract: spec «Caça l'errada», tres àbacs
       for (const [i, b] of s.entries()) { const why = boardProblem(b); if (why) return `board ${i}: ${why}`; }
       const bads = s.filter(b => b.bad !== null).length;
+      if (new Set(s.map(b => b.says)).size !== 3) return `the numbers ${s.map(b => b.says)} are not three different ones`;   // contract: plan Task 5 (fix round 1), els tres números són diferents
       if (bads > 2) return `${bads} bad boards, expected 0 to 2`;   // contract: spec «Caça l'errada», de cap a dos estan malament
       const objs = new Set(s.flatMap(b => [b.rods, ...b.rods]));
       return objs.size === 12 ? '' : 'two boards share a list or a column';
@@ -723,6 +750,23 @@ function partC(m) {
     check(KINDS.every(k => kinds.has(k)), `C: in 200 sheets the kinds that come out are ${show([...kinds])}, expected veïna, dalt and girat`);   // contract: plan Task 5, en 200 fulls surten els tres tipus
     const counts = [0, 1, 2].map(n => sheets.filter(s => s.filter(b => b.bad !== null).length === n).length);
     check(counts.every(x => x > 0), `C: in 200 sheets, the number with 0, 1 and 2 bad boards is ${counts.join(', ')}; none may be 0`);   // contract: plan Task 5, fulls amb 0, 1 i 2 dolents
+    // contract: plan Task 5 (fix round 1): floors over the 200 seeded sheets, well under what a fair generator gives (about 80 boards per kind, 40/80/80 sheets by bad count,
+    // 80 bad boards per place, 300 boards of each size of says), so that a generator that leans or drops cases is seen
+    const boards = sheets.flat(), bad = boards.filter(b => b.bad !== null);
+    KINDS.forEach(k => check(bad.filter(b => b.bad === k).length >= 30, `C: in 200 sheets only ${bad.filter(b => b.bad === k).length} boards are ${k}, at least 30 expected`));
+    counts.forEach((n, i) => check(n >= 15, `C: in 200 sheets only ${n} have ${i} bad boards, at least 15 expected`));
+    [0, 1, 2].forEach(i => { const n = sheets.filter(s => s[i].bad !== null).length; check(n >= 30, `C: in 200 sheets the board in place ${i} is bad only ${n} times, at least 30 expected`); });
+    const small = boards.filter(b => b.says < 100).length;
+    check(small >= 100 && boards.length - small >= 100, `C: in 200 sheets ${small} boards say less than 100 and ${boards.length - small} say 100 or more, at least 100 of each expected`);
+    const veinas = bad.filter(b => b.bad === 'veïna');
+    const gaps = new Set(veinas.map(b => readRods(b.rods) - b.says)), uppers = veinas.filter(b => fixDecks(b.rods, b.says).includes('hi')).length;
+    check(gaps.size >= 3, `C: the veïna boards of 200 sheets differ from says in only ${gaps.size} ways (${show([...gaps])}), at least 3 expected`);
+    check(uppers >= 1, 'C: no veïna board of 200 sheets is fixed by moving an upper bead');
+    // a random generator that never varies, or sits on its edges, still gives a good sheet with three different numbers
+    [() => 0, () => 0.5, () => 0.999999].forEach((r, i) => {
+      const s = m.sheet(r), why = Array.isArray(s) && s.length === 3 ? s.map((b, j) => boardProblem(b) && `board ${j}: ${boardProblem(b)}`).find(Boolean) || (new Set(s.map(b => b.says)).size === 3 ? '' : `the numbers ${s.map(b => b.says)} are not three different ones`) : 'not three boards';
+      check(!why, `C: sheet with a random generator that always gives ${[0, 0.5, 0.999999][i]}: ${why}`);
+    });
     const different = new Set(sheets.map(snap)).size;
     check(different > 100, `C: 200 sheets are only ${different} different ones`);
     sameC('sheet with the same random generator twice', m.sheet(seeded(5)), m.sheet(seeded(5)));   // contract: spec «Fitxers», l'atzar entra per rnd
