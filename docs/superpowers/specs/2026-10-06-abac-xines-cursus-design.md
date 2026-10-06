@@ -28,7 +28,7 @@ Fora d'aquest canvi: equips (al Cursus només canvien el color, i aquí els colo
 | 0 · Llegir i escriure | Les boles | Una columna: de l'1 al 9, amb la bola de dalt | 1 |
 | 0 · Llegir i escriure | Les columnes | Desenes i centenes; llegir i escriure fins a 999 | 1 |
 | 1 · Sumar i restar | Sumes | Sumar sense cap canvi | 2 |
-| 1 · Sumar i restar | El canvi de 5 | Sumar passant pel 5: +4 = +5 −1 | 3 |
+| 1 · Sumar i restar | El canvi de 5 | Sumar passant pel 5: +4 = +5 −1 | 2 |
 | 1 · Sumar i restar | Me'n porto una | Sumar passant pel 10: +8 = +10 −2 | 3 |
 | 1 · Sumar i restar | Restes | Restar, i demanar prestat a l'esquerra | 4 |
 | 2 · Multiplicar i repartir | Multiplica | Multiplicar com a sumes repetides | 5 |
@@ -81,7 +81,7 @@ Un per cercle. Sis operacions a l'atzar tretes dels projectes del cercle, almeny
 
 Voluntari, des del mapa. Tres àbacs ja posats, cadascun amb un número al costat («Aquest àbac marca 47»). De cap a dos estan malament. El nen diu de cada un «És correcte» o «No és correcte», i si no ho és, arregla l'àbac perquè marqui el número. Un full amb els tres bé suma 1 a `fulls`.
 
-Els errors que es generen són els que ensenyen: una bola en una columna veïna, la bola de dalt comptada com a 1, o una columna desendreçada que marca el valor bo.
+Els àbacs del full estan sempre endreçats. Els errors que es generen són els que ensenyen: una bola en una columna veïna, la bola de dalt comptada com a 1, o dues xifres girades (47 per 74).
 
 ## XP, nivell i insígnies
 
@@ -102,7 +102,7 @@ Clau `abac-xines`, la mateixa. Forma nova: `{ so, secs[6], piscina, notes[9], ex
 
 `secs` és la dada antiga. Es conserva tal com és i el joc nou no l'escriu mai. Una funció `clean(d)` fa un progrés vàlid de qualsevol JSON i hi aplica la traducció:
 
-- `notes[i]` és el màxim entre la nota desada i 80 si la secció antiga del projecte `i` té 10 nivells fets. Seccions per projecte: `[0, 0, 1, 2, 2, 3, 4, 5, 5]`.
+- `notes[i]` és el màxim entre la nota desada i 80 si la secció antiga del projecte `i` té 10 nivells fets. Seccions per projecte: `[0, 0, 1, 1, 2, 3, 4, 5, 5]`.
 - `piscina` és cert si ja ho era o si `secs` té algun nivell fet.
 - `exams` no es tradueix.
 
@@ -117,7 +117,8 @@ La traducció només puja valors, de manera que la fusió amb el núvol (el núm
 | `games/abac-xines/main.js` | Pantalles: Piscina, mapa, projecte, examen, full. Amb la disciplina del Cursus (`enter()`, `fresh()`, guarda de doble toc) |
 | `games/abac-xines/style.css` | Mapa, barra d'XP, capes de pista. L'àbac es mesura per no fer scroll, com el `fitter` del Cursus |
 | `abac-xines.html` | Barra d'XP i «← Mapa». Sense `data-hub` |
-| `shared/games.js` | Targeta: `total: 9`, «N de 9 projectes», i el text diu també «repartir» |
+| `games/abac-xines/board.js` (nou) | L'àbac que es toca: pintar, tocar, mesurar-se. Surt de `main.js` perquè cinc pantalles en pinten, i el full tres alhora |
+| `shared/games.js` | Targeta: `total: 9`, «N de 9 projectes», i el text diu també «repartir». El recompte passa el desat per `clean`, perquè un perfil que encara no ha obert el joc nou només té `secs` |
 | `scripts/check-abac.mjs` (nou) | Vegeu a sota |
 | `scripts/check.mjs`, `package.json` | El total de l'àbac surt de `PROJECTS.length`; `check-abac.mjs` entra a la cadena `check` |
 
@@ -130,11 +131,11 @@ La traducció només puja valors, de manera que la fusió amb el núvol (el núm
 - Les 135 preguntes: el resultat de cada una, calculat a part, és el `goal` de `plan`; hi cap en 5 columnes; seguint `nextMove` des de l'inici s'arriba a un àbac endreçat amb el resultat en un nombre finit de passos; les de llegir tenen quatre opcions diferents amb la bona a dins.
 - Cada projecte té 3 exercicis de 5, i cada cercle els projectes de la taula.
 - 200 exàmens per cercle: sis preguntes, totes del cercle, almenys una per projecte, totes resolubles.
-- 200 fulls: tres àbacs, de 0 a 2 de dolents, cada dolent d'un dels tres tipus d'error, i el que es diu de cada un és veritat.
+- 200 fulls: tres àbacs, de 0 a 2 de dolents, cada dolent d'un dels tres tipus d'error; un de bo marca el número i un de dolent no.
 - Nota, `handIn`, `examIn`, `sheetIn`, XP (màxim 1.370) i insígnies, amb valors esperats escrits a mà.
-- `clean`: de `{}`, de brossa i de cada forma antiga (`{secs:[10,10,4,0,0,0]}` dona `notes` `[80,80,80,0,0,0,0,0,0]` i `piscina` cert); mai baixa un valor; `secs` surt igual que ha entrat.
+- `clean`: de `{}`, de brossa i de cada forma antiga (`{secs:[10,10,4,0,0,0]}` dona `notes` `[80,80,80,80,0,0,0,0,0]` i `piscina` cert); mai baixa un valor; `secs` surt igual que ha entrat.
 - La targeta: `record({})` i `record` amb brossa tornen text.
-- Cap text de `logic.js`, `main.js` ni `hints.js` conté «company» ni «segon».
+- Cap text de `logic.js`, `main.js`, `board.js` ni `hints.js` conté «company» ni «segon».
 
 Les pistes i el mapa es comproven al navegador, en mòbil vertical, mòbil apaïsat i tauleta: l'àbac no fa scroll, cada motiu de la taula dibuixa el que diu, i amb moviment reduït no hi ha bucles.
 
