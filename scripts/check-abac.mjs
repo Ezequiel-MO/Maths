@@ -311,6 +311,8 @@ function partB(m) {
     check(cl({ secs: [0, 0, 0, 0, 0, 1] }).piscina === true, 'B: clean({ secs: [0,0,0,0,0,1] }) does not open the Piscina, any level counts');   // contract: spec «El que es desa»
     same('clean({ so: false }).so', cl({ so: false }).so, false);   // contract: spec «Decisions», so és l'única preferència
     same('clean({ so: true }).so', cl({ so: true }).so, true);
+    same('clean({ so: null }).so, a damaged preference is the default', cl({ so: null }).so, true);   // contract: review 3+4 (M3), so is on unless stored false
+    same("clean({ so: 'x' }).so, a damaged preference is the default", cl({ so: 'x' }).so, true);   // contract: review 3+4 (M3)
     // a stored progress of the new shape comes out as it is
     const store = base({ so: false, secs: [10, 2, 0, 0, 0, 0], piscina: true, notes: [100, 80, 55, 0, 0, 0, 0, 0, 9], exams: [true, false, false], fulls: 12 });
     same('clean of a progress that is already clean, and still carrying the old secs', cl(store).notes, [100, 80, 55, 0, 0, 0, 0, 0, 9]);   // contract: spec «El que es desa», només puja valors
@@ -362,6 +364,8 @@ function partB(m) {
       const o = objOf(d), c = clean(d);
       return ['secs', 'notes', 'exams'].filter(k => Array.isArray(o[k]) && c[k] === o[k]).map(k => `${k} is the list of the input`).join();
     });
+    // the secs that clean must give, worked out from the input with the checker's own clamp (never from the output under check)
+    const secsOf = o => Array.from({ length: 6 }, (_, i) => rangeOf(itemOf(o.secs, i), 10)[0]);
     const T = i => [0, 0, 1, 1, 2, 3, 4, 5, 5][i];   // the table of the spec, written again here so that a wrong OLD cannot hide a wrong clean
     property('secs: whole, from 0 to 10, never raised, a valid stored one identical', inputs, d => {
       const o = objOf(d), c = cl(d);
@@ -373,11 +377,11 @@ function partB(m) {
       return '';
     });
     property('notes: never lower than stored, 80 where the old section is done, never over 100', inputs, d => {
-      const o = objOf(d), c = cl(d);
+      const o = objOf(d), c = cl(d), sx = secsOf(o);
       for (let i = 0; i < 9; i++) {
-        const x = itemOf(o.notes, i), [lo, hi] = rangeOf(x, 100), t = c.secs[T(i)] === 10 ? 80 : 0;
-        if (c.notes[i] < Math.max(lo, t) || c.notes[i] > Math.max(hi, t)) return `notes[${i}] is ${c.notes[i]} for the stored ${show(x)} and secs ${show(c.secs)}, expected ${Math.max(lo, t)} to ${Math.max(hi, t)}`;
-        if ((!num(x) || int(x)) && c.notes[i] !== Math.max(lo, t)) return `notes[${i}] is ${c.notes[i]} for the stored ${show(x)} and secs ${show(c.secs)}, expected ${Math.max(lo, t)}`;
+        const x = itemOf(o.notes, i), [lo, hi] = rangeOf(x, 100), t = sx[T(i)] === 10 ? 80 : 0;
+        if (c.notes[i] < Math.max(lo, t) || c.notes[i] > Math.max(hi, t)) return `notes[${i}] is ${c.notes[i]} for the stored ${show(x)} and secs ${show(sx)}, expected ${Math.max(lo, t)} to ${Math.max(hi, t)}`;
+        if ((!num(x) || int(x)) && c.notes[i] !== Math.max(lo, t)) return `notes[${i}] is ${c.notes[i]} for the stored ${show(x)} and secs ${show(sx)}, expected ${Math.max(lo, t)}`;
       }
       return '';
     });
@@ -387,7 +391,7 @@ function partB(m) {
       return (!num(x) || int(x)) && c.fulls !== lo ? `fulls is ${c.fulls} for the stored ${show(x)}, expected ${lo}` : '';
     });
     property('piscina: true when stored true or when a section has a level done, and only then', inputs, d => {
-      const c = cl(d), want = objOf(d).piscina === true || c.secs.some(s => s > 0);
+      const c = cl(d), want = objOf(d).piscina === true || secsOf(objOf(d)).some(s => s > 0);
       return c.piscina === want ? '' : `piscina is ${c.piscina}, expected ${want}`;
     });
     property('exams: true exactly where stored true', inputs, d => {
@@ -438,6 +442,18 @@ function partB(m) {
     const edges = handIn(fresh, 8, run15([0, 14]));
     check(edges.n === 87 && edges.prog.notes[8] === 87, `B: handIn with 13 (misses in the first and the third exercise), project 8: n ${edges.n}, notes[8] ${edges.prog.notes[8]}, expected 87, 87`);   // contract: spec «Un projecte», round(100 x 13 / 15)
     same('handIn with misses in the first and the third exercise: redo', edges.redo, ['ex00', 'ex02']);
+    // a mark can never pass 100, whatever the length of the run
+    [16, 20].forEach(len => {
+      const long = handIn(fresh, 4, Array.from({ length: len }, () => ({ tries: 0, helped: false })));
+      check(long.n === 100 && long.prog.notes[4] === 100 && long.gain === 100, `B: handIn with ${len} results at the first try: n ${long.n}, notes[4] ${long.prog.notes[4]}, gain ${long.gain}, expected 100, 100, 100`);   // contract: review 3+4 (I1), spec «Un projecte», the mark is round(100 x encerts / 15), 100 at most
+    });
+    // a short run: the exercises with no result are to be redone
+    const firsts = n => Array.from({ length: n }, () => ({ tries: 0, helped: false }));
+    same('handIn with 5 results, redo', handIn(fresh, 0, firsts(5)).redo, ['ex01', 'ex02']);   // contract: review 3+4 (M1), an exercise with a question not done is one to redo
+    same('handIn with 10 results, redo', handIn(fresh, 0, firsts(10)).redo, ['ex02']);   // contract: review 3+4 (M1)
+    const none = handIn(fresh, 0, []);
+    same('handIn with an empty run, redo', none.redo, ['ex00', 'ex01', 'ex02']);   // contract: review 3+4 (M1)
+    check(none.n === 0 && none.prog.notes[0] === 0 && none.gain === 0, `B: handIn with an empty run: n ${none.n}, notes[0] ${none.prog.notes[0]}, gain ${none.gain}, expected 0, 0, 0`);   // contract: review 3+4 (M1), mark(0) is 0
     // a lower or equal mark changes nothing
     const full = base({ piscina: true, notes: [100, 0, 0, 0, 0, 0, 0, 0, 0] });
     const lower = handIn(full, 0, run15([5, 6, 7, 8]));
@@ -519,6 +535,12 @@ function partB(m) {
     property('isOpen(p, 2) asks the circle 1 open and the second exam', cases, p => { const w = p.piscina && p.exams[0] && p.exams[1]; return m.isOpen(p, 2) === w ? '' : `it is ${m.isOpen(p, 2)}, expected ${w}`; });   // contract: spec «El mapa», un cercle només és obert si l'anterior també ho és
     check(m.isOpen(base({ piscina: true, exams: [false, true, false] }), 2) === false, 'B: isOpen(2) with exams [false, true, false] is not false');   // contract: the plan, Task 3
     check(m.isOpen(base({ piscina: false, exams: [true, true, true] }), 1) === false, 'B: isOpen(1) without the Piscina is not false');   // contract: spec «El mapa»
+    // a circle that does not exist is shut and asking is no error
+    const done = base({ piscina: true, notes: Array(9).fill(100), exams: [true, true, true] });
+    [[3, 'isOpen'], [-1, 'isOpen'], [3, 'examOpen'], [-1, 'examOpen']].forEach(([c, fn]) => {
+      let got; try { got = m[fn](done, c); } catch (e) { got = `throws ${e.message}`; }
+      check(got === false, `B: ${fn}(everything passed, ${c}) is ${show(got)}, expected false`);   // contract: review 3+4 (M2), spec «El mapa»: three circles, 0 to 2
+    });
     // contract: spec «El mapa»: the exam of a circle opens when the circle is open and all its projects have 80 or more; circles 0-1, 2-5, 6-8
     const CIR = [[0, 1], [2, 3, 4, 5], [6, 7, 8]], exCases = [];
     for (const p of cases) for (let c = 0; c < 3; c++) for (const short of [-1, ...CIR[c]]) {
