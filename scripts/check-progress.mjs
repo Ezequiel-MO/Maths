@@ -464,12 +464,12 @@ section('account', () => {   // contract: task 2 brief, «account»
   check(P.account() === 'u1', 'account after rebase u1 is u1');
 });
 
-// ---- the hub, read as text (no browser here): the door back to «Qui juga?», its texts, names as text, the size of the controls, the tap guard
+// ---- the hub as the files say it (its behaviour is in check-hub.mjs): the door back to «Qui juga?», its texts, the size of the controls, the [inert] fallback
 {
   const root = new URL('../', import.meta.url);
   const src = f => readFileSync(new URL(f, root), 'utf8');
   const bare = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');   // comments out
-  const html = src('index.html'), main = bare(src('hub/main.js')), css = bare(src('hub/style.css')), prog = bare(src('shared/progress.js'));
+  const html = src('index.html'), css = bare(src('hub/style.css')), prog = bare(src('shared/progress.js'));
   const hub = f => /<html\b[^>]*\sdata-hub(\s|=|>)/.test(f);
   check(hub(html), 'index.html: <html> has no data-hub, so the hub would send itself back to itself forever on a fresh device');   // contract: Task 3 rule, progress.js redirects any page without data-hub when no profile is active
   const pages = readdirSync(root).filter(f => f.endsWith('.html') && f !== 'index.html');
@@ -478,42 +478,12 @@ section('account', () => {   // contract: task 2 brief, «account»
   for (const t of ['Qui juga?', 'Afegeix un jugador', 'Fet', 'Canvia', "Aquest nom no val. Prova'n un altre."]) check(html.includes(`>${t}<`), `index.html: the text «${t}» is missing`);   // contract: Task 3 brief, the five screen texts
   check(html.includes('maxlength="12"'), 'index.html: the name box has no maxlength="12"');   // contract: slug() accepts at most 12 characters
   check(!/segon|company/i.test(html), 'index.html: a text speaks of a second player or companions');   // contract: owner decision 2026-10-05, the child plays alone
-  const cards = /function cards\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '';
-  check(cards.includes('innerHTML'), 'main.js: cards() was not found or does not paint with innerHTML');   // contract: the card html stays as it was
-  check(main.split('innerHTML').length === 2, `main.js: ${main.split('innerHTML').length - 1} uses of innerHTML, only cards() may have one`);   // contract: brief rule, a profile name never goes through innerHTML
-  check([...cards.matchAll(/\$\{([^}]*)\}/g)].every(m => !/name|profile|active|stores/i.test(m[1])), 'main.js: the template of cards() interpolates a profile or its name');   // contract: names can come from the cloud
-  check(/b\.textContent = p\.name/.test(main) && /\$\('name'\)\.textContent = /.test(main), 'main.js: a profile name is not written with textContent (button or active name)');   // contract: brief rule, textContent only
   const minHeight = sel => Math.max(0, ...[...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => m[1].split(',').map(x => x.trim()).includes(sel)).map(m => +(/min-height:\s*(\d+)px/.exec(m[2])?.[1] || 0)));
   for (const sel of ['.me .btn', '.who .btn', '.adder input']) check(minHeight(sel) >= 44, `style.css: ${sel} has min-height ${minHeight(sel)}px, under 44`);   // contract: Task 3 brief, no control under 44 px
-  // the guards (fix round 1): a list takes no input while any reason holds it; hold() only extends, render() never lifts one
-  const body = (re) => re.exec(main)?.[1] || '';
-  const fnBody = name => body(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}`));
-  const render = fnBody('render'), hold = fnBody('hold'), start = fnBody('start');
-  check(/games: \{ el: list \}/.test(main) && /who: \{ el: \$\('profiles'\) \}/.test(main), 'main.js: the gates are not the game list and the list of profiles (the name box and Fet must stay usable)');   // contract: fix round 1 N1, a sync repaint must not interrupt typing
-  check(/g\.el\.toggleAttribute\('inert', !!g\.tap\)/.test(main) && !/\.inert\s*=/.test(main) && !/classList\.(add|remove)\('wait'\)/.test(main), 'main.js: a gate is not applied as the inert attribute (toggleAttribute) from its reasons, or the property is set');   // contract: fix round 1 C1, one mechanism (inert) for every guard, keyboard included
-  check(/if \(g\.tap && end <= g\.end\) return;/.test(hold) && /setTimeout\(\(\) => \{ g\.tap = false; gate\(g\); \}, ms\)/.test(hold), 'main.js: hold() shortens a running hold or does not release it with a 500 ms timer');   // contract: fix round 1 N1, a guard that is running is only extended
-  check(render.length > 200 && !/clearTimeout|\.inert\b|\.tap\b|\.cloud\b/.test(render), 'main.js: render() was not found or cancels, lifts or sets a guard itself (only hold() may)');   // contract: fix round 1 N1, the unconditional clear in render() let a sync repaint end the double-tap window
-  check(/let seen = null;/.test(main) && main.split(/\bseen = /).length === 3 && render.includes("seen = me ? 'games' : 'who';"), "main.js: seen is not null before the first paint, or is not set from the view painted (me ? 'games' : 'who') only");   // contract: fix round 1 N1, the first paint arms no 500 ms guard; the reviewer's mutant seen = 'who' always
-  check(render.indexOf("const changed = !!me && seen === 'who', back") >= 0 && render.indexOf("const changed") < render.indexOf('seen = me'), 'main.js: «changed» (who to games) is not taken from seen before seen is updated');   // contract: fix round 1 N1
-  check(render.includes('if (changed || sync) hold(gates.games, 500);') && render.includes('if (sync || back) hold(gates.who, 500);') && render.includes("back = !me && seen === 'games'") && /function render\(sync\)/.test(main), 'main.js: a change of view or a sync repaint does not hold the rebuilt game list (500 ms), or a sync repaint or the way back to «Qui juga?» does not hold the list of profiles');   // contract: fix round 1 N1 and m8, both lists
-  check(/\$\('change'\)\.onclick = [^\n]*\$\('open'\)\.focus\(/.test(main) && !/\$\('change'\)\.onclick = [^\n]*querySelector/.test(main), "main.js: after Canvia the focus does not go to «Afegeix un jugador» (outside the inert list)");   // contract: fix round 1 follow-up 2, focusing inside an inert list fails silently
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(m => [m[1].split(',').map(x => x.trim()), m[2]]);
   check(['.games[inert]', '.profiles[inert]'].every(sel => rules.some(([sels, d]) => sels.includes(sel) && /pointer-events:\s*none/.test(d))), 'style.css: a gated list has no [inert] pointer-events fallback for old browsers');   // contract: fix round 1 follow-up 1, inert is ignored before Chrome 102 / Safari 15.5
-  check(/render\(true\)/.test(main) && main.split('render(true)').length === 2, 'main.js: only the repaint after a sync may call render(true)');   // contract: fix round 1 N1, sync is the only reason to hold without a change of view
-  check(start.indexOf('!c.enabled') >= 0 && start.indexOf('!c.enabled') < start.indexOf('mount()'), 'main.js: start() does not test enabled before mounting the button');   // contract: fix round 1 C1 and I2, with enabled false no button (the lock and the always-unlock parts went with the cloud wait, plan «El progrés no baixa mai», tasca 5)
-  check(!/\b(lock|unlock)\(|\b4000\b|\.cloud\b/.test(main.replace(/'cloud'/g, '')), 'main.js: the cloud wait is still there (lock, unlock, the 4 s cap or the cloud reason of a gate)');   // contract: plan «El progrés no baixa mai», tasca 5, «fora lock, unlock, el límit de 4 s i el motiu cloud»
-  check(/if \(who !== null\) await sync\(\);/.test(start), 'main.js: start() does not sync after the first paint when a session is open');   // contract: Task 5 brief, session then syncAll
-  check(/\$\('adder'\)\.onsubmit = e => \{([\s\S]*?)\n\};/.exec(main)?.[1].includes('if (id && who !== null) sync();'), 'main.js: the submit handler does not call sync() after a profile is added with a session open');   // contract: Task 5 brief, after adding a profile with a session open syncAll too (I2)
-  check(!/insertAdjacentHTML|outerHTML|document\.write|\.srcdoc/.test(main), 'main.js: html is inserted by a route other than the one innerHTML of cards()');   // contract: brief rule, a name is text only, whatever the route
-  // the account button (Task 5): present only with a Firebase config, loaded after the first paint, texts and sizes fixed
-  check(!/^\s*import\b[^;]*cloud\.js/m.test(main) && !/^\s*export\b[^;]*from\s*['"][^'"]*cloud\.js/m.test(main), 'main.js: cloud.js is imported statically, Firebase would delay the hub');   // contract: Task 5 decision 1, import() after the first paint
-  check(/import\(\s*['"]\.\.\/shared\/cloud\.js['"]\s*\)/.test(main), 'main.js: cloud.js is not loaded with import()');   // contract: Task 5 decision 1
   check(!html.includes('Desa el progrés al núvol') && !html.includes('Tanca la sessió'), 'index.html: the account button is in the page, it must not exist without a config');   // contract: Task 5 decision 2 and plan rule «Si enabled és false, el botó no existeix a la pàgina»
-  for (const t of ['Desa el progrés al núvol', 'Tanca la sessió', "No s'ha pogut entrar. Torna-ho a provar."]) check(main.includes(`'${t}'`) || main.includes(`"${t}"`), `main.js: the text «${t}» is missing`);   // contract: Task 5 decision 3, the three screen texts
-  check(/\bacct\.textContent = /.test(main), 'main.js: the account name is not written with textContent');   // contract: Task 5 decision 3, textContent only
   check(minHeight('.cloud .btn') >= 44, `style.css: .cloud .btn has min-height ${minHeight('.cloud .btn')}px, under 44`);   // contract: Task 5 decision 7, the account button is at least 44 px
-  check(/btn\.onclick = async \(\) => \{\s*if \(busy\) return;\s*busy\+\+;[^;]*;\s*paint\(\);/.test(main) && /btn\.disabled = busy > 0/.test(main), 'main.js: the account button is not disabled synchronously at the start of its click handler');   // contract: Task 5 decision 4, a double tap opens one popup
-  check(/\.then\(changed => \{ if \(changed\) render\(true\); \}/.test(main) && !/\.focus\(/.test(/function sync\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '.focus('), 'main.js: sync() does not repaint only when syncAll returned true, or it moves the focus');   // contract: Task 5 decision 6
 }
 
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }
