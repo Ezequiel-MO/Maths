@@ -1,9 +1,10 @@
 // Checks the questions of l'àbac before every build: the 9 projects of 3 exercises of 5, the three circles, the pool of the Piscina and the rule of each project
 // (worked out again here with arithmetic of its own: plan only tells what the abacus is asked to show, never what the answer is).
-// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js]   (the path is for trying the checker itself)
+// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js]   (the paths are for trying the checker itself)
 // One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add the next parts above the footer.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { inspect, isDeepStrictEqual } from 'node:util';
 
 let fails = 0, counted = 0;
@@ -767,6 +768,62 @@ function partC(m) {
   });
 }
 
+// ---- D. the card of the home page, and the unit of --u in board.js
+// what the home page asks of the card: record(load('abac-xines') || {}, total), once per visit. The save is read here by hand, never through clean.
+const sectionD = (name, fn) => { try { fn(); } catch (e) { check(false, `D: ${name} stopped on ${e.message}`); } };
+function partD() {
+  sectionD('the card', () => {
+    const card = hub && hub.GAMES.find(g => g.id === 'abac-xines');
+    if (!card) { check(false, "D: there is no card 'abac-xines' in shared/games.js (or the file cannot be loaded)"); return; }
+    check(card.total === 9, `D: the card total is ${card.total}, expected 9`);   // contract: spec «Fitxers», shared/games.js: total 9
+    for (const word of ['sumar', 'restar', 'multiplicar', 'repartir']) check(String(card.what).includes(word), `D: the text of the card (${card.what}) does not say «${word}»`);   // contract: spec «Fitxers», el text diu també «repartir»
+    check(!/company|segon/i.test(card.what + ' ' + card.title), 'D: the text of the card talks about a companion or a second player');   // contract: spec «Global Constraints», el nen juga sol
+    const same = (saved, want) => {
+      let got; try { got = card.record(saved, 9); } catch (e) { got = `throws ${e.message}`; }
+      check(got === want, `D: record(${show(saved)}, 9) is ${show(got)}, expected ${show(want)}`);
+    };
+    same({}, '0 de 9 projectes');                                                               // contract: plan Task 7, valors esperats
+    same({ secs: [10, 10, 4, 0, 0, 0] }, '4 de 9 projectes');                                   // contract: plan Task 7, i spec «El que es desa» (seccions 0 i 1 donen els projectes 0 a 3)
+    same({ secs: [10, 10, 10, 10, 10, 10] }, '9 de 9 projectes');                               // contract: spec «El que es desa», seccions per projecte [0,0,1,1,2,3,4,5,5]: sis seccions fetes les validen tots
+    same({ secs: [9, 9, 9, 9, 9, 9] }, '0 de 9 projectes');                                     // contract: spec «El que es desa», amb 9 nivells la secció no està feta
+    same({ notes: [100, 80, 79, 0, 0, 0, 0, 0, 0] }, '2 de 9 projectes');                       // contract: spec «Un projecte», amb 80 o més el projecte queda validat
+    same({ notes: [100, 80, 79, 0, 0, 0, 0, 0, 0], secs: [10, 0, 0, 0, 0, 0] }, '2 de 9 projectes');   // contract: spec «El que es desa», la secció 0 dona 80 als projectes 0 i 1 i no baixa el 100
+    same({ notes: [0, 0, 0, 0, 0, 0, 0, 0, 80, 100, 100] }, '1 de 9 projectes');                // contract: spec «El que es desa», només hi ha nou projectes
+    // garbage: text back and no throw (one card that throws breaks the whole home page)
+    for (const saved of [{ notes: 'a' }, null, undefined, 'a', 7, [], [1, 2], { secs: 'a' }, { secs: [NaN, null, {}, 'x', -4, 99] }, { notes: [NaN, null, {}, 'x', -4, 1e9] }, { notes: { 0: 100 } }]) {
+      let got; try { got = card.record(saved, 9); } catch (e) { got = `throws ${e.message}`; }
+      check(typeof got === 'string' && !got.startsWith('throws'), `D: record(${show(saved)}, 9) is ${show(got)}, expected a text and no throw`);   // contract: spec «Riscos» 2, record no pot petar
+    }
+  });
+  sectionD('--u in board.js', () => {
+    if (boardText === null) { check(false, `D: board.js cannot be read: ${boardError}`); return; }
+    const calls = uCalls(boardText);
+    check(calls.length > 0, "D: board.js never sets --u (no setProperty('--u', …))");
+    for (const arg of calls) {
+      const px = /px['"`]\)*\s*$/.test(arg);
+      const restores = /^[A-Za-z_$][\w$]*$/.test(arg) && new RegExp(`\\b${arg.replace(/\$/g, '\\$')}\\s*=\\s*[\\w.$]*getPropertyValue\\(\\s*['"]--u['"]\\s*\\)`).test(boardText);
+      check(px || restores, `D: board.js sets --u to ${arg}, which does not end in px (a bare number makes every calc() with var(--u) invalid and the board collapses)`);   // contract: defect found in the browser, 2026-10-06: --u was set without its unit
+    }
+  });
+}
+// the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call
+function uCalls(text) {
+  const out = [], head = /setProperty\(\s*(['"`])--u\1\s*,/g;
+  for (let m; (m = head.exec(text));) {
+    let depth = 0, q = '', i = head.lastIndex;
+    const from = i;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '\\') i++; else if (c === q) q = ''; continue; }
+      if (c === "'" || c === '"' || c === '`') q = c;
+      else if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' || c === ']' || c === '}') { if (!depth) break; depth--; }
+    }
+    out.push(text.slice(from, i).trim());
+  }
+  return out;
+}
+
 // ---- the logic under check
 const target = process.argv[2] ? pathToFileURL(resolve(process.argv[2])) : new URL('../games/abac-xines/logic.js', import.meta.url);
 let mod = null;
@@ -774,6 +831,11 @@ try { mod = await import(target); } catch (e) { check(false, `the logic cannot b
 if (mod) for (const part of [partA, partB, partC]) {
   try { part(mod); } catch (e) { check(false, `${part.name} stopped on ${e.message}`); }
 }
+// part D does not need the logic under check: the card is the real one, and board.js is read as text (argv[3] names another file, to try the pin itself)
+let hub = null, boardText = null, boardError = '';
+try { hub = await import('../shared/games.js'); } catch (e) { check(false, `D: shared/games.js cannot be loaded: ${e.message}`); }
+try { boardText = readFileSync(process.argv[3] ? resolve(process.argv[3]) : new URL('../games/abac-xines/board.js', import.meta.url), 'utf8'); } catch (e) { boardError = e.message; }
+try { partD(); } catch (e) { check(false, `partD stopped on ${e.message}`); }
 
 // ---- footer
 if (fails) { console.error(`${fails} failures`); process.exit(1); }

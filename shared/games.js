@@ -2,11 +2,15 @@
 // and an entry here. store is the id its progress is saved under (see progress.js): two games of one page share it.
 // total is how much there is to win, and record(saved, total) the line under the card, empty until there is something to show.
 // scripts/check.mjs stops the build when a total no longer matches the game's own data.
+import { clean } from '../games/abac-xines/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 const screens = (n, total) => n ? `${n} de ${total} pantalles` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
 const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => Number.isFinite(x) && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
+// the abacus game counts projects too, but a profile that has not opened it since the update only holds the old secs: clean makes the project marks from them,
+// and from anything else a save of any shape. Unlike the other cards it says 0 de 9 for a save with nothing yet, which is what the plan asks of it
+const abacus = (s, total) => `${clean(s).notes.slice(0, total).filter(x => x >= 80).length} de ${total} projectes`;
 // the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
 // (worlds 6 and 12 were the mixes, which are no longer sections of their own)
 const leaps = s => Array.isArray(s.secs) ? sum(s.secs) : Array.isArray(s.stars) ? s.stars.filter((n, i) => n > 0 && i % 6 < 5).length * 10 : 0;
@@ -22,7 +26,7 @@ export const GAMES = [
     what: 'Escriu les ordres perquè el coet reculli totes les estrelles.', total: 50, record: (s, total) => levels(sum(s.secs), total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 14l1.6 3.6 3.9.4-2.9 2.7.8 3.9L10 22.600l-3.400 2 .8-3.9-2.900-2.700 3.900-.4z" fill="#F7C64E"/><g transform="rotate(35 32 32)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g></svg>` },
   { id: 'abac-xines', href: 'abac-xines.html', store: 'abac-xines', tag: 'Operacions', title: "L'àbac xinès",
-    what: 'Mou les boles per sumar, restar i multiplicar.', total: 60, record: (s, total) => levels(sum(s.secs), total),
+    what: 'Mou les boles per sumar, restar, multiplicar i repartir.', total: 9, record: (s, total) => abacus(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="7" width="54" height="50" rx="9" fill="#6B321C" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="12" width="44" height="40" rx="4" fill="#061A24"/><path d="M19 12V52M32 12V52M45 12V52" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="25" width="44" height="4" fill="#C07A48"/><g fill="#5B4A1C"><ellipse cx="19" cy="15.5" rx="5.5" ry="3"/><ellipse cx="45" cy="15.5" rx="5.5" ry="3"/></g><g fill="#F7C64E"><ellipse cx="32" cy="21.500" rx="5.5" ry="3"/></g><g fill="#7CF5B0"><ellipse cx="45" cy="32.500" rx="5.5" ry="3"/><ellipse cx="45" cy="39" rx="5.5" ry="3"/></g><ellipse cx="32" cy="32.500" rx="5.5" ry="3" fill="#6FE3FF"/><g fill="#B79CFF"><ellipse cx="19" cy="32.500" rx="5.5" ry="3"/><ellipse cx="19" cy="39" rx="5.5" ry="3"/><ellipse cx="19" cy="45.5" rx="5.5" ry="3"/></g><g fill="#1B3F52"><ellipse cx="32" cy="42" rx="5.5" ry="3"/><ellipse cx="32" cy="48.500" rx="5.5" ry="3"/><ellipse cx="45" cy="48.500" rx="5.5" ry="3"/></g></svg>` },
   { id: 'coet-multiplicador', href: 'coet-multiplicador.html', store: 'coet-multiplicador', tag: 'Multiplicar', title: 'El coet multiplicador',
     what: 'Multiplica números grans tros a tros i fes enlairar el coet.', total: 60, record: (s, total) => levels(sum(s.secs), total),

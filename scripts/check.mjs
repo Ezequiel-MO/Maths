@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { GAMES } from '../shared/games.js';
 import { SECTIONS as TRICKS, PLAN } from '../games/salts-de-granota/logic.js';
 import { LEVELS as ROCKET } from '../games/memoria-visual/logic.js';
-import { LEVELS as ABACUS } from '../games/abac-xines/logic.js';
+import { PROJECTS as ABACUS } from '../games/abac-xines/logic.js';
 import { LEVELS as TIMES } from '../games/coet-multiplicador/logic.js';
 import { SECTIONS as PADS } from '../games/nenufars-a-trossos/logic.js';
 import { PROJECTS } from '../games/cursus-de-l-estany/logic.js';
