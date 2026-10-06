@@ -522,6 +522,28 @@ await section('a stale game page', async () => {
   } finally { delete globalThis.location; }
 });
 
+// contract: re-revisió de les tasques 4 i 5; ruling 8. A send never lowers the at in the cloud: when the join equals the device's
+// copy but its at is not above the cloud's, it goes through merged() first, which puts the at above
+await section('a send that joins to the same copy does not lower the at of the cloud', async () => {
+  const D2 = mem(); D2.setItem('compte', 'U1');   // a signed-in device has compte, as reset() puts it on A and B
+  reset('U1'); on(A); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', { n: 3 }); await cloud.syncAll();
+  on(B); await cloud.syncAll(); P.choose('xavi', []);
+  on(D2); await cloud.syncAll(); P.choose('xavi', []);
+  check(synced(mark(A, 'xavi:g'), 1000) && synced(mark(B, 'xavi:g'), 1000) && synced(mark(D2, 'xavi:g'), 1000), 'setup: three devices synced at 1000 on n 3');
+  on(D2); P.load('g'); t = 1500; P.save('g', { n: 0 });   // no network: pending
+  on(A); P.load('g'); t = 2000; P.save('g', { n: 5 }); await cloud.push('xavi', 'g');
+  on(B); await cloud.syncAll(); P.load('g'); t = 5000; P.save('g', { n: 0 }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { n: 0 }, at: 5000 }) && B.getItem('xavi:g') === J({ n: 0 }), `setup: D1 deleted and the cloud is n 0 at 5000 (${J(game('xavi', 'g'))})`);
+  const before = game('xavi', 'g').at;
+  on(D2); t = 6000; await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ n: 0 }) && game('xavi', 'g').at > before, `the late send of D2 leaves n 0 with an at above the cloud's ${before} (${J(game('xavi', 'g'))})`);
+  check(synced(mark(D2, 'xavi:g'), game('xavi', 'g').at), `and D2 is synced at the at it sent (${J(mark(D2, 'xavi:g'))})`);
+  on(A); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ n: 0 }) && J(game('xavi', 'g').data) === J({ n: 0 }), `A, with nothing pending, pulls the delete (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  on(B); await cloud.syncAll();
+  check(B.getItem('xavi:g') === J({ n: 0 }) && J(game('xavi', 'g').data) === J({ n: 0 }), `and D1 stays on n 0, the cloud too (${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+});
+
 // ---- «El progrés no baixa mai», tasca 4: a request that never answers is a network error after 15 000 ms. Every value below is contract: plan «El progrés no baixa mai», tasca 4, «Comprovació»
 // The clock is replaced inside the section: a 15 000 ms timer is not armed for real, the scenario fires it by hand. drive() has its
 // own real limit (1 s), so a request cloud.js forgets to limit is a FAIL here and not a wait that never ends. These sections go last:

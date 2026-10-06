@@ -68,6 +68,8 @@ export async function signOut() {
 // document cannot land out of order and the cloud ends with the latest save. force: send even when not pending (syncAll decided).
 // Before it writes, a send reads the cloud copy: if that moved since the device last synced (its at is not base), the device
 // copy is first merged with it, so a device that is behind never lowers what another one sent. A failed read writes nothing.
+// A write never carries an at at or below the cloud's (a late one would look like a cloud gone backwards): a join that equals the
+// device copy but is not newer than the cloud goes through merged() too, which puts the at above.
 let chain = Promise.resolve();
 const send = (uid, profile, game, force) => chain = chain.then(async () => {
   try {
@@ -83,7 +85,7 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
     const r = snap.exists() ? snap.data() : null;
     if (r && number(r.at) && r.at !== e.base) {
       const m = merge(e.data, r.data, e.at > r.at);
-      if (!same(m, e.data)) {
+      if (!same(m, e.data) || e.at <= r.at) {
         if (!merged(profile, game, m, e.at, r.at)) return;   // saved again meanwhile, or not stored: it stays pending
         e = find();   // no await since merged(): this is the merged document
         if (!e) return;
