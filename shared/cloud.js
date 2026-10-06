@@ -49,16 +49,27 @@ export async function signOut() {
   try { const f = await restored(); await f.A.signOut(f.auth); } catch (e) {}
 }
 
-// sends one pending document; the entry is read after the last await and pushed() gets the very at that was sent
+// Every document send goes through this one chain, and each send reads the entry when its turn comes, so two sends of one
+// document cannot land out of order and the cloud ends with the latest save. force: send even when not pending (syncAll decided)
+let chain = Promise.resolve();
+const send = (uid, profile, game, force) => chain = chain.then(async () => {
+  try {
+    const s = await session();
+    if (!s || s.uid !== uid) return;
+    const f = await boot();
+    if (!force) rebase(uid);   // a push may come before any syncAll: marks of another account must not say synced
+    const e = entries().find(x => x.profile === profile && x.game === game);
+    if (!e || (!force && !e.pending)) return;
+    await f.F.setDoc(f.F.doc(f.db, 'users', uid, 'profiles', profile, 'games', game), { data: e.data, at: e.at });
+    pushed(profile, game, e.at);   // the at that was sent
+  } catch (e) {}
+});
+
+// sends one pending document
 export async function push(profile, game) {
   try {
     const s = await session();
-    if (!s) return;
-    const f = await boot();
-    const e = entries().find(x => x.profile === profile && x.game === game);
-    if (!e || !e.pending) return;
-    await f.F.setDoc(f.F.doc(f.db, 'users', s.uid, 'profiles', profile, 'games', game), { data: e.data, at: e.at });
-    pushed(profile, game, e.at);
+    if (s) await send(s.uid, profile, game, false);
   } catch (e) {}
 }
 
@@ -80,9 +91,9 @@ async function run() {
     const snap = await F.getDocs(F.collection(db, ...base));
     // a cloud profile counts only when its id is the slug of its name, so a name is never shown under a foreign id
     const cloud = [];
-    snap.forEach(d => { const n = d.data().name; if (typeof n === 'string' && slug(n) === d.id) cloud.push({ id: d.id, name: n }); });
+    snap.forEach(d => { const n = d.data().name; if (typeof n === 'string' && slug(n) === d.id) cloud.push({ id: d.id, name: n.trim() }); });
     changed = addProfiles(cloud);
-    for (const p of profiles()) if (!cloud.some(c => c.id === p.id)) await F.setDoc(F.doc(db, ...base, p.id), { name: p.name });
+    for (const p of profiles()) if (!cloud.some(c => c.id === p.id)) { try { await F.setDoc(F.doc(db, ...base, p.id), { name: p.name }); } catch (e) {} }   // a refused one skips nothing else
     for (const { id } of profiles()) {
       try {
         const snapG = await F.getDocs(F.collection(db, ...base, id, 'games'));
@@ -98,13 +109,7 @@ async function run() {
           if (todo === 'pull') { pulled(id, game, r.data, r.at); changed = true; }
           else if (todo === 'push') sends.push(l);
         }
-        for (const l of sends) {
-          if (odd.has(l.game)) continue;   // a cloud copy we cannot read is not overwritten blindly
-          try {
-            await F.setDoc(F.doc(db, ...base, id, 'games', l.game), { data: l.data, at: l.at });
-            pushed(id, l.game, l.at);
-          } catch (e) {}
-        }
+        for (const l of sends) if (!odd.has(l.game)) await send(s.uid, id, l.game, true);   // a cloud copy we cannot read is not overwritten blindly
       } catch (e) {}   // one profile failing leaves its documents pending and the others go on
     }
   } catch (e) {}
