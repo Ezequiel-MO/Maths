@@ -22,7 +22,8 @@ const number = n => (typeof n === 'number' && isFinite(n));
 // the profiles on this device, only the well-formed ones
 export function profiles() {
   const l = json('perfils');
-  return Array.isArray(l) ? l.filter(p => p && text(p.id) && text(p.name)).map(p => ({ id: p.id, name: p.name })) : [];
+  // an id that is empty or has a ':' would break the key; of a duplicated id the first stays
+  return Array.isArray(l) ? l.filter(p => p && text(p.id) && text(p.name) && p.id && !p.id.includes(':')).map(p => ({ id: p.id, name: p.name })).filter((p, i, a) => a.findIndex(q => q.id === p.id) === i) : [];
 }
 // the active profile id, or null when there is none or it is not on the list
 export function active() { const p = get('perfil'); return profiles().some(x => x.id === p) ? p : null; }
@@ -54,7 +55,8 @@ export function choose(id, stores = []) {
     const old = get(s);
     if (old === null) continue;
     const key = doc(id, s);
-    if (get(key) === null && !(set(key, old) && setMark(key, { at: 0, base: null, pending: true }))) continue;   // keep the old one if the copy failed
+    // mark first: a copy without its mark would be invisible to the cloud; keep the old key if either write failed
+    if (get(key) === null && !(setMark(key, { at: 0, base: null, pending: true }) && set(key, old))) continue;
     del(s);
   }
 }
@@ -68,10 +70,11 @@ export function save(id, data) {
   if (!p) return;
   let s;
   try { s = JSON.stringify(data); } catch (e) { return; }
-  const key = doc(p, id);
-  if (!set(key, s)) return;
-  const prev = marks()[key];
-  setMark(key, { at: Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0), base: prev && number(prev.base) ? prev.base : null, pending: true });
+  const key = doc(p, id), prev = marks()[key];
+  // mark first: if only the document write fails, a pending mark over the old document is harmless, whereas a changed
+  // document over a mark that says synced would never be sent
+  if (!setMark(key, { at: Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0), base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
+  set(key, s);
 }
 
 // every document that has a mark and can be read
@@ -91,6 +94,7 @@ export function entries() {
 }
 // writes a document taken from the cloud, in sync with it
 export function pulled(profile, game, data, at) {
+  if (!number(at)) return;   // a mark without a numeric at would hide the document from entries() for good
   let s;
   try { s = JSON.stringify(data); } catch (e) { return; }
   const key = doc(profile, game);
@@ -106,6 +110,6 @@ export function rebase(uid) {
   if (!text(uid) || !uid || get('compte') === uid) return false;
   const m = marks();
   for (const key of Object.keys(m)) if (m[key] && typeof m[key] === 'object') m[key] = { at: m[key].at, base: null, pending: true };
-  set('sync', JSON.stringify(m));
+  if (!set('sync', JSON.stringify(m))) return false;   // the uid is only kept once the marks carry no base of the other account
   return set('compte', uid);
 }

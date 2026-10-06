@@ -17,7 +17,7 @@ const SLUGS = [
   ['Xavi', 'xavi'], [' Laia ', 'laia'],
   ['Júlia', 'julia'], ['Àlex B', 'alex-b'], ['Xavi!', 'xavi'],
   ['', ''], ['   ', ''], ['!!!', ''], ['abcdefghijklm', ''], [null, ''], [7, ''],
-  ['abcdefghijkl', 'abcdefghijkl'],
+  ['abcdefghijkl', 'abcdefghijkl'], [' abcdefghijkl ', 'abcdefghijkl'],   // the limit counts the trimmed name
 ];
 for (const [name, want] of SLUGS) check(slug(name) === want, `slug(${JSON.stringify(name)}) is ${JSON.stringify(slug(name))}, want ${JSON.stringify(want)}`);
 
@@ -104,13 +104,17 @@ section('adoption does not trample', () => {
 });
 
 section('marks', () => {
-  start('Xavi');
-  P.save('joc', { n: 1 });
-  const e1 = entry('joc');
-  check(e1 && e1.pending === true && e1.at > 0 && e1.data.n === 1 && e1.base === null, 'marks: after save pending, at > 0, base null');   // contract: save marks pending
-  P.save('joc', { n: 2 });
-  const e2 = entry('joc');
-  check(e1 && e2 && e2.at > e1.at, 'marks: two saves in a row give a growing at');   // contract: strictly increasing at
+  const real = Date.now;
+  Date.now = () => 1000;   // two saves in one millisecond
+  try {
+    start('Xavi');
+    P.save('joc', { n: 1 });
+    const e1 = entry('joc');
+    check(e1 && e1.pending === true && e1.at > 0 && e1.data.n === 1 && e1.base === null, 'marks: after save pending, at > 0, base null');   // contract: save marks pending
+    P.save('joc', { n: 2 });
+    const e2 = entry('joc');
+    check(e1 && e2 && e2.at === e1.at + 1, 'marks: two saves in the same millisecond give at + 1');   // contract: at = max(now, previous at + 1), strictly increasing
+  } finally { Date.now = real; }
 });
 
 section('pushed', () => {
@@ -136,16 +140,15 @@ section('pulled', () => {
 
 section('rebase', () => {
   start('Xavi');
-  P.save('a', { n: 1 }); P.save('b', { n: 2 });
+  P.pulled('xavi', 'a', {}, 50); P.pulled('xavi', 'b', {}, 60);
   check(P.rebase('u1') === true, 'rebase u1 the first time is true');   // contract: new account value
+  check(isMark(markOf('xavi:a'), 50, null, true) && isMark(markOf('xavi:b'), 60, null, true), 'rebase u1: marks are { at, base null, pending } with their own at');   // contract: base null, pending true, at kept
+  P.pushed('xavi', 'a', 50); P.pushed('xavi', 'b', 60);
   check(P.rebase('u1') === false, 'rebase u1 the second time is false');   // contract: same account
-  P.pushed('xavi', 'a', entry('a').at); P.pushed('xavi', 'b', entry('b').at);
-  const before = P.entries().map(e => e.game + e.at).sort().join();
-  check(P.entries().every(e => !e.pending && e.base === e.at), 'rebase: set-up has everything synced');   // contract: pushed leaves { at, base at, not pending }
+  check(isMark(markOf('xavi:a'), 50, 50, false) && isMark(markOf('xavi:b'), 60, 60, false), 'rebase u1 again: nothing touched');   // contract: same account changes nothing
   check(P.rebase('u2') === true, 'rebase u2 is true');   // contract: another account
-  const es = P.entries();
-  check(es.length === 2 && es.every(e => e.base === null && e.pending === true), 'rebase u2: all base null and pending');   // contract: all marks reset
-  check(es.map(e => e.game + e.at).sort().join() === before, 'rebase u2: at is unchanged');   // contract: same at
+  check(isMark(markOf('xavi:a'), 50, null, true) && isMark(markOf('xavi:b'), 60, null, true), 'rebase u2: marks are exactly { 50 | 60, null, pending }');   // contract: all marks reset, same at
+  check(P.entries().length === 2, 'rebase u2: both entries still there');   // contract: the documents stay
   check(mem.get('compte') === 'u2', 'rebase: compte holds the uid');   // contract: compte is the uid as a plain string
 });
 
@@ -183,6 +186,93 @@ section('throwing store', () => {
   check(P.rebase('u1') === false, 'throwing: rebase says false');   // contract: compte could not be written, so no claim of change
   delete globalThis.localStorage;
   check(P.profiles().length === 0 && P.add('Xavi') === '' && P.load('joc') === null, 'no localStorage at all: nothing throws');   // contract: decision 7, also when localStorage is undefined
+});
+
+// ---- fix round 1 ----
+// a store over `mem` that refuses writes (throws) when refuse(key) is true
+const refusing = refuse => ({ getItem: good.getItem, removeItem: good.removeItem, setItem: (k, v) => { if (refuse(k)) throw new Error('refused ' + k); good.setItem(k, v); } });
+
+section('save: the mark write fails', () => {   // review I1
+  start('Xavi');
+  P.save('joc', { n: 1 }); P.pushed('xavi', 'joc', entry('joc').at);
+  globalThis.localStorage = refusing(k => k === 'sync');
+  P.save('joc', { n: 2 });
+  const e = entry('joc');
+  check(!(P.load('joc').n === 2 && e && e.pending === false), 'mark write fails: never a changed document marked as synced');   // contract: fix round 1 I1
+});
+
+section('choose(null) and unknown id', () => {   // review I3
+  start('Xavi'); P.save('joc', { n: 1 });
+  P.choose(null);
+  check(P.active() === null && P.load('joc') === null && !mem.has('perfil'), 'choose(null): no active profile, load null, no perfil key');   // contract: null clears the active profile
+  P.choose('xavi'); P.choose('ningu');
+  check(P.active() === null && !mem.has('perfil'), 'choose(unknown id) acts like choose(null)');   // contract: decision 2 of the task 2 brief
+});
+
+section('unreadable document and circular data', () => {   // review I4
+  start('Xavi');
+  mem.set('xavi:joc', '{');
+  check(P.load('joc') === null, 'unreadable document: load is null');   // contract: reads never throw
+  mem.delete('xavi:joc');
+  const c = {}; c.me = c;
+  P.save('joc', c);
+  check(!mem.has('xavi:joc'), 'circular data: save stores no document');   // contract: nothing throws, nothing written
+});
+
+section('writes that do not stick', () => {   // review I5
+  globalThis.localStorage = { getItem: good.getItem, removeItem: good.removeItem, setItem: () => {} };   // silently drops
+  check(P.add('Xavi') === '', 'silent no-op setItem: add gives empty');   // contract: add gives '' when the write did not stick
+  mem.clear(); globalThis.localStorage = good;
+  start('Xavi');
+  globalThis.localStorage = refusing(k => k === 'xavi:joc');
+  P.save('joc', { n: 1 });
+  check(!mem.has('xavi:joc') && P.load('joc') === null && P.entries().length === 0, 'refused document: absent, load null, entries []');   // contract: nothing written, nothing listed
+  mem.clear(); globalThis.localStorage = good;
+  mem.set('salts', '{"a":1}'); P.add('Xavi');
+  globalThis.localStorage = refusing(k => k === 'xavi:salts');
+  P.choose('xavi', ['salts']);
+  check(mem.get('salts') === '{"a":1}', 'refused adoption copy: the old key stays');   // contract: the old progress is not lost
+});
+
+section('half-failed adoption', () => {   // review M1
+  mem.set('joc', '{"n":1}'); P.add('Xavi');
+  globalThis.localStorage = refusing(k => k === 'sync');
+  P.choose('xavi', ['joc']);
+  globalThis.localStorage = good;
+  P.choose('xavi', ['joc']);
+  check(isMark(markOf('xavi:joc'), 0, null, true) && !mem.has('joc') && P.load('joc').n === 1, 'second choose leaves the adopted document with its { 0, null, pending } mark');   // contract: adoption mark, old key deleted
+});
+
+section('rebase when the marks cannot be written', () => {   // review M2
+  start('Xavi'); P.save('joc', { n: 1 });
+  globalThis.localStorage = refusing(k => k === 'sync');
+  check(P.rebase('u2') === false && mem.get('compte') !== 'u2', 'sync refused: rebase is false and compte is not changed');   // contract: only a stuck marks write counts
+});
+
+section('pulled with a bad at', () => {   // review M3
+  start('Xavi');
+  P.pulled('xavi', 'joc', { n: 1 }, undefined); P.pulled('xavi', 'joc', { n: 1 }, '50');
+  check(P.load('joc') === null, 'pulled with undefined or text at writes nothing');   // contract: at must be a finite number
+});
+
+section('profiles(): bad ids', () => {   // review M4
+  mem.set('perfils', JSON.stringify([{ id: '', name: 'A' }, { id: 'a:b', name: 'B' }, { id: 'x', name: 'first' }, { id: 'x', name: 'second' }, { id: 'ok', name: 'Ok' }]));
+  const l = P.profiles();
+  check(l.length === 2 && l[0].id === 'x' && l[0].name === 'first' && l[1].id === 'ok', 'profiles drops empty and ":" ids and keeps the first duplicate');   // contract: fix round 1 M4
+  mem.clear();
+  check(P.addProfiles([{ id: 'a:b', name: 'X' }, { id: '', name: 'Y' }]) === false && P.profiles().length === 0, 'addProfiles refuses ":" and empty ids');   // contract: nothing added
+});
+
+section('add trims the name', () => {   // review M6
+  check(P.add(' Laia ') === 'laia' && P.profiles()[0].name === 'Laia', 'add stores the trimmed name');   // contract: name is trimmed
+});
+
+section('sync that is an array', () => {   // review M7
+  start('Xavi');
+  mem.set('sync', '[]');
+  check(P.entries().length === 0, 'sync []: entries is []');   // contract: not an object gives no marks
+  P.save('joc', { n: 1 });
+  check(P.entries().length === 1, 'sync []: a following save yields one entry');   // contract: marks work again
 });
 
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }
