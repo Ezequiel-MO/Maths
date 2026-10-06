@@ -273,3 +273,62 @@ export const SECTIONS = [
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap((s, sec) => s.levels.map((l, idx) => ({ ...l, sec, idx })));
+
+// The course: 9 projects of 3 exercises of 5 questions, in three circles. A question is { q: '25+17-8' } to work out on the abacus, or
+// { read: 74, opts: [47, 24, 74, 79] } to read it (only the first two projects). Difficulty grows from ex00 to ex02. The questions carry no text.
+const ask = (...a) => a.map(q => ({ q }));
+const rd = (read, ...opts) => ({ read, opts });
+export const PROJECTS = [
+  { name: "Les boles", sub: "Una columna: de l'1 al 9, amb la bola de dalt", circle: 0, ex: [
+    [...ask('3', '1', '4', '2'), rd(5, 3, 5, 2, 7)],
+    [...ask('5', '6', '7'), rd(8, 3, 8, 6, 9), rd(3, 3, 8, 2, 5)],
+    [...ask('9', '8'), rd(6, 6, 9, 1, 7), rd(9, 6, 9, 4, 5), rd(7, 2, 7, 9, 5)]
+  ] },
+  { name: "Les columnes", sub: "Desenes i centenes: llegir i escriure fins a 999", circle: 0, ex: [
+    [...ask('20', '36'), rd(74, 47, 24, 74, 79), ...ask('12'), rd(45, 54, 45, 15, 46)],
+    [...ask('58', '81'), rd(136, 163, 136, 316, 138), ...ask('250', '104')],
+    [...ask('407', '615', '908'), rd(692, 629, 692, 962, 296), rd(380, 308, 380, 830, 381)]
+  ] },
+  { name: "Sumes", sub: "Sumar sense cap canvi: cada columna té lloc per a les boles", circle: 1, ex: [
+    ask('2+2', '1+3', '2+6', '3+5', '1+7'),
+    ask('21+7', '32+15', '12+25', '41+8', '20+17'),
+    ask('211+36', '312+125', '121+206', '1201+3105', '1123+3111')
+  ] },
+  { name: "El canvi de 5", sub: "Sumar passant pel 5: +4 = +5 −1", circle: 1, ex: [
+    ask('4+1', '3+4', '2+3', '1+4', '3+3'),
+    ask('13+4', '24+31', '32+23', '41+34', '33+24'),
+    ask('142+36', '253+324', '234+251', '3214+4321', '4132+3243')
+  ] },
+  { name: "Me'n porto una", sub: "Sumar passant pel 10: +8 = +10 −2", circle: 1, ex: [
+    ask('5+5', '8+2', '7+8', '9+9', '6+7'),
+    ask('28+14', '36+47', '65+38', '19+25', '57+16'),
+    ask('157+68', '486+237', '999+1', '3768+2475', '4856+5379')
+  ] },
+  { name: "Restes", sub: "Restar, i demanar prestat a la columna de l'esquerra", circle: 1, ex: [
+    ask('4-2', '9-5', '7-4', '48-16', '56-23'),
+    ask('10-3', '15-8', '32-5', '54-28', '81-46'),
+    ask('100-1', '423-167', '305-48', '6034-2578', '9875-4321')
+  ] },
+  { name: "Multiplica", sub: "Multiplicar és sumar el mateix nombre moltes vegades", circle: 2, ex: [
+    ask('2x3', '3x4', '4x5', '6x2', '2x5'),
+    ask('3x7', '5x8', '6x9', '12x3', '23x4'),
+    ask('45x6', '124x3', '86x7', '231x4', '99x9')
+  ] },
+  { name: "Reparteix", sub: "Dividir és restar el mateix nombre moltes vegades", circle: 2, ex: [
+    ask('6:2', '12:3', '10:5', '8:2', '20:4'),
+    ask('35:5', '48:6', '27:3', '63:7', '56:8'),
+    ask('84:4', '96:8', '144:6', '432:9', '810:9')
+  ] },
+  { name: "Barreja", sub: "Operacions encadenades i números fins als milers", circle: 2, ex: [
+    ask('12+9-5', '25+17-8', '60-25+9', '3x4+8', '20-6+9'),
+    ask('1250+375', '2000-750', '7x8-6', '1500+480', '3000-1250'),
+    ask('125x4+500', '5200-1875', '9x7+38-15', '2500+3750-4000', '36:4+1250')
+  ] }
+];
+export const CIRCLES = [
+  { name: "Llegir i escriure", projects: [0, 1] },
+  { name: "Sumar i restar", projects: [2, 3, 4, 5] },
+  { name: "Multiplicar i repartir", projects: [6, 7, 8] }
+];
+// the three numbers of the Piscina, the first challenges
+export const POOL = ['3', '5', '7'];
