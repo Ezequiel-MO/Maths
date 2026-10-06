@@ -1,6 +1,7 @@
 // Checks the cloud copy of the progress: the pure rules (the id of a profile, who wins when a document exists on the
 // device and in the cloud) and the store of profiles and sync marks in shared/progress.js, run over a fake localStorage.
 // Run: node scripts/check-progress.mjs
+import { readFileSync, readdirSync } from 'node:fs';
 import { slug, settle } from '../shared/sync.js';
 
 // the fake goes on globalThis before progress.js is evaluated; sections clear it and put the good store back
@@ -289,6 +290,31 @@ section('save: the document write fails', () => {   // review N1
   P.save('joc', { n: 1 });
   check(markOf('xavi:joc') === undefined, 'document refused on a first save: no mark is left');   // contract: no previous mark, so none remains
 });
+
+// ---- the hub, read as text (no browser here): the door back to «Qui juga?», its texts, names as text, the size of the controls, the tap guard
+{
+  const root = new URL('../', import.meta.url);
+  const src = f => readFileSync(new URL(f, root), 'utf8');
+  const bare = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');   // comments out
+  const html = src('index.html'), main = bare(src('hub/main.js')), css = bare(src('hub/style.css')), prog = bare(src('shared/progress.js'));
+  const hub = f => /<html\b[^>]*\sdata-hub(\s|=|>)/.test(f);
+  check(hub(html), 'index.html: <html> has no data-hub, so the hub would send itself back to itself forever on a fresh device');   // contract: Task 3 rule, progress.js redirects any page without data-hub when no profile is active
+  const pages = readdirSync(root).filter(f => f.endsWith('.html') && f !== 'index.html');
+  check(pages.length >= 6 && pages.every(f => !hub(src(f))), `a game page has data-hub and would never go back to the hub: ${pages.filter(f => hub(src(f)))}`);   // contract: the six game pages (plus the one of the coet) must redirect
+  check(/typeof window !== 'undefined' && !active\(\) && !document\.documentElement\.hasAttribute\('data-hub'\)\) location\.replace\('index\.html'\)/.test(prog), 'progress.js: the redirect to index.html is missing or lost one of its three conditions (browser only, no active profile, no data-hub)');   // contract: Task 3 rule; Node must import the file, so window comes first
+  for (const t of ['Qui juga?', 'Afegeix un jugador', 'Fet', 'Canvia', "Aquest nom no val. Prova'n un altre."]) check(html.includes(`>${t}<`), `index.html: the text «${t}» is missing`);   // contract: Task 3 brief, the five screen texts
+  check(html.includes('maxlength="12"'), 'index.html: the name box has no maxlength="12"');   // contract: slug() accepts at most 12 characters
+  check(!/segon|company/i.test(html), 'index.html: a text speaks of a second player or companions');   // contract: owner decision 2026-10-05, the child plays alone
+  const cards = /function cards\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '';
+  check(cards.includes('innerHTML'), 'main.js: cards() was not found or does not paint with innerHTML');   // contract: the card html stays as it was
+  check(main.split('innerHTML').length === 2, `main.js: ${main.split('innerHTML').length - 1} uses of innerHTML, only cards() may have one`);   // contract: brief rule, a profile name never goes through innerHTML
+  check([...cards.matchAll(/\$\{([^}]*)\}/g)].every(m => !/name|profile|active|stores/i.test(m[1])), 'main.js: the template of cards() interpolates a profile or its name');   // contract: names can come from the cloud
+  check(/b\.textContent = p\.name/.test(main) && /\$\('name'\)\.textContent = /.test(main), 'main.js: a profile name is not written with textContent (button or active name)');   // contract: brief rule, textContent only
+  const minHeight = sel => Math.max(0, ...[...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => m[1].split(',').map(x => x.trim()).includes(sel)).map(m => +(/min-height:\s*(\d+)px/.exec(m[2])?.[1] || 0)));
+  for (const sel of ['.me .btn', '.who .btn', '.adder input']) check(minHeight(sel) >= 44, `style.css: ${sel} has min-height ${minHeight(sel)}px, under 44`);   // contract: Task 3 brief, no control under 44 px
+  check(/seen === 'who'\)? \{[^}]*classList\.add\('wait'\)[^}]*setTimeout\([^}]*classList\.remove\('wait'\)/.test(main) && /seen = /.test(main), 'main.js: the tap guard is not set only when the view changes from «Qui juga?», or is not removed by a timer');   // contract: fix round 1 Important 1, a double tap on Fet landed on the card under the finger
+  check(/\.games\.wait\s*\{[^}]*pointer-events:\s*none/.test(css), 'style.css: .games.wait does not turn pointer-events off');   // contract: fix round 1 Important 1
+}
 
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }
 console.log('progress rules and store: ok');
