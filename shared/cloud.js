@@ -8,6 +8,15 @@ import { profiles, addProfiles, entries, pulled, merged, pushed, rebase } from '
 export const enabled = !!config;
 const number = n => (typeof n === 'number' && isFinite(n));
 
+// Every Firestore read and write waits at most LIMIT ms: past it the request counts as a network error (it rejects), so a request
+// that never answers cannot hold a run or the chain of sends. The continuation of a request that timed out never runs, so a late
+// answer does nothing. The popup sign-in has no limit (the adult may take long).
+const LIMIT = 15000;
+const within = p => new Promise((res, rej) => {
+  const id = setTimeout(() => rej(new Error('timeout')), LIMIT);
+  Promise.resolve(p).then(v => { clearTimeout(id); res(v); }, e => { clearTimeout(id); rej(e); });
+});
+
 // the Firebase packages are imported only here, once, and only with a config; a failed load is retried on the next call
 let fb = null;
 const boot = () => fb || (fb = (async () => {
@@ -64,7 +73,7 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
     let e = find();
     if (!e || (!force && !e.pending)) return;
     const ref = f.F.doc(f.db, 'users', uid, 'profiles', profile, 'games', game);
-    const snap = await f.F.getDoc(ref);
+    const snap = await within(f.F.getDoc(ref));
     const r = snap.exists() ? snap.data() : null;
     if (r && number(r.at) && r.at !== e.base) {
       const m = merge(e.data, r.data, e.at > r.at);
@@ -74,7 +83,7 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
         if (!e) return;
       }
     }
-    await f.F.setDoc(ref, { data: e.data, at: e.at });
+    await within(f.F.setDoc(ref, { data: e.data, at: e.at }));
     pushed(profile, game, e.at);   // the at that was sent
   } catch (e) {}
 });
@@ -102,15 +111,15 @@ async function run() {
     const { F, db } = await boot();
     rebase(s.uid);   // before any entries(): after a different account the marks must already be reset
     const base = ['users', s.uid, 'profiles'];
-    const snap = await F.getDocs(F.collection(db, ...base));
+    const snap = await within(F.getDocs(F.collection(db, ...base)));
     // a cloud profile counts only when its id is the slug of its name, so a name is never shown under a foreign id
     const cloud = [];
     snap.forEach(d => { const n = d.data().name; if (typeof n === 'string' && slug(n) === d.id) cloud.push({ id: d.id, name: n.trim() }); });
     changed = addProfiles(cloud);
-    for (const p of profiles()) if (!cloud.some(c => c.id === p.id)) { try { await F.setDoc(F.doc(db, ...base, p.id), { name: p.name }); } catch (e) {} }   // a refused one skips nothing else
+    for (const p of profiles()) if (!cloud.some(c => c.id === p.id)) { try { await within(F.setDoc(F.doc(db, ...base, p.id), { name: p.name })); } catch (e) {} }   // a refused one skips nothing else
     for (const { id } of profiles()) {
       try {
-        const snapG = await F.getDocs(F.collection(db, ...base, id, 'games'));
+        const snapG = await within(F.getDocs(F.collection(db, ...base, id, 'games')));
         const remote = new Map(), odd = new Set();
         snapG.forEach(d => { const v = d.data(); if (v && number(v.at) && v.data !== undefined) remote.set(d.id, v); else odd.add(d.id); });
         // from here to the last pulled() there is no await: a save() landing during the downloads is seen in this snapshot,

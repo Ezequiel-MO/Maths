@@ -495,5 +495,71 @@ await section('a stale game page', async () => {
   } finally { delete globalThis.location; }
 });
 
+// ---- «El progrés no baixa mai», tasca 4: a request that never answers is a network error after 15 000 ms. Every value below is contract: plan «El progrés no baixa mai», tasca 4, «Comprovació»
+// The clock is replaced inside the section: a 15 000 ms timer is not armed for real, the scenario fires it by hand. drive() has its
+// own real limit (1 s), so a request cloud.js forgets to limit is a FAIL here and not a wait that never ends. These sections go last:
+// a hang in cloud.js (the broken chain, a stuck run) is left behind and would stall whatever came after.
+const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout;
+const T = { armed: [], delays: [] };
+const fire = () => T.armed.splice(0).forEach(h => { if (!h.off) h.fn(); });
+const slow = async fn => {
+  T.armed.length = 0; T.delays.length = 0;
+  globalThis.setTimeout = (fn2, ms, ...a) => { if (ms !== 15000) return realSet(fn2, ms, ...a); const h = { fn: fn2, off: false }; T.armed.push(h); T.delays.push(ms); return h; };
+  globalThis.clearTimeout = h => { if (h && typeof h.fn === 'function') h.off = true; else realClear(h); };
+  try { await fn(); } finally { globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; }
+};
+const drive = async p => { let r = { hung: true }; p.then(v => { r = { v }; }); for (let i = 0; i < 100 && r.hung; i++) { await wait(10); fire(); } return r; };
+const never = () => new Promise(() => {});
+const signed = () => { reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); t = 1000; };
+
+await section('timeout: getDocs hangs', () => slow(async () => {
+  signed(); P.save('g', { n: 1 });
+  C.hook = op => (op === 'list' ? never() : null);
+  const r1 = await drive(cloud.syncAll());
+  check(!r1.hung && r1.v === false, `syncAll with the profile list hanging ends and says false (${J(r1)})`);
+  check(J(T.delays.filter(x => x !== 15000)) === J([]) && T.delays.length >= 1, `the limit is 15000 ms (${J(T.delays)})`);
+  C.hook = null; C.log.length = 0;
+  const r2 = await drive(cloud.syncAll());
+  check(!r2.hung && C.log.some(x => x.startsWith('list')) && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a second call starts a new run, and it sends the document (${J(r2)} ${J(C.log)})`);
+  // the list of games of one profile hangs: that profile is skipped, its document stays pending, the run ends
+  signed(); P.save('g', { n: 1 });
+  C.hook = (op, path) => (op === 'list' && path.endsWith('/games') ? never() : null);
+  const r3 = await drive(cloud.syncAll());
+  check(!r3.hung && sets().filter(x => x.includes('/games/')).length === 0 && pend(mark(A, 'xavi:g'), 1000, null), `a games list that hangs ends the run and leaves the document pending (${J(r3)} ${J(mark(A, 'xavi:g'))})`);
+}));
+
+await section('timeout: the profile setDoc hangs', () => slow(async () => {
+  signed(); P.save('g', { n: 1 });
+  C.hook = (op, path) => (op === 'set' && path === 'users/U1/profiles/xavi' ? never() : null);
+  const r = await drive(cloud.syncAll());
+  check(!r.hung && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a profile write that hangs ends, and the run goes on with the documents (${J(r)} ${J(game('xavi', 'g'))})`);
+}));
+
+await section('timeout: a send hangs, the chain goes on', () => slow(async () => {
+  for (const op of ['set', 'get']) {
+    signed(); P.save('a', { n: 1 }); P.save('b', { n: 1 });
+    C.hook = (o, path) => (o === op && path.endsWith('/games/a') ? never() : null);
+    const r = await drive(Promise.all([cloud.push('xavi', 'a'), cloud.push('xavi', 'b')]));
+    check(!r.hung, `${op} hanging: both pushes end`);
+    check(J(game('xavi', 'b')) === J({ data: { n: 1 }, at: 1000 }) && synced(mark(A, 'xavi:b'), 1000), `${op} hanging: the next document of the chain is sent (${J(game('xavi', 'b'))} ${J(mark(A, 'xavi:b'))})`);
+    check(!game('xavi', 'a') && pend(mark(A, 'xavi:a'), 1000, null), `${op} hanging: the hung document stays pending (${J(game('xavi', 'a'))} ${J(mark(A, 'xavi:a'))})`);
+  }
+}));
+
+await section('timeout: a late answer does nothing', () => slow(async () => {
+  signed(); P.save('a', { n: 1 });
+  let release; C.hook = (op, path) => (op === 'set' && path.endsWith('/games/a') ? new Promise(r => { release = r; }) : null);
+  const r = await drive(cloud.push('xavi', 'a'));
+  check(!r.hung && pend(mark(A, 'xavi:a'), 1000, null), `the send ended at the limit and the document is pending (${J(r)} ${J(mark(A, 'xavi:a'))})`);
+  if (release) release(); await wait(40);
+  check(pend(mark(A, 'xavi:a'), 1000, null), `a setDoc answer after the limit does not clear the pending flag (${J(mark(A, 'xavi:a'))})`);
+  // a late list does not pull what it brings
+  signed(); C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/g', { data: { n: 7 }, at: 5000 });
+  C.hook = (op, path) => (op === 'list' && path.endsWith('/games') ? new Promise(r => { release = r; }) : null);
+  const r2 = await drive(cloud.syncAll());
+  if (release) release(); await wait(40);
+  check(!r2.hung && r2.v === false && A.getItem('xavi:g') === null, `a list answer after the limit pulls nothing (${J(r2)} ${A.getItem('xavi:g')})`);
+}));
+
 console.log(fails ? `${fails} FAILED` : 'cloud rules and save hook: ok');
 process.exit(fails ? 1 : 0);
