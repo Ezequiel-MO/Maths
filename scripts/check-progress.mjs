@@ -326,6 +326,87 @@ section('save: the document write fails', () => {   // review N1
   check(markOf('xavi:joc') === undefined, 'document refused on a first save: no mark is left');   // contract: no previous mark, so none remains
 });
 
+// ---- «El progrés no baixa mai», task 2: save that does not trample, merged, account ----
+// A page remembers the at of the mark it saw in its last load() or put in its last save(); a save over a document whose mark
+// has another at (pulled, merged or saved by another page underneath) is merged with it instead of overwriting.
+section('save: a page with old data merges what changed under it', () => {   // contract: task 2 brief, «Pàgina amb dades velles»
+  start('Xavi');
+  P.save('joc', { secs: [1, 0] }); P.load('joc');
+  P.pulled('xavi', 'joc', { secs: [3, 0] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  const e = entry('joc');
+  check(e && same(e.data, { secs: [3, 1] }) && e.pending === true, `old page: the document is ${JSON.stringify(e && e.data)} pending ${e && e.pending}, want { secs: [3, 1] } pending`);
+  check(e && e.base === 50, `old page: the mark keeps base 50 (got ${e && e.base})`);   // contract: save keeps the base of the previous mark, merge or not
+});
+
+section('save: nothing changed underneath writes as it comes', () => {   // contract: task 2 brief, «Sense canvi per sota»
+  start('Xavi');
+  P.load('joc');
+  P.save('joc', { secs: [5] });
+  P.save('joc', { secs: [0] });
+  check(same(P.load('joc'), { secs: [0] }), `no change underneath: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [0] }`);
+});
+
+section('save: a page that never loaded merges over a document with a mark', () => {   // contract: decision of this task: remembered at is null when the page saw nothing, so any mark counts as changed
+  start('Xavi');
+  P.pulled('xavi', 'joc', { secs: [3] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  check(same(P.load('joc'), { secs: [3, 1] }), `never loaded: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [3, 1] }`);
+});
+
+section('save: the sound is the page\'s choice', () => {   // contract: task 2 brief, «El so»
+  start('Xavi');
+  P.load('joc');
+  P.pulled('xavi', 'joc', { so: true, secs: [3] }, 50);
+  P.save('joc', { so: false, secs: [1] });
+  check(same(P.load('joc'), { so: false, secs: [3] }), `sound: the document is ${JSON.stringify(P.load('joc'))}, want { so: false, secs: [3] }`);
+});
+
+section('save: a document with no mark is not merged', () => {   // contract: task 2 rule «Si no hi ha document desat, o l'at és el recordat, s'escriu data tal com ve»
+  start('Xavi');
+  mem.set('xavi:joc', '{"secs":[9]}');
+  P.load('joc');
+  P.save('joc', { secs: [1] });
+  check(same(P.load('joc'), { secs: [1] }), `no mark: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [1] }`);
+});
+
+section('merged', () => {   // contract: task 2 brief, «merged»
+  const real = Date.now;
+  Date.now = () => 100;
+  try {
+    start('Xavi');
+    P.save('joc', { n: 1 }); P.load('joc');
+    const seen = entry('joc').at;
+    check(P.merged('xavi', 'joc', { n: 9 }, seen, 200) === true, 'merged with the mark\'s at is true');
+    check(same(entry('joc').data, { n: 9 }), `merged: the document is ${JSON.stringify(entry('joc').data)}, want { n: 9 }`);   // read with entries(): a load() here would update what save remembers
+    check(isMark(markOf('xavi:joc'), 201, 200, true), `merged: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: max(100, seen + 1, 201), base: 200, pending }`);
+    P.save('joc', { n: 1 });
+    check(same(entry('joc').data, { n: 9 }), `after merged the page's own save merges: ${JSON.stringify(entry('joc').data)}, want { n: 9 }`);   // contract: merged does not touch what save remembers
+    const before = JSON.stringify(markOf('xavi:joc')), doc = mem.get('xavi:joc'), at = markOf('xavi:joc').at;
+    check(P.merged('xavi', 'joc', { n: 5 }, 7, 300) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, 'merged with an old at is false and changes nothing');
+    check(P.merged('xavi', 'nou', { n: 5 }, 0, 300) === false && !mem.has('xavi:nou') && markOf('xavi:nou') === undefined, 'merged with no mark is false and writes nothing');   // contract: only a document with a mark whose at is seenAt
+    globalThis.localStorage = refusing(k => k === 'xavi:joc');
+    check(P.merged('xavi', 'joc', { n: 5 }, at, 400) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, 'merged with the document refused is false and puts the previous mark back');
+  } finally { Date.now = real; }
+});
+
+section('merged and pulled leave what save remembers', () => {   // contract: common.md detail 6
+  start('Xavi');
+  P.save('joc', { secs: [1] }); P.load('joc');
+  const seen = entry('joc').at;
+  P.merged('xavi', 'joc', { secs: [4] }, seen, 10);
+  P.pulled('xavi', 'joc', { secs: [6] }, 20);
+  P.save('joc', { secs: [2] });
+  check(same(P.load('joc'), { secs: [6] }), `merged then pulled: the next save gives ${JSON.stringify(P.load('joc'))}, want { secs: [6] }`);
+});
+
+section('account', () => {   // contract: task 2 brief, «account»
+  start('Xavi');
+  check(P.account() === null, 'account without compte is null');
+  P.rebase('u1');
+  check(P.account() === 'u1', 'account after rebase u1 is u1');
+});
+
 // ---- the hub, read as text (no browser here): the door back to «Qui juga?», its texts, names as text, the size of the controls, the tap guard
 {
   const root = new URL('../', import.meta.url);

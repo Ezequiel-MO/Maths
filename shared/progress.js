@@ -4,7 +4,7 @@
 // that says whether the cloud copy is behind: at is when it was last written here, base the cloud's at when last synced.
 // The device is always what the games read; the cloud copy is fed from the marks. `compte` holds the uid of the account
 // those marks belong to. Nothing in here throws: a store that fails reads as empty and writes nothing.
-import { slug } from './sync.js';
+import { slug, merge } from './sync.js';
 
 // localStorage access that never throws; a missing or failing store reads as null and a write that did not stick is false
 const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -61,10 +61,22 @@ export function choose(id, stores = []) {
   }
 }
 
+// What this page knows of each document: the at of its mark as of its last load() or its last own save() (null: no mark).
+// Page state, never in localStorage; save() compares it with the mark now to tell that the document changed under the page.
+const seen = new Map();
+const atOf = key => { const m = marks()[key]; return m && number(m.at) ? m.at : null; };
 // what was saved under id for the active profile, or null when there is nothing, no profile, or it cannot be read
-export function load(id) { const p = active(); if (!p) return null; try { return JSON.parse(get(doc(p, id))); } catch (e) { return null; } }
+export function load(id) {
+  const p = active();
+  if (!p) return null;
+  const key = doc(p, id);
+  seen.set(key, atOf(key));
+  try { return JSON.parse(get(key)); } catch (e) { return null; }
+}
 // saves a document for the active profile and marks it pending. at grows on every save even within one millisecond,
-// so pushed() can tell that a document was saved again while an earlier send was in flight
+// so pushed() can tell that a document was saved again while an earlier send was in flight. If the stored document changed
+// under this page (its mark's at is not the one the page saw or set), what is written is the merge of the page's data with
+// it, so a page with old data cannot lower progress; with no stored document, or none changed, data is written as it comes
 export function save(id, data) {
   // a game page belongs to the child who was active when it loaded; if another child (or nobody) is active now, this page is
   // stale (a tab, or a restored page) and must not write its data under the new child
@@ -73,10 +85,16 @@ export function save(id, data) {
   if (!p) return;
   let s;
   try { s = JSON.stringify(data); } catch (e) { return; }
-  const key = doc(p, id), prev = marks()[key];
+  const key = doc(p, id), prev = marks()[key], old = get(key);
+  const mine = seen.has(key) ? seen.get(key) : null;
+  if (old !== null && atOf(key) !== mine) {
+    try { s = JSON.stringify(merge(data, JSON.parse(old), true)); } catch (e) {}   // an unreadable stored document: data as it comes
+  }
+  const at = Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0);
   // mark first: a changed document over a mark that says synced would never be sent
-  if (!setMark(key, { at: Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0), base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
+  if (!setMark(key, { at, base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
   if (set(key, s)) {
+    seen.set(key, at);
     // the document stuck: send it without waiting; the cloud code is only loaded in a browser, never under Node
     if (typeof window !== 'undefined') import('./cloud.js').then(m => m.push(p, id)).catch(() => {});
     return;
@@ -111,11 +129,29 @@ export function pulled(profile, game, data, at) {
   const key = doc(profile, game);
   if (set(key, s)) setMark(key, { at, base: at, pending: false });
 }
+// writes the document merged from the device and the cloud copy, only if the mark still has the at the caller saw (nothing was
+// saved meanwhile). The mark goes first and is put back if the document did not stick. It leaves what save() remembers, so the
+// page's next save merges with this document too. Gives whether it wrote
+export function merged(profile, game, data, seenAt, cloudAt) {
+  if (!number(seenAt) || !number(cloudAt)) return false;
+  const key = doc(profile, game), prev = marks()[key];
+  if (!prev || prev.at !== seenAt) return false;
+  let s;
+  try { s = JSON.stringify(data); } catch (e) { return false; }
+  if (!setMark(key, { at: Math.max(Date.now(), seenAt + 1, cloudAt + 1), base: cloudAt, pending: true })) return false;
+  if (set(key, s)) return true;
+  const m = marks();
+  m[key] = prev;
+  set('sync', JSON.stringify(m));
+  return false;
+}
 // the cloud took the document as of `at`; only clears pending if it has not been saved again since
 export function pushed(profile, game, at) {
   const key = doc(profile, game), v = marks()[key];
   if (v && v.at === at) setMark(key, { at, base: at, pending: false });
 }
+// the uid of the account the marks belong to, or null when none has signed in here
+export function account() { return get('compte'); }
 // a different account on this device: nothing is known to be in its cloud, so every document is pending without a base
 export function rebase(uid) {
   if (!text(uid) || !uid || get('compte') === uid) return false;
