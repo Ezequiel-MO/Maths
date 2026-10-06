@@ -113,3 +113,6 @@ export function rebase(uid) {
   if (!set('sync', JSON.stringify(m))) return false;   // the uid is only kept once the marks carry no base of the other account
   return set('compte', uid);
 }
+
+// a game page opened with no active profile has nowhere to save: back to the hub, which has data-hub and asks who plays
+if (typeof window !== 'undefined' && !active() && !document.documentElement.hasAttribute('data-hub')) location.replace('index.html');

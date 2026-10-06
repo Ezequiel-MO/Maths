@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ca">
+<html lang="ca" data-hub>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,8 +9,19 @@
 </head>
 <body>
 <main>
-  <header><h1>Jocs de l'estany</h1><p class="lead">Tria un joc. A cada un, l'estany t'ensenya una cosa diferent.</p></header>
-  <ul class="games"></ul>
+  <div class="me" id="me" hidden><span class="name" id="name"></span><button class="btn soft" id="change" type="button">Canvia</button></div>
+  <header><h1>Jocs de l'estany</h1><p class="lead" id="lead">Tria un joc. A cada un, l'estany t'ensenya una cosa diferent.</p></header>
+  <section class="who" id="who" hidden>
+    <h2>Qui juga?</h2>
+    <ul class="profiles" id="profiles"></ul>
+    <button class="btn soft" id="open" type="button">Afegeix un jugador</button>
+    <form class="adder" id="adder" hidden>
+      <input id="nom" type="text" maxlength="12" autocomplete="off" aria-label="Afegeix un jugador">
+      <button class="btn" type="submit">Fet</button>
+      <p class="bad" id="bad" role="alert" hidden>Aquest nom no val. Prova'n un altre.</p>
+    </form>
+  </section>
+  <ul class="games" hidden></ul>
 </main>
 <script type="module" src="./hub/main.js"></script>
 </body>

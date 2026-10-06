@@ -6,6 +6,20 @@ main { max-width: 980px; margin-inline: auto; display: flex; flex-direction: col
 header { text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
 h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter: none; }
 .lead { color: var(--muted); max-width: 40ch; text-wrap: balance; }
+.me { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+.name { font: 800 1.6rem/1.1 var(--display); color: var(--sun); overflow-wrap: anywhere; min-width: 0; }
+.who { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.who h2 { margin: 0; font: 800 clamp(1.8rem, 7vw, 2.4rem)/1.1 var(--display); }
+.profiles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; max-width: 100%; }
+.profiles li { max-width: 100%; }
+.me .btn, .who .btn { min-height: 48px; }
+.profiles .btn { max-width: 100%; overflow-wrap: anywhere; font-size: 1.4rem; }
+.adder { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; max-width: 100%; }
+.adder input {
+  min-height: 48px; width: 14ch; max-width: 100%; padding: 0 1.2em; border-radius: 999px; border: 1px solid var(--edge);
+  background: var(--glass); color: var(--ink); font: 700 1.1rem var(--body);
+}
+.bad { flex-basis: 100%; color: var(--bad); font-weight: 800; }
 .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 .game {
   height: 100%; display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; padding: 16px; border-radius: 24px;
