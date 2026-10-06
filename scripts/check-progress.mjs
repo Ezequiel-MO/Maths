@@ -2,7 +2,7 @@
 // device and in the cloud) and the store of profiles and sync marks in shared/progress.js, run over a fake localStorage.
 // Run: node scripts/check-progress.mjs
 import { readFileSync, readdirSync } from 'node:fs';
-import { slug, settle } from '../shared/sync.js';
+import { slug, settle, merge, same } from '../shared/sync.js';
 
 // the fake goes on globalThis before progress.js is evaluated; sections clear it and put the good store back
 const mem = new Map();
@@ -43,6 +43,41 @@ for (const [local, remote, want] of SETTLES) {
   const got = settle(local, remote);
   check(got === want, `settle(${JSON.stringify(local)}, ${JSON.stringify(remote)}) is ${got}, want ${want}`);
 }
+
+// merge: [a, b, aNewer, expected]. Every row is contract: plan «El progrés no baixa mai», tasca 1.
+const MERGES = [
+  [{ secs: [3, 0] }, { secs: [1, 5] }, true, { secs: [3, 5] }],
+  [{ secs: [1, 2] }, { secs: [0, 0, 7] }, true, { secs: [1, 2, 7] }],
+  [{ so: false, best: 4 }, { so: true, best: 9 }, true, { so: false, best: 9 }],
+  [{ so: false, best: 4 }, { so: true, best: 9 }, false, { so: true, best: 9 }],
+  [{ best: 4 }, { so: false, best: 1 }, true, { so: false, best: 4 }],
+  [{ piscina: false, equip: -1, exams: [true, false, false], notes: [80, 0], fulls: 3 }, { piscina: true, equip: 1, exams: [false, true, false], notes: [40, 100], fulls: 5 }, true,
+    { piscina: true, equip: 1, exams: [true, true, false], notes: [80, 100], fulls: 5 }],
+  [{ equip: 0 }, { equip: 2 }, true, { equip: 2 }],
+  [{ best: 2, coet: 9 }, { best: 5, secs: [10, 0, 0, 0, 0] }, false, { best: 5, coet: 9, secs: [10, 0, 0, 0, 0] }],
+  [{ secs: 'x' }, { secs: [1] }, true, { secs: 'x' }],
+  [{ secs: 'x' }, { secs: [1] }, false, { secs: [1] }],
+  [null, { secs: [1] }, true, { secs: [1] }],
+  [{ secs: [1] }, null, false, { secs: [1] }],
+  [[1, 5], [3, 2], true, [3, 5]],
+];
+for (const [a, b, aNewer, want] of MERGES) {
+  const label = `merge(${JSON.stringify(a)}, ${JSON.stringify(b)}, ${aNewer})`;
+  const a0 = JSON.stringify(a), b0 = JSON.stringify(b);
+  const got = merge(a, b, aNewer);
+  check(same(got, want), `${label} is ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  check(JSON.stringify(a) === a0 && JSON.stringify(b) === b0, `${label} changed an argument`);
+  const back = merge(b, a, !aNewer);
+  check(same(back, got), `merge swapped for ${label} is ${JSON.stringify(back)}, want ${JSON.stringify(got)}`);
+}
+
+// same: [a, b, expected]. Every row is contract: plan «El progrés no baixa mai», tasca 1.
+const SAMES = [
+  [{ a: 1, b: [1, 2] }, { b: [1, 2], a: 1 }, true], [[], [], true], [null, null, true],
+  [[1, 2], [2, 1], false], [{ a: 1 }, { a: 2 }, false], [{ a: 1 }, { a: 1, b: 0 }, false],
+  [null, {}, false], [[], {}, false], [0, false, false],
+];
+for (const [a, b, want] of SAMES) check(same(a, b) === want, `same(${JSON.stringify(a)}, ${JSON.stringify(b)}) is ${same(a, b)}, want ${want}`);
 
 // progress.js sections. Every expected value is contract: plan task 2 (task-2-brief.md), unless a comment says otherwise.
 const section = (name, fn) => {

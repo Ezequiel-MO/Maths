@@ -20,3 +20,42 @@ export function settle(local, remote) {
   if (!local.pending) return 'pull';
   return local.at > remote.at ? 'push' : 'pull';
 }
+
+const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const gone = v => v === null || v === undefined;
+const copy = v => (gone(v) ? v : JSON.parse(JSON.stringify(v)));
+
+// two copies of one document into one, field by field, so neither side's progress is lost. aNewer says a is the newer copy.
+// Numbers take the larger, booleans the true one, lists go position by position; a text or a type clash takes the newer.
+// 'so' (sound on or off) is a choice, not progress: the newer copy's value wins, so switching it off sticks. Pure: a and b stay as they were.
+export function merge(a, b, aNewer) {
+  if (gone(a)) return copy(b);
+  if (gone(b)) return copy(a);
+  if (typeof a === 'number' && typeof b === 'number') return Math.max(a, b);
+  if (typeof a === 'boolean' && typeof b === 'boolean') return a || b;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return Array.from({ length: Math.max(a.length, b.length) }, (_, i) => merge(a[i], b[i], aNewer));
+  }
+  if (isObj(a) && isObj(b)) {
+    const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+    return Object.fromEntries(keys.map(k => {
+      if (k === 'so') {
+        const [mine, other] = aNewer ? [a.so, b.so] : [b.so, a.so];
+        return [k, copy(gone(mine) ? other : mine)];
+      }
+      return [k, merge(a[k], b[k], aNewer)];
+    }));
+  }
+  return copy(aNewer ? a : b);
+}
+
+// equal as JSON values, whatever the order of the keys
+export function same(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => same(v, b[i]));
+  if (isObj(a) && isObj(b)) {
+    const ka = Object.keys(a);
+    return ka.length === Object.keys(b).length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && same(a[k], b[k]));
+  }
+  return false;
+}
