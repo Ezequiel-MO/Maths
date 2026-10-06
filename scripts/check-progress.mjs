@@ -169,6 +169,16 @@ section('pushed', () => {
   const now = entry('joc').at;
   P.pushed('xavi', 'joc', old);
   check(isMark(markOf('xavi:joc'), now, old, true), 'pushed: with a stale at, the mark stays pending, at as it was, and base is the at sent');   // contract: revisió de tota la branca, F2; ruling 9 (was: base stays the earlier push). The cloud is at `old` now, so base is `old`; at is what save() compares
+  // a late reply for an older send must not lower base once a newer send has been recorded
+  const real = Date.now;
+  try {
+    start('Xavi');
+    Date.now = () => 1000; P.save('joc', { n: 1 }); const ta = entry('joc').at; P.pushed('xavi', 'joc', ta);
+    Date.now = () => 2000; P.save('joc', { n: 2 }); const tb = entry('joc').at; P.pushed('xavi', 'joc', tb);
+    Date.now = () => 3000; P.save('joc', { n: 3 }); const tc = entry('joc').at;
+    P.pushed('xavi', 'joc', ta);
+    check(isMark(markOf('xavi:joc'), tc, tb, true), 'pushed: a late reply for an older send leaves base at the newer one');   // contract: re-revisió de l'onada final, pushed només puja base
+  } finally { Date.now = real; }
 });
 
 section('pulled', () => {

@@ -151,11 +151,12 @@ export function merged(profile, game, data, seenAt, cloudAt) {
 }
 // the cloud took the document as of `at`; only clears pending if it has not been saved again since. If it was saved again, the mark
 // keeps its at (save() compares it) and stays pending, but base becomes `at`: the cloud is there now, so the next send does not
-// take that write for another device's change and merge it back over the newer save
+// take that write for another device's change and merge it back over the newer save. base only goes up: a late reply for an older
+// send must not lower it below a newer send already recorded, or the cloud would look changed by another device
 export function pushed(profile, game, at) {
   const key = doc(profile, game), v = marks()[key];
   if (v && v.at === at) setMark(key, { at, base: at, pending: false });
-  else if (v && v.pending === true && number(v.at) && v.at > at) setMark(key, { at: v.at, base: at, pending: true });
+  else if (v && v.pending === true && number(v.at) && v.at > at && !(number(v.base) && v.base >= at)) setMark(key, { at: v.at, base: at, pending: true });
 }
 // the uid of the account the marks belong to, or null when none has signed in here
 export function account() { return get('compte'); }
