@@ -332,3 +332,68 @@ export const CIRCLES = [
 ];
 // the three numbers of the Piscina, the first challenges
 export const POOL = ['3', '5', '7'];
+
+/* ---------- progress ---------- */
+// What is saved is facts only: { so, secs[6], piscina, notes[9], exams[3], fulls }. XP, level and badges are worked out from it, never stored, so they cannot drift apart.
+// secs is the progress of the old game (levels done in each of its six sections): kept, never written by the new game, and read once to give the projects their marks.
+export const VALID = 80;
+export const EXAM_PASS = 5;
+// the old section of each project: ten levels done in it give the project a validated 80
+export const OLD = [0, 0, 1, 1, 2, 3, 4, 5, 5];
+// a mark out of 100 from the questions right at the first try, of the 15 of a project
+export const mark = firsts => Math.round(100 * firsts / 15);
+// a whole number from any JSON value: truncated (never rounded up, so damaged data cannot climb), 0 when it is not a finite number
+const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
+const within = (x, hi) => Math.min(hi, Math.max(0, whole(x)));
+// n items of a saved list, a missing or wrong list giving undefined items
+const slots = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] : undefined);
+// A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises: a number is cut into its limits and
+// never lowered otherwise, a boolean only turns true. The cloud keeps the larger number, so a value lowered here would be lost or come back from another device.
+export function clean(d) {
+  const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+  const secs = slots(o.secs, 6).map(s => within(s, 10));
+  return {
+    so: o.so !== false,
+    secs,
+    piscina: o.piscina === true || secs.some(s => s > 0),
+    // the translation of the old game: a section of ten levels done gives its projects 80, unless they already hold more
+    notes: slots(o.notes, 9).map((n, i) => Math.max(within(n, 100), secs[OLD[i]] === 10 ? VALID : 0)),
+    exams: slots(o.exams, 3).map(e => e === true),
+    fulls: Math.max(0, whole(o.fulls))
+  };
+}
+// the projects with a mark of at least VALID; the functions below take a progress that is already clean
+const validated = p => p.notes.flatMap((n, i) => n >= VALID ? [i] : []);
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1370 at most
+export function xpOf(p) {
+  const v = validated(p);
+  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + p.notes[i], 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
+}
+// the level is the XP over 150, with two decimals and a comma: from 0,00 to 9,13
+export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
+// circle 0 opens with the Piscina, circles 1 and 2 with the exam before them, and only when the circle before is open too (a damaged save cannot skip one); a circle that does not exist is shut
+export const isOpen = (p, c) => c === 0 ? p.piscina === true : (c === 1 || c === 2) && isOpen(p, c - 1) && p.exams[c - 1] === true;
+// the exam of a circle opens when the circle is open and all its projects are validated
+export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => p.notes[i] >= VALID);
+// in the order of the spec; fulls here is the raw count, not the one that XP caps
+export const BADGES = [
+  { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
+  { name: 'Primer full', what: 'Troba bé les errades d\'un full.' },
+  { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
+  { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
+  { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
+];
+export const badges = p => [p.piscina === true, p.fulls >= 1, p.notes.some(n => n === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+// The hand-in of a finished project, the only place where a mark is worked out. run has one { tries, helped } per question (15 of them, five to an exercise):
+// the wrong answers before the right one, and whether the hint was asked. A question counts when it was right at the first try without the hint.
+// Returns { prog, n, best, gain, redo, news }: prog is a NEW progress (p is never touched) holding the mark if it beats the stored one; n is the mark of
+// this run; best the stored mark before it; gain the XP the run adds (the difference of xpOf, so 0 for a lower replay and the whole mark on validating);
+// redo the exercises with a question that did not count ('ex00' ...); news the names of the badges this run earns.
+export const firstTry = r => !!r && r.tries === 0 && !r.helped;
+export function handIn(p, i, run) {
+  const n = mark(run.filter(firstTry).length), best = p.notes[i], next = { ...p, secs: p.secs.slice(), notes: p.notes.slice(), exams: p.exams.slice() };
+  if (n > best) next.notes[i] = n;
+  const had = badges(p), now = badges(next);
+  return { prog: next, n, best, gain: xpOf(next) - xpOf(p), redo: [0, 1, 2].filter(e => run.slice(e * 5, e * 5 + 5).some(r => !firstTry(r)) || run.length < e * 5 + 5).map(e => 'ex0' + e),
+    news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
+}
