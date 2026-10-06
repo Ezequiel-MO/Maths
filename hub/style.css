@@ -20,6 +20,7 @@ h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter:
   background: var(--glass); color: var(--ink); font: 700 1.1rem var(--body);
 }
 .bad { flex-basis: 100%; text-align: center; color: var(--bad); font-weight: 800; }
+.games[inert], .profiles[inert] { pointer-events: none; }   /* old browsers ignore inert: the finger is still held off */
 .cloud { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; margin-top: 8px; text-align: center; }
 .cloud .btn { min-height: 44px; max-width: 100%; padding-inline: 1.2em; font-size: 1rem; background: transparent; color: var(--muted); border: 1px solid var(--edge); box-shadow: none; }
 .cloud .btn:active { transform: none; }

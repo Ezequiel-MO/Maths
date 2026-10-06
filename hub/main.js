@@ -34,7 +34,7 @@ function cards() {
 // that follows a sync: what it rebuilds may be under a finger, so it is held like a change of view
 function render(sync) {
   const me = active();
-  const changed = !!me && seen === 'who';
+  const changed = !!me && seen === 'who', back = !me && seen === 'games';
   if (!adding) $('nom').value = '';   // text typed in a box that closed must not wait in it for the next time
   $('me').hidden = $('lead').hidden = list.hidden = !me;
   $('who').hidden = !!me;
@@ -56,13 +56,13 @@ function render(sync) {
     li.append(b);
     return li;
   }));
-  if (sync) hold(gates.who, 500);
+  if (sync || back) hold(gates.who, 500);   // back: Canvia was tapped, a second tap must not land on a profile
   $('open').hidden = adding;
   $('adder').hidden = !adding;
   $('bad').hidden = !bad;
 }
 
-$('change').onclick = () => { choose(null); adding = bad = false; render(); ($('profiles').querySelector('button') || $('open')).focus({ preventScroll: true }); };
+$('change').onclick = () => { choose(null); adding = bad = false; render(); $('open').focus({ preventScroll: true }); };   // not a profile button: the list is inert for a moment and a focus there would fail
 $('open').onclick = () => { adding = true; bad = false; render(); $('nom').focus(); };
 $('adder').onsubmit = e => {
   e.preventDefault();
