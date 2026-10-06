@@ -275,5 +275,20 @@ section('sync that is an array', () => {   // review M7
   check(P.entries().length === 1, 'sync []: a following save yields one entry');   // contract: marks work again
 });
 
+section('save: the document write fails', () => {   // review N1
+  start('Xavi');
+  P.pulled('xavi', 'joc', { n: 5 }, 100);
+  globalThis.localStorage = refusing(k => k === 'xavi:joc');
+  P.save('joc', { n: 6 });
+  check(isMark(markOf('xavi:joc'), 100, 100, false), 'document refused: the previous mark is put back');   // contract: fix round 2 N1
+  check(settle(entry('joc'), { at: 200 }) === 'pull', 'document refused: a newer cloud still wins (pull)');   // contract: a stale document must not be pushed over newer cloud progress
+  check(P.load('joc') && P.load('joc').n === 5, 'document refused: the old document stays');   // contract: nothing was written
+  mem.clear(); globalThis.localStorage = good;
+  start('Xavi');
+  globalThis.localStorage = refusing(k => k === 'xavi:joc');
+  P.save('joc', { n: 1 });
+  check(markOf('xavi:joc') === undefined, 'document refused on a first save: no mark is left');   // contract: no previous mark, so none remains
+});
+
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }
 console.log('progress rules and store: ok');

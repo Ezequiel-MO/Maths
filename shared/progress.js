@@ -71,10 +71,14 @@ export function save(id, data) {
   let s;
   try { s = JSON.stringify(data); } catch (e) { return; }
   const key = doc(p, id), prev = marks()[key];
-  // mark first: if only the document write fails, a pending mark over the old document is harmless, whereas a changed
-  // document over a mark that says synced would never be sent
+  // mark first: a changed document over a mark that says synced would never be sent
   if (!setMark(key, { at: Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0), base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
-  set(key, s);
+  if (set(key, s)) return;
+  // the old document stays, so its old mark must too: pending over it could push a stale copy over newer cloud progress.
+  // If this restore fails as well, the state is the pending mark over the old document
+  const m = marks();
+  if (prev === undefined) delete m[key]; else m[key] = prev;
+  set('sync', JSON.stringify(m));
 }
 
 // every document that has a mark and can be read
