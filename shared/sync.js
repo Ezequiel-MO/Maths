@@ -10,15 +10,15 @@ export function slug(name) {
 }
 
 // what to do with one document: local is null or { at, base, pending }, remote is null or { at }
-// 'push' sends the device's copy, 'pull' takes the cloud's, 'none' leaves both. base is the cloud's at when last synced,
-// so a cloud still at base has not moved. If both moved, the larger at wins and a tie goes to the cloud.
+// 'push' sends the device's copy, 'pull' takes the cloud's, 'merge' joins the two field by field, 'none' leaves both. base is
+// the cloud's at when last synced, so a cloud still at base has not moved. If both moved, they are merged whatever the clocks say.
 export function settle(local, remote) {
   if (!local && !remote) return 'none';
   if (!remote) return 'push';
   if (!local) return 'pull';
   if (remote.at === local.base) return local.pending ? 'push' : 'none';
   if (!local.pending) return 'pull';
-  return local.at > remote.at ? 'push' : 'pull';
+  return 'merge';
 }
 
 // the value of an own key only: a document with a key like 'constructor' must not read what Object.prototype has

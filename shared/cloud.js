@@ -2,8 +2,8 @@
 // users/{uid}/profiles/{profile}/games/{game} holds { data, at }. With no config (firebase-config.js is null) everything is
 // inert and no Firebase package is even loaded. Nothing in here throws or rejects: a network error leaves the document pending.
 import config from './firebase-config.js';
-import { slug, settle } from './sync.js';
-import { profiles, addProfiles, entries, pulled, pushed, rebase } from './progress.js';
+import { slug, settle, merge, same } from './sync.js';
+import { profiles, addProfiles, entries, pulled, merged, pushed, rebase } from './progress.js';
 
 export const enabled = !!config;
 const number = n => (typeof n === 'number' && isFinite(n));
@@ -50,7 +50,9 @@ export async function signOut() {
 }
 
 // Every document send goes through this one chain, and each send reads the entry when its turn comes, so two sends of one
-// document cannot land out of order and the cloud ends with the latest save. force: send even when not pending (syncAll decided)
+// document cannot land out of order and the cloud ends with the latest save. force: send even when not pending (syncAll decided).
+// Before it writes, a send reads the cloud copy: if that moved since the device last synced (its at is not base), the device
+// copy is first merged with it, so a device that is behind never lowers what another one sent. A failed read writes nothing.
 let chain = Promise.resolve();
 const send = (uid, profile, game, force) => chain = chain.then(async () => {
   try {
@@ -58,9 +60,21 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
     if (!s || s.uid !== uid) return;
     const f = await boot();
     if (!force) rebase(uid);   // a push may come before any syncAll: marks of another account must not say synced
-    const e = entries().find(x => x.profile === profile && x.game === game);
+    const find = () => entries().find(x => x.profile === profile && x.game === game);
+    let e = find();
     if (!e || (!force && !e.pending)) return;
-    await f.F.setDoc(f.F.doc(f.db, 'users', uid, 'profiles', profile, 'games', game), { data: e.data, at: e.at });
+    const ref = f.F.doc(f.db, 'users', uid, 'profiles', profile, 'games', game);
+    const snap = await f.F.getDoc(ref);
+    const r = snap.exists() ? snap.data() : null;
+    if (r && number(r.at) && r.at !== e.base) {
+      const m = merge(e.data, r.data, e.at > r.at);
+      if (!same(m, e.data)) {
+        if (!merged(profile, game, m, e.at, r.at)) return;   // saved again meanwhile, or not stored: it stays pending
+        e = find();   // no await since merged(): this is the merged document
+        if (!e) return;
+      }
+    }
+    await f.F.setDoc(ref, { data: e.data, at: e.at });
     pushed(profile, game, e.at);   // the at that was sent
   } catch (e) {}
 });
@@ -107,6 +121,13 @@ async function run() {
           const l = local.get(game), r = remote.get(game);
           const todo = settle(l ? { at: l.at, base: l.base, pending: l.pending } : null, r ? { at: r.at } : null);
           if (todo === 'pull') { pulled(id, game, r.data, r.at); changed = true; }
+          else if (todo === 'merge') {
+            const m = merge(l.data, r.data, l.at > r.at);
+            // equal to the cloud copy: take it (no write up). A tie in at with another document is not pulled: the document
+            // would change under the same at, and a game page that loaded it would not notice
+            if (same(m, r.data) && (l.at !== r.at || same(l.data, r.data))) { pulled(id, game, r.data, r.at); changed = true; }
+            else if (merged(id, game, m, l.at, r.at)) { sends.push(l); changed = true; }
+          }
           else if (todo === 'push') sends.push(l);
         }
         for (const l of sends) if (!odd.has(l.game)) await send(s.uid, id, l.game, true);   // a cloud copy we cannot read is not overwritten blindly

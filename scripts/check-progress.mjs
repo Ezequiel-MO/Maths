@@ -31,10 +31,10 @@ const SETTLES = [
   [{ at: 5, base: 5, pending: false }, { at: 5 }, 'none'],
   [{ at: 5, base: 5, pending: false }, { at: 9 }, 'pull'],
   [{ at: 7, base: 5, pending: true }, { at: 5 }, 'push'],
-  [{ at: 7, base: 5, pending: true }, { at: 6 }, 'push'],
-  [{ at: 7, base: 5, pending: true }, { at: 9 }, 'pull'],
-  [{ at: 7, base: 5, pending: true }, { at: 7 }, 'pull'],   // a tie goes to the cloud
-  [{ at: 0, base: null, pending: true }, { at: 1 }, 'pull'],   // migrated document
+  [{ at: 7, base: 5, pending: true }, { at: 6 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3: pending and the cloud moved is a merge, whatever the clocks say
+  [{ at: 7, base: 5, pending: true }, { at: 9 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3
+  [{ at: 7, base: 5, pending: true }, { at: 7 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (a tie used to go to the cloud)
+  [{ at: 0, base: null, pending: true }, { at: 1 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (migrated document)
   [{ at: 3, base: 5, pending: true }, { at: 5 }, 'push'],   // pending and the cloud equals base: sent whatever the clocks say
   [{ at: 9, base: 9, pending: false }, { at: 5 }, 'pull'],   // not pending and the cloud differs from base
   [{ at: 9, base: 5, pending: false }, { at: 5 }, 'none'],   // not pending and the cloud equals base
