@@ -21,6 +21,8 @@ export function settle(local, remote) {
   return local.at > remote.at ? 'push' : 'pull';
 }
 
+// the value of an own key only: a document with a key like 'constructor' must not read what Object.prototype has
+const own = (o, k) => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const gone = v => v === null || v === undefined;
 const copy = v => (gone(v) ? v : JSON.parse(JSON.stringify(v)));
@@ -40,10 +42,10 @@ export function merge(a, b, aNewer) {
     const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
     return Object.fromEntries(keys.map(k => {
       if (k === 'so') {
-        const [mine, other] = aNewer ? [a.so, b.so] : [b.so, a.so];
+        const [mine, other] = aNewer ? [own(a, 'so'), own(b, 'so')] : [own(b, 'so'), own(a, 'so')];
         return [k, copy(gone(mine) ? other : mine)];
       }
-      return [k, merge(a[k], b[k], aNewer)];
+      return [k, merge(own(a, k), own(b, k), aNewer)];
     }));
   }
   return copy(aNewer ? a : b);

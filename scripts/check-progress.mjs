@@ -60,6 +60,8 @@ const MERGES = [
   [null, { secs: [1] }, true, { secs: [1] }],
   [{ secs: [1] }, null, false, { secs: [1] }],
   [[1, 5], [3, 2], true, [3, 5]],
+  [{ n: 1 }, { n: 1, constructor: 5 }, true, { n: 1, constructor: 5 }],   // contract: revisió de les tasques 1 i 2, a key that Object.prototype has, on one side only
+  [{ n: 1, toString: 'a' }, { n: 2 }, false, { n: 2, toString: 'a' }],   // contract: revisió de les tasques 1 i 2, same on the other side
 ];
 for (const [a, b, aNewer, want] of MERGES) {
   const label = `merge(${JSON.stringify(a)}, ${JSON.stringify(b)}, ${aNewer})`;
@@ -340,6 +342,10 @@ section('save: a page with old data merges what changed under it', () => {   // 
 });
 
 section('save: a page that merged keeps merging until it loads again', () => {   // contract: spec, Esmena 2026-10-06, «Què es perd a canvi»; ruling 4 del controlador
+  // contract: revisió de les tasques 1 i 2, the clock is fixed so the merged save lands on the at the page remembers (same millisecond) every run
+  const real = Date.now;
+  Date.now = () => 1000;
+  try {
   start('Xavi');
   P.save('joc', { secs: [1, 0] }); P.load('joc');
   P.pulled('xavi', 'joc', { secs: [3, 0] }, 50);
@@ -354,6 +360,7 @@ section('save: a page that merged keeps merging until it loads again', () => {  
   P.save('joc', { secs: [0, 0] });
   e = entry('joc');
   check(e && same(e.data, { secs: [0, 0] }), `after a new load, a reset: the document is ${JSON.stringify(e && e.data)}, want { secs: [0, 0] }`);
+  } finally { Date.now = real; }
 });
 
 section('save: nothing changed underneath writes as it comes', () => {   // contract: task 2 brief, «Sense canvi per sota»
@@ -405,6 +412,37 @@ section('merged', () => {   // contract: task 2 brief, «merged»
     globalThis.localStorage = refusing(k => k === 'xavi:joc');
     check(P.merged('xavi', 'joc', { n: 5 }, at, 400) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, 'merged with the document refused is false and puts the previous mark back');
   } finally { Date.now = real; }
+});
+
+section('merged: the at is the largest of now, seenAt + 1 and cloudAt + 1', () => {   // contract: revisió de les tasques 1 i 2; plan: at = max(Date.now(), seenAt + 1, cloudAt + 1)
+  const real = Date.now;
+  try {
+    start('Xavi');
+    Date.now = () => 1000;
+    P.pulled('xavi', 'joc', { n: 1 }, 100);
+    check(P.merged('xavi', 'joc', { n: 9 }, 100, 200) === true && isMark(markOf('xavi:joc'), 1000, 200, true), `merged, now the largest: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: 1000, base: 200, pending }`);
+    Date.now = () => 100;
+    P.pulled('xavi', 'joc', { n: 1 }, 500);
+    check(P.merged('xavi', 'joc', { n: 9 }, 500, 200) === true && isMark(markOf('xavi:joc'), 501, 200, true), `merged, seenAt + 1 the largest: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: 501, base: 200, pending }`);
+  } finally { Date.now = real; }
+});
+
+section('merged: at and cloudAt must be numbers', () => {   // contract: revisió de les tasques 1 i 2; plan: a mark without a numeric at hides the document from entries()
+  start('Xavi');
+  P.pulled('xavi', 'joc', { n: 1 }, 100);
+  const before = JSON.stringify(markOf('xavi:joc')), doc = mem.get('xavi:joc');
+  for (const [seenAt, cloudAt] of [[100, 'x'], [100, null], [100, NaN], [100, undefined], ['100', 200], [null, 200], [NaN, 200]]) {
+    check(P.merged('xavi', 'joc', { n: 9 }, seenAt, cloudAt) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, `merged(…, ${String(seenAt)}, ${String(cloudAt)}) is not false or changed the store`);
+  }
+});
+
+section('save: keys that exist on Object.prototype do not stop the merge', () => {   // contract: revisió de les tasques 1 i 2; plan: merge does not throw, so save still merges
+  start('Xavi');
+  P.load('joc');
+  P.pulled('xavi', 'joc', JSON.parse('{"secs":[9],"constructor":1}'), 50);
+  P.save('joc', { secs: [1] });
+  const e = entry('joc');
+  check(e && Array.isArray(e.data.secs) && e.data.secs[0] === 9, `prototype key: the document is ${JSON.stringify(e && e.data)}, want secs [9] merged in`);
 });
 
 section('merged and pulled leave what save remembers', () => {   // contract: common.md detail 6
