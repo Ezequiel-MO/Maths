@@ -64,7 +64,7 @@ const pend = (m, at, base) => !!m && m.at === at && m.base === base && m.pending
 const cd = p => C.docs.get('users/U1/' + p);
 const game = (prof, g) => cd(`profiles/${prof}/games/${g}`);
 const sets = () => C.log.filter(x => x.startsWith('set'));
-const play = (d, prof, g, data) => { on(d); P.choose(prof, []); P.save(g, data); };
+const play = (d, prof, g, data) => { on(d); P.choose(prof, []); P.load(g); P.save(g, data); };   // a game page loads its document before it saves; one module here stands for every page, so load() sets what save remembers
 const section = async (name, fn) => { try { await fn(); } catch (e) { check(false, `${name} threw ${e && e.stack}`); } finally { C.hook = null; on(A); } };
 
 // the real signed-out state: nothing happens, nothing is called

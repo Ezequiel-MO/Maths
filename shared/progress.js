@@ -76,7 +76,9 @@ export function load(id) {
 // saves a document for the active profile and marks it pending. at grows on every save even within one millisecond,
 // so pushed() can tell that a document was saved again while an earlier send was in flight. If the stored document changed
 // under this page (its mark's at is not the one the page saw or set), what is written is the merge of the page's data with
-// it, so a page with old data cannot lower progress; with no stored document, or none changed, data is written as it comes
+// it, so a page with old data cannot lower progress; with no stored document, or none changed, data is written as it comes.
+// A save that merged leaves what the page remembers as it was: the page's data is still the old data, so its next saves merge
+// too until it load()s again (a reset on such a page does not lower progress, the price of never lowering it)
 export function save(id, data) {
   // a game page belongs to the child who was active when it loaded; if another child (or nobody) is active now, this page is
   // stale (a tab, or a restored page) and must not write its data under the new child
@@ -87,14 +89,16 @@ export function save(id, data) {
   try { s = JSON.stringify(data); } catch (e) { return; }
   const key = doc(p, id), prev = marks()[key], old = get(key);
   const mine = seen.has(key) ? seen.get(key) : null;
+  let joined = false;
   if (old !== null && atOf(key) !== mine) {
-    try { s = JSON.stringify(merge(data, JSON.parse(old), true)); } catch (e) {}   // an unreadable stored document: data as it comes
+    try { s = JSON.stringify(merge(data, JSON.parse(old), true)); joined = true; } catch (e) {}   // an unreadable stored document: data as it comes
   }
-  const at = Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0);
+  let at = Math.max(Date.now(), prev && number(prev.at) ? prev.at + 1 : 0);
+  if (joined && at === mine) at++;   // a merged save must not land on the at the page remembers (same millisecond): the page would think nothing changed
   // mark first: a changed document over a mark that says synced would never be sent
   if (!setMark(key, { at, base: prev && number(prev.base) ? prev.base : null, pending: true })) return;
   if (set(key, s)) {
-    seen.set(key, at);
+    if (!joined) seen.set(key, at);
     // the document stuck: send it without waiting; the cloud code is only loaded in a browser, never under Node
     if (typeof window !== 'undefined') import('./cloud.js').then(m => m.push(p, id)).catch(() => {});
     return;

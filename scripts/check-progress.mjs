@@ -339,6 +339,23 @@ section('save: a page with old data merges what changed under it', () => {   // 
   check(e && e.base === 50, `old page: the mark keeps base 50 (got ${e && e.base})`);   // contract: save keeps the base of the previous mark, merge or not
 });
 
+section('save: a page that merged keeps merging until it loads again', () => {   // contract: spec, Esmena 2026-10-06, «Què es perd a canvi»; ruling 4 del controlador
+  start('Xavi');
+  P.save('joc', { secs: [1, 0] }); P.load('joc');
+  P.pulled('xavi', 'joc', { secs: [3, 0] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  P.save('joc', { secs: [1, 2] });
+  let e = entry('joc');   // read with entries(): a load() would update what save remembers
+  check(e && same(e.data, { secs: [3, 2] }) && e.pending === true, `merged page, next save: the document is ${JSON.stringify(e && e.data)} pending ${e && e.pending}, want { secs: [3, 2] } pending`);
+  P.save('joc', { secs: [0, 0] });
+  e = entry('joc');
+  check(e && same(e.data, { secs: [3, 2] }), `merged page, a reset: the document is ${JSON.stringify(e && e.data)}, want { secs: [3, 2] } (a reset does not lower a page that already merged)`);
+  P.load('joc');
+  P.save('joc', { secs: [0, 0] });
+  e = entry('joc');
+  check(e && same(e.data, { secs: [0, 0] }), `after a new load, a reset: the document is ${JSON.stringify(e && e.data)}, want { secs: [0, 0] }`);
+});
+
 section('save: nothing changed underneath writes as it comes', () => {   // contract: task 2 brief, «Sense canvi per sota»
   start('Xavi');
   P.load('joc');
