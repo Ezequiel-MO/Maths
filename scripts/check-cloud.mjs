@@ -257,5 +257,26 @@ await section('push rebase', async () => {
   check(A.getItem('compte') === 'U1' && synced(mark(A, 'xavi:g'), 5000), `push under a new account resets the marks first (${A.getItem('compte')}, ${J(mark(A, 'xavi:g'))})`);   // contract: fix round 1, m2
 });
 
+// ---- a document that is not pending and that the cloud lacks is still sent: settle says 'push' for device present, cloud absent
+await section('synced locally, absent in the cloud', async () => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1');
+  A.setItem('xavi:g', J({ n: 1 })); A.setItem('sync', J({ 'xavi:g': { at: 5, base: 5, pending: false } }));
+  await cloud.syncAll();
+  check(J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 5 }), `a document with no pending flag goes up when the cloud has none (${J(game('xavi', 'g'))})`);   // contract: spec table, «N'hi ha / No n'hi ha: S'envia» whatever pending says
+  check(synced(mark(A, 'xavi:g'), 5), 'and its mark stays synced at the sent at');
+});
+
+// ---- a send queued under one account does not run under another
+await section('account changes while queued', async () => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); t = 1000; P.save('a', { n: 1 }); P.save('b', { n: 1 });
+  let release; C.hook = (op, path) => (op === 'set' && path.endsWith('/games/a') ? new Promise(r => { release = r; }) : null);
+  const p1 = cloud.push('xavi', 'a'); await wait(20);
+  const p2 = cloud.push('xavi', 'b'); await wait(20);   // queued behind the held write
+  auth.currentUser = U('U2');
+  release(); await Promise.race([Promise.all([p1, p2]), wait(500)]); C.hook = null;
+  check(!game('xavi', 'b') && !C.docs.has('users/U2/profiles/xavi/games/b'), 'a send queued under U1 writes nothing once the session is U2');   // contract: fix round 1, send checks the account when its turn comes
+  check(pend(mark(A, 'xavi:b'), 1000, null), `and its mark stays pending (${J(mark(A, 'xavi:b'))})`);
+});
+
 console.log(fails ? `${fails} FAILED` : 'cloud rules and save hook: ok');
 process.exit(fails ? 1 : 0);
