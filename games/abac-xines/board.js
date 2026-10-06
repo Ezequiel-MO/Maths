@@ -57,17 +57,22 @@ export function board(host, { n, feet = 'none', tone } = {}) {
     }
   }
 
+  // true when --u was set; false when there was nothing to measure (hidden host, or a board whose height does not follow --u),
+  // in which case the size from before (or the stylesheet's) stays
   function fit() {
-    if (!el.isConnected) return;
+    if (!el.isConnected) return false;
     const W = host.clientWidth, H = host.clientHeight;
-    if (!W || !H) return;   // hidden: the observer calls again when it is shown
-    const at = u => { el.style.setProperty('--u', u); return el.offsetHeight; };
+    if (!W || !H) return false;   // hidden: the observer calls again when it is shown
+    const was = el.style.getPropertyValue('--u');
+    const at = u => { el.style.setProperty('--u', u + 'px'); return el.offsetHeight; };   // a custom property has no unit of its own: calc(var(--u) * 2) needs the px
     const h1 = at(10), h2 = at(30), a = (h2 - h1) / 20, b = h1 - 10 * a, pad = el.offsetWidth - well.offsetWidth;
     const u = Math.max(MIN, Math.min(MAX, (H - b - SAFE) / a, (W - pad) / (n * KOL)));
-    el.style.setProperty('--u', (Math.floor(u * 4) / 4).toString());
+    if (!(a > 0) || !Number.isFinite(u)) { was ? el.style.setProperty('--u', was) : el.style.removeProperty('--u'); return false; }
+    el.style.setProperty('--u', Math.floor(u * 4) / 4 + 'px');
+    return true;
   }
   // runs again only when the box really changed (it is also what a rotation or a resized window does)
-  const ro = new ResizeObserver(() => { const k = host.clientWidth + 'x' + host.clientHeight; if (k !== seen) { seen = k; fit(); } });
+  const ro = new ResizeObserver(() => { const k = host.clientWidth + 'x' + host.clientHeight; if (k !== seen && fit()) seen = k; });
   ro.observe(host);
 
   const click = e => {
