@@ -98,7 +98,13 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   #app.wide header { display: none; }
   #joc.lvl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, auto) minmax(0, 1fr); gap: 8px 24px; justify-items: center; align-content: stretch; }
   #joc.lvl > * { grid-column: 1; }
-  #joc.lvl .stage { grid-column: 2; grid-row: 1 / -1; width: 100%; }
+  /* the stage is stretched (the #joc rule centres the others) and contributes no size of its own to the rows: its box is the grid area,
+     whatever the board inside is doing, which is what makes the measuring the same from any starting size */
+  #joc.lvl .stage { grid-column: 2; grid-row: 1 / -1; width: 100%; align-self: stretch; contain: size; }
+  /* the left column has to fit the 310 or so px that are left: a smaller task line and smaller buttons, and the level row keeps its height */
+  #joc.lvl .levels { min-height: 56px; }
+  .task { font-size: 1.6rem; }
+  .opts .btn { min-height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }
