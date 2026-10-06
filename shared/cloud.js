@@ -1,9 +1,10 @@
 // The cloud copy of the progress, and the only file that knows Firebase. Paths: users/{uid}/profiles/{profile} holds { name },
 // users/{uid}/profiles/{profile}/games/{game} holds { data, at }. With no config (firebase-config.js is null) everything is
-// inert and no Firebase package is even loaded. Nothing in here throws or rejects: a network error leaves the document pending.
+// inert and no Firebase package is even loaded; the same holds on a device that never had a session (account() is null) until
+// signIn() is called. Nothing in here throws or rejects: a network error leaves the document pending.
 import config from './firebase-config.js';
 import { slug, settle, merge, same } from './sync.js';
-import { profiles, addProfiles, entries, pulled, merged, pushed, rebase } from './progress.js';
+import { profiles, addProfiles, entries, pulled, merged, pushed, rebase, account } from './progress.js';
 
 export const enabled = !!config;
 const number = n => (typeof n === 'number' && isFinite(n));
@@ -17,7 +18,8 @@ const within = p => new Promise((res, rej) => {
   Promise.resolve(p).then(v => { clearTimeout(id); res(v); }, e => { clearTimeout(id); rej(e); });
 });
 
-// the Firebase packages are imported only here, once, and only with a config; a failed load is retried on the next call
+// the Firebase packages are imported only here, once, only with a config, and only where a session was ever opened (every caller
+// but signIn() tests account() first); a failed load is retried on the next call
 let fb = null;
 const boot = () => fb || (fb = (async () => {
   const [app, A, F] = await Promise.all([import('firebase/app'), import('firebase/auth'), import('firebase/firestore/lite')]);
@@ -32,12 +34,14 @@ const restored = () => ready || (ready = boot().then(f => new Promise(res => {
 })).catch(e => { ready = null; throw e; }));
 
 // { uid, name } of the signed-in account, or null (also with no config or when Firebase fails)
+// current() is the session with no account test: push and syncAll test it themselves before any await, and send only runs from them
+const current = async () => {
+  const u = (await restored()).auth.currentUser;
+  return u ? { uid: u.uid, name: String(u.displayName || u.email || '') } : null;
+};
 export async function session() {
-  if (!enabled) return null;
-  try {
-    const u = (await restored()).auth.currentUser;
-    return u ? { uid: u.uid, name: String(u.displayName || u.email || '') } : null;
-  } catch (e) { return null; }
+  if (!enabled || account() === null) return null;
+  try { return await current(); } catch (e) { return null; }
 }
 
 // Google sign-in in a popup; false when it is closed, blocked or fails. A second call meanwhile shares the one popup
@@ -48,7 +52,9 @@ export function signIn() {
     try {
       const f = await restored();
       await f.A.signInWithPopup(f.auth, new f.A.GoogleAuthProvider());
-      return !!f.auth.currentUser;
+      const u = f.auth.currentUser;
+      if (u) rebase(u.uid);   // the one place that opens the gate: from now on this device has a session to restore and sync
+      return !!u;
     } catch (e) { return false; }
   })().finally(() => { popup = null; }));
 }
@@ -65,7 +71,7 @@ export async function signOut() {
 let chain = Promise.resolve();
 const send = (uid, profile, game, force) => chain = chain.then(async () => {
   try {
-    const s = await session();
+    const s = await current();
     if (!s || s.uid !== uid) return;
     const f = await boot();
     if (!force) rebase(uid);   // a push may come before any syncAll: marks of another account must not say synced
@@ -90,8 +96,9 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
 
 // sends one pending document
 export async function push(profile, game) {
+  if (!enabled || account() === null) return;
   try {
-    const s = await session();
+    const s = await current();
     if (s) await send(s.uid, profile, game, false);
   } catch (e) {}
 }
@@ -100,13 +107,13 @@ export async function push(profile, game) {
 // pulled or a document merged), false when nothing did, and false when it failed before anything changed. Overlapping calls share one run
 let running = null;
 export function syncAll() {
-  if (!enabled) return Promise.resolve(false);
+  if (!enabled || account() === null) return Promise.resolve(false);
   return running || (running = run().finally(() => { running = null; }));
 }
 async function run() {
   let changed = false;
   try {
-    const s = await session();
+    const s = await current();
     if (!s) return false;
     const { F, db } = await boot();
     rebase(s.uid);   // before any entries(): after a different account the marks must already be reset

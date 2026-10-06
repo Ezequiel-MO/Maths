@@ -52,12 +52,23 @@ check(thrown === null, 'null config: push and signOut resolve');
 check(fakesLoaded().length === 0, `null config: no Firebase module was requested (loaded: ${J(fakesLoaded())})`);
 
 const cloud = await import('../shared/cloud.js');
+
+// ---- «El progrés no baixa mai», tasca 5: a device that never had a session loads no Firebase package. Every value below is contract: plan «El progrés no baixa mai», tasca 5, «Comprovació»
+// This goes before the checker imports the auth and firestore fakes itself (they are evaluated once, and that import would count as a load)
+const fb = () => fakesLoaded().filter(x => x !== 'config');   // the fake config is evaluated when cloud.js is imported; it is not a Firebase package
+A.m.clear(); on(A); P.add('Xavi'); P.choose('xavi', []); P.save('g', { n: 1 });
+check(cloud.enabled === true && A.getItem('compte') === null, 'setup: a config and no compte');
+check(await cloud.session() === null && J(fb()) === J([]), `with a config and no compte, session() is null and loads no Firebase module (loaded: ${J(fb())})`);
+check(await cloud.push('xavi', 'g') === undefined && J(fb()) === J([]), `push with no compte loads no Firebase module (loaded: ${J(fb())})`);
+check(await cloud.syncAll() === false && J(fb()) === J([]), `syncAll with no compte is false and loads no Firebase module (loaded: ${J(fb())})`);
+check(A.getItem('compte') === null && cloud.enabled, 'and compte is still unset');
+
 const auth = (await import('./fakes/fake-auth.mjs')).state;
 const { C } = await import('./fakes/fake-fs.mjs');
 check(cloud.enabled === true, 'with a config: enabled is true');   // contract: task 4 brief, «enabled: si hi ha configuració»
 
 const U = uid => ({ uid, displayName: 'Oli', email: uid + '@x' });
-const reset = uid => { A.m.clear(); B.m.clear(); C.docs.clear(); C.log.length = 0; C.hook = null; auth.currentUser = uid ? U(uid) : null; auth.next = null; t = 1000; on(A); };
+const reset = uid => { A.m.clear(); B.m.clear(); C.docs.clear(); C.log.length = 0; C.hook = null; auth.currentUser = uid ? U(uid) : null; auth.next = null; t = 1000; if (uid) { A.m.set('compte', uid); B.m.set('compte', uid); } on(A); };   // a signed-in device has compte (decision 2 of task 5: cloud.js does nothing without it)
 const mark = (d, key) => { try { return JSON.parse(d.m.get('sync'))[key]; } catch (e) { return undefined; } };
 const synced = (m, at) => !!m && m.at === at && m.base === at && m.pending === false;
 const pend = (m, at, base) => !!m && m.at === at && m.base === base && m.pending === true;
@@ -66,6 +77,22 @@ const game = (prof, g) => cd(`profiles/${prof}/games/${g}`);
 const sets = () => C.log.filter(x => x.startsWith('set'));
 const play = (d, prof, g, data) => { on(d); P.choose(prof, []); P.load(g); P.save(g, data); };   // a game page loads its document before it saves; one module here stands for every page, so load() sets what save remembers
 const section = async (name, fn) => { try { await fn(); } catch (e) { check(false, `${name} threw ${e && e.stack}`); } finally { C.hook = null; on(A); } };
+
+// ---- tasca 5, second part: signIn() is the one call that loads the packages, and it writes compte (decision 1 of the controller: only rebase writes it)
+await section('sign-in opens the gate', async () => {
+  reset(null);
+  P.add('Xavi'); P.choose('xavi', []); P.save('g', { n: 1 });
+  check(await cloud.push('xavi', 'g') === undefined && C.log.length === 0, 'with no compte a push calls nothing');
+  auth.next = U('U1');
+  check(await cloud.signIn() === true, 'signIn() with a config succeeds');
+  check(J(fb().sort()) === J(['app', 'auth', 'firestore']), `signIn() loads the three Firebase modules (loaded: ${J(fb())})`);
+  check(P.account() === 'U1', `after signIn() account() is the uid (${P.account()})`);
+  const s = await cloud.session();
+  check(!!s && s.uid === 'U1', 'and session() sees it');
+  check(await cloud.syncAll() === false && P.account() === 'U1' && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a syncAll with a session keeps account() and sends the document (${P.account()} ${J(game('xavi', 'g'))})`);
+  t = 2000; P.save('h', { n: 2 }); await cloud.push('xavi', 'h');
+  check(J(game('xavi', 'h')) === J({ data: { n: 2 }, at: 2000 }), `and a push now sends (${J(game('xavi', 'h'))})`);
+});
 
 // the real signed-out state: nothing happens, nothing is called
 await section('signed out', async () => {
