@@ -537,7 +537,7 @@ const slow = async fn => {
 };
 const drive = async p => { let r = { hung: true }; p.then(v => { r = { v }; }); for (let i = 0; i < 100 && r.hung; i++) { await wait(10); fire(); } return r; };
 const never = () => new Promise(() => {});
-const signed = () => { reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); t = 1000; };
+const signed = () => { reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; };
 
 await section('timeout: getDocs hangs', () => slow(async () => {
   signed(); P.save('g', { n: 1 });
@@ -586,6 +586,30 @@ await section('timeout: a late answer does nothing', () => slow(async () => {
   const r2 = await drive(cloud.syncAll());
   if (release) release(); await wait(40);
   check(!r2.hung && r2.v === false && A.getItem('xavi:g') === null, `a list answer after the limit pulls nothing (${J(r2)} ${A.getItem('xavi:g')})`);
+}));
+
+// contract: revisió de les tasques 4 i 5, Important 1; ruling 7. A write that timed out can still land later and put an older copy on
+// top of a newer one: the cloud then has an at below the device's base, and the device must join it, never take it
+await section('timeout: an expired write lands late over a newer one', () => slow(async () => {
+  signed(); P.save('a', { n: 1 });
+  let release, first = true;
+  C.hook = (op, path) => { if (op === 'set' && path.endsWith('/games/a') && first) { first = false; return new Promise(r => { release = r; }); } return null; };
+  const r1 = await drive(cloud.push('xavi', 'a'));
+  check(!r1.hung && pend(mark(A, 'xavi:a'), 1000, null) && !game('xavi', 'a'), `the first send expired: pending, cloud empty (${J(r1)} ${J(mark(A, 'xavi:a'))} ${J(game('xavi', 'a'))})`);
+  t = 2000; P.save('a', { n: 5 });
+  await cloud.push('xavi', 'a');
+  check(J(game('xavi', 'a')) === J({ data: { n: 5 }, at: 2000 }) && synced(mark(A, 'xavi:a'), 2000), `the second send landed (${J(game('xavi', 'a'))} ${J(mark(A, 'xavi:a'))})`);
+  release(); await wait(40);
+  check(J(game('xavi', 'a')) === J({ data: { n: 1 }, at: 1000 }), `the expired write landed late over it (${J(game('xavi', 'a'))})`);
+  C.hook = null; await cloud.syncAll(); await wait(40);
+  check(A.getItem('xavi:a') === J({ n: 5 }), `the next syncAll does not lower the device (${A.getItem('xavi:a')})`);
+  check(J(game('xavi', 'a').data) === J({ n: 5 }) && game('xavi', 'a').at > 2000, `and the cloud ends at n 5 with a newer at (${J(game('xavi', 'a'))})`);
+  // a second device, synced at 2000 on n 5, finds the cloud at n 1, at 1000
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1');
+  C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/a', { data: { n: 1 }, at: 1000 });
+  A.setItem('xavi:a', J({ n: 5 })); A.setItem('sync', J({ 'xavi:a': { at: 2000, base: 2000, pending: false } }));
+  await cloud.syncAll(); await wait(40);
+  check(A.getItem('xavi:a') === J({ n: 5 }) && J(game('xavi', 'a').data) === J({ n: 5 }) && game('xavi', 'a').at > 2000, `device B does not lower either, and the cloud gets n 5 (${A.getItem('xavi:a')} ${J(game('xavi', 'a'))})`);
 }));
 
 console.log(fails ? `${fails} FAILED` : 'cloud rules and save hook: ok');

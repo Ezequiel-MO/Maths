@@ -19,7 +19,7 @@ const within = p => new Promise((res, rej) => {
 });
 
 // the Firebase packages are imported only here, once, only with a config, and only where a session was ever opened (every caller
-// but signIn() tests account() first); a failed load is retried on the next call
+// but signIn() and signOut() tests account() first); a failed load is retried on the next call
 let fb = null;
 const boot = () => fb || (fb = (async () => {
   const [app, A, F] = await Promise.all([import('firebase/app'), import('firebase/auth'), import('firebase/firestore/lite')]);

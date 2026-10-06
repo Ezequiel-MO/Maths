@@ -12,12 +12,13 @@ export function slug(name) {
 // what to do with one document: local is null or { at, base, pending }, remote is null or { at }
 // 'push' sends the device's copy, 'pull' takes the cloud's, 'merge' joins the two field by field, 'none' leaves both. base is
 // the cloud's at when last synced, so a cloud still at base has not moved. If both moved, they are merged whatever the clocks say.
+// A cloud below base went backwards (an expired write landed late over a newer one; every real write is above the at it replaced), so it is merged, never pulled.
 export function settle(local, remote) {
   if (!local && !remote) return 'none';
   if (!remote) return 'push';
   if (!local) return 'pull';
   if (remote.at === local.base) return local.pending ? 'push' : 'none';
-  if (!local.pending) return 'pull';
+  if (!local.pending && !(typeof local.base === 'number' && remote.at < local.base)) return 'pull';
   return 'merge';
 }
 

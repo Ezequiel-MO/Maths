@@ -36,7 +36,9 @@ const SETTLES = [
   [{ at: 7, base: 5, pending: true }, { at: 7 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (a tie used to go to the cloud)
   [{ at: 0, base: null, pending: true }, { at: 1 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (migrated document)
   [{ at: 3, base: 5, pending: true }, { at: 5 }, 'push'],   // pending and the cloud equals base: sent whatever the clocks say
-  [{ at: 9, base: 9, pending: false }, { at: 5 }, 'pull'],   // not pending and the cloud differs from base
+  [{ at: 9, base: 9, pending: false }, { at: 5 }, 'merge'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7: a cloud below base went backwards, so it is merged, not pulled
+  [{ at: 9, base: 5, pending: true }, { at: 3 }, 'merge'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7
+  [{ at: 9, base: 9, pending: false }, { at: 12 }, 'pull'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7: a cloud ahead of base is still a pull ("Esborra el progrés" from another tablet)
   [{ at: 9, base: 5, pending: false }, { at: 5 }, 'none'],   // not pending and the cloud equals base
 ];
 for (const [local, remote, want] of SETTLES) {
