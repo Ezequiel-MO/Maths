@@ -1,5 +1,6 @@
 /* Layout: the night pond of the other games. One centred column: the operation, the abacus as the stage, the buttons under it.
-   Every size of the abacus hangs from --u, the height of one bead, so it shrinks with the screen without any measuring in the script.
+   Every size of the abacus hangs from --u, the height of one bead. The script (board.js) sets --u on each board by measuring the box of its
+   stage, which takes the rest of the screen once the operation and the buttons have taken theirs: no sizes of the screen are written here.
    The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
@@ -10,6 +11,9 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 /* inside a level the big title gives its height to the abacus */
 #app.wide h1 { display: none; }
 #joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+/* inside a level the page is exactly one screen tall, so the stage can be measured: it is what is left once the others have their height */
+#app.wide { height: calc(100dvh - 38px); }
+#app.wide #joc { flex: 1 1 0; min-height: 0; margin-bottom: 0; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .status { font-weight: 800; }
 
@@ -19,10 +23,10 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 
 /* the abacus: a rosewood frame with a gold inlay around a dark well. Each column is a rod; the beads are buttons placed by --s,
    the slot they sit in, counted from the top of their deck. A bead that counts is lit like a lantern. */
-.stage { position: relative; width: 100%; display: grid; justify-items: center; }
+.stage { position: relative; width: 100%; flex: 1 1 0; min-height: 0; display: grid; justify-items: center; }
 .abacus {
-  --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px);
-  position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); padding: 14px 14px 8px; border-radius: 26px;
+  --u: 28px;   /* until board.js has measured the stage */
+  position: relative; width: min(100%, calc(var(--n) * var(--u) * 2.5 + 28px)); margin-block: auto; padding: 14px 14px 8px; border-radius: 26px;
   background: linear-gradient(160deg, #9A5A36, #5A2A18 55%, #35160D); border: 1px solid rgb(255 214 160 / 0.4);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 -6px 12px rgb(0 0 0 / 0.35);
 }
@@ -52,11 +56,11 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 .bead.wave { animation: lit 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
 .abacus.shake { animation: shake 0.35s; }
 /* under each rod: what the column shows (only while the level allows it) and the place it stands for */
-.foot { display: grid; grid-template-columns: repeat(var(--n), 1fr); padding-top: 5px; }
+.foot { display: grid; grid-template-columns: repeat(var(--n), 1fr); align-items: start; padding-top: 5px; height: 3.5rem; }   /* the room is kept in every mode of the feet: the beads never move when a hint shows the digits */
 .foot span { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .foot b { font: 800 1.5rem/1.05 var(--display); color: hsl(var(--h) 100% 78%); font-variant-numeric: tabular-nums; }
-.foot b:empty { display: none; }
 .foot b.over { color: var(--bad); }
+.foot i.val { font: 800 0.95rem/1.3 var(--display); color: hsl(var(--h) 100% 78% / 0.85); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .foot i { font-style: normal; font-weight: 800; font-size: 0.75rem; line-height: 1.5; letter-spacing: 0.06em; color: rgb(255 214 160 / 0.85); }
 /* hints: first the column to look at glows, then the bead to touch turns gold with the way it has to go */
 .rod.glow { animation: column 1s ease-in-out infinite; }
@@ -75,7 +79,6 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 @media (min-width: 700px) {
   .status.tip { font-size: 1.1rem; }
   #app.wide h1 { display: block; }
-  .abacus { --u: clamp(22px, calc((100dvh - 500px) / 8.6), 44px); }
   .chip { padding-inline: 14px; }
   .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
 }
@@ -87,16 +90,15 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 @media (max-height: 700px) {
   body { padding-bottom: 14px; }
   #app.wide h1 { display: none; }
-  .abacus { --u: clamp(22px, min(7.6vw, calc((100dvh - 330px) / 8.6)), 44px); }
 }
-/* a phone on its side: the abacus takes the whole height on the right, the rest stacks on the left */
+/* a phone on its side: the stage takes the whole height on the right, the rest stacks on the left. The stage spans every row of the left
+   column and a last row of its own (the 1fr one) that has the height the others leave, which is what the board measures. */
 @media (orientation: landscape) and (max-height: 520px) {
   #app { max-width: 900px; }
   #app.wide header { display: none; }
-  #joc.lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; justify-items: center; align-content: start; }
+  #joc.lvl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, auto) minmax(0, 1fr); gap: 8px 24px; justify-items: center; align-content: stretch; }
   #joc.lvl > * { grid-column: 1; }
-  #joc.lvl .stage { grid-column: 2; grid-row: 1 / span 6; width: auto; align-self: start; }
-  .abacus { --u: clamp(18px, calc((100dvh - 150px) / 8.6), 44px); width: calc(var(--n) * var(--u) * 2.5 + 28px); }
+  #joc.lvl .stage { grid-column: 2; grid-row: 1 / -1; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }

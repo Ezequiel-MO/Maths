@@ -1,9 +1,10 @@
 import { $, sleep, pick, mid } from '../../shared/util.js';
-import { voice, pentatonic } from '../../shared/audio.js';
+import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { rodVal, valueOf, tidy, write, tap, plan, nextMove, SECTIONS, LEVELS } from './logic.js';
+import { rodVal, valueOf, tidy, write, plan, nextMove, SECTIONS, LEVELS } from './logic.js';
+import { board, HUES, COL } from './board.js';
 
 const KEY = 'abac-xines';
 
@@ -15,13 +16,12 @@ let prog = { so: true, secs: SECTIONS.map(() => 0) };
 }
 const save = () => store(KEY, prog);
 
-// every new screen cancels what the last one left running through this token
-let tok = { on: true };
-function fresh() { tok.on = false; tok = { on: true }; return tok; }
+// every new screen cancels what the last one left running through this token, and lets go of the abacus it had
+let tok = { on: true }, bd = null;
+function fresh() { tok.on = false; tok = { on: true }; bd?.stop(); bd = null; return tok; }
 
-// each bead clicks with a note of its own: higher on the left columns, and higher still for a heaven bead
+// each bead clicks with a note of its own (board.js plays it through this tone)
 const { tone, chime } = voice(() => prog.so, false);
-const noteOf = pentatonic(261.63);
 const FX = pond(tone);
 // the sky takes the colour of the section
 const mood = sec => FX.mood([165, 205, 262, 318, 28, 120][sec] ?? 165);
@@ -44,8 +44,6 @@ function seccions() {
 }
 
 /* ---------- one level: an operation and the abacus to solve it on ---------- */
-const HUES = [150, 190, 258, 325, 28], PLACE = ['U', 'D', 'C', 'UM', 'DM'];
-const COL = ['de les unitats', 'de les desenes', 'de les centenes', 'dels milers', 'de les desenes de miler'];
 const SIGN = { '+': '+', '-': '−', x: '×', ':': ':' };
 const HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Ben calculat!', 'Així es fa!'];
 // what to say when a hint is one of the tricks rather than a plain move; d is the digit being added or taken
@@ -72,31 +70,23 @@ function nivell(sec, idx) {
     ${levelRow(SECTIONS[sec].levels, prog.secs[sec], idx)}
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
     <p class="task" id="task"></p>
-    <div class="stage" id="stage"><div class="abacus${reading ? ' locked' : ''}" id="ab" role="group" aria-label="Àbac" style="--n:${n}">
-      <div class="well">${rods.map((_, i) => { const p = n - 1 - i, bead = (deck, j) => `<button class="bead" data-p="${p}" data-deck="${deck}" data-j="${j}"></button>`;
-        return `<div class="rod" data-p="${p}" style="--h:${HUES[p]}"><div class="deck hi">${bead('hi', 0)}</div><div class="beam"></div><div class="deck lo">${[0, 1, 2, 3, 4].map(j => bead('lo', j)).join('')}</div></div>`; }).join('')}</div>
-      <div class="foot" aria-hidden="true">${rods.map((_, i) => `<span style="--h:${HUES[n - 1 - i]}"><b></b><i>${PLACE[n - 1 - i]}</i></span>`).join('')}</div></div></div>
+    <div class="stage" id="stage"></div>
     ${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
       : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}`;
-  const ab = $('#ab'), beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')], foot = [...ab.querySelectorAll('.foot b')];
+  // the abacus measures the box of the stage by itself (board.js); its state is the rods above
+  bd = board($('#stage'), { n, feet: digits ? 'full' : 'letter', tone });
+  const ab = bd.el, beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')];
   wireLevels(root, i => nivell(sec, i));
   const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
   const target = () => pl.stages[Math.min(stage, pl.stages.length - 1)];
   // the bead a move asks to touch: the far end of the group that has to travel
-  const beadOf = m => { const cur = rods[m.p][m.deck], j = m.to > cur ? m.to - 1 : m.to; return beads.find(b => +b.dataset.p === m.p && b.dataset.deck === m.deck && +b.dataset.j === j); };
+  const beadOf = m => { const cur = rods[m.p][m.deck], j = m.to > cur ? m.to - 1 : m.to; return bd.bead(m.p, m.deck, j); };
 
   function draw() {
-    for (const b of beads) {
-      const p = +b.dataset.p, hi = b.dataset.deck === 'hi', j = +b.dataset.j, on = j < rods[p][b.dataset.deck];
-      // earth beads that count sit against the beam above them, the heaven bead against the beam below
-      b.style.setProperty('--s', hi ? +on : on ? j : j + 1);
-      b.classList.toggle('on', on); b.classList.remove('next');
-      b.setAttribute('aria-label', `Bola ${hi ? 'de dalt' : `de baix ${j + 1}`}, columna ${COL[p]}${on ? ', toca la barra' : ''}`);
-      b.tabIndex = reading || done ? -1 : 0;
-    }
+    bd.set(rods); bd.lock(reading || done); bd.feet(digits ? 'full' : 'letter');
+    for (const b of beads) b.classList.remove('next');
     cols.forEach(c => c.classList.toggle('glow', !!mark && mark.p === +c.dataset.p));
     if (mark && mark.m) { const b = beadOf(mark.m), up = (mark.m.deck === 'lo') === (mark.m.to > rods[mark.m.p][mark.m.deck]); b.classList.add('next'); b.dataset.a = up ? '▲' : '▼'; }
-    foot.forEach((e, i) => { const v = rodVal(rods[n - 1 - i]); e.textContent = digits ? v : ''; e.classList.toggle('over', v > 9); });
     $('#task').innerHTML = ask + (op ? `<b>${done ? pl.goal : '?'}</b>` : '');
   }
 
@@ -105,7 +95,7 @@ function nivell(sec, idx) {
     tip(txt, 'oops');
   }
   async function win() {
-    done = true; mark = null; ab.classList.add('locked'); draw();
+    done = true; mark = null; draw();
     if (idx + 1 > prog.secs[sec]) { prog.secs[sec] = idx + 1; save(); }
     const end = idx === 9, last = end && sec === SECTIONS.length - 1, lit = beads.filter(b => b.classList.contains('on'));
     tip(reading ? `Sí! L'àbac marca ${pl.goal}.` : `Correcte! L'àbac marca ${pl.goal}.`, 'go');
@@ -146,15 +136,14 @@ function nivell(sec, idx) {
     tip(`${up ? 'Puja' : 'Baixa'} ${k} ${k > 1 ? 'boles' : 'bola'} ${m.deck === 'hi' ? 'de dalt' : 'de baix'} a la columna ${COL[m.p]}: toca la bola daurada.`);
   }
 
-  ab.onclick = e => {
-    const b = e.target.closest('.bead'); if (!b || done) return;
-    if (reading) return tip("En aquest nivell les boles no es mouen. Llegeix el nombre i tria'l a sota.");
-    const p = +b.dataset.p, deck = b.dataset.deck, was = rods[p][deck];
-    rods = tap(rods, p, deck, +b.dataset.j); mark = null;
+  bd.onMove((r, m) => {
+    rods = r; mark = null;
     const k = pl.stages.lastIndexOf(valueOf(rods)); if (k >= stage) stage = k + 1;
-    draw(); tone(noteOf(p * 2 + (deck === 'hi' ? 4 : 0) + rods[p][deck]), 0, 0.16, 0.08, 'triangle');
-    if (rods[p][deck] > was) { const c = mid(b); FX.burst(c.x, c.y, deck === 'hi' ? 44 : HUES[p], 7, c.w * 1.3); }
-  };
+    draw();
+    if (rods[m.p][m.deck] > m.was) { const c = mid(m.bead); FX.burst(c.x, c.y, m.deck === 'hi' ? 44 : HUES[m.p], 7, c.w * 1.3); }
+  });
+  // a level of reading does not let the beads move (the board is locked): say why when one is touched
+  ab.addEventListener('click', e => { if (reading && !done && e.target.closest('.bead')) tip("En aquest nivell les boles no es mouen. Llegeix el nombre i tria'l a sota."); });
   root.onclick = e => {
     const b = e.target.closest('button'); if (!b || done) return;
     if (b.id === 'chk') check();
