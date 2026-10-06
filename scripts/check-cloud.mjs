@@ -17,6 +17,7 @@ const block = (spec.match(/Regles[^\n]*\n\n```\n([\s\S]*?)\n```/) || [])[1];
 check(!!block && block.includes('rules_version'), 'the spec has a rules block');
 check(read('firestore.rules').trimEnd() === (block || '?').trimEnd(), 'firestore.rules is the rules block of the spec, letter for letter');   // contract: task 4 brief, «lletra per lletra»
 const cloudSrc = read('shared/cloud.js'), progSrc = read('shared/progress.js');
+check(/^export default\b/m.test(read('shared/firebase-config.js')), 'shared/firebase-config.js has a default export (null, or the config object)');   // contract: decision 7; the checker never reads its value
 check(!/^\s*import[^(]*?from\s*['"]firebase/m.test(cloudSrc) && !/^\s*import\s*['"]firebase/m.test(cloudSrc), 'cloud.js has no static import of a firebase package');   // contract: decision 2, Firebase only through import()
 const specifiers = [...cloudSrc.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)].map(m => m[1]).sort();
 check(J(specifiers) === J(['firebase/app', 'firebase/auth', 'firebase/firestore/lite']), `cloud.js imports only the three allowed packages, with import(): ${J(specifiers)}`);   // contract: task 4 brief, «Només s'importa de firebase/app, firebase/auth i firebase/firestore/lite»
@@ -48,7 +49,7 @@ check(await N.signIn() === false, 'null config: signIn() is false');
 check(await N.syncAll() === false, 'null config: syncAll() is false');
 let thrown = null; try { await N.push('xavi', 'g'); await N.signOut(); } catch (e) { thrown = e; }
 check(thrown === null, 'null config: push and signOut resolve');
-check(fakesLoaded().length === 0, `null config: no Firebase module and no config fake was requested (loaded: ${J(fakesLoaded())})`);
+check(fakesLoaded().length === 0, `null config: no Firebase module was requested (loaded: ${J(fakesLoaded())})`);
 
 const cloud = await import('../shared/cloud.js');
 const auth = (await import('./fakes/fake-auth.mjs')).state;
@@ -276,6 +277,58 @@ await section('account changes while queued', async () => {
   release(); await Promise.race([Promise.all([p1, p2]), wait(500)]); C.hook = null;
   check(!game('xavi', 'b') && !C.docs.has('users/U2/profiles/xavi/games/b'), 'a send queued under U1 writes nothing once the session is U2');   // contract: fix round 1, send checks the account when its turn comes
   check(pend(mark(A, 'xavi:b'), 1000, null), `and its mark stays pending (${J(mark(A, 'xavi:b'))})`);
+});
+
+// ---- a game page that outlives a change of player. contract: final review, Blocker 1
+// a fresh progress.js instance is loaded as a browser page (hub or not) with fake window, document and location
+let pages = 0;
+const page = async hub => {
+  const seen = { replaced: [], listeners: [] };
+  globalThis.window = { addEventListener: (n, f) => seen.listeners.push([n, f]) };
+  globalThis.document = { documentElement: { hasAttribute: a => hub && a === 'data-hub' } };
+  globalThis.location = { replace: u => seen.replaced.push(u) };
+  try { seen.P = await import('../shared/progress.js?page' + (++pages)); } finally { delete globalThis.window; delete globalThis.document; }   // location stays: save() redirects through it
+  seen.show = persisted => seen.listeners.filter(l => l[0] === 'pageshow').forEach(l => l[1]({ persisted }));
+  return seen;
+};
+const browser = async fn => {   // the instance saves with a window present, as in a browser
+  globalThis.window = {}; globalThis.document = { documentElement: { hasAttribute: () => false } };
+  try { await fn(); } finally { delete globalThis.window; delete globalThis.document; }
+};
+await section('a stale game page', async () => {
+  try {
+  reset('U1'); P.add('Xavi'); P.add('Laia'); P.choose('xavi', []); A.setItem('compte', 'U1');
+  const pg = await page(false);
+  check(pg.replaced.length === 0, 'a game page with an active profile does not redirect when it loads');
+  // (1) the player is switched underneath: another profile, whose document must stay as it is
+  A.setItem('perfil', 'laia'); A.setItem('laia:joc', J({ n: 1 })); A.setItem('sync', J({ 'laia:joc': { at: 7, base: 7, pending: false } }));
+  const syncBefore = A.m.get('sync'); C.log.length = 0;
+  await browser(async () => { pg.P.save('joc', { n: 99 }); await wait(40); });
+  check(A.getItem('laia:joc') === J({ n: 1 }), `a stale page does not overwrite the new player's document (${A.getItem('laia:joc')})`);
+  check(A.getItem('xavi:joc') === null && A.m.get('sync') === syncBefore, 'nor writes the old player\'s document, nor touches a mark');
+  check(sets().length === 0, 'nor sends anything to the cloud');
+  check(J(pg.replaced) === J(['index.html']), `it sends the page to the hub (${J(pg.replaced)})`);
+  // (2) nobody active
+  pg.replaced.length = 0; A.m.delete('perfil'); await browser(async () => { pg.P.save('joc', { n: 98 }); await wait(40); });
+  check(A.getItem('laia:joc') === J({ n: 1 }) && A.getItem('xavi:joc') === null && A.m.get('sync') === syncBefore && J(pg.replaced) === J(['index.html']), 'with nobody active a stale page writes nothing and goes to the hub');
+  // (3) pageshow from the back/forward cache
+  pg.replaced.length = 0; A.setItem('perfil', 'xavi'); pg.show(true);
+  check(pg.replaced.length === 0, 'a restored page whose player is still active stays');
+  A.setItem('perfil', 'laia'); pg.show(false);
+  check(pg.replaced.length === 0, 'a pageshow that is not a restore does nothing');
+  pg.show(true);
+  check(J(pg.replaced) === J(['index.html']), 'a restored page whose player changed goes to the hub');
+  // the same page, same player: still saves and sends
+  A.setItem('perfil', 'xavi'); t = 5000; C.log.length = 0;
+  await browser(async () => { pg.P.save('joc', { n: 5 }); await wait(60); });
+  check(A.getItem('xavi:joc') === J({ n: 5 }) && J(game('xavi', 'joc')) === J({ data: { n: 5 }, at: 5000 }), 'a page whose player is still active saves and sends as ever');
+  // (4) the hub follows active()
+  const hub = await page(true);
+  hub.P.choose('laia', []);
+  check(J(hub.P.load('joc')) === J({ n: 1 }) && hub.listeners.length === 0 && hub.replaced.length === 0, 'the hub page loads under the profile just chosen, with no redirect and no pageshow listener');
+  hub.P.choose('xavi', []);
+  check(J(hub.P.load('joc')) === J({ n: 5 }), 'and follows the next choose');
+  } finally { delete globalThis.location; }
 });
 
 console.log(fails ? `${fails} FAILED` : 'cloud rules and save hook: ok');

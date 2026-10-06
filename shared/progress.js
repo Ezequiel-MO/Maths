@@ -66,6 +66,9 @@ export function load(id) { const p = active(); if (!p) return null; try { return
 // saves a document for the active profile and marks it pending. at grows on every save even within one millisecond,
 // so pushed() can tell that a document was saved again while an earlier send was in flight
 export function save(id, data) {
+  // a game page belongs to the child who was active when it loaded; if another child (or nobody) is active now, this page is
+  // stale (a tab, or a restored page) and must not write its data under the new child
+  if (stale()) { location.replace('index.html'); return; }
   const p = active();
   if (!p) return;
   let s;
@@ -122,5 +125,14 @@ export function rebase(uid) {
   return set('compte', uid);
 }
 
+// A game page (no data-hub) remembers the profile active when it loaded, to tell later that it has gone stale. The hub itself
+// has no owner: there load and save follow active().
+let owner = null;
+const stale = () => owner !== null && active() !== owner;
+if (typeof window !== 'undefined' && !document.documentElement.hasAttribute('data-hub')) {
+  owner = active();
+  // a page restored from the back/forward cache keeps its state, so the player may have changed meanwhile
+  if (owner !== null) window.addEventListener('pageshow', e => { if (e.persisted && stale()) location.replace('index.html'); });
+}
 // a game page opened with no active profile has nowhere to save: back to the hub, which has data-hub and asks who plays
 if (typeof window !== 'undefined' && !active() && !document.documentElement.hasAttribute('data-hub')) location.replace('index.html');
