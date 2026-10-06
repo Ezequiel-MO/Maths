@@ -27,6 +27,9 @@ const SETTLES = [
   [{ at: 7, base: 5, pending: true }, { at: 9 }, 'pull'],
   [{ at: 7, base: 5, pending: true }, { at: 7 }, 'pull'],   // a tie goes to the cloud
   [{ at: 0, base: null, pending: true }, { at: 1 }, 'pull'],   // migrated document
+  [{ at: 3, base: 5, pending: true }, { at: 5 }, 'push'],   // pending and the cloud equals base: sent whatever the clocks say
+  [{ at: 9, base: 9, pending: false }, { at: 5 }, 'pull'],   // not pending and the cloud differs from base
+  [{ at: 9, base: 5, pending: false }, { at: 5 }, 'none'],   // not pending and the cloud equals base
 ];
 for (const [local, remote, want] of SETTLES) {
   const got = settle(local, remote);
