@@ -391,6 +391,7 @@ export const badges = p => [p.piscina === true, p.fulls >= 1, p.notes.some(n => 
 // redo the exercises with a question that did not count ('ex00' ...); news the names of the badges this run earns.
 export const firstTry = r => !!r && r.tries === 0 && !r.helped;
 export function handIn(p, i, run) {
+  run = run.slice(0, 15);   // only the 15 questions of a project count, so a result recorded twice can never push a mark over 100
   const n = mark(run.filter(firstTry).length), best = p.notes[i], next = { ...p, secs: p.secs.slice(), notes: p.notes.slice(), exams: p.exams.slice() };
   if (n > best) next.notes[i] = n;
   const had = badges(p), now = badges(next);
