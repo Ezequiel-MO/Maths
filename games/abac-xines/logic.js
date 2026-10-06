@@ -398,3 +398,96 @@ export function handIn(p, i, run) {
   return { prog: next, n, best, gain: xpOf(next) - xpOf(p), redo: [0, 1, 2].filter(e => run.slice(e * 5, e * 5 + 5).some(r => !firstTry(r)) || run.length < e * 5 + 5).map(e => 'ex0' + e),
     news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
 }
+
+/* ---------- the exam and «Caça l'errada» ---------- */
+// Chance enters only through rnd (a function like Math.random). A whole number below n; clamped, so a rnd that returns 1 (or nonsense) still lands inside.
+const at = (n, rnd) => Math.min(n - 1, Math.max(0, Math.floor(rnd() * n) || 0));
+function shuffle(a, rnd) {
+  for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// the same question asked twice would be a waste of an exam: one key per question
+const askedKey = q => q.read !== undefined ? 'llegir ' + q.read : q.q;
+// Six different questions of the 15 fixed ones of the projects of circle c, at least one of each project, in a random order. Each is a copy of the fixed question with p,
+// its project, added: PROJECTS is never touched. A circle that does not exist gives the first.
+export function exam(c, rnd) {
+  const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
+  const draw = p => {
+    const pool = PROJECTS[p].ex.flat();
+    let i = at(pool.length, rnd);
+    for (let n = 0; n < pool.length && used.has(askedKey(pool[i])); n++) i = (i + 1) % pool.length;   // walk on from a random place, so it ends even if rnd never varies
+    used.add(askedKey(pool[i]));
+    return { ...pool[i], ...(pool[i].opts && { opts: pool[i].opts.slice() }), p };
+  };
+  const list = ps.map(draw);
+  while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));
+  return shuffle(list, rnd);
+}
+// The hand-in of a finished exam. qs are its six questions (each carries p, its project) and run one boolean per question (true: right at the one try).
+// Returns { prog, good, score, gain, redo, news }: prog is a NEW progress (p is never touched, and nothing is shared with it) with exams[c] set when the exam passes
+// (EXAM_PASS of 6, six answers, the exam open) and left alone otherwise, so a pass is never taken back; gain the XP that adds (the difference of xpOf: 50 once, 0 for a
+// pass of an exam already passed); redo the projects (indexes, each once, in order) of the questions missed, whether it passed or not; news the names of the badges it earns.
+export function examIn(p, c, qs, run) {
+  const score = run.filter(r => r === true).length, good = run.length === 6 && score >= EXAM_PASS && examOpen(p, c);
+  const next = { ...p, secs: p.secs.slice(), notes: p.notes.slice(), exams: p.exams.slice() };
+  if (good) next.exams[c] = true;
+  const had = badges(p), now = badges(next);
+  return { prog: next, good, score, gain: xpOf(next) - xpOf(p), news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name),
+    redo: [...new Set(qs.flatMap((q, i) => run[i] !== true && Number.isInteger(q?.p) ? [q.p] : []))].sort((a, b) => a - b) };
+}
+
+// The three mistakes of a sheet, the ones that teach. Each one builds, from the number the board is supposed to show (says), a tidy board of three columns that
+// shows something else, or null when says has no such mistake (the sheet then draws another number).
+export const KINDS = ['veïna', 'dalt', 'girat'];
+const MISTAKE = {
+  // a bead one column to the side: the board of says with one bead moved to the column beside it, where it still fits
+  veïna(says, rnd) {
+    const rods = write(says, 3), moves = [];
+    for (let p = 0; p < 3; p++) for (const deck of ['lo', 'hi']) for (const q of [p - 1, p + 1])
+      if (q >= 0 && q < 3 && rods[p][deck] > 0 && rods[q][deck] < (deck === 'lo' ? 4 : 1)) moves.push([p, deck, q]);
+    if (!moves.length) return null;
+    const [p, deck, q] = moves[at(moves.length, rnd)];
+    rods[p][deck]--; rods[q][deck]++;
+    return rods;
+  },
+  // the heaven bead counted as 1 instead of 5: the board shows 4 x 10^p more than says, with the heaven bead down in column p (the digit of says there, from 1 to 5, becomes 5 to 9)
+  dalt(says, rnd) {
+    const cols = [0, 1, 2].filter(p => { const d = Math.floor(says / 10 ** p) % 10; return d >= 1 && d <= 5; });
+    return cols.length ? write(says + 4 * 10 ** cols[at(cols.length, rnd)], 3) : null;
+  },
+  // two digits swapped (47 for 74), never a zero ending up on the left
+  girat(says, rnd) {
+    const s = String(says), swaps = [];
+    for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) {
+      const a = [...s]; [a[i], a[j]] = [a[j], a[i]];
+      if (s[i] !== s[j] && a[0] !== '0') swaps.push(+a.join(''));
+    }
+    return swaps.length ? write(swaps[at(swaps.length, rnd)], 3) : null;
+  }
+};
+// Three boards, each { rods, says, bad }: rods are three columns (the units first), says the number the board is said to show, bad null for a board that shows it or the
+// kind of its mistake. From 0 to 2 are bad (never all three), in any place, and the three numbers differ.
+export function sheet(rnd) {
+  const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)])), used = new Set();
+  return [0, 1, 2].map(i => {
+    const kind = bads.has(i) ? KINDS[at(3, rnd)] : null;
+    // numbers of two or of three digits; a number that has no mistake of this kind is dropped and another one drawn (the last resort, 47, has all three)
+    for (let n = 0; n < 60; n++) {
+      const lo = [10, 100][at(2, rnd)], says = lo + at(lo === 10 ? 90 : 900, rnd);
+      if (used.has(says)) continue;
+      const rods = kind ? MISTAKE[kind](says, rnd) : write(says, 3);
+      if (rods) { used.add(says); return { rods, says, bad: kind }; }
+    }
+    return { rods: kind ? MISTAKE[kind](47, rnd) : write(47, 3), says: 47, bad: kind };
+  });
+}
+// The hand-in of a finished sheet. run has one boolean per board (true: judged right, with the fix made when it was wrong). Returns { prog, good, gain, missed, news }:
+// prog is a NEW progress (p is never touched, nothing shared with it) with fulls + 1 only when all three are right; gain the XP that adds (the difference of xpOf, so 0 once
+// the cap of 3 per validated project is reached, or with none validated); missed the places (0, 1, 2) judged wrong or not done; news the names of the badges it earns.
+export function sheetIn(p, run) {
+  const missed = [0, 1, 2].filter(i => run[i] !== true), good = !missed.length && run.length === 3;
+  const next = { ...p, secs: p.secs.slice(), notes: p.notes.slice(), exams: p.exams.slice() };
+  if (good) next.fulls = p.fulls + 1;
+  const had = badges(p), now = badges(next);
+  return { prog: next, good, gain: xpOf(next) - xpOf(p), missed, news: BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name) };
+}
