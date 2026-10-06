@@ -137,6 +137,16 @@ const withXavi = () => { P.add('Xavi'); };
   $('change').onclick(); advance(300);   // the view changes in the middle of the hold of the games: nothing cancels its timer
   check(!inert(D.list), 'a repaint made the hold of the game list never end (its timer was cancelled)');   // mutant: render cancels the timer; contract: fix round 1 N1, render() never lifts or cancels a hold
 }
+{
+  // contract: re-revisió de la tasca 6, N1; brief «un repintat entremig no l'hi treu»: Canvia and, before 500 ms, Afegeix un jugador (it is not held): the repaint lifts nothing
+  await boot(cloud({ enabled: false }), withXavi);
+  profileButtons()[0].onclick(); advance(500);
+  $('change').onclick(); advance(200);
+  $('open').onclick();
+  check(inert($('profiles')), 'a repaint in the middle of the hold lifts it');   // mutants: render sets tap false and gates; the same with clearTimeout
+  advance(299); check(inert($('profiles')), 'a repaint shortened the hold of the list of profiles');
+  advance(1); check(!inert($('profiles')), 'a repaint made the hold of the list of profiles never end');
+}
 // ---- «a sync repaint inside the games view». contract: fix round 1 N1 (a sync repaint holds, and a hold is only extended); revisió de la tasca 6, I2 and I5
 {
   let end;
