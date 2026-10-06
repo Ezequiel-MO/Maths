@@ -1,5 +1,5 @@
-// Two pure rules behind the cloud copy of the progress. No document, window, localStorage or Firebase in here, so a
-// checker can run them under Node.
+// Four pure rules (slug, settle, merge, same) behind the cloud copy of the progress. No document, window, localStorage or
+// Firebase in here, so a checker can run them under Node.
 
 // the id of a profile from the name typed, or '' when the name is not worth keeping
 export function slug(name) {

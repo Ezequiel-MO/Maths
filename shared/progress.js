@@ -61,7 +61,7 @@ export function choose(id, stores = []) {
   }
 }
 
-// What this page knows of each document: the at of its mark as of its last load() or its last own save() (null: no mark).
+// What this page knows of each document: the at of its mark as of its last load() or its last save() that did not merge (null: no mark).
 // Page state, never in localStorage; save() compares it with the mark now to tell that the document changed under the page.
 const seen = new Map();
 const atOf = key => { const m = marks()[key]; return m && number(m.at) ? m.at : null; };
@@ -149,10 +149,13 @@ export function merged(profile, game, data, seenAt, cloudAt) {
   set('sync', JSON.stringify(m));
   return false;
 }
-// the cloud took the document as of `at`; only clears pending if it has not been saved again since
+// the cloud took the document as of `at`; only clears pending if it has not been saved again since. If it was saved again, the mark
+// keeps its at (save() compares it) and stays pending, but base becomes `at`: the cloud is there now, so the next send does not
+// take that write for another device's change and merge it back over the newer save
 export function pushed(profile, game, at) {
   const key = doc(profile, game), v = marks()[key];
   if (v && v.at === at) setMark(key, { at, base: at, pending: false });
+  else if (v && v.pending === true && number(v.at) && v.at > at) setMark(key, { at: v.at, base: at, pending: true });
 }
 // the uid of the account the marks belong to, or null when none has signed in here
 export function account() { return get('compte'); }

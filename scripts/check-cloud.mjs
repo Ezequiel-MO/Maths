@@ -430,7 +430,8 @@ await section('join: the reset of Salts de Granota', async () => {
   const { pa } = await twin({ secs: [10, 3] });
   t = 2000; on(A); pa.save('g', { secs: [0, 0] }); await cloud.push('xavi', 'g');
   check(J(game('xavi', 'g')) === J({ data: { secs: [0, 0] }, at: 2000 }), `the reset of A reaches the cloud (${J(game('xavi', 'g'))})`);
-  on(B); await cloud.syncAll();
+  on(B); const changedB = await cloud.syncAll();
+  check(changedB === true, `the syncAll of B that pulls the zeros says the device changed (${changedB})`);   // contract: revisió de tota la branca, m2; the doc of syncAll: true when a document was pulled
   check(B.getItem('xavi:g') === J({ secs: [0, 0] }) && synced(mark(B, 'xavi:g'), 2000), `B has nothing pending and takes the zeros (${B.getItem('xavi:g')})`);
 });
 await section('join: the reset while the other plays', async () => {
@@ -453,6 +454,18 @@ await section('join: the read fails', async () => {
   check(sets().length === 0 && pend(mark(A, 'xavi:g'), 2000, 1000), `syncAll: the forced send writes nothing either (${J(C.log)} ${J(mark(A, 'xavi:g'))})`);
   C.hook = null; await cloud.push('xavi', 'g');
   check(J(game('xavi', 'g')) === J({ data: { secs: [2] }, at: 2000 }) && synced(mark(A, 'xavi:g'), 2000), 'and once the read works the document goes up');
+});
+
+// contract: revisió de tota la branca, m1; ruling 8. A tie in at with another document: the send must put its at above the cloud's
+// (the cloud copy is n 1 at 2000, the device n 5 at 2000, a send that writes at 2000 would look like the cloud changing under the same at)
+await section('push: a tie in at with another document', async () => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []);
+  C.docs.set('users/U1/profiles/xavi/games/g', { data: { n: 1 }, at: 2000 });
+  A.setItem('xavi:g', J({ n: 5 })); A.setItem('sync', J({ 'xavi:g': { at: 2000, base: 1000, pending: true } }));
+  await cloud.push('xavi', 'g');
+  const sent = game('xavi', 'g');
+  check(!!sent && J(sent.data) === J({ n: 5 }) && sent.at > 2000, `the cloud ends on n 5 with an at above 2000 (${J(sent)})`);
+  check(!!sent && synced(mark(A, 'xavi:g'), sent.at) && A.getItem('xavi:g') === J({ n: 5 }), `and the device is synced at that at (${J(mark(A, 'xavi:g'))})`);
 });
 
 await section('join: joining changes nothing', async () => {
@@ -543,6 +556,27 @@ await section('a send that joins to the same copy does not lower the at of the c
   on(B); await cloud.syncAll();
   check(B.getItem('xavi:g') === J({ n: 0 }) && J(game('xavi', 'g').data) === J({ n: 0 }), `and D1 stays on n 0, the cloud too (${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
 });
+
+// contract: revisió de tota la branca, F2; ruling 9; spec «arriba als altres dispositius si només s'ha jugat en aquell». On one device,
+// «Esborra el progrés» saved while the send of the earlier save is in flight (held in its read or in its write) must reach the cloud
+// and stay on the device: the first send lands the older copy, and the second must not take that for another tablet's change
+for (const held of ['set', 'get']) {
+  await section(`out of order: a reset saved while the previous send is in flight (held in ${held})`, async () => {
+    reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', { secs: [10, 3] }); await cloud.syncAll();
+    check(synced(mark(A, 'xavi:g'), 1000) && J(game('xavi', 'g')) === J({ data: { secs: [10, 3] }, at: 1000 }), 'setup: the cloud and the device are on [10, 3] at 1000');
+    let release, inflight = false;
+    C.hook = (op, path) => { if (op === held && path.endsWith('/games/g') && !inflight) { inflight = true; return new Promise(r => { release = r; }); } return null; };
+    t = 2000; P.save('g', { secs: [10, 4] });
+    const first = cloud.push('xavi', 'g');
+    await wait(40);
+    check(inflight, `setup: the first send is held in its ${held}`);
+    t = 3000; P.save('g', { secs: [0, 0] });   // «Esborra el progrés»
+    const second = cloud.push('xavi', 'g');
+    release(); await Promise.all([first, second]);
+    check(J(game('xavi', 'g')) === J({ data: { secs: [0, 0] }, at: 3000 }), `the cloud ends on the zeros (${J(game('xavi', 'g'))})`);
+    check(A.getItem('xavi:g') === J({ secs: [0, 0] }) && synced(mark(A, 'xavi:g'), 3000), `and the device keeps them, synced (${A.getItem('xavi:g')} ${J(mark(A, 'xavi:g'))})`);
+  });
+}
 
 // ---- «El progrés no baixa mai», tasca 4: a request that never answers is a network error after 15 000 ms. Every value below is contract: plan «El progrés no baixa mai», tasca 4, «Comprovació»
 // The clock is replaced inside the section: a 15 000 ms timer is not armed for real, the scenario fires it by hand. drive() has its

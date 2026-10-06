@@ -168,7 +168,7 @@ section('pushed', () => {
   P.save('joc', { n: 3 });
   const now = entry('joc').at;
   P.pushed('xavi', 'joc', old);
-  check(isMark(markOf('xavi:joc'), now, a, true), 'pushed: with a stale at, the mark stays pending');   // contract: stale pushed leaves it pending (base stays the earlier push)
+  check(isMark(markOf('xavi:joc'), now, old, true), 'pushed: with a stale at, the mark stays pending, at as it was, and base is the at sent');   // contract: revisió de tota la branca, F2; ruling 9 (was: base stays the earlier push). The cloud is at `old` now, so base is `old`; at is what save() compares
 });
 
 section('pulled', () => {
