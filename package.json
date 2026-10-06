@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "check": "node scripts/check.mjs && node scripts/check-nenufars.mjs && node scripts/check-cursus.mjs && node scripts/check-progress.mjs && node scripts/check-cloud.mjs",
+    "check": "node scripts/check.mjs && node scripts/check-nenufars.mjs && node scripts/check-cursus.mjs && node scripts/check-progress.mjs && node scripts/check-cloud.mjs && node scripts/check-hub.mjs",
     "build": "npm run check && vite build",
     "preview": "vite preview"
   },

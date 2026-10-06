@@ -29,5 +29,5 @@ A push to `main` builds and publishes the site through `.github/workflows/pages.
 
 1. Make `games/<id>/` with its `main.js` and `style.css` (start the stylesheet with `@import "../../shared/base.css";`),
    and `<id>.html` at the root, copied from another game's page.
-2. Keep its progress with `load(id)` and `save(id, data)` from `shared/progress.js`.
+2. Keep its progress with `load(id)` and `save(id, data)` from `shared/progress.js`. What a game saves must be numbers that only grow, booleans that only turn true, and lists of those, with no list inside a list; `so` is the only preference.
 3. Add its card to `shared/games.js`. If the card states a total, add where it comes from to `scripts/check.mjs`.

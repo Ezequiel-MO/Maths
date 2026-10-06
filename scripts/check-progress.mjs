@@ -2,7 +2,7 @@
 // device and in the cloud) and the store of profiles and sync marks in shared/progress.js, run over a fake localStorage.
 // Run: node scripts/check-progress.mjs
 import { readFileSync, readdirSync } from 'node:fs';
-import { slug, settle } from '../shared/sync.js';
+import { slug, settle, merge, same } from '../shared/sync.js';
 
 // the fake goes on globalThis before progress.js is evaluated; sections clear it and put the good store back
 const mem = new Map();
@@ -31,18 +31,57 @@ const SETTLES = [
   [{ at: 5, base: 5, pending: false }, { at: 5 }, 'none'],
   [{ at: 5, base: 5, pending: false }, { at: 9 }, 'pull'],
   [{ at: 7, base: 5, pending: true }, { at: 5 }, 'push'],
-  [{ at: 7, base: 5, pending: true }, { at: 6 }, 'push'],
-  [{ at: 7, base: 5, pending: true }, { at: 9 }, 'pull'],
-  [{ at: 7, base: 5, pending: true }, { at: 7 }, 'pull'],   // a tie goes to the cloud
-  [{ at: 0, base: null, pending: true }, { at: 1 }, 'pull'],   // migrated document
+  [{ at: 7, base: 5, pending: true }, { at: 6 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3: pending and the cloud moved is a merge, whatever the clocks say
+  [{ at: 7, base: 5, pending: true }, { at: 9 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3
+  [{ at: 7, base: 5, pending: true }, { at: 7 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (a tie used to go to the cloud)
+  [{ at: 0, base: null, pending: true }, { at: 1 }, 'merge'],   // contract: plan «El progrés no baixa mai», tasca 3 (migrated document)
   [{ at: 3, base: 5, pending: true }, { at: 5 }, 'push'],   // pending and the cloud equals base: sent whatever the clocks say
-  [{ at: 9, base: 9, pending: false }, { at: 5 }, 'pull'],   // not pending and the cloud differs from base
+  [{ at: 9, base: 9, pending: false }, { at: 5 }, 'merge'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7: a cloud below base went backwards, so it is merged, not pulled
+  [{ at: 9, base: 5, pending: true }, { at: 3 }, 'merge'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7
+  [{ at: 9, base: 9, pending: false }, { at: 12 }, 'pull'],   // contract: revisió de les tasques 4 i 5, Important 1; ruling 7: a cloud ahead of base is still a pull ("Esborra el progrés" from another tablet)
   [{ at: 9, base: 5, pending: false }, { at: 5 }, 'none'],   // not pending and the cloud equals base
 ];
 for (const [local, remote, want] of SETTLES) {
   const got = settle(local, remote);
   check(got === want, `settle(${JSON.stringify(local)}, ${JSON.stringify(remote)}) is ${got}, want ${want}`);
 }
+
+// merge: [a, b, aNewer, expected]. Every row is contract: plan «El progrés no baixa mai», tasca 1.
+const MERGES = [
+  [{ secs: [3, 0] }, { secs: [1, 5] }, true, { secs: [3, 5] }],
+  [{ secs: [1, 2] }, { secs: [0, 0, 7] }, true, { secs: [1, 2, 7] }],
+  [{ so: false, best: 4 }, { so: true, best: 9 }, true, { so: false, best: 9 }],
+  [{ so: false, best: 4 }, { so: true, best: 9 }, false, { so: true, best: 9 }],
+  [{ best: 4 }, { so: false, best: 1 }, true, { so: false, best: 4 }],
+  [{ piscina: false, equip: -1, exams: [true, false, false], notes: [80, 0], fulls: 3 }, { piscina: true, equip: 1, exams: [false, true, false], notes: [40, 100], fulls: 5 }, true,
+    { piscina: true, equip: 1, exams: [true, true, false], notes: [80, 100], fulls: 5 }],
+  [{ equip: 0 }, { equip: 2 }, true, { equip: 2 }],
+  [{ best: 2, coet: 9 }, { best: 5, secs: [10, 0, 0, 0, 0] }, false, { best: 5, coet: 9, secs: [10, 0, 0, 0, 0] }],
+  [{ secs: 'x' }, { secs: [1] }, true, { secs: 'x' }],
+  [{ secs: 'x' }, { secs: [1] }, false, { secs: [1] }],
+  [null, { secs: [1] }, true, { secs: [1] }],
+  [{ secs: [1] }, null, false, { secs: [1] }],
+  [[1, 5], [3, 2], true, [3, 5]],
+  [{ n: 1 }, { n: 1, constructor: 5 }, true, { n: 1, constructor: 5 }],   // contract: revisió de les tasques 1 i 2, a key that Object.prototype has, on one side only
+  [{ n: 1, toString: 'a' }, { n: 2 }, false, { n: 2, toString: 'a' }],   // contract: revisió de les tasques 1 i 2, same on the other side
+];
+for (const [a, b, aNewer, want] of MERGES) {
+  const label = `merge(${JSON.stringify(a)}, ${JSON.stringify(b)}, ${aNewer})`;
+  const a0 = JSON.stringify(a), b0 = JSON.stringify(b);
+  const got = merge(a, b, aNewer);
+  check(same(got, want), `${label} is ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  check(JSON.stringify(a) === a0 && JSON.stringify(b) === b0, `${label} changed an argument`);
+  const back = merge(b, a, !aNewer);
+  check(same(back, got), `merge swapped for ${label} is ${JSON.stringify(back)}, want ${JSON.stringify(got)}`);
+}
+
+// same: [a, b, expected]. Every row is contract: plan «El progrés no baixa mai», tasca 1.
+const SAMES = [
+  [{ a: 1, b: [1, 2] }, { b: [1, 2], a: 1 }, true], [[], [], true], [null, null, true],
+  [[1, 2], [2, 1], false], [{ a: 1 }, { a: 2 }, false], [{ a: 1 }, { a: 1, b: 0 }, false],
+  [null, {}, false], [[], {}, false], [0, false, false],
+];
+for (const [a, b, want] of SAMES) check(same(a, b) === want, `same(${JSON.stringify(a)}, ${JSON.stringify(b)}) is ${same(a, b)}, want ${want}`);
 
 // progress.js sections. Every expected value is contract: plan task 2 (task-2-brief.md), unless a comment says otherwise.
 const section = (name, fn) => {
@@ -129,7 +168,17 @@ section('pushed', () => {
   P.save('joc', { n: 3 });
   const now = entry('joc').at;
   P.pushed('xavi', 'joc', old);
-  check(isMark(markOf('xavi:joc'), now, a, true), 'pushed: with a stale at, the mark stays pending');   // contract: stale pushed leaves it pending (base stays the earlier push)
+  check(isMark(markOf('xavi:joc'), now, old, true), 'pushed: with a stale at, the mark stays pending, at as it was, and base is the at sent');   // contract: revisió de tota la branca, F2; ruling 9 (was: base stays the earlier push). The cloud is at `old` now, so base is `old`; at is what save() compares
+  // a late reply for an older send must not lower base once a newer send has been recorded
+  const real = Date.now;
+  try {
+    start('Xavi');
+    Date.now = () => 1000; P.save('joc', { n: 1 }); const ta = entry('joc').at; P.pushed('xavi', 'joc', ta);
+    Date.now = () => 2000; P.save('joc', { n: 2 }); const tb = entry('joc').at; P.pushed('xavi', 'joc', tb);
+    Date.now = () => 3000; P.save('joc', { n: 3 }); const tc = entry('joc').at;
+    P.pushed('xavi', 'joc', ta);
+    check(isMark(markOf('xavi:joc'), tc, tb, true), 'pushed: a late reply for an older send leaves base at the newer one');   // contract: re-revisió de l'onada final, pushed només puja base
+  } finally { Date.now = real; }
 });
 
 section('pulled', () => {
@@ -291,12 +340,146 @@ section('save: the document write fails', () => {   // review N1
   check(markOf('xavi:joc') === undefined, 'document refused on a first save: no mark is left');   // contract: no previous mark, so none remains
 });
 
-// ---- the hub, read as text (no browser here): the door back to «Qui juga?», its texts, names as text, the size of the controls, the tap guard
+// ---- «El progrés no baixa mai», task 2: save that does not trample, merged, account ----
+// A page remembers the at of the mark it saw in its last load() or put in its last save(); a save over a document whose mark
+// has another at (pulled, merged or saved by another page underneath) is merged with it instead of overwriting.
+section('save: a page with old data merges what changed under it', () => {   // contract: task 2 brief, «Pàgina amb dades velles»
+  start('Xavi');
+  P.save('joc', { secs: [1, 0] }); P.load('joc');
+  P.pulled('xavi', 'joc', { secs: [3, 0] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  const e = entry('joc');
+  check(e && same(e.data, { secs: [3, 1] }) && e.pending === true, `old page: the document is ${JSON.stringify(e && e.data)} pending ${e && e.pending}, want { secs: [3, 1] } pending`);
+  check(e && e.base === 50, `old page: the mark keeps base 50 (got ${e && e.base})`);   // contract: save keeps the base of the previous mark, merge or not
+});
+
+section('save: a page that merged keeps merging until it loads again', () => {   // contract: spec, Esmena 2026-10-06, «Què es perd a canvi»; ruling 4 del controlador
+  // contract: revisió de les tasques 1 i 2, the clock is fixed so the merged save lands on the at the page remembers (same millisecond) every run
+  const real = Date.now;
+  Date.now = () => 1000;
+  try {
+  start('Xavi');
+  P.save('joc', { secs: [1, 0] }); P.load('joc');
+  P.pulled('xavi', 'joc', { secs: [3, 0] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  P.save('joc', { secs: [1, 2] });
+  let e = entry('joc');   // read with entries(): a load() would update what save remembers
+  check(e && same(e.data, { secs: [3, 2] }) && e.pending === true, `merged page, next save: the document is ${JSON.stringify(e && e.data)} pending ${e && e.pending}, want { secs: [3, 2] } pending`);
+  P.save('joc', { secs: [0, 0] });
+  e = entry('joc');
+  check(e && same(e.data, { secs: [3, 2] }), `merged page, a reset: the document is ${JSON.stringify(e && e.data)}, want { secs: [3, 2] } (a reset does not lower a page that already merged)`);
+  P.load('joc');
+  P.save('joc', { secs: [0, 0] });
+  e = entry('joc');
+  check(e && same(e.data, { secs: [0, 0] }), `after a new load, a reset: the document is ${JSON.stringify(e && e.data)}, want { secs: [0, 0] }`);
+  } finally { Date.now = real; }
+});
+
+section('save: nothing changed underneath writes as it comes', () => {   // contract: task 2 brief, «Sense canvi per sota»
+  start('Xavi');
+  P.load('joc');
+  P.save('joc', { secs: [5] });
+  P.save('joc', { secs: [0] });
+  check(same(P.load('joc'), { secs: [0] }), `no change underneath: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [0] }`);
+});
+
+section('save: a page that never loaded merges over a document with a mark', () => {   // contract: decision of this task: remembered at is null when the page saw nothing, so any mark counts as changed
+  start('Xavi');
+  P.pulled('xavi', 'joc', { secs: [3] }, 50);
+  P.save('joc', { secs: [1, 1] });
+  check(same(P.load('joc'), { secs: [3, 1] }), `never loaded: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [3, 1] }`);
+});
+
+section('save: the sound is the page\'s choice', () => {   // contract: task 2 brief, «El so»
+  start('Xavi');
+  P.load('joc');
+  P.pulled('xavi', 'joc', { so: true, secs: [3] }, 50);
+  P.save('joc', { so: false, secs: [1] });
+  check(same(P.load('joc'), { so: false, secs: [3] }), `sound: the document is ${JSON.stringify(P.load('joc'))}, want { so: false, secs: [3] }`);
+});
+
+section('save: a document with no mark is not merged', () => {   // contract: task 2 rule «Si no hi ha document desat, o l'at és el recordat, s'escriu data tal com ve»
+  start('Xavi');
+  mem.set('xavi:joc', '{"secs":[9]}');
+  P.load('joc');
+  P.save('joc', { secs: [1] });
+  check(same(P.load('joc'), { secs: [1] }), `no mark: the document is ${JSON.stringify(P.load('joc'))}, want { secs: [1] }`);
+});
+
+section('merged', () => {   // contract: task 2 brief, «merged»
+  const real = Date.now;
+  Date.now = () => 100;
+  try {
+    start('Xavi');
+    P.save('joc', { n: 1 }); P.load('joc');
+    const seen = entry('joc').at;
+    check(P.merged('xavi', 'joc', { n: 9 }, seen, 200) === true, 'merged with the mark\'s at is true');
+    check(same(entry('joc').data, { n: 9 }), `merged: the document is ${JSON.stringify(entry('joc').data)}, want { n: 9 }`);   // read with entries(): a load() here would update what save remembers
+    check(isMark(markOf('xavi:joc'), 201, 200, true), `merged: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: max(100, seen + 1, 201), base: 200, pending }`);
+    P.save('joc', { n: 1 });
+    check(same(entry('joc').data, { n: 9 }), `after merged the page's own save merges: ${JSON.stringify(entry('joc').data)}, want { n: 9 }`);   // contract: merged does not touch what save remembers
+    const before = JSON.stringify(markOf('xavi:joc')), doc = mem.get('xavi:joc'), at = markOf('xavi:joc').at;
+    check(P.merged('xavi', 'joc', { n: 5 }, 7, 300) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, 'merged with an old at is false and changes nothing');
+    check(P.merged('xavi', 'nou', { n: 5 }, 0, 300) === false && !mem.has('xavi:nou') && markOf('xavi:nou') === undefined, 'merged with no mark is false and writes nothing');   // contract: only a document with a mark whose at is seenAt
+    globalThis.localStorage = refusing(k => k === 'xavi:joc');
+    check(P.merged('xavi', 'joc', { n: 5 }, at, 400) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, 'merged with the document refused is false and puts the previous mark back');
+  } finally { Date.now = real; }
+});
+
+section('merged: the at is the largest of now, seenAt + 1 and cloudAt + 1', () => {   // contract: revisió de les tasques 1 i 2; plan: at = max(Date.now(), seenAt + 1, cloudAt + 1)
+  const real = Date.now;
+  try {
+    start('Xavi');
+    Date.now = () => 1000;
+    P.pulled('xavi', 'joc', { n: 1 }, 100);
+    check(P.merged('xavi', 'joc', { n: 9 }, 100, 200) === true && isMark(markOf('xavi:joc'), 1000, 200, true), `merged, now the largest: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: 1000, base: 200, pending }`);
+    Date.now = () => 100;
+    P.pulled('xavi', 'joc', { n: 1 }, 500);
+    check(P.merged('xavi', 'joc', { n: 9 }, 500, 200) === true && isMark(markOf('xavi:joc'), 501, 200, true), `merged, seenAt + 1 the largest: the mark is ${JSON.stringify(markOf('xavi:joc'))}, want { at: 501, base: 200, pending }`);
+  } finally { Date.now = real; }
+});
+
+section('merged: at and cloudAt must be numbers', () => {   // contract: revisió de les tasques 1 i 2; plan: a mark without a numeric at hides the document from entries()
+  start('Xavi');
+  P.pulled('xavi', 'joc', { n: 1 }, 100);
+  const before = JSON.stringify(markOf('xavi:joc')), doc = mem.get('xavi:joc');
+  for (const [seenAt, cloudAt] of [[100, 'x'], [100, null], [100, NaN], [100, undefined], ['100', 200], [null, 200], [NaN, 200]]) {
+    check(P.merged('xavi', 'joc', { n: 9 }, seenAt, cloudAt) === false && JSON.stringify(markOf('xavi:joc')) === before && mem.get('xavi:joc') === doc, `merged(…, ${String(seenAt)}, ${String(cloudAt)}) is not false or changed the store`);
+  }
+});
+
+section('save: keys that exist on Object.prototype do not stop the merge', () => {   // contract: revisió de les tasques 1 i 2; plan: merge does not throw, so save still merges
+  start('Xavi');
+  P.load('joc');
+  P.pulled('xavi', 'joc', JSON.parse('{"secs":[9],"constructor":1}'), 50);
+  P.save('joc', { secs: [1] });
+  const e = entry('joc');
+  check(e && Array.isArray(e.data.secs) && e.data.secs[0] === 9, `prototype key: the document is ${JSON.stringify(e && e.data)}, want secs [9] merged in`);
+});
+
+section('merged and pulled leave what save remembers', () => {   // contract: common.md detail 6
+  start('Xavi');
+  P.save('joc', { secs: [1] }); P.load('joc');
+  const seen = entry('joc').at;
+  P.merged('xavi', 'joc', { secs: [4] }, seen, 10);
+  P.pulled('xavi', 'joc', { secs: [6] }, 20);
+  P.save('joc', { secs: [2] });
+  check(same(P.load('joc'), { secs: [6] }), `merged then pulled: the next save gives ${JSON.stringify(P.load('joc'))}, want { secs: [6] }`);
+});
+
+section('account', () => {   // contract: task 2 brief, «account»
+  start('Xavi');
+  check(P.account() === null, 'account without compte is null');
+  P.rebase('u1');
+  check(P.account() === 'u1', 'account after rebase u1 is u1');
+});
+
+// ---- the hub as the files say it (its behaviour is in check-hub.mjs): the door back to «Qui juga?», its texts, the size of the controls, the [inert] fallback
 {
   const root = new URL('../', import.meta.url);
   const src = f => readFileSync(new URL(f, root), 'utf8');
   const bare = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');   // comments out
-  const html = src('index.html'), main = bare(src('hub/main.js')), css = bare(src('hub/style.css')), prog = bare(src('shared/progress.js'));
+  const html = src('index.html'), css = bare(src('hub/style.css')), prog = bare(src('shared/progress.js'));
   const hub = f => /<html\b[^>]*\sdata-hub(\s|=|>)/.test(f);
   check(hub(html), 'index.html: <html> has no data-hub, so the hub would send itself back to itself forever on a fresh device');   // contract: Task 3 rule, progress.js redirects any page without data-hub when no profile is active
   const pages = readdirSync(root).filter(f => f.endsWith('.html') && f !== 'index.html');
@@ -305,44 +488,12 @@ section('save: the document write fails', () => {   // review N1
   for (const t of ['Qui juga?', 'Afegeix un jugador', 'Fet', 'Canvia', "Aquest nom no val. Prova'n un altre."]) check(html.includes(`>${t}<`), `index.html: the text «${t}» is missing`);   // contract: Task 3 brief, the five screen texts
   check(html.includes('maxlength="12"'), 'index.html: the name box has no maxlength="12"');   // contract: slug() accepts at most 12 characters
   check(!/segon|company/i.test(html), 'index.html: a text speaks of a second player or companions');   // contract: owner decision 2026-10-05, the child plays alone
-  const cards = /function cards\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '';
-  check(cards.includes('innerHTML'), 'main.js: cards() was not found or does not paint with innerHTML');   // contract: the card html stays as it was
-  check(main.split('innerHTML').length === 2, `main.js: ${main.split('innerHTML').length - 1} uses of innerHTML, only cards() may have one`);   // contract: brief rule, a profile name never goes through innerHTML
-  check([...cards.matchAll(/\$\{([^}]*)\}/g)].every(m => !/name|profile|active|stores/i.test(m[1])), 'main.js: the template of cards() interpolates a profile or its name');   // contract: names can come from the cloud
-  check(/b\.textContent = p\.name/.test(main) && /\$\('name'\)\.textContent = /.test(main), 'main.js: a profile name is not written with textContent (button or active name)');   // contract: brief rule, textContent only
   const minHeight = sel => Math.max(0, ...[...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => m[1].split(',').map(x => x.trim()).includes(sel)).map(m => +(/min-height:\s*(\d+)px/.exec(m[2])?.[1] || 0)));
   for (const sel of ['.me .btn', '.who .btn', '.adder input']) check(minHeight(sel) >= 44, `style.css: ${sel} has min-height ${minHeight(sel)}px, under 44`);   // contract: Task 3 brief, no control under 44 px
-  // the guards (fix round 1): a list takes no input while any reason holds it; hold() only extends, render() never lifts one
-  const body = (re) => re.exec(main)?.[1] || '';
-  const fnBody = name => body(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}`));
-  const render = fnBody('render'), hold = fnBody('hold'), lock = fnBody('lock'), unlock = fnBody('unlock'), start = fnBody('start');
-  check(/games: \{ el: list \}/.test(main) && /who: \{ el: \$\('profiles'\) \}/.test(main), 'main.js: the gates are not the game list and the list of profiles (the name box and Fet must stay usable)');   // contract: fix round 1 N1, a sync repaint must not interrupt typing
-  check(/g\.el\.toggleAttribute\('inert', !!\(g\.tap \|\| g\.cloud\)\)/.test(main) && !/\.inert\s*=/.test(main) && !/classList\.(add|remove)\('wait'\)/.test(main), 'main.js: a gate is not applied as the inert attribute (toggleAttribute) from its reasons, or the property is set');   // contract: fix round 1 C1, one mechanism (inert) for every guard, keyboard included
-  check(/if \(g\.tap && end <= g\.end\) return;/.test(hold) && /setTimeout\(\(\) => \{ g\.tap = false; gate\(g\); \}, ms\)/.test(hold), 'main.js: hold() shortens a running hold or does not release it with a 500 ms timer');   // contract: fix round 1 N1, a guard that is running is only extended
-  check(render.length > 200 && !/clearTimeout|\.inert\b|\.tap\b|\.cloud\b/.test(render), 'main.js: render() was not found or cancels, lifts or sets a guard itself (only hold() may)');   // contract: fix round 1 N1, the unconditional clear in render() let a sync repaint end the double-tap window
-  check(/let seen = null;/.test(main) && main.split(/\bseen = /).length === 3 && render.includes("seen = me ? 'games' : 'who';"), "main.js: seen is not null before the first paint, or is not set from the view painted (me ? 'games' : 'who') only");   // contract: fix round 1 N1, the first paint arms no 500 ms guard; the reviewer's mutant seen = 'who' always
-  check(render.indexOf("const changed = !!me && seen === 'who', back") >= 0 && render.indexOf("const changed") < render.indexOf('seen = me'), 'main.js: «changed» (who to games) is not taken from seen before seen is updated');   // contract: fix round 1 N1
-  check(render.includes('if (changed || sync) hold(gates.games, 500);') && render.includes('if (sync || back) hold(gates.who, 500);') && render.includes("back = !me && seen === 'games'") && /function render\(sync\)/.test(main), 'main.js: a change of view or a sync repaint does not hold the rebuilt game list (500 ms), or a sync repaint or the way back to «Qui juga?» does not hold the list of profiles');   // contract: fix round 1 N1 and m8, both lists
-  check(/\$\('change'\)\.onclick = [^\n]*\$\('open'\)\.focus\(/.test(main) && !/\$\('change'\)\.onclick = [^\n]*querySelector/.test(main), "main.js: after Canvia the focus does not go to «Afegeix un jugador» (outside the inert list)");   // contract: fix round 1 follow-up 2, focusing inside an inert list fails silently
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(m => [m[1].split(',').map(x => x.trim()), m[2]]);
   check(['.games[inert]', '.profiles[inert]'].every(sel => rules.some(([sels, d]) => sels.includes(sel) && /pointer-events:\s*none/.test(d))), 'style.css: a gated list has no [inert] pointer-events fallback for old browsers');   // contract: fix round 1 follow-up 1, inert is ignored before Chrome 102 / Safari 15.5
-  check(/render\(true\)/.test(main) && main.split('render(true)').length === 2, 'main.js: only the repaint after a sync may call render(true)');   // contract: fix round 1 N1, sync is the only reason to hold without a change of view
-  check(/navigator\.onLine === false\) return;/.test(lock) && /setTimeout\(unlock, 4000\)/.test(lock) && /gates\.games\.cloud = true/.test(lock) && /gates\.games\.cloud = false/.test(unlock), 'main.js: the cloud guard is missing its offline test, its 4 s cap or its two states');   // contract: fix round 1 C1, no wait offline, at most 4 s
-  check(/finally \{ unlock\(\); \}/.test(start) && start.indexOf('!c.enabled') >= 0 && start.indexOf('!c.enabled') < start.indexOf('lock()') && start.indexOf('lock()') < start.indexOf('await refresh()') && start.indexOf('!c.enabled') < start.indexOf('mount()'), 'main.js: start() does not test enabled before locking and mounting, locks before session(), or does not always unlock');   // contract: fix round 1 C1 and I2, with enabled false no guard and no button
-  check(/await cloud\.signIn\(\);\s*if \(ok\) lock\(\);\s*try \{\s*if \(ok\) await refresh\(\);\s*if \(ok && who !== null\) await sync\(\); else err\.hidden = false;\s*\} finally \{ unlock\(\); \}/.test(main), 'main.js: the sync after a sign-in is not held by the cloud lock (lock right after signIn() is true, unlock in a finally after the sync)');   // contract: fix round 2 H1, a stale device could save over the cloud while the sign-in sync runs
-  check(/clearTimeout\(cap\);\s*cap = setTimeout\(unlock, 4000\)/.test(lock), 'main.js: lock() does not clear the previous cap before starting its own');   // contract: fix round 2 H1, two locks in a row must not leave a timer that releases the second early
-  check(/if \(who !== null\) await sync\(\);/.test(start), 'main.js: start() does not sync after the first paint when a session is open');   // contract: Task 5 brief, session then syncAll
-  check(/\$\('adder'\)\.onsubmit = e => \{([\s\S]*?)\n\};/.exec(main)?.[1].includes('if (id && who !== null) sync();'), 'main.js: the submit handler does not call sync() after a profile is added with a session open');   // contract: Task 5 brief, after adding a profile with a session open syncAll too (I2)
-  check(!/insertAdjacentHTML|outerHTML|document\.write|\.srcdoc/.test(main), 'main.js: html is inserted by a route other than the one innerHTML of cards()');   // contract: brief rule, a name is text only, whatever the route
-  // the account button (Task 5): present only with a Firebase config, loaded after the first paint, texts and sizes fixed
-  check(!/^\s*import\b[^;]*cloud\.js/m.test(main) && !/^\s*export\b[^;]*from\s*['"][^'"]*cloud\.js/m.test(main), 'main.js: cloud.js is imported statically, Firebase would delay the hub');   // contract: Task 5 decision 1, import() after the first paint
-  check(/import\(\s*['"]\.\.\/shared\/cloud\.js['"]\s*\)/.test(main), 'main.js: cloud.js is not loaded with import()');   // contract: Task 5 decision 1
   check(!html.includes('Desa el progrés al núvol') && !html.includes('Tanca la sessió'), 'index.html: the account button is in the page, it must not exist without a config');   // contract: Task 5 decision 2 and plan rule «Si enabled és false, el botó no existeix a la pàgina»
-  for (const t of ['Desa el progrés al núvol', 'Tanca la sessió', "No s'ha pogut entrar. Torna-ho a provar."]) check(main.includes(`'${t}'`) || main.includes(`"${t}"`), `main.js: the text «${t}» is missing`);   // contract: Task 5 decision 3, the three screen texts
-  check(/\bacct\.textContent = /.test(main), 'main.js: the account name is not written with textContent');   // contract: Task 5 decision 3, textContent only
   check(minHeight('.cloud .btn') >= 44, `style.css: .cloud .btn has min-height ${minHeight('.cloud .btn')}px, under 44`);   // contract: Task 5 decision 7, the account button is at least 44 px
-  check(/btn\.onclick = async \(\) => \{\s*if \(busy\) return;\s*busy\+\+;[^;]*;\s*paint\(\);/.test(main) && /btn\.disabled = busy > 0/.test(main), 'main.js: the account button is not disabled synchronously at the start of its click handler');   // contract: Task 5 decision 4, a double tap opens one popup
-  check(/\.then\(changed => \{ if \(changed\) render\(true\); \}/.test(main) && !/\.focus\(/.test(/function sync\(\) \{([\s\S]*?)\n\}/.exec(main)?.[1] || '.focus('), 'main.js: sync() does not repaint only when syncAll returned true, or it moves the focus');   // contract: Task 5 decision 6
 }
 
 if (fails) { console.error(`${fails} check(s) failed`); process.exit(1); }

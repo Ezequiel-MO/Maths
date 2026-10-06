@@ -52,20 +52,47 @@ check(thrown === null, 'null config: push and signOut resolve');
 check(fakesLoaded().length === 0, `null config: no Firebase module was requested (loaded: ${J(fakesLoaded())})`);
 
 const cloud = await import('../shared/cloud.js');
+
+// ---- «El progrés no baixa mai», tasca 5: a device that never had a session loads no Firebase package. Every value below is contract: plan «El progrés no baixa mai», tasca 5, «Comprovació»
+// This goes before the checker imports the auth and firestore fakes itself (they are evaluated once, and that import would count as a load)
+const fb = () => fakesLoaded().filter(x => x !== 'config');   // the fake config is evaluated when cloud.js is imported; it is not a Firebase package
+A.m.clear(); on(A); P.add('Xavi'); P.choose('xavi', []); P.save('g', { n: 1 });
+check(cloud.enabled === true && A.getItem('compte') === null, 'setup: a config and no compte');
+check(await cloud.session() === null && J(fb()) === J([]), `with a config and no compte, session() is null and loads no Firebase module (loaded: ${J(fb())})`);
+check(await cloud.push('xavi', 'g') === undefined && J(fb()) === J([]), `push with no compte loads no Firebase module (loaded: ${J(fb())})`);
+check(await cloud.syncAll() === false && J(fb()) === J([]), `syncAll with no compte is false and loads no Firebase module (loaded: ${J(fb())})`);
+check(A.getItem('compte') === null && cloud.enabled, 'and compte is still unset');
+
 const auth = (await import('./fakes/fake-auth.mjs')).state;
 const { C } = await import('./fakes/fake-fs.mjs');
 check(cloud.enabled === true, 'with a config: enabled is true');   // contract: task 4 brief, «enabled: si hi ha configuració»
 
 const U = uid => ({ uid, displayName: 'Oli', email: uid + '@x' });
-const reset = uid => { A.m.clear(); B.m.clear(); C.docs.clear(); C.log.length = 0; C.hook = null; auth.currentUser = uid ? U(uid) : null; auth.next = null; t = 1000; on(A); };
+const reset = uid => { A.m.clear(); B.m.clear(); C.docs.clear(); C.log.length = 0; C.hook = null; auth.currentUser = uid ? U(uid) : null; auth.next = null; t = 1000; if (uid) { A.m.set('compte', uid); B.m.set('compte', uid); } on(A); };   // a signed-in device has compte (decision 2 of task 5: cloud.js does nothing without it)
 const mark = (d, key) => { try { return JSON.parse(d.m.get('sync'))[key]; } catch (e) { return undefined; } };
 const synced = (m, at) => !!m && m.at === at && m.base === at && m.pending === false;
 const pend = (m, at, base) => !!m && m.at === at && m.base === base && m.pending === true;
 const cd = p => C.docs.get('users/U1/' + p);
 const game = (prof, g) => cd(`profiles/${prof}/games/${g}`);
 const sets = () => C.log.filter(x => x.startsWith('set'));
-const play = (d, prof, g, data) => { on(d); P.choose(prof, []); P.save(g, data); };
+const play = (d, prof, g, data) => { on(d); P.choose(prof, []); P.load(g); P.save(g, data); };   // a game page loads its document before it saves; one module here stands for every page, so load() sets what save remembers
 const section = async (name, fn) => { try { await fn(); } catch (e) { check(false, `${name} threw ${e && e.stack}`); } finally { C.hook = null; on(A); } };
+
+// ---- tasca 5, second part: signIn() is the one call that loads the packages, and it writes compte (decision 1 of the controller: only rebase writes it)
+await section('sign-in opens the gate', async () => {
+  reset(null);
+  P.add('Xavi'); P.choose('xavi', []); P.save('g', { n: 1 });
+  check(await cloud.push('xavi', 'g') === undefined && C.log.length === 0, 'with no compte a push calls nothing');
+  auth.next = U('U1');
+  check(await cloud.signIn() === true, 'signIn() with a config succeeds');
+  check(J(fb().sort()) === J(['app', 'auth', 'firestore']), `signIn() loads the three Firebase modules (loaded: ${J(fb())})`);
+  check(P.account() === 'U1', `after signIn() account() is the uid (${P.account()})`);
+  const s = await cloud.session();
+  check(!!s && s.uid === 'U1', 'and session() sees it');
+  check(await cloud.syncAll() === false && P.account() === 'U1' && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a syncAll with a session keeps account() and sends the document (${P.account()} ${J(game('xavi', 'g'))})`);
+  t = 2000; P.save('h', { n: 2 }); await cloud.push('xavi', 'h');
+  check(J(game('xavi', 'h')) === J({ data: { n: 2 }, at: 2000 }), `and a push now sends (${J(game('xavi', 'h'))})`);
+});
 
 // the real signed-out state: nothing happens, nothing is called
 await section('signed out', async () => {
@@ -132,15 +159,15 @@ await section('two devices', async () => {
   await both();
   t = 2000; play(A, 'xavi', 'coet', { best: 10 }); t = 3000; play(B, 'xavi', 'coet', { best: 7 });
   on(A); await cloud.syncAll(); on(B); await cloud.syncAll(); on(A); await cloud.syncAll();
-  check(A.getItem('xavi:coet') === J({ best: 7 }) && B.getItem('xavi:coet') === J({ best: 7 }) && J(game('xavi', 'coet')) === J({ data: { best: 7 }, at: 3000 }), `the larger at (B, 3000) ends on both and in the cloud: ${A.getItem('xavi:coet')} ${B.getItem('xavi:coet')} ${J(game('xavi', 'coet'))}`);   // contract: spec, «Guanya l'at més gran»
+  check(A.getItem('xavi:coet') === J({ best: 10 }) && B.getItem('xavi:coet') === J({ best: 10 }) && J(game('xavi', 'coet')) === J({ data: { best: 10 }, at: 2000 }), `the larger value ends on both and in the cloud, the newer save does not win: ${A.getItem('xavi:coet')} ${B.getItem('xavi:coet')} ${J(game('xavi', 'coet'))}`);   // contract: plan «El progrés no baixa mai», tasca 3, «ajunta camp per camp» (was: «Guanya l'at més gran»); B's merge equals the cloud, so B pulls and nothing is sent
   await both();
   t = 5000; play(A, 'xavi', 'coet', { best: 20 }); t = 4000; play(B, 'xavi', 'coet', { best: 15 });
   on(B); await cloud.syncAll(); on(A); await cloud.syncAll(); on(B); await cloud.syncAll();
-  check(A.getItem('xavi:coet') === J({ best: 20 }) && B.getItem('xavi:coet') === J({ best: 20 }) && game('xavi', 'coet').at === 5000, 'the larger at wins when it syncs second');
+  check(A.getItem('xavi:coet') === J({ best: 20 }) && B.getItem('xavi:coet') === J({ best: 20 }) && game('xavi', 'coet').at === 5001, `the larger value wins when it syncs second, and the merged document gets a new at (${A.getItem('xavi:coet')} ${B.getItem('xavi:coet')} ${J(game('xavi', 'coet'))})`);   // contract: plan «El progrés no baixa mai», tasca 3; merged() puts at = max(now, seenAt + 1, cloudAt + 1) = 5001
   await both();
   t = 6000; play(A, 'xavi', 'coet', { best: 30 }); play(B, 'xavi', 'coet', { best: 31 });   // the same at on both
-  on(A); await cloud.syncAll(); on(B); await cloud.syncAll();
-  check(B.getItem('xavi:coet') === J({ best: 30 }) && game('xavi', 'coet').data.best === 30, 'a tie pulls the cloud copy');   // contract: spec, «si empaten, el núvol»
+  on(A); await cloud.syncAll(); on(B); await cloud.syncAll(); on(A); await cloud.syncAll();
+  check(A.getItem('xavi:coet') === J({ best: 31 }) && B.getItem('xavi:coet') === J({ best: 31 }) && J(game('xavi', 'coet')) === J({ data: { best: 31 }, at: 6001 }), `a tie joins: the larger value on both and in the cloud (${A.getItem('xavi:coet')} ${B.getItem('xavi:coet')} ${J(game('xavi', 'coet'))})`);   // contract: plan «El progrés no baixa mai», tasca 3, settle tie row is a merge (was: «si empaten, el núvol»)
 });
 
 // ---- 4. migrated at 0 against a cloud document
@@ -159,7 +186,7 @@ await section('save during sync', async () => {
   C.hook = (op, path) => { if (op === 'list' && path.endsWith('/games')) { t = 2000; P.save('coet', { best: 99 }); } };
   await cloud.syncAll(); C.hook = null;
   check(A.getItem('xavi:coet') === J({ best: 99 }), `a save landing during the downloads is not overwritten by a stale pull (${A.getItem('xavi:coet')})`);   // contract: decision 4, race rule
-  check(J(game('xavi', 'coet')) === J({ data: { best: 99 }, at: 2000 }) && synced(mark(A, 'xavi:coet'), 2000), 'and it is the one sent');
+  check(J(game('xavi', 'coet')) === J({ data: { best: 99 }, at: 2001 }) && synced(mark(A, 'xavi:coet'), 2001), `and it is the one sent, with the at the merge gave it (${J(game('xavi', 'coet'))})`);   // contract: plan «El progrés no baixa mai», tasca 3: the cloud (at 5) moved from base, so the pending save is merged, and merged() puts at = max(2000, 2000 + 1, 5 + 1)
   // another document saved again while an earlier one is being sent
   reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('a', { n: 1 }); P.save('b', { n: 1 });
   C.hook = (op, path) => { if (op === 'set' && path.endsWith('/games/a')) { t = 3000; P.save('b', { n: 2 }); C.hook = null; } };
@@ -188,7 +215,7 @@ await section('failures', async () => {
 
 // ---- 7. another account on the same device
 await section('other account', async () => {
-  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('a', { n: 1 }); await cloud.syncAll();
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('a', { n: 1, m: 9 }); await cloud.syncAll();
   check(synced(mark(A, 'xavi:a'), 5000), 'synced as U1');
   await cloud.signOut();
   check(await cloud.session() === null && await cloud.syncAll() === false && A.getItem('compte') === 'U1', 'signed out: no session, no sync, compte kept');
@@ -196,7 +223,7 @@ await section('other account', async () => {
   auth.next = U('U2'); await cloud.signIn();
   const r = await cloud.syncAll();
   check(A.getItem('compte') === 'U2', 'compte is the new account');   // contract: spec amendment «Canvi de compte»
-  check(A.getItem('xavi:a') === J({ n: 1 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 1 }, at: 5000 }), `the marks of U1 are void: the device's newer save goes up to U2, not the other way (${A.getItem('xavi:a')})`);   // contract: spec amendment: all documents pending without a base
+  check(A.getItem('xavi:a') === J({ n: 77, m: 9 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 77, m: 9 }, at: 5001 }) && synced(mark(A, 'xavi:a'), 5001), `the marks of U1 are void: the device's {n:1, m:9} and U2's {n:77} are joined and the join goes up with a new at, so U2 does not lose m (${A.getItem('xavi:a')} ${J(C.docs.get('users/U2/profiles/xavi/games/a'))})`);   // contract: spec amendment: all documents pending without a base; plan «El progrés no baixa mai», tasca 3: a pending document and a different cloud one are merged (was: the newer at went up); revisió de la tasca 3, Important 2: with the marks of U1 left as synced, the device would take {n:77} and lose m
   check(r === true && P.profiles().some(p => p.id === 'nil'), 'the profile U2 has is added');
 });
 
@@ -279,6 +306,183 @@ await section('account changes while queued', async () => {
   check(pend(mark(A, 'xavi:b'), 1000, null), `and its mark stays pending (${J(mark(A, 'xavi:b'))})`);
 });
 
+// ---- «El progrés no baixa mai», tasca 3: the device and the cloud join field by field. Every value below is contract: plan «El progrés no baixa mai», tasca 3, «Comprovació»
+// A game page is a fresh progress.js instance that load()s at the start: what save() remembers is per instance, so two pages
+// (A's and B's) do not share it as the one module behind play() does. A save() without load() on a page is never made here.
+let inst = 0;
+const fresh = () => import('../shared/progress.js?inst' + (++inst));
+const atm = (d, k) => { const m = mark(d, k); return m && m.at; };
+const noMark = (d, k) => mark(d, k) === undefined;
+// A and B synced on data at 1000, each with a page that loaded it
+const twin = async data => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', data); await cloud.syncAll();
+  on(B); await cloud.syncAll(); P.choose('xavi', []);
+  on(A); const pa = await fresh(); pa.load('g');
+  on(B); const pb = await fresh(); pb.load('g');
+  return { pa, pb };
+};
+await section('join: the case of the review, and the old page that keeps playing', async () => {
+  const { pa, pb } = await twin({ so: true, secs: [10] });
+  check(synced(mark(A, 'xavi:g'), 1000) && synced(mark(B, 'xavi:g'), 1000), 'setup: both devices synced at 1000');
+  t = 2000; on(B); pb.save('g', { so: true, secs: [30] }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { so: true, secs: [30] }, at: 2000 }), `B's progress is in the cloud (${J(game('xavi', 'g'))})`);
+  // A's page loaded the document at 1000 and never saw B's: it saves the sound switch with the old time
+  t = 3000; on(A); pa.save('g', { so: false, secs: [10] });
+  const saved = atm(A, 'xavi:g');
+  await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { so: false, secs: [30] }, at: 3001 }), `the cloud keeps B's time and A's sound (${J(game('xavi', 'g'))})`);
+  check(A.getItem('xavi:g') === J({ so: false, secs: [30] }) && synced(mark(A, 'xavi:g'), 3001), `and so does A's document (${A.getItem('xavi:g')} ${J(mark(A, 'xavi:g'))})`);
+  check(atm(A, 'xavi:g') !== saved, 'the document of A changed, so its at changed');   // contract: revisió de les tasques 1 i 2, Minor 4
+  on(B); const bAt = atm(B, 'xavi:g'); await cloud.syncAll();
+  check(B.getItem('xavi:g') === J({ so: false, secs: [30] }) && synced(mark(B, 'xavi:g'), 3001) && atm(B, 'xavi:g') !== bAt, `after B's syncAll B has secs [30] and the sound off (${B.getItem('xavi:g')})`);
+  // A's page still believes it is at 11: it must not lower the document nor the cloud
+  t = 4000; on(A); pa.save('g', { so: false, secs: [11] });
+  const second = atm(A, 'xavi:g');
+  await cloud.push('xavi', 'g');
+  check(A.getItem('xavi:g') === J({ so: false, secs: [30] }) && J(game('xavi', 'g').data) === J({ so: false, secs: [30] }), `the old page saves secs [11]: the document and the cloud stay at [30] (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  t = 5000; pa.save('g', { so: false, secs: [12] }); await cloud.push('xavi', 'g');   // ruling 4: a page that merged keeps merging until it load()s again
+  check(A.getItem('xavi:g') === J({ so: false, secs: [30] }) && J(game('xavi', 'g').data) === J({ so: false, secs: [30] }), `and secs [12]: still [30] (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  check(atm(A, 'xavi:g') !== second && synced(mark(A, 'xavi:g'), atm(A, 'xavi:g')), 'the mark of A moves on with every send and ends synced');
+});
+
+await section('join: two devices without network', async () => {
+  const { pa, pb } = await twin({ secs: [0, 0] });
+  t = 2000; on(A); pa.save('g', { secs: [5, 0] }); t = 3000; on(B); pb.save('g', { secs: [0, 7] });
+  check(pend(mark(A, 'xavi:g'), 2000, 1000) && pend(mark(B, 'xavi:g'), 3000, 1000), 'setup: both pending over the same base');
+  on(A); check(await cloud.syncAll() === false, 'A only sent: syncAll is false');
+  on(B); check(await cloud.syncAll() === true, 'B joined the cloud copy and its document changed: syncAll is true');   // contract: revisió de la tasca 3, Minor 4 (the hub repaints on this value)
+  check(B.getItem('xavi:g') === J({ secs: [5, 7] }) && synced(mark(B, 'xavi:g'), 3001), `B joins and sends: [5, 7] (${B.getItem('xavi:g')} ${J(mark(B, 'xavi:g'))})`);
+  on(A); const before = atm(A, 'xavi:g'); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ secs: [5, 7] }) && B.getItem('xavi:g') === J({ secs: [5, 7] }) && J(game('xavi', 'g')) === J({ data: { secs: [5, 7] }, at: 3001 }), `both and the cloud have [5, 7] (${A.getItem('xavi:g')} ${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  check(atm(A, 'xavi:g') !== before, 'the pull changed the document of A and its at');   // contract: revisió de les tasques 1 i 2, Minor 4
+});
+
+await section('join: the sound follows the newer copy, whichever side runs the join', async () => {
+  // push of the device that is older: the cloud copy is newer, so its sound stays
+  let { pa, pb } = await twin({ so: true, secs: [1] });
+  t = 2000; on(A); pa.save('g', { so: false, secs: [1] }); t = 3000; on(B); pb.save('g', { so: true, secs: [5] }); await cloud.push('xavi', 'g');
+  on(A); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ so: true, secs: [5] }) && A.getItem('xavi:g') === J({ so: true, secs: [5] }), `push, device older: the sound of the cloud copy stays (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  // push of the device that is newer: its sound wins
+  ({ pa, pb } = await twin({ so: true, secs: [1] }));
+  t = 2000; on(B); pb.save('g', { so: true, secs: [5] }); await cloud.push('xavi', 'g'); t = 3000; on(A); pa.save('g', { so: false, secs: [1] }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ so: false, secs: [5] }), `push, device newer: its sound wins (${J(game('xavi', 'g'))})`);
+  // syncAll, device older and newer
+  ({ pa, pb } = await twin({ so: true, secs: [1] }));
+  t = 2000; on(A); pa.save('g', { so: false, secs: [1] }); t = 3000; on(B); pb.save('g', { so: true, secs: [5] }); await cloud.push('xavi', 'g');
+  on(A); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ so: true, secs: [5] }) && J(game('xavi', 'g').data) === J({ so: true, secs: [5] }), `syncAll, device older: the sound of the cloud copy stays (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  ({ pa, pb } = await twin({ so: true, secs: [1] }));
+  t = 2000; on(B); pb.save('g', { so: true, secs: [5] }); await cloud.push('xavi', 'g'); t = 3000; on(A); pa.save('g', { so: false, secs: [1] });
+  await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ so: false, secs: [5] }) && J(game('xavi', 'g').data) === J({ so: false, secs: [5] }), `syncAll, device newer: its sound wins (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+});
+
+await section('join: the save that lands during the read of a send', async () => {
+  const { pa, pb } = await twin({ so: true, secs: [10] });
+  t = 2000; on(B); pb.save('g', { so: true, secs: [30] }); await cloud.push('xavi', 'g');
+  t = 3000; on(A); pa.save('g', { so: false, secs: [10] });
+  let done = false;
+  C.hook = op => { if (op === 'get' && !done) { done = true; t = 4000; pa.save('g', { so: false, secs: [11] }); } };   // the same old page saves again while the first send reads the cloud
+  C.log.length = 0; await cloud.push('xavi', 'g'); C.hook = null;
+  check(sets().length === 0 && J(game('xavi', 'g')) === J({ data: { so: true, secs: [30] }, at: 2000 }), `the first send does not write: its entry was saved again meanwhile (${J(C.log)} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 1
+  await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ so: false, secs: [30] }) && A.getItem('xavi:g') === J({ so: false, secs: [30] }), `the push of the second save leaves the cloud and A at [30] (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 1
+});
+
+await section('join: a forced send reads the cloud too', async () => {
+  const { pa } = await twin({ so: true, secs: [10] });
+  t = 3000; on(A); pa.save('g', { so: false, secs: [10] });   // pending over base 1000
+  // syncAll lists the cloud still at base ('push'); before the forced send reads it, another device writes [30]
+  C.hook = op => { if (op === 'get') { C.docs.set('users/U1/profiles/xavi/games/g', { data: { so: true, secs: [30] }, at: 2000 }); C.hook = null; } };
+  await cloud.syncAll();
+  check(J(game('xavi', 'g')) === J({ data: { so: false, secs: [30] }, at: 3001 }) && A.getItem('xavi:g') === J({ so: false, secs: [30] }), `a forced send does not step on what landed after the listing (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Important 3
+});
+
+await section('join: a tie of at, and a cloud at that is not a number', async () => {
+  const setup = (data, at) => {
+    reset('U1'); C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/g', { data: { so: true, secs: [2] }, at });
+    P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); A.setItem('xavi:g', J(data)); A.setItem('sync', J({ 'xavi:g': { at: 6000, base: 1000, pending: true } }));
+  };
+  // the same at on both: the cloud copy is the newer one for the sound (a tie goes to the cloud)
+  setup({ so: false, secs: [1] }, 6000); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ so: true, secs: [2] }) && J(game('xavi', 'g').data) === J({ so: true, secs: [2] }), `syncAll, equal at: the sound of the cloud copy (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 6; sync.js: aNewer is local.at > remote.at
+  setup({ so: false, secs: [1] }, 6000); await cloud.push('xavi', 'g');
+  check(A.getItem('xavi:g') === J({ so: true, secs: [2] }) && J(game('xavi', 'g').data) === J({ so: true, secs: [2] }), `push, equal at: the sound of the cloud copy (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 6
+  // a cloud document whose at is not a number is written over as before, not merged
+  setup({ so: false, secs: [1] }, '7'); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { so: false, secs: [1] }, at: 6000 }), `push over a cloud document with a text at writes the entry as before (${J(game('xavi', 'g'))})`);   // contract: revisió de la tasca 3, Minor 7; plan, tasca 3: «el seu at no és un nombre finit → escriu com ara»
+});
+
+await section('join: a migrated document, in either order', async () => {
+  for (const [dev, cl] of [[[10, 10, 4], [1, 0, 0]], [[1, 0, 0], [10, 10, 4]]]) {
+    reset('U1');
+    C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/abac-xines', { data: { secs: cl }, at: 5 });
+    P.add('Xavi'); A.setItem('abac-xines', J({ secs: dev })); P.choose('xavi', ['abac-xines']); A.setItem('compte', 'U1');
+    check(pend(mark(A, 'xavi:abac-xines'), 0, null), 'setup: the migrated document is pending at 0');
+    await cloud.syncAll();
+    check(A.getItem('xavi:abac-xines') === J({ secs: [10, 10, 4] }) && J(game('xavi', 'abac-xines').data) === J({ secs: [10, 10, 4] }), `device ${J(dev)} and cloud ${J(cl)}: [10, 10, 4] in both places (${A.getItem('xavi:abac-xines')} ${J(game('xavi', 'abac-xines'))})`);
+    check(atm(A, 'xavi:abac-xines') !== 0 && mark(A, 'xavi:abac-xines').pending === false, `and the mark moved off at 0 and is synced (${J(mark(A, 'xavi:abac-xines'))})`);   // contract: revisió de les tasques 1 i 2, Minor 4
+  }
+});
+
+await section('join: the reset of Salts de Granota', async () => {
+  const { pa } = await twin({ secs: [10, 3] });
+  t = 2000; on(A); pa.save('g', { secs: [0, 0] }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { secs: [0, 0] }, at: 2000 }), `the reset of A reaches the cloud (${J(game('xavi', 'g'))})`);
+  on(B); const changedB = await cloud.syncAll();
+  check(changedB === true, `the syncAll of B that pulls the zeros says the device changed (${changedB})`);   // contract: revisió de tota la branca, m2; the doc of syncAll: true when a document was pulled
+  check(B.getItem('xavi:g') === J({ secs: [0, 0] }) && synced(mark(B, 'xavi:g'), 2000), `B has nothing pending and takes the zeros (${B.getItem('xavi:g')})`);
+});
+await section('join: the reset while the other plays', async () => {
+  const { pa, pb } = await twin({ secs: [10, 3] });
+  t = 2000; on(B); pb.save('g', { secs: [10, 4] });   // B plays and does not send
+  t = 3000; on(A); pa.save('g', { secs: [0, 0] }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ secs: [0, 0] }), 'setup: the zeros are in the cloud');
+  on(B); const before = atm(B, 'xavi:g'); await cloud.syncAll();
+  check(B.getItem('xavi:g') === J({ secs: [10, 4] }) && J(game('xavi', 'g').data) === J({ secs: [10, 4] }), `B keeps [10, 4] and so does the cloud, what the spec accepts (${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  check(atm(B, 'xavi:g') !== before, 'the merge changed the at of B');   // contract: revisió de les tasques 1 i 2, Minor 4
+});
+
+await section('join: the read fails', async () => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', { secs: [1] }); await cloud.syncAll();
+  t = 2000; P.save('g', { secs: [2] });
+  C.hook = op => { if (op === 'get') throw new Error('net'); };
+  C.log.length = 0; await cloud.push('xavi', 'g');
+  check(sets().length === 0 && pend(mark(A, 'xavi:g'), 2000, 1000) && J(game('xavi', 'g')) === J({ data: { secs: [1] }, at: 1000 }), `push: nothing is written and the mark stays pending (${J(C.log)} ${J(mark(A, 'xavi:g'))})`);
+  C.log.length = 0; await cloud.syncAll();
+  check(sets().length === 0 && pend(mark(A, 'xavi:g'), 2000, 1000), `syncAll: the forced send writes nothing either (${J(C.log)} ${J(mark(A, 'xavi:g'))})`);
+  C.hook = null; await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { secs: [2] }, at: 2000 }) && synced(mark(A, 'xavi:g'), 2000), 'and once the read works the document goes up');
+});
+
+// contract: revisió de tota la branca, m1; ruling 8. A tie in at with another document: the send must put its at above the cloud's
+// (the cloud copy is n 1 at 2000, the device n 5 at 2000, a send that writes at 2000 would look like the cloud changing under the same at)
+await section('push: a tie in at with another document', async () => {
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []);
+  C.docs.set('users/U1/profiles/xavi/games/g', { data: { n: 1 }, at: 2000 });
+  A.setItem('xavi:g', J({ n: 5 })); A.setItem('sync', J({ 'xavi:g': { at: 2000, base: 1000, pending: true } }));
+  await cloud.push('xavi', 'g');
+  const sent = game('xavi', 'g');
+  check(!!sent && J(sent.data) === J({ n: 5 }) && sent.at > 2000, `the cloud ends on n 5 with an at above 2000 (${J(sent)})`);
+  check(!!sent && synced(mark(A, 'xavi:g'), sent.at) && A.getItem('xavi:g') === J({ n: 5 }), `and the device is synced at that at (${J(mark(A, 'xavi:g'))})`);
+});
+
+await section('join: joining changes nothing', async () => {
+  // syncAll: the join equals the cloud copy, so it is pulled and nothing is written to the cloud
+  reset('U1');
+  C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/abac-xines', { data: { secs: [9, 9] }, at: 5 });
+  P.add('Xavi'); A.setItem('abac-xines', J({ secs: [3, 0] })); P.choose('xavi', ['abac-xines']); A.setItem('compte', 'U1');
+  C.log.length = 0; await cloud.syncAll();
+  check(sets().length === 0 && J(mark(A, 'xavi:abac-xines')) === J({ at: 5, base: 5, pending: false }) && A.getItem('xavi:abac-xines') === J({ secs: [9, 9] }), `syncAll: no write to the cloud and the mark is {5, 5, false} (${J(C.log)} ${J(mark(A, 'xavi:abac-xines'))})`);
+  // a tie with a different document: the document changes, so its at must change too (it is not pulled at the same at)
+  reset('U1');
+  C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/g', { data: { secs: [2] }, at: 6000 });
+  P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1'); A.setItem('xavi:g', J({ secs: [1] })); A.setItem('sync', J({ 'xavi:g': { at: 6000, base: 1000, pending: true } }));
+  await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ secs: [2] }) && atm(A, 'xavi:g') !== 6000 && J(game('xavi', 'g').data) === J({ secs: [2] }), `a tie whose join equals the cloud: the document changed and so did its at (${A.getItem('xavi:g')} ${J(mark(A, 'xavi:g'))})`);   // contract: revisió de les tasques 1 i 2, Minor 4
+});
+
 // ---- a game page that outlives a change of player. contract: final review, Blocker 1
 // a fresh progress.js instance is loaded as a browser page (hub or not) with fake window, document and location
 let pages = 0;
@@ -329,6 +533,144 @@ await section('a stale game page', async () => {
   hub.P.choose('xavi', []);
   check(J(hub.P.load('joc')) === J({ n: 5 }), 'and follows the next choose');
   } finally { delete globalThis.location; }
+});
+
+// contract: re-revisió de les tasques 4 i 5; ruling 8. A send never lowers the at in the cloud: when the join equals the device's
+// copy but its at is not above the cloud's, it goes through merged() first, which puts the at above
+await section('a send that joins to the same copy does not lower the at of the cloud', async () => {
+  const D2 = mem(); D2.setItem('compte', 'U1');   // a signed-in device has compte, as reset() puts it on A and B
+  reset('U1'); on(A); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', { n: 3 }); await cloud.syncAll();
+  on(B); await cloud.syncAll(); P.choose('xavi', []);
+  on(D2); await cloud.syncAll(); P.choose('xavi', []);
+  check(synced(mark(A, 'xavi:g'), 1000) && synced(mark(B, 'xavi:g'), 1000) && synced(mark(D2, 'xavi:g'), 1000), 'setup: three devices synced at 1000 on n 3');
+  on(D2); P.load('g'); t = 1500; P.save('g', { n: 0 });   // no network: pending
+  on(A); P.load('g'); t = 2000; P.save('g', { n: 5 }); await cloud.push('xavi', 'g');
+  on(B); await cloud.syncAll(); P.load('g'); t = 5000; P.save('g', { n: 0 }); await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g')) === J({ data: { n: 0 }, at: 5000 }) && B.getItem('xavi:g') === J({ n: 0 }), `setup: D1 deleted and the cloud is n 0 at 5000 (${J(game('xavi', 'g'))})`);
+  const before = game('xavi', 'g').at;
+  on(D2); t = 6000; await cloud.push('xavi', 'g');
+  check(J(game('xavi', 'g').data) === J({ n: 0 }) && game('xavi', 'g').at > before, `the late send of D2 leaves n 0 with an at above the cloud's ${before} (${J(game('xavi', 'g'))})`);
+  check(synced(mark(D2, 'xavi:g'), game('xavi', 'g').at), `and D2 is synced at the at it sent (${J(mark(D2, 'xavi:g'))})`);
+  on(A); await cloud.syncAll();
+  check(A.getItem('xavi:g') === J({ n: 0 }) && J(game('xavi', 'g').data) === J({ n: 0 }), `A, with nothing pending, pulls the delete (${A.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+  on(B); await cloud.syncAll();
+  check(B.getItem('xavi:g') === J({ n: 0 }) && J(game('xavi', 'g').data) === J({ n: 0 }), `and D1 stays on n 0, the cloud too (${B.getItem('xavi:g')} ${J(game('xavi', 'g'))})`);
+});
+
+// contract: revisió de tota la branca, F2; ruling 9; spec «arriba als altres dispositius si només s'ha jugat en aquell». On one device,
+// «Esborra el progrés» saved while the send of the earlier save is in flight (held in its read or in its write) must reach the cloud
+// and stay on the device: the first send lands the older copy, and the second must not take that for another tablet's change
+for (const held of ['set', 'get']) {
+  await section(`out of order: a reset saved while the previous send is in flight (held in ${held})`, async () => {
+    reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; P.save('g', { secs: [10, 3] }); await cloud.syncAll();
+    check(synced(mark(A, 'xavi:g'), 1000) && J(game('xavi', 'g')) === J({ data: { secs: [10, 3] }, at: 1000 }), 'setup: the cloud and the device are on [10, 3] at 1000');
+    let release, inflight = false;
+    C.hook = (op, path) => { if (op === held && path.endsWith('/games/g') && !inflight) { inflight = true; return new Promise(r => { release = r; }); } return null; };
+    t = 2000; P.save('g', { secs: [10, 4] });
+    const first = cloud.push('xavi', 'g');
+    await wait(40);
+    check(inflight, `setup: the first send is held in its ${held}`);
+    t = 3000; P.save('g', { secs: [0, 0] });   // «Esborra el progrés»
+    const second = cloud.push('xavi', 'g');
+    release(); await Promise.all([first, second]);
+    check(J(game('xavi', 'g')) === J({ data: { secs: [0, 0] }, at: 3000 }), `the cloud ends on the zeros (${J(game('xavi', 'g'))})`);
+    check(A.getItem('xavi:g') === J({ secs: [0, 0] }) && synced(mark(A, 'xavi:g'), 3000), `and the device keeps them, synced (${A.getItem('xavi:g')} ${J(mark(A, 'xavi:g'))})`);
+  });
+}
+
+// ---- «El progrés no baixa mai», tasca 4: a request that never answers is a network error after 15 000 ms. Every value below is contract: plan «El progrés no baixa mai», tasca 4, «Comprovació»
+// The clock is replaced inside the section: a 15 000 ms timer is not armed for real, the scenario fires it by hand. drive() has its
+// own real limit (1 s), so a request cloud.js forgets to limit is a FAIL here and not a wait that never ends. These sections go last:
+// a hang in cloud.js (the broken chain, a stuck run) is left behind and would stall whatever came after.
+// contract: revisió de tota la branca, F1. fire() expires every armed limit, so it runs only after the scenario hung a request (hangs):
+// a wake-up between the emission and the answer of a healthy request must not expire it. Each timeout section runs twice, with the
+// fake answering in 1 ms and in 12 ms, so a check that only holds when the fake is fast fails.
+const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout;
+const T = { armed: [], delays: [] };
+let hangs = 0;   // requests the scenario holds back: each one is a limit waiting to be fired
+const fire = () => T.armed.splice(0).forEach(h => { if (!h.off) h.fn(); });
+const slow = async fn => {
+  T.armed.length = 0; T.delays.length = 0; hangs = 0;
+  globalThis.setTimeout = (fn2, ms, ...a) => { if (ms !== 15000) return realSet(fn2, ms, ...a); const h = { fn: fn2, off: false }; T.armed.push(h); T.delays.push(ms); return h; };
+  globalThis.clearTimeout = h => { if (h && typeof h.fn === 'function') h.off = true; else realClear(h); };
+  try { await fn(); } finally { globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; }
+};
+const drive = async p => { let r = { hung: true }; p.then(v => { r = { v }; }); for (let i = 0; i < 100 && r.hung; i++) { await wait(10); if (hangs) { hangs = 0; fire(); } } return r; };
+const never = () => { hangs++; return new Promise(() => {}); };
+const slowly = async (name, fn) => { for (const ms of [1, 12]) { C.delay = ms; await section(`${name} (fake ${ms} ms)`, () => slow(fn)); } C.delay = 1; };
+const signed = () => { reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 1000; };
+
+await slowly('timeout: getDocs hangs', async () => {
+  signed(); P.save('g', { n: 1 });
+  C.hook = op => (op === 'list' ? never() : null);
+  const r1 = await drive(cloud.syncAll());
+  check(!r1.hung && r1.v === false, `syncAll with the profile list hanging ends and says false (${J(r1)})`);
+  check(J(T.delays.filter(x => x !== 15000)) === J([]) && T.delays.length >= 1, `the limit is 15000 ms (${J(T.delays)})`);
+  C.hook = null; C.log.length = 0;
+  const r2 = await drive(cloud.syncAll());
+  check(!r2.hung && C.log.some(x => x.startsWith('list')) && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a second call starts a new run, and it sends the document (${J(r2)} ${J(C.log)})`);
+  // the list of games of one profile hangs: that profile is skipped, its document stays pending, the run ends
+  signed(); P.save('g', { n: 1 });
+  C.hook = (op, path) => (op === 'list' && path.endsWith('/games') ? never() : null);
+  const r3 = await drive(cloud.syncAll());
+  check(!r3.hung && sets().filter(x => x.includes('/games/')).length === 0 && pend(mark(A, 'xavi:g'), 1000, null), `a games list that hangs ends the run and leaves the document pending (${J(r3)} ${J(mark(A, 'xavi:g'))})`);
+});
+
+await slowly('timeout: the profile setDoc hangs', async () => {
+  signed(); P.save('g', { n: 1 });
+  C.hook = (op, path) => (op === 'set' && path === 'users/U1/profiles/xavi' ? never() : null);
+  const r = await drive(cloud.syncAll());
+  check(!r.hung && J(game('xavi', 'g')) === J({ data: { n: 1 }, at: 1000 }), `a profile write that hangs ends, and the run goes on with the documents (${J(r)} ${J(game('xavi', 'g'))})`);
+});
+
+await slowly('timeout: a send hangs, the chain goes on', async () => {
+  for (const op of ['set', 'get']) {
+    signed(); P.save('a', { n: 1 }); P.save('b', { n: 1 });
+    C.hook = (o, path) => (o === op && path.endsWith('/games/a') ? never() : null);
+    const r = await drive(Promise.all([cloud.push('xavi', 'a'), cloud.push('xavi', 'b')]));
+    check(!r.hung, `${op} hanging: both pushes end`);
+    check(J(game('xavi', 'b')) === J({ data: { n: 1 }, at: 1000 }) && synced(mark(A, 'xavi:b'), 1000), `${op} hanging: the next document of the chain is sent (${J(game('xavi', 'b'))} ${J(mark(A, 'xavi:b'))})`);
+    check(!game('xavi', 'a') && pend(mark(A, 'xavi:a'), 1000, null), `${op} hanging: the hung document stays pending (${J(game('xavi', 'a'))} ${J(mark(A, 'xavi:a'))})`);
+  }
+});
+
+await slowly('timeout: a late answer does nothing', async () => {
+  signed(); P.save('a', { n: 1 });
+  let release; C.hook = (op, path) => (op === 'set' && path.endsWith('/games/a') ? (hangs++, new Promise(r => { release = r; })) : null);
+  const r = await drive(cloud.push('xavi', 'a'));
+  check(!r.hung && pend(mark(A, 'xavi:a'), 1000, null), `the send ended at the limit and the document is pending (${J(r)} ${J(mark(A, 'xavi:a'))})`);
+  if (release) release(); await wait(40);
+  check(pend(mark(A, 'xavi:a'), 1000, null), `a setDoc answer after the limit does not clear the pending flag (${J(mark(A, 'xavi:a'))})`);
+  // a late list does not pull what it brings
+  signed(); C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/g', { data: { n: 7 }, at: 5000 });
+  C.hook = (op, path) => (op === 'list' && path.endsWith('/games') ? (hangs++, new Promise(r => { release = r; })) : null);
+  const r2 = await drive(cloud.syncAll());
+  if (release) release(); await wait(40);
+  check(!r2.hung && r2.v === false && A.getItem('xavi:g') === null, `a list answer after the limit pulls nothing (${J(r2)} ${A.getItem('xavi:g')})`);
+});
+
+// contract: revisió de les tasques 4 i 5, Important 1; ruling 7. A write that timed out can still land later and put an older copy on
+// top of a newer one: the cloud then has an at below the device's base, and the device must join it, never take it
+await slowly('timeout: an expired write lands late over a newer one', async () => {
+  signed(); P.save('a', { n: 1 });
+  let release, first = true;
+  C.hook = (op, path) => { if (op === 'set' && path.endsWith('/games/a') && first) { first = false; hangs++; return new Promise(r => { release = r; }); } return null; };
+  const r1 = await drive(cloud.push('xavi', 'a'));
+  check(!r1.hung && pend(mark(A, 'xavi:a'), 1000, null) && !game('xavi', 'a'), `the first send expired: pending, cloud empty (${J(r1)} ${J(mark(A, 'xavi:a'))} ${J(game('xavi', 'a'))})`);
+  t = 2000; P.save('a', { n: 5 });
+  await cloud.push('xavi', 'a');
+  check(J(game('xavi', 'a')) === J({ data: { n: 5 }, at: 2000 }) && synced(mark(A, 'xavi:a'), 2000), `the second send landed (${J(game('xavi', 'a'))} ${J(mark(A, 'xavi:a'))})`);
+  release(); await wait(40);
+  check(J(game('xavi', 'a')) === J({ data: { n: 1 }, at: 1000 }), `the expired write landed late over it (${J(game('xavi', 'a'))})`);
+  C.hook = null; await cloud.syncAll(); await wait(40);
+  check(A.getItem('xavi:a') === J({ n: 5 }), `the next syncAll does not lower the device (${A.getItem('xavi:a')})`);
+  check(J(game('xavi', 'a').data) === J({ n: 5 }) && game('xavi', 'a').at > 2000, `and the cloud ends at n 5 with a newer at (${J(game('xavi', 'a'))})`);
+  // a second device, synced at 2000 on n 5, finds the cloud at n 1, at 1000
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); A.setItem('compte', 'U1');
+  C.docs.set('users/U1/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U1/profiles/xavi/games/a', { data: { n: 1 }, at: 1000 });
+  A.setItem('xavi:a', J({ n: 5 })); A.setItem('sync', J({ 'xavi:a': { at: 2000, base: 2000, pending: false } }));
+  await cloud.syncAll(); await wait(40);
+  check(A.getItem('xavi:a') === J({ n: 5 }) && J(game('xavi', 'a').data) === J({ n: 5 }) && game('xavi', 'a').at > 2000, `device B does not lower either, and the cloud gets n 5 (${A.getItem('xavi:a')} ${J(game('xavi', 'a'))})`);
 });
 
 console.log(fails ? `${fails} FAILED` : 'cloud rules and save hook: ok');

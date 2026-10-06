@@ -9,12 +9,12 @@ const stores = [...new Set(GAMES.map(g => g.store))];
 let adding = false, bad = false;
 // the view painted last ('who', 'games', or null before the first paint)
 let seen = null;
-// Each list a tap could hit is gated: it takes no input (inert stops the keyboard as well as the finger) while any reason holds it.
-// Reasons: tap, 500 ms after its buttons were rebuilt where a finger may still be; cloud, the first sync of the page has not answered.
+// Each list a tap could hit is gated: it takes no input (inert stops the keyboard as well as the finger) while a reason holds it.
+// The one reason: tap, 500 ms after its buttons were rebuilt where a finger may still be.
 // «Qui juga?» gates only its list of profiles, so the name box and Fet stay usable
 const gates = { games: { el: list }, who: { el: $('profiles') } };
 // the attribute, not the property: where inert is not known the property is a plain one and the [inert] rule of style.css never matches
-const gate = g => { g.el.toggleAttribute('inert', !!(g.tap || g.cloud)); };
+const gate = g => { g.el.toggleAttribute('inert', !!g.tap); };
 // a running tap hold is never cancelled or shortened, only extended
 function hold(g, ms) {
   const end = Date.now() + ms;
@@ -113,11 +113,8 @@ function mount() {
     try {
       if (who === null) {
         const ok = await cloud.signIn();
-        if (ok) lock();   // the device may be stale: the cards wait for this sync as they did for the first one
-        try {
-          if (ok) await refresh();
-          if (ok && who !== null) await sync(); else err.hidden = false;
-        } finally { unlock(); }
+        if (ok) await refresh();
+        if (ok && who !== null) await sync(); else err.hidden = false;
       } else {
         await cloud.signOut();   // nothing on the device is erased
         await refresh();
@@ -129,27 +126,15 @@ function mount() {
   document.querySelector('main').append(foot);
 }
 
-// A device that is online but stale must not save over newer cloud progress: until the page has heard from the cloud the cards
-// take no input. Capped at 4 s, and no wait at all offline. With no config nothing in here ever runs
-let cap = 0;
-function lock() {
-  if (navigator.onLine === false) return;
-  gates.games.cloud = true; gate(gates.games);
-  clearTimeout(cap);
-  cap = setTimeout(unlock, 4000);
-}
-function unlock() { if (!gates.games.cloud) return; clearTimeout(cap); gates.games.cloud = false; gate(gates.games); }
-
 async function start() {
   try {
     const c = await import('../shared/cloud.js');
     if (!c.enabled) return;
     cloud = c;
-    lock();
     await refresh();   // the button waits for the answer, so it never shows the wrong label
     mount(); paint();
     if (who !== null) await sync();
-  } catch (e) {} finally { unlock(); }   // the cards wait until the first session() or the first syncAll() has answered
+  } catch (e) {}
 }
 
 render();
