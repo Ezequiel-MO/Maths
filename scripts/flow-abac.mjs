@@ -9,7 +9,8 @@
 // Two seams, both put in the page before it loads and neither in the game: performance.now() and the time of every event (event.timeStamp) are moved forward by window.__skew (a tap made right
 // after a question comes up would be ignored for 450 ms, so the script moves the clock past that before each tap, except where it is testing that very guard), and a timer of 400 ms or more
 // runs ten times faster (the pauses of the game, the steps of the abacus that solves itself).
-//   ONLY=text   runs only the sections whose name has that text (to try one mutant of the game without the four minutes of all)
+//   ONLY=text   runs only the sections whose name has that text (to try one mutant of the game without the four minutes of all); text that matches no section is an error
+//   LEAVE_STALL=ms   the page waits that long before each «← Mapa» of the sections that leave in the middle of something: a leave that comes after the end of what it should interrupt is a FAIL, never a pass
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 
@@ -34,9 +35,11 @@ function result(q) {
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 // a section that throws (a wait that times out, a selector that is not there) is a FAIL line and the next sections still run
-let opened = [], pageErrors = [];
+let opened = [], pageErrors = [], ran = 0;
+const STALL = +process.env.LEAVE_STALL || 0;
 async function section(name, fn) {
   if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
+  ran++;
   try { await fn(); } catch (e) { check(false, `${name}: stopped on ${String(e.message).split('\n')[0]}`); }
   // a script error in the page is a failure of the section, whatever the section looked at: a timer of a screen that was left throws when it fires on the one that took its place
   await new Promise(r => setTimeout(r, 300));
@@ -50,6 +53,15 @@ async function open(save, w = 390, h = 844) {
   await page.addInitScript(() => {
     const now = performance.now.bind(performance), st = window.setTimeout.bind(window);
     window.__skew = 0; performance.now = () => now() + window.__skew;
+    // «← Mapa» and back into project i in one turn of the page; it answers with what was on screen at the moment of leaving (after `stall` ms, if the script asks for a stall)
+    window.__leave = (i, stall) => {
+      const go = () => {
+        const at = { cur: [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')), locked: document.querySelector('.abacus')?.classList.contains('locked'), tip: document.querySelector('#tip')?.textContent };
+        window.__skew += 1000; document.querySelector('#toM').click(); window.__skew += 1000; document.querySelector(`.proj[data-p="${i}"]`).click();
+        return at;
+      };
+      return stall ? new Promise(r => st(() => r(go()), stall)) : go();
+    };
     const stamp = Object.getOwnPropertyDescriptor(Event.prototype, 'timeStamp').get;   // the game measures a double tap with the time of the taps: they move with the clock
     Object.defineProperty(Event.prototype, 'timeStamp', { configurable: true, get() { return stamp.call(this) + window.__skew; } });
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
@@ -105,7 +117,9 @@ const tapTwice = (page, a, b = a, slow = 0) => page.evaluate(([a, b, slow]) => {
   for (const [el, ev] of taps) el.dispatchEvent(ev);
 }, [a, b, slow]);
 // leave with «← Mapa» and come back to the project in the same turn, before any timer of the screen left can fire (the clock is moved past the guard on the way)
-const leaveAndReturn = (page, i) => page.evaluate(i => { window.__skew += 1000; document.querySelector('#toM').click(); window.__skew += 1000; document.querySelector(`.proj[data-p="${i}"]`).click(); }, i);
+const leaveAndReturn = (page, i) => page.evaluate(([i, stall]) => window.__leave(i, stall), [i, STALL]);
+// what was on screen at the moment of leaving must be what the section means to interrupt: a leave that came too late (a slow machine) tested nothing, and that is a failure
+const leftInTime = (what, at, tip) => check(at.cur === 0 && at.locked === true && tip.test(at.tip), `${what}: on screen when leaving ${JSON.stringify(at)}, expected question 1, the abacus locked and a tip like ${tip} (left too late: the section would test nothing)`);   // contract: plan Task 10, Review Focus 2, sortir enmig de la feina de la pantalla
 const panelText = page => page.evaluate(() => document.querySelector('.panel')?.innerText ?? '');
 
 // ---- the map from a hand-made save (the old shape): circle 0 open, projects 0 to 3 at 80, circles 1 and 2 shut, as the spec «El que es desa» says for { secs: [10, 10, 4, 0, 0, 0] }
@@ -194,6 +208,17 @@ await section('a slow handler: the double tap on «Comprova» is still one attem
   await ctx.close();
 });
 
+// ---- the same with the options of a question of reading: two wrong options tapped together, the first handler 700 ms slow, are one attempt
+await section('a slow handler: two wrong options are one attempt', async () => {
+  const { ctx, page } = await open({ piscina: true });
+  await openProject(page, 0);
+  await play(page, 0, { stopAt: 4 });   // question 5: 5, with the options 5, 3, 2 and 7
+  await skew(page); await tapTwice(page, '.opts [data-v="3"]', '.opts [data-v="2"]', 700);
+  const off = await page.evaluate(() => [...document.querySelectorAll('.opts [data-v]')].filter(b => b.disabled).map(b => b.dataset.v));
+  same('two wrong options tapped together, the first handler taking 700 ms: the ones that are off', off, ['3']);   // contract: plan Task 10, una opció dolenta es desactiva i compta com a intent: un sol intent per doble toc, també en una tauleta lenta
+  await ctx.close();
+});
+
 // ---- the double tap on «Comprova» with the right abacus counts once and moves one question on, not two (a question skipped or kept twice would also push handIn past 15 results)
 await section('the double tap on «Comprova» with the right abacus counts once and mov', async () => {
   const { ctx, page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
@@ -266,9 +291,8 @@ await section('leaving during the solve and during the pause', async () => {
   {
     const { page } = await open(seed), before = JSON.stringify(await stored(page));
     await openProject(page, 2);   // Sumes, 2 + 2: the abacus starts on 2
-    await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page); await page.evaluate(() => document.querySelector('#chk').click());
-    await page.waitForFunction(() => document.querySelector('.abacus').classList.contains('locked'));   // the second mistake: it solves itself
-    await leaveAndReturn(page, 2);   // before the timers of the old screen: the steps of the solve, the pause after it
+    await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page);
+    leftInTime('leaving in the middle of the solve', await page.evaluate(([i, stall]) => { document.querySelector('#chk').click(); return window.__leave(i, stall); }, [2, STALL]), /^Mira com es fa/);   // the second mistake: it solves itself, and the leave is in the same turn
     await page.waitForSelector('#dots');
     await page.waitForTimeout(900);   // more than the rest of the old solve and the pause after it
     const s = await state(page);
@@ -278,9 +302,13 @@ await section('leaving during the solve and during the pause', async () => {
   {
     const { page } = await open(seed);
     await openProject(page, 2);
-    await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page); await page.evaluate(() => document.querySelector('#chk').click());
-    await page.waitForFunction(() => /^Ara l'àbac marca \d+\./.test(document.querySelector('#tip').textContent));   // the solve is over, the pause after it is on
-    await leaveAndReturn(page, 2);
+    await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page);
+    // the second mistake; the leave comes in the turn in which the tip says the solve is over (the observer runs right after the game's own step), so the pause after it is on
+    leftInTime('leaving in the pause after the solve', await page.evaluate(([i, stall]) => new Promise(done => {
+      const tip = document.querySelector('#tip');
+      new MutationObserver((_, o) => { if (/^Ara l'àbac marca \d+\./.test(tip.textContent)) { o.disconnect(); done(window.__leave(i, stall)); } }).observe(tip, { childList: true, characterData: true, subtree: true });
+      document.querySelector('#chk').click();
+    }), [2, STALL]), /^Ara l'àbac marca/);
     await page.waitForSelector('#dots');
     await page.waitForTimeout(600);
     const s = await state(page);
@@ -289,8 +317,8 @@ await section('leaving during the solve and during the pause', async () => {
   {
     const { page } = await open(seed);
     await openProject(page, 3);   // 4 + 1 = 5: the abacus starts on 4
-    await skew(page); await setTo(page, 5); await page.evaluate(() => document.querySelector('#chk').click());
-    await leaveAndReturn(page, 3);   // inside the pause after the right answer
+    await skew(page); await setTo(page, 5);
+    leftInTime('leaving in the pause after a right answer', await page.evaluate(([i, stall]) => { document.querySelector('#chk').click(); return window.__leave(i, stall); }, [3, STALL]), /^Correcte!/);   // the pause after the right answer, in the same turn as the answer
     await page.waitForSelector('#dots');
     await page.waitForTimeout(600);   // more than the pause
     const s = await state(page);
@@ -390,6 +418,21 @@ await section('the tap inside the guard window', async () => {
   check(/^Mira la pista/.test(t), `the hint after the window: the tip says «${t}», expected the hint to work again`);   // contract: plan Task 10, passada la guarda els botons responen
 });
 
+// ---- the same window when building the screen is slow: the tap was made inside it and waits in the queue; when its turn comes the clock is past 450 ms, but the tap is from inside the window
+await section('a slow screen: the tap inside the guard window', async () => {
+  const { page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
+  await skew(page);
+  const s = await page.evaluate(() => {
+    document.querySelector('.proj[data-p="3"]').click();   // the project comes up: the window starts now
+    const tap = new MouseEvent('click', { bubbles: true, cancelable: true });   // a tap made right after, inside the window
+    const t0 = performance.now(); while (performance.now() - t0 < 700);   // the screen (or anything else) keeps the page busy for longer than the window
+    document.querySelector('#hintb').dispatchEvent(tap);
+    return { tip: document.querySelector('#tip').textContent, lit: document.querySelectorAll('.abacus .bead.on').length };
+  });
+  check(/^Fes l'operació/.test(s.tip), `a tap made inside the window and handled after it, with a slow screen: ${JSON.stringify(s)}, expected it ignored (the first tip)`);   // contract: plan Task 10, guarda de 450 ms contra el doble toc, també si la pantalla triga a construir-se
+});
+
 await browser.close();
+if (process.env.ONLY && ran === 0) { console.error(`flow-abac: ONLY=${process.env.ONLY} matches no section`); process.exit(1); }
 if (fails) { console.error(`${fails} failures`); process.exit(1); }
 console.log('flow-abac: ok');

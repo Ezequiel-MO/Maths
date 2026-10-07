@@ -24,13 +24,14 @@ const FX = pond(tone);
 
 // After a screen or a question comes up, every tap is ignored for SETTLE: a second tap of the same finger must not press what took the place of the first
 // button (a «Comprova» twice would count two attempts, and the answer of a question would be recorded twice). The capture phase stops it before any handler.
+// Like tryAt, the window is compared with the time of the tap itself (event.timeStamp): a screen that takes longer than SETTLE to build must not let the queued tap through.
 const SETTLE = 450;
 // A wrong attempt also keeps the next attempt away for SETTLE (tryAt): the second tap of a double tap on «Comprova» must not count as a second mistake. Beads are not held back.
 // tryAt is measured in the time of the taps themselves (event.timeStamp, when the finger touched), not in the clock after the handler's work: on a slow tablet the first handler
 // may take longer than SETTLE, and the second tap of the same double tap waits in the queue with a time that is still inside the window.
 let openAt = 0, tryAt = 0, tight = false;
-const ready = () => performance.now() >= openAt;
-$('#joc').addEventListener('click', e => { if (tight && !ready()) e.stopPropagation(); }, true);
+const ready = at => at >= openAt;
+$('#joc').addEventListener('click', e => { if (tight && !ready(e.timeStamp)) e.stopPropagation(); }, true);
 
 /* ---------- the shell: every screen starts with enter() and gets its token back ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
@@ -64,7 +65,7 @@ function mapa() {
   $('#joc').innerHTML = `<div class="map">${CIRCLES.map((_, c) => band(c)).join('')}</div>`;
   $('#joc').onclick = e => {
     const b = e.target.closest('.proj');
-    if (b && !b.disabled && ready()) projecte(+b.dataset.p);
+    if (b && !b.disabled && ready(e.timeStamp)) projecte(+b.dataset.p);
   };
   ($(`#joc [data-p="${here}"]:not(:disabled)`) || $('#joc button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
