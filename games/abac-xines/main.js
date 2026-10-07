@@ -26,6 +26,8 @@ const FX = pond(tone);
 // button (a «Comprova» twice would count two attempts, and the answer of a question would be recorded twice). The capture phase stops it before any handler.
 const SETTLE = 450;
 // A wrong attempt also keeps the next attempt away for SETTLE (tryAt): the second tap of a double tap on «Comprova» must not count as a second mistake. Beads are not held back.
+// tryAt is measured in the time of the taps themselves (event.timeStamp, when the finger touched), not in the clock after the handler's work: on a slow tablet the first handler
+// may take longer than SETTLE, and the second tap of the same double tap waits in the queue with a time that is still inside the window.
 let openAt = 0, tryAt = 0, tight = false;
 const ready = () => performance.now() >= openAt;
 $('#joc').addEventListener('click', e => { if (tight && !ready()) e.stopPropagation(); }, true);
@@ -145,11 +147,11 @@ function projecte(i) {
     await sleep(900); if (!t.on) return;
     next();
   }
-  function check() {
-    if (busy || performance.now() < tryAt) return;
+  function check(at) {
+    if (busy || at < tryAt) return;
     const v = valueOf(rods);
     if (v === pl.goal && tidy(rods)) return right();
-    tries++; tryAt = performance.now() + SETTLE;   // the right number on an abacus that is not tidy is a miss too
+    tries++; tryAt = at + SETTLE;   // the right number on an abacus that is not tidy is a miss too
     if (tries > 1) return solve();
     hn.strip(pl.goal);
     oops(v !== pl.goal ? `Ara l'àbac marca ${v}; ha de marcar ${pl.goal}.` : "El nombre és correcte, però cal endreçar l'àbac: fes el canvi.");
@@ -189,13 +191,13 @@ function projecte(i) {
     const b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.id === 'bk') mapa();
     else if (b.id === 'rp') projecte(i);
-    else if (b.id === 'chk') check();
+    else if (b.id === 'chk') check(e.timeStamp);
     else if (b.id === 'hintb') hint();
     else if (b.id === 'rst') { if (busy) return; rods = write(pl.start, n); stage = 0; hn.stop(); bd.set(rods); tip(start()); tone(330, 0, 0.12, 0.06); }
     else if ('v' in b.dataset) {
-      if (busy || performance.now() < tryAt) return;
+      if (busy || e.timeStamp < tryAt) return;
       if (+b.dataset.v === pl.goal) return right();
-      tries++; tryAt = performance.now() + SETTLE; b.disabled = true; oops("No és aquest. Compta les boles que toquen la barra.");
+      tries++; tryAt = e.timeStamp + SETTLE; b.disabled = true; oops("No és aquest. Compta les boles que toquen la barra.");
     }
   };
   arm();

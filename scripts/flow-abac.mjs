@@ -6,9 +6,10 @@
 // Run (the dev server must be up: `npm run dev`; on this machine it is on port 5199):
 //   PLAYWRIGHT_CORE=/home/olive/.claude/jobs/90bddb97/tmp/node_modules BASE=http://localhost:5199 node scripts/flow-abac.mjs
 //   PLAYWRIGHT_CORE, CHROME, BASE   as in scripts/sweep-abac.mjs
-// Two seams, both put in the page before it loads and neither in the game: performance.now() is moved forward by window.__skew (a tap made right after a question comes up would be
-// ignored for 450 ms, so the script moves the clock past that before each tap, except where it is testing that very guard), and a timer of 400 ms or more runs ten times faster (the
-// pauses of the game, the steps of the abacus that solves itself).
+// Two seams, both put in the page before it loads and neither in the game: performance.now() and the time of every event (event.timeStamp) are moved forward by window.__skew (a tap made right
+// after a question comes up would be ignored for 450 ms, so the script moves the clock past that before each tap, except where it is testing that very guard), and a timer of 400 ms or more
+// runs ten times faster (the pauses of the game, the steps of the abacus that solves itself).
+//   ONLY=text   runs only the sections whose name has that text (to try one mutant of the game without the four minutes of all)
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 
@@ -33,17 +34,24 @@ function result(q) {
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 // a section that throws (a wait that times out, a selector that is not there) is a FAIL line and the next sections still run
-let opened = [];
+let opened = [], pageErrors = [];
 async function section(name, fn) {
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
   try { await fn(); } catch (e) { check(false, `${name}: stopped on ${String(e.message).split('\n')[0]}`); }
+  // a script error in the page is a failure of the section, whatever the section looked at: a timer of a screen that was left throws when it fires on the one that took its place
+  await new Promise(r => setTimeout(r, 300));
+  check(pageErrors.length === 0, `${name}: page error: ${pageErrors[0]}`);   // contract: plan Task 10, cap pantalla anterior no toca la nova: un temporitzador que arriba tard no pot llançar res
+  pageErrors = [];
   await Promise.all(opened.map(c => c.close().catch(() => {}))); opened = [];
 }
 async function open(save, w = 390, h = 844) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage(), errors = [];
-  opened.push(ctx); page.on('pageerror', e => errors.push(e.message));
+  opened.push(ctx); page.on('pageerror', e => { errors.push(e.message); pageErrors.push(e.message); });
   await page.addInitScript(() => {
     const now = performance.now.bind(performance), st = window.setTimeout.bind(window);
     window.__skew = 0; performance.now = () => now() + window.__skew;
+    const stamp = Object.getOwnPropertyDescriptor(Event.prototype, 'timeStamp').get;   // the game measures a double tap with the time of the taps: they move with the clock
+    Object.defineProperty(Event.prototype, 'timeStamp', { configurable: true, get() { return stamp.call(this) + window.__skew; } });
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
   });
   await page.goto(BASE + '/index.html');
@@ -89,6 +97,15 @@ async function play(page, i, { bad = () => false, hinted = () => false, from = 0
   }
   if (stopAt >= qs.length) await page.waitForSelector('.panel', { timeout: 15000 });
 }
+// two taps made as a finger does: both events exist (and have their time) before the first one is handled, so how long the handler takes cannot move the time of the second.
+// `a` and `b` are selectors; `slow` makes the layout of the abacus take that many milliseconds in the first handler (a slow tablet), after the game has noted the mistake
+const tapTwice = (page, a, b = a, slow = 0) => page.evaluate(([a, b, slow]) => {
+  const taps = [a, b].map(sel => [document.querySelector(sel), new MouseEvent('click', { bubbles: true, cancelable: true })]);
+  if (slow) Object.defineProperty(document.querySelector('.abacus'), 'offsetWidth', { configurable: true, get() { const t = performance.now(); while (performance.now() - t < slow); return 0; } });
+  for (const [el, ev] of taps) el.dispatchEvent(ev);
+}, [a, b, slow]);
+// leave with «← Mapa» and come back to the project in the same turn, before any timer of the screen left can fire (the clock is moved past the guard on the way)
+const leaveAndReturn = (page, i) => page.evaluate(i => { window.__skew += 1000; document.querySelector('#toM').click(); window.__skew += 1000; document.querySelector(`.proj[data-p="${i}"]`).click(); }, i);
 const panelText = page => page.evaluate(() => document.querySelector('.panel')?.innerText ?? '');
 
 // ---- the map from a hand-made save (the old shape): circle 0 open, projects 0 to 3 at 80, circles 1 and 2 shut, as the spec «El que es desa» says for { secs: [10, 10, 4, 0, 0, 0] }
@@ -146,7 +163,7 @@ await section('the double tap on «Comprova» with a wrong abacus is one attempt
   const { ctx, page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
   await openProject(page, 2);   // Sumes: 2 + 2 first, the abacus starts on 2
   await page.waitForSelector('#chk'); await skew(page);
-  await page.evaluate(() => { const b = document.querySelector('#chk'); b.click(); b.click(); });
+  await tapTwice(page, '#chk');
   await page.waitForTimeout(150);
   const s = await page.evaluate(() => ({ locked: document.querySelector('.abacus').classList.contains('locked'), tip: document.querySelector('#tip').textContent, late: document.querySelectorAll('#dots i.late').length, cur: [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) }));
   check(!s.locked && s.late === 0 && s.cur === 0 && /^Ara l'àbac marca 2; ha de marcar 4/.test(s.tip), `a double tap on «Comprova» with a wrong abacus: ${JSON.stringify(s)}, expected one mistake (the abacus free, the question open, the tip of the first mistake)`);   // contract: plan Task 10, Review Focus 1, un sol intent
@@ -165,12 +182,24 @@ await section('the double tap on «Comprova» with a wrong abacus is one attempt
   await ctx.close();
 });
 
+// ---- the same double tap when the first handler is slow (a tablet): the second tap waits in the queue and the clock has gone past 450 ms when its turn comes, but the taps were 0 ms apart
+await section('a slow handler: the double tap on «Comprova» is still one attempt', async () => {
+  const { ctx, page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
+  await openProject(page, 2);   // 2 + 2, the abacus starts on 2
+  await page.waitForSelector('#chk'); await skew(page);
+  await tapTwice(page, '#chk', '#chk', 700);
+  await page.waitForTimeout(150);
+  const s = await page.evaluate(() => ({ locked: document.querySelector('.abacus').classList.contains('locked'), tip: document.querySelector('#tip').textContent, late: document.querySelectorAll('#dots i.late').length, cur: [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) }));
+  check(!s.locked && s.late === 0 && s.cur === 0 && /^Ara l'àbac marca 2; ha de marcar 4/.test(s.tip), `a double tap on «Comprova» whose first handler takes 700 ms: ${JSON.stringify(s)}, expected one mistake (the abacus free, the question open, the tip of the first mistake)`);   // contract: plan Task 10, Review Focus 1, un sol intent per doble toc, també en una tauleta lenta (els dos tocs són del mateix instant)
+  await ctx.close();
+});
+
 // ---- the double tap on «Comprova» with the right abacus counts once and moves one question on, not two (a question skipped or kept twice would also push handIn past 15 results)
 await section('the double tap on «Comprova» with the right abacus counts once and mov', async () => {
   const { ctx, page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
   await openProject(page, 3);   // 4 + 1 = 5
   await skew(page); await setTo(page, 5);
-  await page.evaluate(() => { const b = document.querySelector('#chk'); b.click(); b.click(); });
+  await tapTwice(page, '#chk');
   await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) >= 1, null, { timeout: 5000 });
   await page.waitForTimeout(500);
   const d = await dots(page);
@@ -217,14 +246,14 @@ await section('leaving with «← Mapa» at question 7 saves nothing, and the pr
 // ---- the feet under the columns of a question of reading follow the table «Un projecte» too: digit and worth in ex00, the letter in ex01, nothing in ex02 until the hint
 await section('feet of the questions of reading', async () => {
   const { page } = await open({ piscina: true });
-  await openProject(page, 0);
+  await openProject(page, 1);   // Les columnes: the readings are 74 and 136 and 692 (ex00, ex01, ex02), so a digit and what it is worth are not the same number
   const foot = () => page.evaluate(() => [...document.querySelectorAll('.foot span')].map(s => [...s.children].map(c => c.textContent)));
-  await play(page, 0, { stopAt: 4 });   // question 5 is the first of reading: 5, three columns
-  same('ex00, reading (5): the digit and what it is worth under each column, left to right', await foot(), [['0', '0'], ['0', '0'], ['5', '5']]);   // contract: spec «Un projecte», ex00: sota cada columna, la xifra i el que val (4 i 40); la columna de les unitats marca 5
-  await play(page, 0, { from: 4, stopAt: 8 });   // question 9 is the first of reading in ex01: 8
-  same('ex01, reading (8): only the letter under each column', await foot(), [['', 'C'], ['', 'D'], ['', 'U']]);   // contract: spec «Un projecte», ex01: sota cada columna, només la lletra (U, D, C)
-  await play(page, 0, { from: 8, stopAt: 12 });   // question 13 is the first of reading in ex02: 6
-  same('ex02, reading (6): nothing under the columns', await foot(), [['', ''], ['', ''], ['', '']]);   // contract: spec «Un projecte», ex02: res, fins que es demana la pista
+  await play(page, 1, { stopAt: 2 });   // question 3 is the first of reading: 74, three columns
+  same('ex00, reading (74): the digit and what it is worth under each column, left to right', await foot(), [['0', '0'], ['7', '70'], ['4', '4']]);   // contract: spec «Un projecte», ex00: sota cada columna, la xifra i el que val (4 i 40); 74 són 7 desenes (70) i 4 unitats
+  await play(page, 1, { from: 2, stopAt: 7 });   // question 8 is the first of reading in ex01: 136
+  same('ex01, reading (136): only the letter under each column', await foot(), [['', 'C'], ['', 'D'], ['', 'U']]);   // contract: spec «Un projecte», ex01: sota cada columna, només la lletra (U, D, C)
+  await play(page, 1, { from: 7, stopAt: 13 });   // question 14 is the first of reading in ex02: 692
+  same('ex02, reading (692): nothing under the columns', await foot(), [['', ''], ['', ''], ['', '']]);   // contract: spec «Un projecte», ex02: res, fins que es demana la pista
   await skew(page); await page.evaluate(() => document.querySelector('#hintb').click());
   same('ex02, reading, after the hint: the letters', await foot(), [['', 'C'], ['', 'D'], ['', 'U']]);   // contract: spec «Les pistes» i «Un projecte», a ex02 la pista posa les lletres
 });
@@ -239,8 +268,8 @@ await section('leaving during the solve and during the pause', async () => {
     await openProject(page, 2);   // Sumes, 2 + 2: the abacus starts on 2
     await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page); await page.evaluate(() => document.querySelector('#chk').click());
     await page.waitForFunction(() => document.querySelector('.abacus').classList.contains('locked'));   // the second mistake: it solves itself
-    await skew(page); await page.evaluate(() => document.querySelector('#toM').click());
-    await page.waitForSelector('.map'); await openProject(page, 2);
+    await leaveAndReturn(page, 2);   // before the timers of the old screen: the steps of the solve, the pause after it
+    await page.waitForSelector('#dots');
     await page.waitForTimeout(900);   // more than the rest of the old solve and the pause after it
     const s = await state(page);
     check(s.cur === 0 && s.ok === 0 && s.late === 0 && s.value === 2 && /^Fes l'operació/.test(s.tip), `back in the project after leaving in the middle of the solve: ${JSON.stringify(s)}, expected question 1, no dot filled, the abacus on 2 and the first tip`);   // contract: plan Task 10, Review Focus 2, tornar-hi comença per la pregunta 1, i res de l'anterior pantalla l'arriba a tocar
@@ -251,8 +280,8 @@ await section('leaving during the solve and during the pause', async () => {
     await openProject(page, 2);
     await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page); await page.evaluate(() => document.querySelector('#chk').click());
     await page.waitForFunction(() => /^Ara l'àbac marca \d+\./.test(document.querySelector('#tip').textContent));   // the solve is over, the pause after it is on
-    await skew(page); await page.evaluate(() => document.querySelector('#toM').click());
-    await page.waitForSelector('.map'); await openProject(page, 2);
+    await leaveAndReturn(page, 2);
+    await page.waitForSelector('#dots');
     await page.waitForTimeout(600);
     const s = await state(page);
     check(s.cur === 0 && s.ok === 0 && s.late === 0 && s.value === 2 && /^Fes l'operació/.test(s.tip), `back in the project after leaving in the pause after the solve: ${JSON.stringify(s)}, expected question 1, no dot filled, the abacus on 2 and the first tip`);   // contract: plan Task 10, Review Focus 2, la pausa de la pantalla anterior no passa a la pregunta següent de la nova
@@ -261,8 +290,8 @@ await section('leaving during the solve and during the pause', async () => {
     const { page } = await open(seed);
     await openProject(page, 3);   // 4 + 1 = 5: the abacus starts on 4
     await skew(page); await setTo(page, 5); await page.evaluate(() => document.querySelector('#chk').click());
-    await skew(page); await page.evaluate(() => document.querySelector('#toM').click());   // inside the pause after the right answer
-    await page.waitForSelector('.map'); await openProject(page, 3);
+    await leaveAndReturn(page, 3);   // inside the pause after the right answer
+    await page.waitForSelector('#dots');
     await page.waitForTimeout(600);   // more than the pause
     const s = await state(page);
     check(s.cur === 0 && s.ok === 0 && s.late === 0 && s.value === 4 && /^Fes l'operació/.test(s.tip), `back in the project after leaving in the pause after a right answer: ${JSON.stringify(s)}, expected question 1, no dot filled, the abacus on 4 and the first tip`);   // contract: plan Task 10, Review Focus 2, la pausa de la pantalla anterior no passa a la pregunta següent de la nova
@@ -278,18 +307,17 @@ await section('taps in the pause after the solve', async () => {
     const tip = document.querySelector('#tip'), beads = [...document.querySelectorAll('.abacus .bead')], samples = [];
     const value = () => [...document.querySelectorAll('.abacus .rod')].reduce((a, r) => a + (r.querySelectorAll('.bead.on[data-deck="lo"]').length + 5 * r.querySelectorAll('.bead.on[data-deck="hi"]').length) * 10 ** r.dataset.p, 0);
     let pause = false, ticks = 0;
+    const round = () => { for (const b of beads) b.click(); for (const id of ['#chk', '#rst', '#hintb']) document.querySelector(id)?.click(); samples.push(value()); };
+    // the moment the solve is over (the tip changes) is one turn of the page: five rounds of taps are made right there, however slow the machine is; the timer adds more while the pause lasts
+    new MutationObserver((_, o) => { if (/^Ara l'àbac marca \d+\./.test(tip.textContent)) { o.disconnect(); pause = true; for (let j = 0; j < 5; j++) round(); } }).observe(tip, { childList: true, characterData: true, subtree: true });
     const tap = setInterval(() => {
-      const t = tip.textContent;
-      if (pause && /^Fes l'operació/.test(t)) { clearInterval(tap); done(samples); return; }   // the next question has come up
-      if (!pause && /^Ara l'àbac marca \d+\./.test(t)) pause = true;                                 // the solve is over, the pause is on
+      if (pause && /^Fes l'operació/.test(tip.textContent)) { clearInterval(tap); done(samples); return; }   // the next question has come up
       if (++ticks > 3000) { clearInterval(tap); done(null); return; }
-      for (const b of beads) b.click();
-      for (const id of ['#chk', '#rst', '#hintb']) document.querySelector(id)?.click();
-      if (pause) samples.push(value());
+      if (pause) round();
     }, 4);
     document.querySelector('#chk').click();   // the second mistake
   }));
-  check(Array.isArray(r) && r.length >= 3 && r.every(v => v === 4), `taps in the pause after the solve: the abacus read ${JSON.stringify(r)}, expected 3 or more readings, all 4`);   // contract: plan Task 10, Review Focus 1, tocar boles durant (i just després de) play no deixa l'àbac en un valor que no sigui el resultat: 2 + 2 = 4
+  check(Array.isArray(r) && r.length >= 5 && r.every(v => v === 4), `taps in the pause after the solve: the abacus read ${JSON.stringify(r)}, expected 5 or more readings, all 4`);   // contract: plan Task 10, Review Focus 1, tocar boles durant (i just després de) play no deixa l'àbac en un valor que no sigui el resultat: 2 + 2 = 4
   await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === 1);
   const d = await dots(page);
   check(d.ok === 0 && d.late === 1, `taps in the pause after the solve: ${JSON.stringify(d)}, expected 0 ok and 1 late (one question, recorded once, and the hint of the pause did not change it)`);   // contract: spec «La nota», una pregunta que es resol sola no compta; un sol registre
@@ -300,34 +328,53 @@ await section('the options of a question of reading', async () => {
   const { page } = await open({ piscina: true });
   await openProject(page, 0);
   await play(page, 0, { stopAt: 4 });   // question 5: 5, with the options 5, 3, 2 and 7
-  await skew(page); await page.evaluate(() => { document.querySelector('.opts [data-v="3"]').click(); document.querySelector('.opts [data-v="2"]').click(); });
+  await skew(page); await tapTwice(page, '.opts [data-v="3"]', '.opts [data-v="2"]');
   const off = await page.evaluate(() => [...document.querySelectorAll('.opts [data-v]')].filter(b => b.disabled).map(b => b.dataset.v));
   same('two wrong options tapped together: the ones that are off', off, ['3']);   // contract: plan Task 10, una opció dolenta es desactiva i compta com a intent: un sol intent per doble toc
-  await skew(page); await page.evaluate(() => { const b = document.querySelector('.opts [data-v="5"]'); b.click(); b.click(); });
+  await skew(page); await tapTwice(page, '.opts [data-v="5"]');
   await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) >= 5, null, { timeout: 5000 });
   await page.waitForTimeout(500);
   const d = await dots(page);
   check(d.cur === 5 && d.ok === 4 && d.late === 1, `a double tap on the right option after a wrong one: ${JSON.stringify(d)}, expected question 6, 4 right and 1 late`);   // contract: plan Task 10, la pregunta es registra una sola vegada i es passa a la següent una sola vegada; el 5 va a la segona
 });
 
-// ---- the sound button in the middle of a project writes the progress as it is, not a mark; secs as it came
+// ---- the sound button in the middle of a project writes the progress as it is, not a mark; secs as it came. Project 4 has no mark yet and six right answers are worth 40: a mark handed in too soon would show
 await section('the sound button in the middle of a project', async () => {
   const { page } = await open({ so: true, secs: [10, 10, 4, 0, 0, 0], piscina: true, exams: [true, false, false] });
-  await openProject(page, 3);
-  await play(page, 3, { stopAt: 6 });
+  await openProject(page, 4);
+  await play(page, 4, { stopAt: 6 });
   await skew(page); await page.evaluate(() => document.querySelector('#so').click());
-  same('saved progress after the sound button at question 7', await stored(page), { so: false, secs: [10, 10, 4, 0, 0, 0], piscina: true, notes: [80, 80, 80, 80, 0, 0, 0, 0, 0], exams: [true, false, false], fulls: 0 });   // contract: spec «El que es desa», secs tal com és, notes de la traducció; plan Task 10, una nota no guanyada no es desa mai
+  same('saved progress after the sound button at question 7', await stored(page), { so: false, secs: [10, 10, 4, 0, 0, 0], piscina: true, notes: [80, 80, 80, 80, 0, 0, 0, 0, 0], exams: [true, false, false], fulls: 0 });   // contract: spec «El que es desa», secs tal com és, notes de la traducció (la 4 sense nota); plan Task 10, una nota no guanyada no es desa mai
 });
 
-// ---- leaving during the pause after question 15 keeps the mark (it is handed in on the last answer, before any wait)
+// ---- leaving during the pause after question 15 keeps the mark (it is handed in on the last answer, before any wait). The answer and the leaving are one turn of the page: no pause has time to run out in between
 await section('leaving in the pause after question 15', async () => {
   const { page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
   await openProject(page, 3);
   await play(page, 3, { stopAt: 14 });
-  await answer(page, PROJECTS[3].ex.flat()[14], true);
-  await skew(page); await page.evaluate(() => document.querySelector('#toM').click());
-  await page.waitForSelector('.map'); await page.waitForTimeout(400);
+  await skew(page); await setTo(page, 7375);   // the last question of the project: 4132 + 3243
+  await page.evaluate(() => { document.querySelector('#chk').click(); window.__skew += 1000; document.querySelector('#toM').click(); });
+  check(await page.evaluate(() => !document.querySelector('.panel') && !!document.querySelector('.map')), 'leaving in the pause after question 15: the panel was already up, the leaving came too late to test the pause');
+  await page.waitForTimeout(400);
   check((await stored(page)).notes[3] === 100, `leaving in the pause after question 15: saved notes[3] is ${(await stored(page)).notes[3]}, expected 100`);   // contract: plan Task 10, en acabar: handIn i desar; spec «La nota», 15 de 15 és 100
+});
+
+// ---- the tip after the abacus has solved itself: «Passem a la pregunta següent» on every question but the last, where there is none
+await section('the tip after the solve: next question, except after question 15', async () => {
+  const { page } = await open({ piscina: true, exams: [true, false, false], notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] });
+  const solved = () => page.evaluate(() => new Promise(done => {
+    const tip = document.querySelector('#tip');
+    new MutationObserver((_, o) => { if (/^Ara l'àbac marca \d+\./.test(tip.textContent)) { o.disconnect(); done(tip.textContent); } }).observe(tip, { childList: true, characterData: true, subtree: true });
+    document.querySelector('#chk').click();   // the second mistake
+  }));
+  await openProject(page, 2);   // 2 + 2
+  await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page);
+  same('the tip after the solve of question 1', await solved(), "Ara l'àbac marca 4. Passem a la pregunta següent.");   // contract: spec «Un projecte», després de la segona errada l'àbac ho fa pas a pas i es passa a la pregunta següent
+  await leaveAndReturn(page, 3);   // 4 + 1 ... up to 4132 + 3243
+  await page.waitForSelector('#dots');
+  await play(page, 3, { stopAt: 14 });
+  await skew(page); await page.evaluate(() => document.querySelector('#chk').click()); await skew(page);
+  same('the tip after the solve of question 15', await solved(), "Ara l'àbac marca 7375.");   // contract: plan Task 10 (ronda 1), a la pregunta 15 no es diu «pregunta següent»; 4132 + 3243 = 7375
 });
 
 // ---- a tap inside the guard window right after a question comes up is ignored (the second tap of a double tap must not press what took the place of the first)
