@@ -87,8 +87,8 @@ function projecte(i) {
   const run = [];
   let k = -1, q, pl, n, bn = 0, rods, stage, tries, helped, busy, reading, op, done = null;
   const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
-  // the room under the columns: the digits and what they are worth in ex00, the letters in ex01, nothing in ex02 until the hint is asked (and never the answer of a question of reading)
-  const look = () => { const e = Math.floor(k / 5); return reading ? (e < 2 ? 'letter' : 'none') : helped && e === 2 ? 'letter' : FEET[e]; };
+  // the room under the columns, as the spec table «Un projecte» says, for every kind of question: the digits and what they are worth in ex00, the letters in ex01, nothing in ex02 until the hint is asked
+  const look = () => { const e = Math.floor(k / 5); return helped && e === 2 ? 'letter' : FEET[e]; };
   const target = () => pl.stages[Math.min(stage, pl.stages.length - 1)];
   const start = () => reading ? "Mira l'àbac i tria el nombre que marca." : op ? "Fes l'operació a l'àbac i prem Comprova." : "Posa el número a l'àbac i prem Comprova.";
 
@@ -141,7 +141,7 @@ function projecte(i) {
     await hn.play(pl.goal, () => t.on);
     if (!t.on) return;
     rods = bd.rods();   // play moves the beads through set(), which does not tell onMove
-    tip(`Ara l'àbac marca ${pl.goal}. Passem a la pregunta següent.`);
+    tip(`Ara l'àbac marca ${pl.goal}.${k === qs.length - 1 ? '' : ' Passem a la pregunta següent.'}`);
     await sleep(900); if (!t.on) return;
     next();
   }
@@ -157,10 +157,9 @@ function projecte(i) {
   // the hint: the question stops counting (before anything is drawn: the strip of a question of reading prints the answer), and the move to make is drawn on the abacus
   function hint() {
     if (busy) return;
-    helped = true;
+    helped = true; bd.feet(look());
     if (reading) { hn.strip(); return tip('Mira què val cada bola i suma-ho.'); }
     const to = target(), m = nextMove(rods, to);
-    bd.feet(look());
     hn.strip(to);
     if (!m) return tip("L'àbac ja marca el resultat. Prem Comprova!", 'go');
     hn.show(m, to); tip("Mira la pista dibuixada sobre l'àbac.");

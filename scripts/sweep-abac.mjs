@@ -3,22 +3,23 @@
 // project; and the rules of the sizing contract (the board's piece of the plan, task 8; the map and the project screen are task 10):
 //   1. the board lies inside its stage, no block of the screen overlaps the next one, and every button of the screen is the thing at its own
 //      centre (nothing covers it or takes its taps), scrolling the page to it first if the page scrolls
-//   2. no horizontal scroll; the page scrolls vertically only when the screen cannot hold what the level needs with the board at the floor.
+//   2. no horizontal scroll; the page scrolls vertically only when the screen cannot hold what the question needs with the board at the floor.
 //      That is decided from the screen, not from the stage: what is over #joc and under it, plus the head, the tail and the stage's minimum
 //      in one column (or the taller of the left column and that minimum, on a screen on its side), against innerHeight. At the sizes of
 //      MIN_U the page never scrolls at all, and at the sizes of MAY_SCROLL no more states scroll than the number written there
 //   3. the fit does not depend on the size the board had before it: --u set by hand to 10px and to 60px gives the same --u
 //   4. at the sizes of MIN_U the board is not left at the floor: --u is at least the number written there
 //   8. on a screen on its side the board is never taller than the screen and is in view, with the page at the top and scrolled to the
-//      bottom, whatever the left column holds: besides the 180 states, one more with 150px of filling in the tail, where --u must not grow
-//   and reach: the level buttons, the back button (#toM) and a bead are checked like the other buttons
+//      bottom, whatever the left column holds: besides the 308 states, one more (project 8, question 1) with 150px of filling in the tail, where --u must not grow
+//      and reach: the buttons of the question («Comprova», «Reinicia», the hint, or the options), the back button (#toM) and a bead are checked like the other buttons
+//   9. a hint on show (after the hint button) lies inside the board's own box, takes no taps, and its lines fit their panel; it adds no scroll (rule 2 judges that)
 //  10. the hints (task 9), at HINT_SIZES: for each row of the spec table «Les pistes» the ghosts (tone and bead), the card and the label that the layer draws, each ghost
 //      centred on its bead, the same after the screen changes size (Review Focus 5), a tap clears it (Review Focus 3), a set() and a strip() in one tick leave no ghost of the old
 //      state, and no infinite animation under reduced motion
-//  11. the map (task 10): no horizontal scroll, no scroll at all at the sizes of MIN_U, the bands do not overlap, and every project button, the back link and the sound button are the
-//      thing at their own centre. The project screen's rules above hold at every question (rule 1 reaches the buttons of the question, the 15 dots are in the head)
-//  12. the result panel (task 10) lies inside the stage (at the sizes of MIN_U: a small phone has a stage at its floor, smaller than the panel, and the page scrolls there anyway) and its buttons are the thing at their own centre
-//   9. a hint on show (after the hint button) lies inside the board's own box, takes no taps, and its lines fit their panel; it adds no scroll (rule 2 judges that)
+//  11. the map (task 10): no horizontal scroll, no scroll at all at the sizes of MIN_U, the bands do not overlap, the text of a project fits its button, and every project button,
+//      the back link and the sound button are the thing at their own centre. The project screen's rules above hold at every question (the 15 dots are in the head)
+//  12. the result panel (task 10) lies inside the stage (at the sizes of MIN_U: a small phone has a stage at its floor, smaller than the panel, and the page scrolls there anyway) and its
+//      buttons are the thing at their own centre (the board under it is covered on purpose)
 // Two seams, put in the page before it loads and not in the game: performance.now() moved on by window.__skew (a tap right after a question comes up is ignored for 450 ms; the sweep moves
 // the clock past that before each tap) and a timer of 400 ms or more ten times faster (the pauses between questions).
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.

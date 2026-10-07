@@ -941,6 +941,8 @@ function partD() {
     check(/if \(\+b\.dataset\.v === pl\.goal\) return right\(\); tries\+\+;[^}]*?b\.disabled = true;/.test(flat), 'D: a wrong option of main.js is not disabled and counted as an attempt');   // contract: plan Task 10, una opció dolenta es desactiva i compta com a intent
     check(/v === pl\.goal && tidy\(rods\)\) return right\(\); tries\+\+;/.test(flat), 'D: «Comprova» of main.js does not count a miss for the right number on an untidy abacus');   // contract: spec «Un projecte», bona quan l'àbac marca el resultat i està endreçat
     // the rows of the feet and the questions of the project
+    const look = /const look = \(\) => \{([^}]*)\};/.exec(flat);
+    check(!!look && !/\breading\b/.test(look[1]) && /helped && e === 2 \? 'letter' : FEET\[e\]/.test(look[1]), "D: look() of main.js (the feet of the abacus) depends on the kind of question: the spec table «Un projecte» gives the feet by exercise for questions of reading too (digits in ex00, letters in ex01, nothing in ex02 until the hint)");   // contract: spec «Un projecte», taula d'exercicis ex00, ex01, ex02; ruling of the fix round 1 of Task 10
     check(/\['full', 'letter', 'none'\]/.test(flat) && /\['ex00', 'ex01', 'ex02'\]/.test(flat), "D: main.js does not name the exercises ex00, ex01 and ex02 or give them the feet 'full', 'letter' and 'none'");   // contract: spec «Un projecte», la taula dels tres exercicis
     check(/PROJECTS\[i\]/.test(flat) && /P\.ex\.flat\(\)/.test(flat), 'D: the project screen of main.js does not take its 15 questions from PROJECTS[i].ex');   // contract: spec «Un projecte», 15 preguntes seguides
     // the texts on the screen
