@@ -11,6 +11,9 @@
 //   8. on a screen on its side the board is never taller than the screen and is in view, with the page at the top and scrolled to the
 //      bottom, whatever the left column holds: besides the 180 states, one more with 150px of filling in the tail, where --u must not grow
 //   and reach: the level buttons, the back button (#toM) and a bead are checked like the other buttons
+//  10. the hints (task 9), at HINT_SIZES: for each row of the spec table «Les pistes» the ghosts (tone and bead), the card and the label that the layer draws, each ghost
+//      centred on its bead, the same after the screen changes size (Review Focus 5), a tap clears it (Review Focus 3), a set() and a strip() in one tick leave no ghost of the old
+//      state, and no infinite animation under reduced motion
 //   9. a hint on show (after the hint button) lies inside the board's own box, takes no taps, and its lines fit their panel; it adds no scroll (rule 2 judges that)
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 // Run (the dev server must be up: `npm run dev`, which prints its port; on this machine it is 5199):
@@ -49,7 +52,7 @@ const inspect = () => {
   scrollTo(0, 0);
   const a = R(ab), s = R(stage), land = getComputedStyle(joc).display === 'grid', stageMin = parseFloat(getComputedStyle(stage).minHeight) || 0;
   if (a.top < s.top - 1 || a.bottom > s.bottom + 1 || a.left < s.left - 1 || a.right > s.right + 1) bad.push('board outside its stage');
-  // a hint on show (the hint button was pressed): everything it draws lies inside the board's own box, and none of it takes a tap
+  // a hint on show (the hint button was pressed): everything it draws lies inside the board's own box, and none of it takes a tap   // contract: plan Task 9 and spec «Les pistes», tot es dibuixa sobre l'àbac amb pointer-events: none, sense canviar la mida de res
   const layer = ab.querySelector('.hints');
   if (layer) {
     for (const e of layer.querySelectorAll('*')) {
@@ -101,6 +104,109 @@ const independent = async () => {
 const STATES = [];
 for (let sec = 0; sec < 6; sec++) for (let i = 0; i < 10; i++) for (const hints of [0, 1, 2]) STATES.push({ sec, i, hints });
 
+// ---- the hints (rule 10). Expected values are written here from the spec table «Les pistes», not worked out by hints.js. A ghost is `tone@place deck index` (place 0 is the units,
+// index 0 the bead nearest the beam); the bead a ghost is on is the one the tap goes to (the far end of the group that travels), as in main.js. State: columns from the units, [lo, hi].
+const HINT_SIZES = ['390x844', '844x390'];
+const HINT_CASES = [
+  // contract: spec «Les pistes», add: una bola fantasma verda a la bola que es posa
+  { id: 'add 2+2', rods: [[2], [0], [0]], t: 4, ghosts: ['put@0lo3'], card: null, label: null, now: '2 = 2' },
+  { id: 'add 4+1', rods: [[4], [0], [0]], t: 5, ghosts: ['put@0lo4'], card: null, label: null, now: '4 = 4' },
+  // contract: spec «Les pistes», take: la fantasma vermella a la bola que es treu
+  { id: 'take', rods: [[3], [0], [0]], t: 1, ghosts: ['take@0lo1'], card: null, label: null, now: '3 = 3' },
+  // contract: spec «Les pistes», more: targeta +4 = +5 −1, la de dalt verda i la de baix vermella (també +1 = +5 −4 des de les cinc de baix)
+  { id: 'more +4', rods: [[4], [0], [0]], t: 8, ghosts: ['put@0hi0', 'take@0lo3'], card: '+4 = +5 −1', label: null, now: '4 = 4' },
+  { id: 'more +1', rods: [[5], [0], [0]], t: 6, ghosts: ['put@0hi0', 'take@0lo1'], card: '+1 = +5 −4', label: null, now: '5 = 5' },
+  // contract: spec «Les pistes», less: targeta −4 = −5 +1, la de dalt vermella i la de baix verda
+  { id: 'less -4', rods: [[3, 1], [0], [0]], t: 4, ghosts: ['take@0hi0', 'put@0lo3'], card: '−4 = −5 +1', label: null, now: '8 = 8' },
+  // contract: spec «Les pistes», five: les 5 de baix cap a la de dalt, etiqueta 5 → 1
+  { id: 'five', rods: [[3], [5], [0]], t: 53, ghosts: ['take@1lo0', 'take@1lo1', 'take@1lo2', 'take@1lo3', 'take@1lo4', 'put@1hi0'], card: null, label: '5 → 1', now: '50 + 3 = 53' },
+  // contract: spec «Les pistes», ten: la columna plena es plega i una bola salta a la columna de l'esquerra, etiqueta 10 → 1
+  { id: 'ten', rods: [[3], [5, 1], [0]], t: 103, ghosts: ['take@1lo0', 'take@1lo1', 'take@1lo2', 'take@1lo3', 'take@1lo4', 'take@1hi0', 'put@2lo0'], card: null, label: '10 → 1', now: '100 + 3 = 103' },
+  // contract: spec «Les pistes», carry: targeta +8 = +10 −2, fantasma verda a la columna de l'esquerra i vermella a la pròpia
+  { id: 'carry 7+8', rods: [[2, 1], [0], [0]], t: 15, ghosts: ['take@0lo0', 'put@1lo0'], card: '+8 = +10 −2', label: null, now: '7 = 7' },
+  // contract: spec «Les pistes», borrow: targeta −8 = −10 +2, vermella a l'esquerra i verda a la pròpia (−3 = −10 +7 per a 10-3)
+  { id: 'borrow 10-3', rods: [[0], [1], [0]], t: 7, ghosts: ['take@1lo0', 'put@0lo0'], card: '−3 = −10 +7', label: null, now: '10 = 10' },
+  // contract: spec «Les pistes», borrow, i la quantitat és la veritable: 100-1 treu una bola de les centenes, que val 100 de les unitats, no 10 (−1 = −100 +99)
+  { id: 'borrow 100-1', rods: [[0], [0], [1]], t: 99, ghosts: ['take@2lo0', 'put@0lo0'], card: '−1 = −100 +99', label: null, now: '100 = 100' }
+];
+// in the page: mount(case) puts a board in the stage with the hint of the case showing; read() says what the layer holds and whether each ghost is on its bead
+const hintKit = () => {
+  // two frames, and the glide of the beads (0.2s) over: a bead is only where the ghost is once it has arrived
+  const frame = async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 30)))); await Promise.all(document.getAnimations().filter(a => a instanceof CSSTransition).map(a => a.finished.catch(() => {}))); };
+  window.__hint = {
+    frame,
+    async mount(sc, how = 'show') {
+      const { board } = await import('/games/abac-xines/board.js'), { hints } = await import('/games/abac-xines/hints.js'), { nextMove } = await import('/games/abac-xines/logic.js');
+      const host = document.querySelector('#joc > .stage'); host.querySelector('.abacus')?.remove();
+      const b = board(host, { n: sc.rods.length, feet: 'letter' }), h = hints(b);
+      b.set(sc.rods.map(([lo, hi = 0]) => ({ lo, hi })));
+      window.__hb = b; window.__hh = h;
+      if (how === 'show') h.show(nextMove(b.rods(), sc.t), sc.t);
+      await frame();
+    },
+    read() {
+      const b = window.__hb, layer = b.el.querySelector('.hints'), R = e => e.getBoundingClientRect(), C = r => [(r.left + r.right) / 2, (r.top + r.bottom) / 2];
+      layer.getAnimations({ subtree: true }).forEach(a => a.cancel());
+      const ghosts = [...layer.querySelectorAll('.ghost')], off = [];
+      for (const g of ghosts) {
+        const bead = b.bead(+g.dataset.p, g.dataset.deck, +g.dataset.j), a = C(R(g)), c = C(R(bead));
+        if (Math.abs(a[0] - c[0]) > 1.5 || Math.abs(a[1] - c[1]) > 1.5) off.push(`${g.dataset.p}${g.dataset.deck}${g.dataset.j} by ${(a[0] - c[0]).toFixed(1)},${(a[1] - c[1]).toFixed(1)}`);
+      }
+      return {
+        ghosts: ghosts.map(g => `${g.classList.contains('put') ? 'put' : g.classList.contains('take') ? 'take' : '?'}@${g.dataset.p}${g.dataset.deck}${g.dataset.j}`).sort(),
+        card: layer.querySelector('.hcard')?.textContent ?? null, label: layer.querySelector('.hlab')?.textContent ?? null, now: layer.querySelector('.hnow')?.textContent ?? null,
+        off, kids: layer.children.length
+      };
+    }
+  };
+};
+const loops = () => document.getAnimations().filter(a => a.effect.getComputedTiming().iterations === Infinity && a.animationName === 'ghost').length;
+async function hintChecks(page, w, h) {
+  const out = [], same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  await page.evaluate(hintKit);
+  for (const sc of HINT_CASES) {
+    await page.evaluate(sc => window.__hint.mount(sc), sc);
+    const r = await page.evaluate(() => window.__hint.read());
+    if (!same(r.ghosts, [...sc.ghosts].sort())) out.push(`hint ${sc.id}: ghosts ${r.ghosts}, expected ${[...sc.ghosts].sort()}`);
+    if (r.card !== sc.card) out.push(`hint ${sc.id}: card «${r.card}», expected «${sc.card}»`);
+    if (r.label !== sc.label) out.push(`hint ${sc.id}: label «${r.label}», expected «${sc.label}»`);
+    if (r.now !== sc.now) out.push(`hint ${sc.id}: strip «${r.now}», expected «${sc.now}»`);
+    if (r.off.length) out.push(`hint ${sc.id}: ghost off its bead (${r.off.join('; ')})`);
+  }
+  const ten = HINT_CASES.find(c => c.id === 'ten'), carry = HINT_CASES.find(c => c.id === 'carry 7+8');
+  // Review Focus 5: a new size of the screen with the hint on leaves it on the same beads
+  await page.evaluate(sc => window.__hint.mount(sc), ten);
+  for (const [vw, vh] of [[h, w], [w, h]]) {
+    await page.setViewportSize({ width: vw, height: vh }); await settle(page); await page.evaluate(() => window.__hint.frame());
+    const r = await page.evaluate(() => window.__hint.read());
+    if (!same(r.ghosts, [...ten.ghosts].sort()) || r.off.length) out.push(`hint after ${vw}x${vh}: ghosts ${r.ghosts}${r.off.length ? ', off their beads: ' + r.off.join('; ') : ''}`);   // contract: plan Task 9, Review Focus 5, la pista queda sobre les mateixes boles o s'esborra, mai desplaçada
+  }
+  // Review Focus 3: a bead that moves clears the hint
+  await page.evaluate(sc => window.__hint.mount(sc), carry);
+  await page.evaluate(() => { window.__hb.bead(2, 'hi', 0).click(); });
+  await page.waitForTimeout(80);
+  const tapped = await page.evaluate(() => window.__hint.read());
+  if (tapped.kids) out.push(`hint: ${tapped.kids} elements are still drawn after a bead was tapped`);   // contract: plan Task 9, Review Focus 3, board.onMove crida stop(): la pista no sobreviu a un moviment
+  // a hint of the old state must not outlive a set() followed by strip() in the same tick
+  await page.evaluate(sc => window.__hint.mount(sc, 'none'), HINT_CASES[0]);
+  await page.evaluate(async () => {
+    const { nextMove, write } = await import('/games/abac-xines/logic.js'), b = window.__hb, h = window.__hh;
+    h.show(nextMove(b.rods(), 4), 4); b.set(write(47, 3)); h.strip(50);
+    await window.__hint.frame();
+  });
+  const mixed = await page.evaluate(() => window.__hint.read());
+  if (mixed.ghosts.length) out.push(`hint: ${mixed.ghosts.length} ghost(s) of the old state stay after set() and strip() in one tick`);   // contract: plan Task 9, Review Focus 3, la pista següent es calcula amb l'àbac d'aquell moment
+  // no loops under reduced motion (and the check is not empty: with motion the ghosts do loop)
+  await page.evaluate(sc => window.__hint.mount(sc), ten);
+  const moving = await page.evaluate(loops);
+  if (!moving) out.push('hint: the ghosts do not loop with motion on, so the reduced-motion check below would say nothing');
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await settle(page);
+  const still = await page.evaluate(() => document.getAnimations().filter(a => a.effect.getComputedTiming().iterations === Infinity).length);
+  if (still) out.push(`hint: ${still} animation(s) still loop under prefers-reduced-motion`);   // contract: spec «Les pistes», amb moviment reduït no hi ha bucles
+  await page.emulateMedia({ reducedMotion: 'no-preference' }); await settle(page);
+  return out;
+}
+
 const want = process.argv[2] ? process.argv[2].split(',').map(v => v.split('x').map(Number)) : VIEWPORTS;
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 let failed = 0;
@@ -132,6 +238,7 @@ for (const [w, h] of want) {
   if (full.land && !(full.u <= plain.u)) full.bad.push(`--u grew from ${plain.u} to ${full.u}`);
   if (full.bad.length) fails.push(`s1 l10 with 150px more in the tail: ${full.bad.join('; ')} (u ${full.u}, ${full.info})`);
   if (name in MAY_SCROLL && scrolling > MAY_SCROLL[name]) fails.push(`the page scrolls in ${scrolling} states, ${MAY_SCROLL[name]} at the most expected at ${name}`);
+  if (HINT_SIZES.includes(name)) fails.push(...await hintChecks(page, w, h));
   const same = await page.evaluate(independent);
   if (Math.max(...same) - Math.min(...same) > 0.25) fails.push(`the fit depends on the previous size: --u after 10px and 60px was ${same.join(', ')}`);
   if (errors.length) fails.push('page error: ' + errors[0]);

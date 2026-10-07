@@ -98,11 +98,12 @@ export function hints(b) {
         card.push(`+${m.d} = +10 −${10 - m.d}`);
       } else if (m.why === 'borrow') {
         own();
-        // the digit being taken is the one of the difference, in the column the strip is for (nextMove does not say it)
+        // the own column q and the digit d come from the difference (nextMove does not say them). The move is on column p, further left (p > q):
+        // one bead there is 10^(p-q) of the own column, so the card says -d = -that + (that - d): -3 = -10 +7 next door, -1 = -100 +99 two columns away
         const diff = on.goal == null ? 0 : valueOf(rods) - on.goal;
         if (diff > 0) {
-          const q = Math.min(String(diff).length - 1, n - 1), d = Math.min(10, Math.floor(diff / 10 ** q));
-          put(q); card.push(`−${d} = −10 +${10 - d}`);
+          const q = Math.min(String(diff).length - 1, n - 1), d = Math.min(10, Math.floor(diff / 10 ** q)), big = 10 ** (p - q);
+          if (p > q) { put(q); card.push(`−${d} = −${big} +${big - d}`); }
         }
       }
     }
@@ -127,7 +128,9 @@ export function hints(b) {
   // clear: only the drawing; stop: everything, and a play that is running
   const clear = () => { on = null; layer.replaceChildren(); };
   function open(patch) {
-    on = { t: null, move: null, goal: null, ...(on || {}), ...patch, snap: snapOf() };
+    // strip() and show() add up while the board is the one the hint was drawn for; a board that changed since (the observer has not run yet when
+    // this is called in the same tick as a set()) starts from nothing, so a ghost of the old state can never be carried onto the new one
+    on = { t: null, move: null, goal: null, ...(on && on.snap === snapOf() ? on : {}), ...patch, snap: snapOf() };
     render();
   }
 
