@@ -1,5 +1,6 @@
-// Browser sweep of the level screen of l'àbac: every viewport of VIEWPORTS, every one of the 60 levels, each fresh and after the hint button
-// once and twice (3 states), and the rules of the sizing contract (the board's piece of the plan, task 8):
+// Browser sweep of the screens of l'àbac: every viewport of VIEWPORTS, the map (every circle open, and every one shut) and the project screen at every one of the 135 questions
+// of the 9 projects (operations and reading), each fresh, after a first mistake (the first question of each exercise) and after the hint button, and the result panel of each
+// project; and the rules of the sizing contract (the board's piece of the plan, task 8; the map and the project screen are task 10):
 //   1. the board lies inside its stage, no block of the screen overlaps the next one, and every button of the screen is the thing at its own
 //      centre (nothing covers it or takes its taps), scrolling the page to it first if the page scrolls
 //   2. no horizontal scroll; the page scrolls vertically only when the screen cannot hold what the level needs with the board at the floor.
@@ -14,7 +15,12 @@
 //  10. the hints (task 9), at HINT_SIZES: for each row of the spec table «Les pistes» the ghosts (tone and bead), the card and the label that the layer draws, each ghost
 //      centred on its bead, the same after the screen changes size (Review Focus 5), a tap clears it (Review Focus 3), a set() and a strip() in one tick leave no ghost of the old
 //      state, and no infinite animation under reduced motion
+//  11. the map (task 10): no horizontal scroll, no scroll at all at the sizes of MIN_U, the bands do not overlap, and every project button, the back link and the sound button are the
+//      thing at their own centre. The project screen's rules above hold at every question (rule 1 reaches the buttons of the question, the 15 dots are in the head)
+//  12. the result panel (task 10) lies inside the stage (at the sizes of MIN_U: a small phone has a stage at its floor, smaller than the panel, and the page scrolls there anyway) and its buttons are the thing at their own centre
 //   9. a hint on show (after the hint button) lies inside the board's own box, takes no taps, and its lines fit their panel; it adds no scroll (rule 2 judges that)
+// Two seams, put in the page before it loads and not in the game: performance.now() moved on by window.__skew (a tap right after a question comes up is ignored for 450 ms; the sweep moves
+// the clock past that before each tap) and a timer of 400 ms or more ten times faster (the pauses between questions).
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 // Run (the dev server must be up: `npm run dev`, which prints its port; on this machine it is 5199):
 //   PLAYWRIGHT_CORE=/home/olive/.claude/jobs/90bddb97/tmp/node_modules BASE=http://localhost:5199 node scripts/sweep-abac.mjs [390x844,844x390 ...]
@@ -22,7 +28,7 @@
 //   CHROME            the browser to drive (default /usr/bin/google-chrome)
 //   BASE              the server (default http://localhost:5199)
 //   INJECT            a piece of CSS added to the page, to try the sweep itself against a broken layout (it must then fail)
-// Prints one line per viewport (and the first failures of it); exits 1 on any failure. Later screens add their own states to STATES.
+// Prints one line per viewport (and the first failures of it); exits 1 on any failure. Later screens add their own states.
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 
@@ -32,21 +38,23 @@ if (!existsSync(CHROME)) { console.error(`sweep-abac: no browser at ${CHROME}; s
 const { chromium } = createRequire(CORE + '/')('playwright-core');
 
 const VIEWPORTS = [[390, 844], [844, 390], [820, 1180], [375, 667], [360, 640], [320, 568], [667, 375], [740, 360], [568, 320], [1024, 600], [1366, 650], [1280, 720], [1024, 704], [1180, 820]];
-// the least --u at these sizes, where the page never scrolls
+// the least --u at these sizes, over the 135 questions of the project screen in all their states, where the page never scrolls (measured at task 10; the floor of the board is 18.25)
 const MIN_U = {
-  '390x844': 31.25, '844x390': 25, '820x1180': 44,   // contract: plan Task 8, «a 390×844, 844×390 i 820×1180 … sense scroll vertical ni horitzontal»; the sizes are the ones measured at 137e082 (review finding B1)
-  '1024x600': 28, '1366x650': 28, '1280x720': 28, '1024x704': 28, '1180x820': 35   // contract: sizing contract of Task 8, rule 6 (a laptop window gives 28px or more without scroll)
+  '390x844': 38.5, '844x390': 25, '820x1180': 44,   // contract: plan Task 8, «a 390×844, 844×390 i 820×1180 … sense scroll vertical ni horitzontal»; the sizes are the ones measured at task 10 (the head of a project is two short rows, lower than the old one with the row of levels, so a phone upright gives 38.5 where it gave 31.25)
+  '1024x600': 44, '1366x650': 44, '1280x720': 44, '1024x704': 44, '1180x820': 44   // contract: sizing contract of Task 8, rule 6 (a laptop window gives 28px or more without scroll); at task 10 they all reach the largest bead (44)
 };
-// the most states (of 180) in which the page may scroll at the small phones   // contract: sizing contract of Task 8, rule 2; the counts are the ones measured in fix round 4, so a layout that scrolls more often has to say why
-const MAY_SCROLL = { '375x667': 9, '360x640': 27, '320x568': 180, '667x375': 9, '740x360': 9, '568x320': 180 };
+// the most states (of 308) in which the page may scroll at the small phones   // contract: sizing contract of Task 8, rule 2; the counts are the ones measured at task 10, so a layout that scrolls more often has to say why. 375x667, 667x375 and 740x360 scroll in the two states of the map only or fewer, 360x640 and 320x568 in the 26 questions that wrap their head or tail, 568x320 in all
+const MAY_SCROLL = { '375x667': 2, '360x640': 26, '320x568': 26, '667x375': 2, '740x360': 2, '568x320': 308 };
 const INJECT = process.env.INJECT || '';
-const SAVE = { so: false, secs: [10, 10, 10, 10, 10, 10] };   // every level open
+const OPEN = { so: false, piscina: true, notes: Array(9).fill(80), exams: [true, true, true] };   // every circle open, every project validated
+const SHUT = {};   // nothing done: every circle shut
 const FLOOR = 18.25;   // board.js MIN (18) and a step
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 30))))));
 
 // what is wrong with the level screen as it is now: a list of sentences, and the numbers worth printing
-const inspect = () => {
+const inspect = strict => {
   const R = e => e.getBoundingClientRect(), q = s => document.querySelector(s), se = document.scrollingElement;
+  document.getAnimations().filter(a => a.animationName === 'shake').forEach(a => a.finish());   // a board in the middle of its shake (after a mistake) is a few pixels to one side: that is the animation, not the layout
   const joc = q('#joc'), head = q('#joc > .head'), stage = q('#joc > .stage'), tail = q('#joc > .tail'), ab = stage?.querySelector('.abacus'), bad = [];
   if (!ab) return { u: NaN, bad: ['no abacus on the screen'] };
   scrollTo(0, 0);
@@ -79,11 +87,17 @@ const inspect = () => {
       if (v.top < -1 || v.bottom > innerHeight + 1) { bad.push(`the board is out of view (${Math.round(v.top)} to ${Math.round(v.bottom)} of ${innerHeight}) with the page at ${Math.round(scrollY)}`); break; }
     }
   }
-  const reach = [...joc.querySelectorAll('.acts button, .opts button, .levels button'), q('#toM'), ab.querySelector('.bead')];
+  // rule 12: the result panel lies inside the stage, and its buttons can be tapped
+  const pn = q('#joc .panel');
+  if (pn && strict) { const r = R(pn); if (r.top < s.top - 1 || r.bottom > s.bottom + 1 || r.left < s.left - 1 || r.right > s.right + 1) bad.push(`the result panel (${Math.round(r.top)} to ${Math.round(r.bottom)}) lies outside the stage (${Math.round(s.top)} to ${Math.round(s.bottom)})`); }
+  const dotsN = q('#dots')?.children.length;
+  if (dotsN !== 15) bad.push(`the head has ${dotsN} dots, expected 15`);   // contract: spec «Un projecte», cinc preguntes per exercici, tres exercicis
+  const reach = [...joc.querySelectorAll('.acts button, .opts button, .panel button'), q('#toM'), pn ? null : ab.querySelector('.bead')];   // under the result panel the board is covered on purpose
   for (const b of reach) {
-    if (!b) { bad.push('no back button (#toM) or no bead on the screen'); break; }
+    if (!b) { if (pn) continue; bad.push('no back button (#toM) or no bead on the screen'); break; }
     b.scrollIntoView({ block: 'center', inline: 'nearest' });
     const r = R(b), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (b.disabled && b.closest('.tail') && pn) continue;   // under the result panel the buttons of the question are off
     if (hit !== b && !b.contains(hit)) { bad.push(`${b.id ? '#' + b.id : b.className.includes('bead') ? 'a bead' : `button "${b.innerText.trim()}"`} is covered or out of reach`); break; }
   }
   scrollTo(0, 0);
@@ -100,9 +114,47 @@ const independent = async () => {
   return us;
 };
 
-// the screens of the sweep: [name, how to get there] for each; the level screen is the only one so far
-const STATES = [];
-for (let sec = 0; sec < 6; sec++) for (let i = 0; i < 10; i++) for (const hints of [0, 1, 2]) STATES.push({ sec, i, hints });
+// rule 11: what is wrong with the map as it is now
+const inspectMap = () => {
+  const R = e => e.getBoundingClientRect(), q = s => document.querySelector(s), se = document.scrollingElement, bad = [], rings = [...document.querySelectorAll('#joc .ring')];
+  scrollTo(0, 0);
+  if (rings.length !== 3) return { u: NaN, scrolls: false, bad: [`${rings.length} bands on the map, expected 3`], info: '' };   // contract: spec «El mapa», tres cercles
+  for (let i = 0; i + 1 < rings.length; i++) if (R(rings[i]).bottom > R(rings[i + 1]).top + 1) bad.push(`band ${i} overlaps band ${i + 1}`);
+  if (se.scrollWidth > innerWidth) bad.push('horizontal scroll');
+  for (const r of rings) { const a = R(r); if (a.left < -1 || a.right > innerWidth + 1) bad.push('a band lies outside the screen'); }
+  const last = Math.round(R(rings[2]).bottom), scrolls = se.scrollHeight > innerHeight + 1;
+  for (const b of [...document.querySelectorAll('#joc .proj'), q('#toG'), q('#so')]) {
+    if (!b || b.hidden) continue;
+    if (b.scrollHeight > b.clientHeight + 1) { bad.push(`the text of ${b.innerText.split('\n')[0]} overflows its button`); break; }
+    b.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const r = R(b), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (hit !== b && !b.contains(hit)) { bad.push(`${b.id ? '#' + b.id : `button "${b.innerText.split('\n')[0]}"`} is covered or out of reach`); break; }
+  }
+  scrollTo(0, 0);
+  return { u: NaN, scrolls, bad, info: `last band ends at ${last} of ${innerHeight}` };
+};
+// the questions of project i: answer the question on screen right (as k-th of the project), by putting the abacus on the result or tapping the right option
+const answerRight = ([i, k]) => import('/games/abac-xines/logic.js').then(({ PROJECTS, plan }) => {
+  const q = PROJECTS[i].ex.flat()[k];
+  if (q.read !== undefined) return document.querySelector(`.opts [data-v="${q.read}"]`).click();
+  const goal = plan(q.q).goal;
+  for (const rod of document.querySelectorAll('.abacus .rod')) {
+    const p = +rod.dataset.p, d = Math.floor(goal / 10 ** p) % 10, wantHi = d >= 5 ? 1 : 0, wantLo = d % 5, bead = (deck, j) => rod.querySelector(`.bead[data-deck="${deck}"][data-j="${j}"]`);
+    const hi = rod.querySelectorAll('.bead.on[data-deck="hi"]').length, lo = rod.querySelectorAll('.bead.on[data-deck="lo"]').length;
+    if (hi !== wantHi) bead('hi', 0).click();
+    if (wantLo > lo) bead('lo', wantLo - 1).click(); else if (wantLo < lo) bead('lo', wantLo).click();
+  }
+  document.querySelector('#chk').click();
+});
+// a first mistake on the question on screen: «Comprova» on the abacus as it is, or a wrong option
+const mistake = i_k => import('/games/abac-xines/logic.js').then(({ PROJECTS }) => {
+  const q = PROJECTS[i_k[0]].ex.flat()[i_k[1]];
+  if (q.read !== undefined) document.querySelector(`.opts [data-v="${q.opts.find(v => v !== q.read)}"]`).click(); else document.querySelector('#chk').click();
+});
+const bump = page => page.evaluate(() => { window.__skew += 1000; });
+const onQuestion = (page, k) => page.waitForFunction(k => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === k, k, { timeout: 20000 });
+const openProject = async (page, i) => { await bump(page); await page.evaluate(i => document.querySelector(`.proj[data-p="${i}"]`).click(), i); await page.waitForSelector('#dots'); await settle(page); };
+const toMap = async page => { await bump(page); await page.evaluate(() => document.querySelector('#toM').click()); await page.waitForSelector('.map'); await settle(page); };
 
 // ---- the hints (rule 10). Expected values are written here from the spec table «Les pistes», not worked out by hints.js. A ghost is `tone@place deck index` (place 0 is the units,
 // index 0 the bead nearest the beam); the bead a ghost is on is the one the tap goes to (the far end of the group that travels), as in main.js. State: columns from the units, [lo, hi].
@@ -228,36 +280,55 @@ let failed = 0;
 for (const [w, h] of want) {
   const name = `${w}x${h}`, ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(BASE + '/index.html');
-  await page.evaluate(async save => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, SAVE);
-  await page.goto(BASE + '/abac-xines.html'); if (INJECT) await page.addStyleTag({ content: INJECT }); await settle(page);
-  const fails = [], us = []; let scrolling = 0;
-  let cur = null;
-  for (const st of STATES) {
-    if (cur !== st.sec) { await page.evaluate(() => document.querySelector('#toM').click()); await page.evaluate(s => document.querySelectorAll('.sec')[s].click(), st.sec); cur = st.sec; }
-    await page.evaluate(i => document.querySelectorAll('.levels button')[i].click(), st.i); await settle(page);
-    for (let k = 0; k < st.hints; k++) { await page.evaluate(() => document.querySelector('#hintb').click()); await settle(page); }
-    const r = await page.evaluate(inspect); us.push(r.u); if (r.scrolls) scrolling++;
+  await page.addInitScript(() => {
+    const now = performance.now.bind(performance), st = window.setTimeout.bind(window);
+    window.__skew = 0; performance.now = () => now() + window.__skew;
+    window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
+  });
+  const seed = async (save, who) => { await page.goto(BASE + '/index.html'); await page.evaluate(async ([save, who]) => { const P = await import('/shared/progress.js'); const a = P.add(who); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, [save, who]); await page.goto(BASE + '/abac-xines.html'); if (INJECT) await page.addStyleTag({ content: INJECT }); await page.waitForSelector('.map'); await settle(page); };
+  await seed(OPEN, 'Una');
+  const fails = [], us = []; let scrolling = 0, states = 0;
+  const judge = (label, r, projectScreen) => {
+    states++; if (r.scrolls) scrolling++; if (projectScreen) us.push(r.u);
     const need = MIN_U[name];
-    if (need && !(r.u >= need)) r.bad.push(`--u is ${r.u}, at least ${need} expected at ${name}`);
+    if (need && projectScreen && !(r.u >= need)) r.bad.push(`--u is ${r.u}, at least ${need} expected at ${name}`);
     if (need && r.scrolls) r.bad.push(`the page scrolls at ${name}`);
-    if (r.bad.length) fails.push(`s${st.sec + 1} l${st.i + 1} hint ${st.hints}: ${r.bad.join('; ')} (u ${r.u}, ${r.info})`);
+    if (r.bad.length) fails.push(`${label}: ${r.bad.join('; ')} (u ${r.u}, ${r.info})`);
+  };
+  judge('map (every circle open)', await page.evaluate(inspectMap), false);
+  // every question of every project, in order: fresh, after a first mistake (the first of each exercise), after the hint; then the result panel
+  for (let i = 0; i < 9; i++) {
+    await openProject(page, i);
+    for (let k = 0; k < 15; k++) {
+      try { await onQuestion(page, k); } catch (e) { fails.push(`p${i} q${k + 1}: the question did not come up`); break; }
+      await settle(page);
+      judge(`p${i} q${k + 1} fresh`, await page.evaluate(inspect, !!MIN_U[name]), true);
+      if (k % 5 === 0) { await bump(page); await page.evaluate(mistake, [i, k]); await settle(page); judge(`p${i} q${k + 1} first mistake`, await page.evaluate(inspect, !!MIN_U[name]), true); }
+      await bump(page); await page.evaluate(() => document.querySelector('#hintb').click()); await settle(page);
+      judge(`p${i} q${k + 1} hint`, await page.evaluate(inspect, !!MIN_U[name]), true);
+      await bump(page); await page.evaluate(answerRight, [i, k]);
+    }
+    try { await page.waitForSelector('.panel', { timeout: 20000 }); await settle(page); judge(`p${i} result panel`, await page.evaluate(inspect, !!MIN_U[name]), true); } catch (e) { fails.push(`p${i}: no result panel`); }
+    await toMap(page);
   }
-  await page.evaluate(() => document.querySelector('#toM').click()); await page.evaluate(() => document.querySelectorAll('.sec')[0].click());
-  await page.evaluate(() => document.querySelectorAll('.levels button')[9].click()); await settle(page);
   // rule 8 with any content: a left column 150px taller must not make the board bigger (nor break anything else)
-  const plain = await page.evaluate(inspect);
+  await openProject(page, 8); await onQuestion(page, 0); await settle(page);
+  const plain = await page.evaluate(inspect, !!MIN_U[name]);
   await page.evaluate(() => { const d = document.createElement('div'); d.id = 'sweepfill'; d.style.cssText = 'height:150px;width:10px;flex:none'; document.querySelector('#joc > .tail').append(d); }); await settle(page);
-  const full = await page.evaluate(inspect);
+  const full = await page.evaluate(inspect, !!MIN_U[name]);
   await page.evaluate(() => document.querySelector('#sweepfill').remove()); await settle(page);
   if (full.land && !(full.u <= plain.u)) full.bad.push(`--u grew from ${plain.u} to ${full.u}`);
-  if (full.bad.length) fails.push(`s1 l10 with 150px more in the tail: ${full.bad.join('; ')} (u ${full.u}, ${full.info})`);
-  if (name in MAY_SCROLL && scrolling > MAY_SCROLL[name]) fails.push(`the page scrolls in ${scrolling} states, ${MAY_SCROLL[name]} at the most expected at ${name}`);
+  if (full.bad.length) fails.push(`p8 q1 with 150px more in the tail: ${full.bad.join('; ')} (u ${full.u}, ${full.info})`);
   if (HINT_SIZES.includes(name)) fails.push(...await hintChecks(page, w, h));
   const same = await page.evaluate(independent);
   if (Math.max(...same) - Math.min(...same) > 0.25) fails.push(`the fit depends on the previous size: --u after 10px and 60px was ${same.join(', ')}`);
+  // the map with nothing done: every circle shut
+  await seed(SHUT, 'Dues');   // another profile: a save never lowers what the profile already has
+  judge('map (every circle shut)', await page.evaluate(inspectMap), false);
+  if (name in MAY_SCROLL && scrolling > MAY_SCROLL[name]) fails.push(`the page scrolls in ${scrolling} states, ${MAY_SCROLL[name]} at the most expected at ${name}`);
   if (errors.length) fails.push('page error: ' + errors[0]);
-  console.log(`${fails.length ? 'FAIL' : 'ok  '} ${name}: ${STATES.length} states, --u ${Math.min(...us)}..${Math.max(...us)}${scrolling ? `, scrolls in ${scrolling}` : ', no scroll'}${fails.length ? `, ${fails.length} failing` : ''}`);
+  const us2 = us.filter(Number.isFinite);
+  console.log(`${fails.length ? 'FAIL' : 'ok  '} ${name}: ${states} states, --u ${Math.min(...us2)}..${Math.max(...us2)}${scrolling ? `, scrolls in ${scrolling}` : ', no scroll'}${fails.length ? `, ${fails.length} failing` : ''}`);
   for (const f of fails.slice(0, 4)) console.log('     ' + f);
   failed += fails.length; await ctx.close();
 }
