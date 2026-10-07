@@ -99,10 +99,10 @@ export function hints(b) {
       } else if (m.why === 'borrow') {
         own();
         // the own column q and the digit d come from the difference (nextMove does not say them). The move is on column p, further left (p > q):
-        // one bead there is 10^(p-q) of the own column, so the card says -d = -that + (that - d): -3 = -10 +7 next door, -1 = -100 +99 two columns away
+        // one bead there is 10^(p-q) of the own column (five times that when it is the heaven bead), so the card says -d = -that + (that - d): -3 = -10 +7 next door, -1 = -100 +99 two columns away
         const diff = on.goal == null ? 0 : valueOf(rods) - on.goal;
         if (diff > 0) {
-          const q = Math.min(String(diff).length - 1, n - 1), d = Math.min(10, Math.floor(diff / 10 ** q)), big = 10 ** (p - q);
+          const q = Math.min(String(diff).length - 1, n - 1), d = Math.min(10, Math.floor(diff / 10 ** q)), big = 10 ** (p - q) * (deck === 'hi' ? 5 : 1);
           if (p > q) { put(q); card.push(`−${d} = −${big} +${big - d}`); }
         }
       }

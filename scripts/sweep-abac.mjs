@@ -127,7 +127,10 @@ const HINT_CASES = [
   // contract: spec «Les pistes», borrow: targeta −8 = −10 +2, vermella a l'esquerra i verda a la pròpia (−3 = −10 +7 per a 10-3)
   { id: 'borrow 10-3', rods: [[0], [1], [0]], t: 7, ghosts: ['take@1lo0', 'put@0lo0'], card: '−3 = −10 +7', label: null, now: '10 = 10' },
   // contract: spec «Les pistes», borrow, i la quantitat és la veritable: 100-1 treu una bola de les centenes, que val 100 de les unitats, no 10 (−1 = −100 +99)
-  { id: 'borrow 100-1', rods: [[0], [0], [1]], t: 99, ghosts: ['take@2lo0', 'put@0lo0'], card: '−1 = −100 +99', label: null, now: '100 = 100' }
+  { id: 'borrow 100-1', rods: [[0], [0], [1]], t: 99, ghosts: ['take@2lo0', 'put@0lo0'], card: '−1 = −100 +99', label: null, now: '100 = 100' },
+  // contract: spec «Les pistes», borrow, i la targeta diu el que treu la fantasma vermella: si és la bola de dalt val cinc cops més (50-3: −3 = −50 +47; 500-1: −1 = −500 +499)
+  { id: 'borrow 50-3', rods: [[0], [0, 1], [0]], t: 47, ghosts: ['take@1hi0', 'put@0lo0'], card: '−3 = −50 +47', label: null, now: '50 = 50' },
+  { id: 'borrow 500-1', rods: [[0], [0], [0, 1]], t: 499, ghosts: ['take@2hi0', 'put@0lo0'], card: '−1 = −500 +499', label: null, now: '500 = 500' }
 ];
 // in the page: mount(case) puts a board in the stage with the hint of the case showing; read() says what the layer holds and whether each ghost is on its bead
 const hintKit = () => {
@@ -154,7 +157,7 @@ const hintKit = () => {
       }
       return {
         ghosts: ghosts.map(g => `${g.classList.contains('put') ? 'put' : g.classList.contains('take') ? 'take' : '?'}@${g.dataset.p}${g.dataset.deck}${g.dataset.j}`).sort(),
-        card: layer.querySelector('.hcard')?.textContent ?? null, label: layer.querySelector('.hlab')?.textContent ?? null, now: layer.querySelector('.hnow')?.textContent ?? null,
+        card: layer.querySelector('.hcard')?.textContent ?? null, goal: layer.querySelector('.hgoal')?.textContent ?? null, label: layer.querySelector('.hlab')?.textContent ?? null, now: layer.querySelector('.hnow')?.textContent ?? null,
         off, kids: layer.children.length
       };
     }
@@ -196,6 +199,18 @@ async function hintChecks(page, w, h) {
   });
   const mixed = await page.evaluate(() => window.__hint.read());
   if (mixed.ghosts.length) out.push(`hint: ${mixed.ghosts.length} ghost(s) of the old state stay after set() and strip() in one tick`);   // contract: plan Task 9, Review Focus 3, la pista següent es calcula amb l'àbac d'aquell moment
+  if (mixed.now !== '40 + 7 = 47' || mixed.goal !== '50 = 50') out.push(`hint: after set() and strip(50) in one tick the strip is «${mixed.now}» over «${mixed.goal}», expected «40 + 7 = 47» over «50 = 50»`);   // contract: spec «Les pistes», la tira de valors del que marca l'àbac i, a sota, la del que ha de marcar
+  // on a board that did not change, strip(target) and show(move) add up, in either order (the hint button of a project calls both)
+  for (const order of ['strip first', 'show first']) {
+    await page.evaluate(sc => window.__hint.mount(sc, 'none'), HINT_CASES[0]);
+    await page.evaluate(async order => {
+      const { nextMove } = await import('/games/abac-xines/logic.js'), b = window.__hb, h = window.__hh, m = nextMove(b.rods(), 4);
+      if (order === 'strip first') { h.strip(4); h.show(m, 4); } else { h.show(m, 4); h.strip(4); }
+      await window.__hint.frame();
+    }, order);
+    const both = await page.evaluate(() => window.__hint.read());
+    if (!same(both.ghosts, ['put@0lo3']) || both.goal !== '4 = 4') out.push(`hint (${order}): ghosts ${both.ghosts} and goal line «${both.goal}», expected put@0lo3 and «4 = 4»`);   // contract: spec «Les pistes», la tira (amb la línia del que ha de marcar) i el dibuix del motiu es veuen alhora
+  }
   // no loops under reduced motion (and the check is not empty: with motion the ghosts do loop)
   await page.evaluate(sc => window.__hint.mount(sc), ten);
   const moving = await page.evaluate(loops);
