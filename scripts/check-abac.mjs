@@ -1,6 +1,6 @@
 // Checks the questions of l'àbac before every build: the 9 projects of 3 exercises of 5, the three circles, the pool of the Piscina and the rule of each project
 // (worked out again here with arithmetic of its own: plan only tells what the abacus is asked to show, never what the answer is).
-// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js] [path of a style.css to check instead of games/abac-xines/style.css] [path of a hints.js] [path of a main.js]   (the paths are for trying the checker itself)
+// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js] [path of a style.css to check instead of games/abac-xines/style.css] [path of a hints.js] [path of a main.js] [path of an abac-xines.html]   (the paths are for trying the checker itself)
 // One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add the next parts above the footer.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -886,7 +886,7 @@ function partD() {
     // the beads are the board's: no class or style written on one, and no pseudo-element of a bead for the hints
     check(!/\.classList\.(add|remove|toggle)\b/.test(code), 'D: hints.js changes the classes of an element with classList: a bead is the board\'s, the hints only add their own layer');   // contract: plan Task 9 i spec «Global Constraints», sense pseudoelements ni estats a .bead
     const pseudo = [...css.matchAll(/(\.bead[\w.-]*)\s*::(before|after)/g)].map(m => m[1] + '::' + m[2]).sort().join(' ');
-    check(pseudo === '.bead.next::after .bead::before', `D: style.css has the pseudo-elements of the bead «${pseudo}», expected only «.bead.next::after .bead::before» (the highlight and the arrow of the gold bead): the hints draw in their own layer, never on a bead`);   // contract: spec «Global Constraints», les capes de pista no fan servir pseudoelements de .bead
+    check(pseudo === '.bead::before', `D: style.css has the pseudo-elements of the bead «${pseudo}», expected only «.bead::before» (its highlight): the hints draw in their own layer, never on a bead, and the gold bead of the old hint is gone`);   // contract: spec «Global Constraints», les capes de pista no fan servir pseudoelements de .bead
     check(!/company|segon/i.test(hintsText), 'D: hints.js talks about a companion or a second player');   // contract: spec «Global Constraints», el nen juga sol
     // the rules of the layer
     const rules = [...css.matchAll(/([^{}@;]*)\{([^}]*)\}/g)].map(m => ({ sel: m[1].trim(), body: m[2] }));
@@ -907,7 +907,58 @@ function partD() {
     if (mainText === null) { check(false, `D: main.js cannot be read: ${mainError}`); return; }
     check((mainText.match(/id="hintb">Dona'm una pista<\/button>/g) || []).length === 2, "D: main.js does not have the two hint buttons (reading and operation) called «Dona'm una pista»");   // contract: spec «Les pistes», el botó es diu «Dona'm una pista»
     check(/from '\.\/hints\.js'/.test(mainText) && /hn\.show\(/.test(mainText) && /hn\.strip\(/.test(mainText), 'D: the hint button of main.js does not call hints (show for a move, strip for reading)');   // contract: plan Task 9, el botó de pista d'avui crida hints
-    check(/bd\.onMove\(\([^)]*\)\s*=>\s*\{[^}]*hn\.stop\(\)/.test(mainText.replace(/\n/g, ' ')), 'D: the onMove of main.js does not call hn.stop(): a hint would stay over a state that no longer is');   // contract: plan Task 9, Review Focus 3, board.onMove crida stop()
+    check(/bd\.onMove\(moved\)/.test(mainText) && /function moved\([^)]*\)\s*\{[^}]*hn\.stop\(\)/.test(mainText.replace(/\n/g, ' ')), 'D: main.js does not pass `moved` to bd.onMove, or `moved` does not call hn.stop(): a hint would stay over a state that no longer is');   // contract: plan Task 9, Review Focus 3, board.onMove crida stop()
+  });
+  // the map and the project screen (task 10): main.js and the page are read as text, because what they must never do (write secs, hand a question in twice, leave a wait without the token) is a matter of what is written
+  sectionD('the map and the project screen', () => {
+    if (mainText === null) { check(false, `D: main.js cannot be read: ${mainError}`); return; }
+    const code = mainText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1'), flat = code.replace(/\s+/g, ' ');
+    // the progress: loaded through clean(), saved whole, secs never written
+    check(/\bprog\s*=\s*clean\(\s*load\(\s*KEY\s*\)\s*\)/.test(flat) && /const KEY = 'abac-xines'/.test(flat), "D: main.js does not load the progress through clean(load(KEY)) with KEY 'abac-xines': a save of the old shape would be shown as it is, with no marks");   // contract: spec «El que es desa», clean(d) fa un progrés vàlid de qualsevol JSON; la clau continua sent abac-xines
+    check(/const save = \(\) => store\(KEY, prog\)/.test(flat), 'D: main.js does not save the whole progress (store(KEY, prog)): a field left out would be lost from the save');   // contract: spec «El que es desa», es desa sencer
+    check(!/\bsecs\b\s*(\[[^\]]*\])?\s*=[^=]/.test(code) && !/\bsecs\s*:/.test(code) && !/\bsecs\b\s*\.\s*(push|splice|fill|pop|shift|unshift|sort|reverse)\b/.test(code), 'D: main.js writes secs (an assignment, a property or a call that changes it): the new game never does');   // contract: spec «El que es desa», el joc nou no l'escriu mai
+    // the old sections of the shared menu are not used any more; the panel stays
+    for (const name of ['sectionMenu', 'levelRow', 'wireLevels']) check(!new RegExp(`\\b${name}\\b`).test(code), `D: main.js still uses ${name}, the sections of the old game`);   // contract: plan Task 10, deixen d'usar-se
+    check(/import \{[^}]*\bpanel\b[^}]*\} from '\.\.\/\.\.\/shared\/sections\.js'/.test(code), 'D: main.js does not import panel from shared/sections.js');   // contract: plan Task 10, panel es conserva
+    check(!/\b(SECTIONS|LEVELS)\b/.test(code), 'D: main.js still uses SECTIONS or LEVELS, the old levels');   // contract: plan Task 10, SECTIONS i LEVELS es deixen d'usar
+    // the discipline of the screens: a token that every wait looks at, and a pause against the double tap
+    check(/function fresh\(\) \{ tok\.on = false; tok = \{ on: true \};[^}]*hn\?\.stop\(\);[^}]*bd\?\.stop\(\);/.test(flat), 'D: fresh() of main.js does not cancel the token and stop the hints and the board of the screen it leaves: a hint that plays would go on over the map');   // contract: plan Task 10, fresh() cancel·la la pantalla anterior; Task 9, play no s'atura sol quan es canvia de pantalla
+    const sleeps = (flat.match(/await sleep\(/g) || []).length, guarded = (flat.match(/await sleep\([^)]*\); if \(!t\.on\) return;/g) || []).length, plays = (flat.match(/await hn\.play\(/g) || []).length, playsGuarded = (flat.match(/await hn\.play\([^;]*\); if \(!t\.on\) return;/g) || []).length;
+    check(sleeps > 0 && sleeps === guarded && plays === playsGuarded && plays > 0, `D: main.js has ${sleeps} waits (sleep) of which ${guarded} look at the token after, and ${plays} plays of which ${playsGuarded} do: a screen left in the middle of a wait would go on to the next question`);   // contract: plan Task 10, cada espera comprova el testimoni
+    check(/play\(pl\.goal, \(\) => t\.on\)/.test(flat), 'D: the play of main.js is not tied to the token of the screen (play(goal, () => t.on))');   // contract: plan Task 9, el callback de play s'enllaça al testimoni de la pantalla
+    check(/const SETTLE = 450;/.test(flat), 'D: main.js has no SETTLE = 450 (the guard against the double tap)');   // contract: plan Task 10, guarda de 450 ms contra el doble toc
+    check(/addEventListener\('click', e => \{ if \(tight && !ready\(\)\) e\.stopPropagation\(\); \}, true\)/.test(flat) && /openAt = performance\.now\(\) \+ SETTLE/.test(flat), 'D: main.js does not ignore taps (in the capture phase) for SETTLE after a screen or a question comes up');   // contract: plan Task 10, guarda de 450 ms
+    check((flat.match(/performance\.now\(\) < tryAt/g) || []).length >= 2 && (flat.match(/tryAt = performance\.now\(\) \+ SETTLE/g) || []).length >= 2, 'D: main.js does not keep a second attempt away for SETTLE after a mistake, on «Comprova» and on the options: a double tap would count two mistakes');   // contract: plan Task 10, Review Focus 1, un doble toc a «Comprova» compta un sol intent
+    // a question is kept once, and the project is handed in at once on the last one
+    check(/function record\(\) \{ run\[k\] = \{ tries, helped \};[^}]*if \(k === qs\.length - 1\) \{ done = handIn\(prog, i, run\); prog = done\.prog; save\(\); \}/.test(flat), 'D: record() of main.js does not keep { tries, helped } for the question and hand the project in (handIn, prog replaced, save) on the last one');   // contract: plan Task 10, en acabar: handIn, desar
+    check((flat.match(/\brecord\(\)/g) || []).length === 3 && /busy = true; hn\.stop\(\); bd\.lock\(true\); record\(\);/.test(flat) && /busy = true; record\(\); bd\.lock\(true\);/.test(flat), 'D: main.js does not set busy before it records a question, in both places (the right answer and the second mistake): a second tap would record it twice');   // contract: plan Task 10, el projecte no pot registrar una pregunta dues vegades (handIn només compta les 15 primeres)
+    // the hints of a project: the first mistake shows the strip of the result, the second plays it; the hint button marks the question before it draws anything, and passes the target to show
+    check(/tries > 1\) return solve\(\); hn\.strip\(pl\.goal\);/.test(flat) && /await hn\.play\(pl\.goal,/.test(flat), 'D: main.js does not call hn.strip(goal) at the first mistake and hn.play(goal) at the second');   // contract: spec «Fallar», al primer error es veu què marca l'àbac i què hauria de marcar; al segon, l'àbac es resol sol pas a pas
+    const hintFn = /function hint\(\) \{([\s\S]*?)\n  \}/.exec(code);
+    check(!!hintFn && /helped = true;/.test(hintFn[1]) && hintFn[1].indexOf('helped = true;') < hintFn[1].indexOf('hn.strip('), 'D: hint() of main.js does not set helped = true before the first hn.strip(): the strip of a question of reading prints the answer');   // contract: plan Task 10, marca la pregunta com a ajudada abans de dibuixar-la
+    check(!!hintFn && /hn\.show\(m, to\)/.test(hintFn[1]) && /hn\.strip\(\)/.test(hintFn[1]) && /hn\.strip\(to\)/.test(hintFn[1]), 'D: hint() of main.js does not call hn.strip() for reading, and hn.strip(target) with hn.show(move, target) for an operation (a borrow has no card without the target)');   // contract: plan Task 10 i Task 9, show rep el nombre que ha de marcar
+    check(/async function right\(\) \{ busy = true; hn\.stop\(\);/.test(flat) && /function finish\(\) \{[^}]*hn\.stop\(\);/.test(flat), 'D: main.js does not stop the hints before the result panel and when a question is answered (the layer is over the panel)');   // contract: plan Task 10, hints.stop() abans d'obrir el tauler de resultats
+    check(/if \(\+b\.dataset\.v === pl\.goal\) return right\(\); tries\+\+;[^}]*?b\.disabled = true;/.test(flat), 'D: a wrong option of main.js is not disabled and counted as an attempt');   // contract: plan Task 10, una opció dolenta es desactiva i compta com a intent
+    check(/v === pl\.goal && tidy\(rods\)\) return right\(\); tries\+\+;/.test(flat), 'D: «Comprova» of main.js does not count a miss for the right number on an untidy abacus');   // contract: spec «Un projecte», bona quan l'àbac marca el resultat i està endreçat
+    // the rows of the feet and the questions of the project
+    check(/\['full', 'letter', 'none'\]/.test(flat) && /\['ex00', 'ex01', 'ex02'\]/.test(flat), "D: main.js does not name the exercises ex00, ex01 and ex02 or give them the feet 'full', 'letter' and 'none'");   // contract: spec «Un projecte», la taula dels tres exercicis
+    check(/PROJECTS\[i\]/.test(flat) && /P\.ex\.flat\(\)/.test(flat), 'D: the project screen of main.js does not take its 15 questions from PROJECTS[i].ex');   // contract: spec «Un projecte», 15 preguntes seguides
+    // the texts on the screen
+    check(!/company|segon/i.test(mainText), 'D: main.js talks about a companion or a second player');   // contract: spec «Global Constraints», el nen juga sol
+    check(!/prem Pista/i.test(mainText), "D: main.js still says «prem Pista»: the button is called «Dona'm una pista»");   // contract: plan Task 10, el text «prem Pista» es retira
+    check(/id="chk">Comprova<\/button>/.test(code) && /id="rst">Reinicia<\/button>/.test(code) && (code.match(/id="hintb">Dona'm una pista<\/button>/g) || []).length === 2 && (code.match(/class="acts"/g) || []).length === 1 && ((/<div class="acts">(.*?)<\/div>/.exec(code) || [])[1] || '').split('<button').length === 4, 'D: the row of buttons of main.js is not «Comprova», «Reinicia» and «Dona\'m una pista» (style.css sizes the row for these three labels)');   // contract: plan Task 10 i Task 9, la fila de tres botons
+    // the layout of the screens: head, stage and tail are the direct children of #joc.lvl, in that order, and nothing else
+    check(/\$\('#joc'\)\.classList\.toggle\('lvl', inner\)/.test(flat) && /root\.innerHTML = `<div class="head">[\s\S]*?<\/div>\s*<div class="stage" id="stage"><\/div>\s*<div class="tail" id="tail"><\/div>`;/.test(code), 'D: the project screen of main.js is not `.head`, `.stage` and `.tail` as the direct children of #joc.lvl');   // contract: plan Task 10 i Task 8, un fill fora d'aquests tres cau en una fila que l'escenari no cobreix
+    // the page
+    check(/const HUB = \/abac-xines\\\.html\$\/\.test\(location\.pathname\)/.test(flat), 'D: the HUB expression of main.js does not point to abac-xines.html');   // contract: plan Task 10, l'expressió HUB continua apuntant a abac-xines.html
+    if (htmlText === null) check(false, `D: abac-xines.html cannot be read: ${htmlError}`);
+    else {
+      check(!/data-hub/.test(htmlText), 'D: abac-xines.html has data-hub');   // contract: common.md, abac-xines.html no porta data-hub
+      check(/<section id="joc"><\/section>/.test(htmlText), 'D: abac-xines.html has no <section id="joc">');   // contract: plan Task 10, #joc es conserva
+      check(/id="toM" hidden>← Mapa<\/button>/.test(htmlText) && !/Seccions/.test(htmlText), 'D: abac-xines.html does not say «← Mapa» on the back button, or still says «Seccions»');   // contract: plan Task 10, «← Seccions» passa a «← Mapa»
+    }
+    // what the old hint left in the stylesheet
+    check(cssText !== null && !/\.rod\.glow|\.bead\.next|@keyframes column|\.levels\b/.test(cssText.replace(/\/\*[\s\S]*?\*\//g, '')), 'D: style.css still has the glow of a column, the gold bead of the old hint or the row of levels');   // contract: plan Task 10, es treuen els residus de la pista antiga
   });
 }
 // the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call
@@ -936,12 +987,13 @@ if (mod) for (const part of [partA, partB, partC]) {
   try { part(mod); } catch (e) { check(false, `${part.name} stopped on ${e.message}`); }
 }
 // part D does not need the logic under check: the card is the real one, and board.js is read as text (argv[3] names another file, to try the pin itself)
-let hub = null, boardText = null, boardError = '', cssText = null, cssError = '', hintsText = null, hintsError = '', mainText = null, mainError = '';
+let htmlText = null, htmlError = '', hub = null, boardText = null, boardError = '', cssText = null, cssError = '', hintsText = null, hintsError = '', mainText = null, mainError = '';
 try { hub = await import('../shared/games.js'); } catch (e) { check(false, `D: shared/games.js cannot be loaded: ${e.message}`); }
 try { boardText = readFileSync(process.argv[3] ? resolve(process.argv[3]) : new URL('../games/abac-xines/board.js', import.meta.url), 'utf8'); } catch (e) { boardError = e.message; }
 try { cssText = readFileSync(process.argv[4] ? resolve(process.argv[4]) : new URL('../games/abac-xines/style.css', import.meta.url), 'utf8'); } catch (e) { cssError = e.message; }
 try { hintsText = readFileSync(process.argv[5] ? resolve(process.argv[5]) : new URL('../games/abac-xines/hints.js', import.meta.url), 'utf8'); } catch (e) { hintsError = e.message; }
 try { mainText = readFileSync(process.argv[6] ? resolve(process.argv[6]) : new URL('../games/abac-xines/main.js', import.meta.url), 'utf8'); } catch (e) { mainError = e.message; }
+try { htmlText = readFileSync(process.argv[7] ? resolve(process.argv[7]) : new URL('../abac-xines.html', import.meta.url), 'utf8'); } catch (e) { htmlError = e.message; }
 try { partD(); } catch (e) { check(false, `partD stopped on ${e.message}`); }
 
 // ---- footer
