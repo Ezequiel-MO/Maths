@@ -20,7 +20,7 @@
 //      the back link and the sound button are the thing at their own centre. The project screen's rules above hold at every question (the 15 dots are in the head)
 //  12. the result panel (task 10) lies inside the stage (at the sizes of MIN_U: a small phone has a stage at its floor, smaller than the panel, and the page scrolls there anyway) and its
 //      buttons are the thing at their own centre (the board under it is covered on purpose)
-// Two seams, put in the page before it loads and not in the game: performance.now() moved on by window.__skew (a tap right after a question comes up is ignored for 450 ms; the sweep moves
+// Two seams, put in the page before it loads and not in the game: performance.now() and event.timeStamp moved on by window.__skew (a tap right after a question comes up is ignored for 450 ms; the sweep moves
 // the clock past that before each tap) and a timer of 400 ms or more ten times faster (the pauses between questions).
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 // Run (the dev server must be up: `npm run dev`, which prints its port; on this machine it is 5199):
@@ -284,6 +284,8 @@ for (const [w, h] of want) {
   await page.addInitScript(() => {
     const now = performance.now.bind(performance), st = window.setTimeout.bind(window);
     window.__skew = 0; performance.now = () => now() + window.__skew;
+    const stamp = Object.getOwnPropertyDescriptor(Event.prototype, 'timeStamp').get;   // the game measures a double tap with the time of the taps: they move with the clock
+    Object.defineProperty(Event.prototype, 'timeStamp', { configurable: true, get() { return stamp.call(this) + window.__skew; } });
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
   });
   const seed = async (save, who) => { await page.goto(BASE + '/index.html'); await page.evaluate(async ([save, who]) => { const P = await import('/shared/progress.js'); const a = P.add(who); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, [save, who]); await page.goto(BASE + '/abac-xines.html'); if (INJECT) await page.addStyleTag({ content: INJECT }); await page.waitForSelector('.map'); await settle(page); };
