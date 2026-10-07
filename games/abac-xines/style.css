@@ -19,6 +19,7 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
    measuring come out the same whatever size the board had before. */
 #app.wide #joc { flex: 1 1 0; margin-bottom: 0; justify-content: center; }
 .head > .levels { flex: none; }
+.tail { container-type: inline-size; }
 .head, .tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .status { font-weight: 800; }
@@ -73,13 +74,33 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 .bead.next { background: radial-gradient(ellipse at 50% 30%, #fff, var(--sun) 62%); box-shadow: 0 0 0 2px #fff, 0 0 16px 5px var(--sun); animation: lit 1s ease-in-out infinite; z-index: 1; }
 .bead.next::after { content: attr(data-a); position: absolute; inset: 0; display: grid; place-items: center; color: #2A1C00; font: 800 0.8rem/1 var(--display); }
 
+/* the drawn hints (hints.js): one layer inside the board's own element, placed from it in pixels, that no tap ever meets. It is over the beams and the
+   gold bead (z-index), and under the abacus it uses the room the feet keep (3.5rem) for the strip of values and the trick card, so it adds nothing to the
+   size of the board, the head or the tail. Nothing here is a pseudo-element of a bead: those are the bead's own. */
+.hints, .hints * { pointer-events: none; }
+.hints { position: absolute; inset: 0; z-index: 5; }
+.hv { position: absolute; transform: translate(-50%, -50%); font: 800 max(9px, calc(var(--u) * 0.45))/1 var(--display); color: #2A1C00; font-variant-numeric: tabular-nums; text-shadow: 0 0 3px rgb(255 255 255 / 0.55); }
+.hlab { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; padding: 0.1em 0.45em; border-radius: 99px; background: rgb(8 24 33 / 0.92); border: 1px solid hsl(var(--h) 100% 70% / 0.7);
+  font: 800 max(10px, calc(var(--u) * 0.5))/1.2 var(--display); color: #fff; }
+.ghost { position: absolute; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 calc(var(--u) * 0.5)/1 var(--display); text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  animation: ghost 1.7s ease-in-out infinite; }
+.ghost.put { background: rgb(60 220 110 / 0.62); border: 2px solid #8CFFB0; box-shadow: 0 0 12px 2px rgb(60 220 110 / 0.7); }
+.ghost.take { background: rgb(255 80 70 / 0.55); border: 2px solid #FFA39B; box-shadow: 0 0 12px 2px rgb(255 80 70 / 0.7); }
+.hpanel { position: absolute; left: 14px; right: 14px; bottom: 8px; height: 3.5rem; box-sizing: border-box; padding: 3px 6px; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  background: #081821; border: 1px solid rgb(255 214 160 / 0.3); font-family: var(--display); font-weight: 800; font-variant-numeric: tabular-nums; }
+.hl { max-width: 100%; white-space: nowrap; font-size: min(0.85rem, calc(var(--u) * 0.58)); line-height: 1.25; color: rgb(255 244 220 / 0.92); }
+.hl span { color: hsl(var(--h) 100% 78%); }
+.hgoal { opacity: 0.75; }
+.hcard { color: var(--sun); }
+
 .acts, .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .acts { flex-wrap: nowrap; width: 100%; max-width: 400px; }
-.acts .btn { flex: 1 1 auto; min-height: 44px; font-size: 1.1rem; padding: 0.35em 0.5em; white-space: nowrap; }
+.acts .btn { flex: 1 1 auto; min-width: 0; min-height: 44px; font-size: clamp(0.8rem, calc((100cqw - 24px) / 21), 1.1rem); padding: 0.35em 0.5em; white-space: nowrap; }   /* the three buttons fit one row in the width of the tail, whatever it is (a phone upright, or half a screen on its side): 21em is the text of «Comprova», «Reinicia» and «Dona'm una pista» with their padding */
 .opts .btn { min-width: 72px; min-height: 48px; font-size: 1.4rem; padding: 0.2em 0.7em; font-variant-numeric: tabular-nums; }
 .opts .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 @keyframes lit { 50% { filter: brightness(1.7) saturate(1.4); } }
+@keyframes ghost { 0%, 20% { transform: none; opacity: 0.9; } 75%, 100% { transform: translate(var(--fx), var(--fy)); opacity: 0.3; } }
 @keyframes column { 0%, 100% { background: rgb(247 198 78 / 0.1); } 50% { background: rgb(247 198 78 / 0.34); } }
 /* a tablet or a laptop: bigger type and the title back over the level */
 @media (min-width: 700px) {
@@ -121,4 +142,5 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   h1, .panel, .abacus.shake, .bead.wave, .bead.next { animation: none; }
   .bead { transition: none; }
   .rod.glow { animation: none; background: rgb(247 198 78 / 0.28); }
+  .ghost { animation: none; }   /* the ghosts stay on their bead with the arrow: no loop */
 }

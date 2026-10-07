@@ -5,6 +5,7 @@ import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.
 import { load, save as store } from '../../shared/progress.js';
 import { rodVal, valueOf, tidy, write, plan, nextMove, SECTIONS, LEVELS } from './logic.js';
 import { board, HUES, COL } from './board.js';
+import { hints } from './hints.js';
 
 const KEY = 'abac-xines';
 
@@ -73,11 +74,11 @@ function nivell(sec, idx) {
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
     <p class="task" id="task"></p></div>
     <div class="stage" id="stage"></div>
-    <div class="tail">${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Pista</button></div>`
-      : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Pista</button></div>`}</div>`;
+    <div class="tail">${reading ? `<div class="opts" id="opts">${lv.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn soft" id="hintb">Dona'm una pista</button></div>`
+      : `<div class="acts"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="rst">Reinicia</button><button class="btn soft" id="hintb">Dona'm una pista</button></div>`}</div>`;
   // the abacus measures the box of the stage by itself (board.js); its state is the rods above
   bd = board($('#stage'), { n, feet: digits ? 'full' : 'letter', tone });
-  const ab = bd.el, beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')];
+  const hn = hints(bd), ab = bd.el, beads = [...ab.querySelectorAll('.bead')], cols = [...ab.querySelectorAll('.rod')];
   wireLevels(root, i => nivell(sec, i));
   const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
   const target = () => pl.stages[Math.min(stage, pl.stages.length - 1)];
@@ -97,7 +98,7 @@ function nivell(sec, idx) {
     tip(txt, 'oops');
   }
   async function win() {
-    done = true; mark = null; draw();
+    done = true; mark = null; hn.stop(); draw();
     if (idx + 1 > prog.secs[sec]) { prog.secs[sec] = idx + 1; save(); }
     const end = idx === 9, last = end && sec === SECTIONS.length - 1, lit = beads.filter(b => b.classList.contains('on'));
     tip(reading ? `Sí! L'àbac marca ${pl.goal}.` : `Correcte! L'àbac marca ${pl.goal}.`, 'go');
@@ -125,21 +126,21 @@ function nivell(sec, idx) {
     const hint = lv.hints[asks++ % lv.hints.length];
     if (reading) {
       // reading has no move to give away: the second hint writes what each column is worth under it
-      if (asks > 1) { digits = true; mark = null; draw(); return tip('Sota cada columna hi ha el que val. Ajunta les xifres d\'esquerra a dreta. ' + hint); }
-      mark = { p: n - 1 - cols.findIndex(c => rodVal(rods[+c.dataset.p])) }; draw();
+      if (asks > 1) { digits = true; mark = null; draw(); hn.strip(); return tip('Sota cada columna hi ha el que val. Ajunta les xifres d\'esquerra a dreta. ' + hint); }
+      mark = { p: n - 1 - cols.findIndex(c => rodVal(rods[+c.dataset.p])) }; draw(); hn.strip();
       return tip('Comença per la columna que brilla. ' + hint);
     }
     const m = nextMove(rods, target());
     if (!m) return tip("L'àbac ja marca el resultat. Prem Comprova!", 'go');
     const now = JSON.stringify(rods), again = now === seen, k = Math.abs(m.to - rods[m.p][m.deck]);
-    seen = now; mark = { p: m.p, m: again ? m : null }; draw();
+    seen = now; mark = { p: m.p, m: again ? m : null }; draw(); hn.show(m, target());
     if (!again) return tip("Fixa't en la columna que brilla. " + (WHY[m.why] ? WHY[m.why](m.d) : hint));
     const up = (m.deck === 'lo') === (m.to > rods[m.p][m.deck]);
     tip(`${up ? 'Puja' : 'Baixa'} ${k} ${k > 1 ? 'boles' : 'bola'} ${m.deck === 'hi' ? 'de dalt' : 'de baix'} a la columna ${COL[m.p]}: toca la bola daurada.`);
   }
 
   bd.onMove((r, m) => {
-    rods = r; mark = null;
+    rods = r; mark = null; hn.stop();
     const k = pl.stages.lastIndexOf(valueOf(rods)); if (k >= stage) stage = k + 1;
     draw();
     if (rods[m.p][m.deck] > m.was) { const c = mid(m.bead); FX.burst(c.x, c.y, m.deck === 'hi' ? 44 : HUES[m.p], 7, c.w * 1.3); }
@@ -150,7 +151,7 @@ function nivell(sec, idx) {
     const b = e.target.closest('button'); if (!b || done) return;
     if (b.id === 'chk') check();
     else if (b.id === 'hintb') coach();
-    else if (b.id === 'rst') { rods = write(pl.start, n); stage = 0; mark = null; draw(); tip(lv.tip); tone(330, 0, 0.12, 0.06); }
+    else if (b.id === 'rst') { rods = write(pl.start, n); stage = 0; mark = null; hn.stop(); draw(); tip(lv.tip); tone(330, 0, 0.12, 0.06); }
     else if ('v' in b.dataset) {
       if (+b.dataset.v === pl.goal) return win();
       b.disabled = true; oops('No és aquest. Compta només les boles que toquen la barra. Si no saps com seguir, prem Pista.');

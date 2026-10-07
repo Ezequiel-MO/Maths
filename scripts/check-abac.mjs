@@ -1,6 +1,6 @@
 // Checks the questions of l'àbac before every build: the 9 projects of 3 exercises of 5, the three circles, the pool of the Piscina and the rule of each project
 // (worked out again here with arithmetic of its own: plan only tells what the abacus is asked to show, never what the answer is).
-// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js] [path of a style.css to check instead of games/abac-xines/style.css]   (the paths are for trying the checker itself)
+// Run: node scripts/check-abac.mjs [path of a logic module to check instead of games/abac-xines/logic.js] [path of a board.js to check instead of games/abac-xines/board.js] [path of a style.css to check instead of games/abac-xines/style.css] [path of a hints.js] [path of a main.js]   (the paths are for trying the checker itself)
 // One function per part, each reporting alone: a part whose data is missing says so and the next one still runs. Later tasks add the next parts above the footer.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -874,6 +874,41 @@ function partD() {
     const query = medias.length ? medias[medias.length - 1][1].replace(/\s+/g, ' ').trim() : '';
     check(/^\(\s*orientation:\s*landscape\s*\)$/.test(query), `D: the grid of #joc.lvl in style.css is under «@media ${query}», expected «@media (orientation: landscape)» alone: with a limit of height the laptop windows fall back to one column and the board is left at the floor`);   // contract: sizing contract of Task 8, rule 6 (fix round 3)
   });
+
+  // the drawn hints (task 9): read as text, because what they must never do is a matter of what is written
+  sectionD('hints.js and its layer', () => {
+    if (hintsText === null) { check(false, `D: hints.js cannot be read: ${hintsError}`); return; }
+    const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    const code = strip(hintsText), css = cssText === null ? '' : strip(cssText);
+    // placed from the board, never from the page: a fixed or document-coordinate layer drifts when the page scrolls (the stage is sticky on a screen on its side)
+    check(!/position\s*:\s*fixed|\bscrollY\b|\bscrollX\b|\bpageYOffset\b|\bpageXOffset\b|document\.(body|documentElement|scrollingElement)/.test(code), 'D: hints.js uses position: fixed, the scroll of the page or the body: the layer must be placed inside the board\'s own element, from its own box');   // contract: plan Task 9, la capa és filla de l'escenari o de l'àbac, mai fixed ni amb coordenades del document
+    check(/\bel\.append\(\s*layer\s*\)|b\.el\.append\(\s*layer\s*\)/.test(code), 'D: hints.js does not append its layer to the element of the board');   // contract: plan Task 9, les capes van en un element propi sobre l'àbac
+    // the beads are the board's: no class or style written on one, and no pseudo-element of a bead for the hints
+    check(!/\.classList\.(add|remove|toggle)\b/.test(code), 'D: hints.js changes the classes of an element with classList: a bead is the board\'s, the hints only add their own layer');   // contract: plan Task 9 i spec «Global Constraints», sense pseudoelements ni estats a .bead
+    const pseudo = [...css.matchAll(/(\.bead[\w.-]*)\s*::(before|after)/g)].map(m => m[1] + '::' + m[2]).sort().join(' ');
+    check(pseudo === '.bead.next::after .bead::before', `D: style.css has the pseudo-elements of the bead «${pseudo}», expected only «.bead.next::after .bead::before» (the highlight and the arrow of the gold bead): the hints draw in their own layer, never on a bead`);   // contract: spec «Global Constraints», les capes de pista no fan servir pseudoelements de .bead
+    check(!/company|segon/i.test(hintsText), 'D: hints.js talks about a companion or a second player');   // contract: spec «Global Constraints», el nen juga sol
+    // the rules of the layer
+    const rules = [...css.matchAll(/([^{}@;]*)\{([^}]*)\}/g)].map(m => ({ sel: m[1].trim(), body: m[2] }));
+    const layerRules = rules.filter(r => /(^|[\s,])\.hints\b/.test(r.sel));
+    check(layerRules.some(r => /(^|,)\s*\.hints\s*\*/.test(r.sel) && /pointer-events:\s*none/.test(r.body) && /(^|,)\s*\.hints\s*(,|$)/.test(r.sel)), 'D: style.css has no rule `.hints, .hints * { pointer-events: none }`: the layer (and everything in it) would take the taps meant for the beads');   // contract: spec «Les pistes», tot es dibuixa amb pointer-events: none i es pot tocar igual mentre es veu
+    check(layerRules.some(r => /position:\s*absolute/.test(r.body) && /inset:\s*0/.test(r.body)), 'D: the `.hints` rule of style.css is not `position: absolute; inset: 0`: the layer would not lie over the board\'s own box');   // contract: plan Task 9, la capa va sobre l'àbac, relativa a ell
+    check(!layerRules.concat(rules.filter(r => /\.(ghost|hv|hlab|hpanel)\b/.test(r.sel))).some(r => /position:\s*(fixed|sticky)/.test(r.body)), 'D: a rule of the hint layer in style.css is position: fixed or sticky');   // contract: plan Task 9, mai fixed
+    // reduced motion: every infinite animation of the hints is switched off in the media query
+    const reduced = (/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)\s*\{([\s\S]*)$/.exec(css) || [])[1] || '';
+    const loops = rules.filter(r => /\.ghost\b|\.hints\b|\.hv\b|\.hlab\b|\.hpanel\b/.test(r.sel) && /infinite/.test(r.body));
+    check(loops.length > 0, 'D: no rule of style.css loops the ghosts (the check below would then say nothing)');   // contract: spec «Les pistes», amb moviment reduït no hi ha bucles
+    for (const l of loops) {
+      const first = l.sel.split(',')[0].trim();
+      check(reduced.split('}').some(r => r.includes(first) && /animation:\s*none/.test(r)), `D: the loop of ${first} is not switched off under prefers-reduced-motion: reduce`);   // contract: common.md, amb prefers-reduced-motion no hi ha cap animació en bucle
+    }
+  });
+  sectionD('the hint button', () => {
+    if (mainText === null) { check(false, `D: main.js cannot be read: ${mainError}`); return; }
+    check((mainText.match(/id="hintb">Dona'm una pista<\/button>/g) || []).length === 2, "D: main.js does not have the two hint buttons (reading and operation) called «Dona'm una pista»");   // contract: spec «Les pistes», el botó es diu «Dona'm una pista»
+    check(/from '\.\/hints\.js'/.test(mainText) && /hn\.show\(/.test(mainText) && /hn\.strip\(/.test(mainText), 'D: the hint button of main.js does not call hints (show for a move, strip for reading)');   // contract: plan Task 9, el botó de pista d'avui crida hints
+    check(/bd\.onMove\(\([^)]*\)\s*=>\s*\{[^}]*hn\.stop\(\)/.test(mainText.replace(/\n/g, ' ')), 'D: the onMove of main.js does not call hn.stop(): a hint would stay over a state that no longer is');   // contract: plan Task 9, Review Focus 3, board.onMove crida stop()
+  });
 }
 // the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call
 function uCalls(text) {
@@ -901,10 +936,12 @@ if (mod) for (const part of [partA, partB, partC]) {
   try { part(mod); } catch (e) { check(false, `${part.name} stopped on ${e.message}`); }
 }
 // part D does not need the logic under check: the card is the real one, and board.js is read as text (argv[3] names another file, to try the pin itself)
-let hub = null, boardText = null, boardError = '', cssText = null, cssError = '';
+let hub = null, boardText = null, boardError = '', cssText = null, cssError = '', hintsText = null, hintsError = '', mainText = null, mainError = '';
 try { hub = await import('../shared/games.js'); } catch (e) { check(false, `D: shared/games.js cannot be loaded: ${e.message}`); }
 try { boardText = readFileSync(process.argv[3] ? resolve(process.argv[3]) : new URL('../games/abac-xines/board.js', import.meta.url), 'utf8'); } catch (e) { boardError = e.message; }
 try { cssText = readFileSync(process.argv[4] ? resolve(process.argv[4]) : new URL('../games/abac-xines/style.css', import.meta.url), 'utf8'); } catch (e) { cssError = e.message; }
+try { hintsText = readFileSync(process.argv[5] ? resolve(process.argv[5]) : new URL('../games/abac-xines/hints.js', import.meta.url), 'utf8'); } catch (e) { hintsError = e.message; }
+try { mainText = readFileSync(process.argv[6] ? resolve(process.argv[6]) : new URL('../games/abac-xines/main.js', import.meta.url), 'utf8'); } catch (e) { mainError = e.message; }
 try { partD(); } catch (e) { check(false, `partD stopped on ${e.message}`); }
 
 // ---- footer

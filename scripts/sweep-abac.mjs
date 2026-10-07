@@ -11,6 +11,7 @@
 //   8. on a screen on its side the board is never taller than the screen and is in view, with the page at the top and scrolled to the
 //      bottom, whatever the left column holds: besides the 180 states, one more with 150px of filling in the tail, where --u must not grow
 //   and reach: the level buttons, the back button (#toM) and a bead are checked like the other buttons
+//   9. a hint on show (after the hint button) lies inside the board's own box, takes no taps, and its lines fit their panel; it adds no scroll (rule 2 judges that)
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 // Run (the dev server must be up: `npm run dev`, which prints its port; on this machine it is 5199):
 //   PLAYWRIGHT_CORE=/home/olive/.claude/jobs/90bddb97/tmp/node_modules BASE=http://localhost:5199 node scripts/sweep-abac.mjs [390x844,844x390 ...]
@@ -48,6 +49,17 @@ const inspect = () => {
   scrollTo(0, 0);
   const a = R(ab), s = R(stage), land = getComputedStyle(joc).display === 'grid', stageMin = parseFloat(getComputedStyle(stage).minHeight) || 0;
   if (a.top < s.top - 1 || a.bottom > s.bottom + 1 || a.left < s.left - 1 || a.right > s.right + 1) bad.push('board outside its stage');
+  // a hint on show (the hint button was pressed): everything it draws lies inside the board's own box, and none of it takes a tap
+  const layer = ab.querySelector('.hints');
+  if (layer) {
+    for (const e of layer.querySelectorAll('*')) {
+      const r = R(e);
+      if (r.left < a.left - 1 || r.right > a.right + 1 || r.top < a.top - 1 || r.bottom > a.bottom + 1) { bad.push(`a hint (${e.className}) lies outside the board`); break; }
+      if (getComputedStyle(e).pointerEvents !== 'none') { bad.push(`a hint (${e.className}) takes taps`); break; }
+    }
+    const wide = [...layer.querySelectorAll('.hpanel > *')].find(l => l.scrollWidth > l.parentElement.clientWidth + 1);
+    if (wide) bad.push(`a line of the strip is wider than its panel (${wide.textContent})`);
+  }
   const rows = [land ? [head, tail] : [head, stage, tail], [...head.children], [...tail.children]];
   for (const g of rows) for (let i = 0; i + 1 < g.length; i++) if (R(g[i]).bottom > R(g[i + 1]).top + 1) bad.push(`${g[i].className || g[i].id} overlaps ${g[i + 1].className || g[i + 1].id}`);
   if (se.scrollWidth > innerWidth) bad.push('horizontal scroll');
