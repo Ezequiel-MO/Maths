@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { SECTIONS, ELEMENTS, GROUPS, MOLS, INKS, POINTS, el, byZ, placeOf, shells, the, de, formula, blend, pctHow, starsFor, clean, xpOf, rankOf, starsOf, doneOf, levelIn } from './logic.js';
+import { SECTIONS, ELEMENTS, GROUPS, MOLS, INKS, POINTS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, blend, pctHow, starsFor, clean, xpOf, rankOf, starsOf, doneOf, levelIn } from './logic.js';
 
 const KEY = 'laboratori-de-l-estany';
 // for now every section and every level is open, to try the game out
@@ -162,7 +162,10 @@ function find({ t, L, stage, tip, slip, win }) {
     const b = e.target.closest('.el'); if (!b || busy) return;
     sel = el(b.dataset.s); blip(440 + sel.z * 8);
     tiles.forEach(x => x.classList.toggle('sel', x === b)); $('#ok').disabled = false;
-    $('#info').innerHTML = `${tile(sel, true)}<p><b>${cap(sel.name)}</b> · ${GROUPS[sel.group][0]} · ${sel.z} ${sel.z > 1 ? 'protons' : 'protó'}<br><span>${sel.fact}</span></p>`;
+    // the atom of the square touched, turning: its protons and neutrons in the middle and its electrons on their shells
+    const nn = neutronsOf(sel.z), few = v => v === 1;
+    $('#info').innerHTML = `${atomSvg(sel.z, nn)}<p><b>${sel.sym} · ${cap(sel.name)}</b> · ${GROUPS[sel.group][0]}
+      <span class="parts3"><span><i class="pt p"></i>${sel.z} ${few(sel.z) ? 'protó' : 'protons'}</span><span><i class="pt n"></i>${nn} ${few(nn) ? 'neutró' : 'neutrons'}</span><span><i class="pt e"></i>${sel.z} ${few(sel.z) ? 'electró' : 'electrons'}</span></span><br><span>${sel.fact}</span></p>`;
   };
   $('#ok').onclick = async () => {
     if (!sel || busy || !t.on) return;
@@ -180,15 +183,16 @@ function find({ t, L, stage, tip, slip, win }) {
 /* ---------- build an atom: protons decide the element, neutrons add to its mass ---------- */
 // protons and neutrons in a spiral at the middle, and the electrons on their shells, turning
 function atomSvg(p, n) {
-  const R = [42, 60, 78, 96], mix = [];
+  const R = [42, 60, 78, 96, 114, 132], mix = [];
   for (let i = 0, a = 0, b = 0; i < p + n; i++) mix.push(a < p && (b >= n || a * (n || 1) <= b * p) ? (a++, 'p') : (b++, 'n'));
-  const sh = shells(p), V = (R[sh.length - 1] || 30) + 10;
+  // a big nucleus is drawn with smaller particles, so it always fits inside the first shell
+  const sh = shells(p), V = (R[sh.length - 1] || 30) + 10, d = Math.min(4.6, 31 / Math.sqrt(p + n || 1));
   // the turning is SVG's own, round the middle of the drawing whatever its size
-  const turn = i => RM ? '' : `<animateTransform attributeName="transform" type="rotate" from="${i % 2 ? 360 : 0}" to="${i % 2 ? 0 : 360}" dur="${[5, 9, 14, 20][i]}s" repeatCount="indefinite"/>`;
+  const turn = i => RM ? '' : `<animateTransform attributeName="transform" type="rotate" from="${i % 2 ? 360 : 0}" to="${i % 2 ? 0 : 360}" dur="${[5, 9, 14, 20, 27, 35][i]}s" repeatCount="indefinite"/>`;
   return `<svg class="atomv" viewBox="${-V} ${-V} ${2 * V} ${2 * V}" aria-hidden="true">
-    ${sh.map((m, i) => `<circle class="orbit" r="${R[i]}"/><g>${turn(i)}${Array.from({ length: m }, (_, k) => { const a = k / m * 2 * Math.PI; return `<circle class="e" cx="${(R[i] * Math.cos(a)).toFixed(1)}" cy="${(R[i] * Math.sin(a)).toFixed(1)}" r="4.5"/>`; }).join('')}</g>`).join('')}
-    <circle class="glow" r="${10 + 4.6 * Math.sqrt(p + n)}"/>
-    ${mix.map((k, i) => { const r = 4.6 * Math.sqrt(i + 0.2), a = i * 2.39996; return `<circle class="nu ${k}" cx="${(r * Math.cos(a)).toFixed(1)}" cy="${(r * Math.sin(a)).toFixed(1)}" r="4.4"/>`; }).join('')}</svg>`;
+    ${sh.map((m, i) => `<circle class="orbit" r="${R[i]}"/><g>${turn(i)}${Array.from({ length: m }, (_, k) => { const a = k / m * 2 * Math.PI; return `<circle class="e" cx="${(R[i] * Math.cos(a)).toFixed(1)}" cy="${(R[i] * Math.sin(a)).toFixed(1)}" r="${m > 18 ? 3.6 : 4.5}"/>`; }).join('')}</g>`).join('')}
+    <circle class="glow" r="${10 + d * Math.sqrt(p + n)}"/>
+    ${mix.map((k, i) => { const r = d * Math.sqrt(i + 0.2), a = i * 2.39996; return `<circle class="nu ${k}" cx="${(r * Math.cos(a)).toFixed(1)}" cy="${(r * Math.sin(a)).toFixed(1)}" r="${(d * 0.96).toFixed(2)}"/>`; }).join('')}</svg>`;
 }
 function atom({ t, L, stage, tip, slip, win }) {
   const E = el(L.sym), mass = L.n != null;

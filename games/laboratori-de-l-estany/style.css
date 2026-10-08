@@ -87,8 +87,12 @@ sub { font-size: 0.62em; line-height: 0; }
 .el.big { flex: none; width: 64px; aspect-ratio: 1; border-radius: 14px; } .el.big b { font-size: 1.9rem; } .el.big i { font-size: 0.75rem; left: 6px; top: 5px; }
 .el.none { --h: 200; border-style: dashed; opacity: 0.6; }
 .famous { grid-row: 5; grid-column: 1 / -1; align-self: end; padding-top: 4px; font: 800 0.72rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-.info { width: 100%; max-width: 560px; min-height: 80px; display: flex; gap: 12px; align-items: center; justify-content: center; padding: 7px 12px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
-.info p:not(.cap) { flex: 1; text-align: left; font-size: 0.92rem; line-height: 1.25; } .info p b { font: 800 1.15rem/1 var(--display); } .info p span { color: var(--muted); }
+/* who the touched square is: its atom turning, and next to it its name, what it is made of and where a child knows it from */
+.info { width: 100%; max-width: 560px; min-height: 164px; display: flex; gap: 14px; align-items: center; justify-content: center; padding: 7px 12px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
+.info .atomv { flex: none; width: min(38vw, 150px); animation: pop 0.3s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.info p:not(.cap) { flex: 1; text-align: left; font-size: 0.92rem; line-height: 1.3; } .info p > b { font: 800 1.15rem/1 var(--display); } .info p span { color: var(--muted); }
+.info .parts3 { display: flex; flex-direction: column; margin-block: 3px; color: var(--ink); font-weight: 700; font-size: 0.9rem; line-height: 1.25; }
+.info .parts3 span { display: flex; gap: 6px; align-items: center; color: var(--ink); } .info .pt { flex: none; width: 10px; height: 10px; }
 
 /* the atom: shells that turn round a heap of protons and neutrons */
 .atomv { width: min(58vw, 240px); overflow: visible; }
@@ -99,7 +103,7 @@ sub { font-size: 0.62em; line-height: 0; }
 .atomv.won { animation: bob 0.5s ease-in-out 4 alternate; filter: drop-shadow(0 0 16px var(--sun)); }
 .who { display: flex; flex-direction: column; gap: 6px; align-items: center; min-width: 130px; font-size: 0.9rem; line-height: 1.3; color: var(--muted); }
 .who p b { color: var(--ink); font: 800 1.15rem/1.1 var(--display); }
-.pt { width: 14px; height: 14px; border-radius: 50%; } .pt.p { background: #FF6B5E; } .pt.n { background: #C2D1D6; }
+.pt { width: 14px; height: 14px; border-radius: 50%; } .pt.p { background: #FF6B5E; } .pt.n { background: #C2D1D6; } .pt.e { background: #6FE3FF; box-shadow: 0 0 6px #6FE3FF; }
 
 /* atoms as balls: in the tray to pick, in the flask to count, and joined into a molecule once they are right */
 .ball { width: calc(var(--r) * 3.3px); aspect-ratio: 1; border-radius: 50%; display: inline-grid; place-items: center; color: #06161C; font-weight: 800; font-size: 0.85rem; line-height: 1;

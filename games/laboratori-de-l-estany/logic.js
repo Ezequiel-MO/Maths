@@ -27,8 +27,12 @@ export const el = sym => ELEMENTS.find(e => e.sym === sym);
 export const byZ = z => ELEMENTS.find(e => e.z === z);
 // where each one sits: eight columns, as the short table; the famous metals are a row of their own (row 5)
 export const placeOf = e => e.z > 20 ? [5, ELEMENTS.indexOf(e) - 19] : e.z === 1 ? [1, 1] : e.z === 2 ? [1, 8] : [Math.floor((e.z - 3) / 8) + 2, (e.z - 3) % 8 + 1];
-// the electrons of each shell of an atom with z protons, up to calcium
-export const shells = z => [2, 8, 8, 2].map((cap, i) => Math.max(0, Math.min(cap, z - [0, 2, 10, 18][i]))).filter(Boolean);
+// the electrons of each shell of an atom with z protons: filled in order up to calcium, and written out for the famous metals
+const HEAVY = { 26: [2, 8, 14, 2], 29: [2, 8, 18, 1], 30: [2, 8, 18, 2], 47: [2, 8, 18, 18, 1], 50: [2, 8, 18, 18, 4], 79: [2, 8, 18, 32, 18, 1], 80: [2, 8, 18, 32, 18, 2], 82: [2, 8, 18, 32, 18, 4] };
+export const shells = z => HEAVY[z] || [2, 8, 8, 2].map((cap, i) => Math.max(0, Math.min(cap, z - [0, 2, 10, 18][i]))).filter(Boolean);
+// the neutrons of the most common atom of each element
+const NEUTRONS = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 6, 6: 6, 7: 7, 8: 8, 9: 10, 10: 10, 11: 12, 12: 12, 13: 14, 14: 14, 15: 16, 16: 16, 17: 18, 18: 22, 19: 20, 20: 20, 26: 30, 29: 34, 30: 35, 47: 60, 50: 70, 79: 118, 80: 122, 82: 126 };
+export const neutronsOf = z => NEUTRONS[z];
 const vowel = s => /^[aeiouhàèéíòóú]/i.test(s);
 export const the = n => vowel(n) ? `l'${n}` : n === 'plata' ? 'la plata' : `el ${n}`;
 export const de = n => vowel(n) ? `d'${n}` : `de ${n}`;
