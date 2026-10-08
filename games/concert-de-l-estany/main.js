@@ -4,8 +4,8 @@ import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, NOTES, WHERE, FIGS, INTERVALS, POINTS, VALID, EXAM_PASS, beatsText, temps, starsFor, ratio, clean, noteOf, levelText, isOpen, examOpen,
-  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn } from './logic.js';
-import { staff, glyph } from './score.js';
+  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, drill } from './logic.js';
+import { staff, glyph, board } from './score.js';
 import { band } from './sound.js';
 
 const KEY = 'concert-de-l-estany';
@@ -54,7 +54,7 @@ const WAVE = '<svg class="wave" id="wave" viewBox="0 0 300 40" preserveAspectRat
 const TUBES = `<div class="tubes">${NOTES.map((n, i) => `<button class="tube" data-n="${i}" style="--h:${n.hue};--l:${n.len / 180}" aria-label="${n.name}"><span>${n.short}</span></button>`).join('')}</div>`;
 
 const HURRAY = ['Bravo!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin concert!'];
-const HUES = [175, 262, 28, 205, 318, 48, 140];
+const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85];
 const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const frac = (n, d) => `<span class="fr"><b>${n}</b><i>${d}</i></span>`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
@@ -101,7 +101,7 @@ let openAt = 0;
 const spark = (el, h = 48) => { if (el) { const p = mid(el); FX.burst(p.x, p.y, h, 14, 120); } };
 const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
 // each kind of level draws its stage and gives back its hint: a function that shows the help and returns what the tip says
-const KIND = { play, cut, cm, beat, step, fit, drum: tapping, chord, pair };
+const KIND = { play, cut, cm, beat, step, fit, drum: tapping, chord, pair, spot, place };
 
 /* ---------- the map: three bands, one button for each project and the exam of the circle at the end ---------- */
 const RING = [140, 195, 262];   // the colour of each circle
@@ -222,7 +222,8 @@ function level(sec, idx) {
 /* ---------- the exam of a circle: six levels of its projects, one try each, no hints, saved by the sixth ---------- */
 // what the frog says instead of the tip of the level: only what there is to do
 const ASK = { play: 'Toca la partitura amb els tubs.', cut: 'Talla el tub de Do perquè soni la nota.', cm: 'Tria quants centímetres fa el tub.', beat: 'Tria la figura que falta al compàs.',
-  step: 'Toca el tub on arriba el salt.', fit: 'Tria quantes n\'hi caben.', drum: 'Prem «1 · Escolta» i després «2 · Ara jo!».', chord: 'Tria els tubs de l\'acord.', pair: 'Escolta els dos grups i tria\'n un.' };
+  step: 'Toca el tub on arriba el salt.', fit: 'Tria quantes n\'hi caben.', drum: 'Prem «1 · Escolta» i després «2 · Ara jo!».', chord: 'Tria els tubs de l\'acord.', pair: 'Escolta els dos grups i tria\'n un.',
+  spot: 'Toca el tub de cada nota.', place: 'Posa cada nota al seu lloc i prem «Aquí!».' };
 // Each question is a level played as ever, but its first slip ends it as missed and there is no hint button: the level gets a token of its own
 // that goes off with the answer, so nothing of it moves afterwards. Nothing is saved before the sixth answer, which is handed in at once (examIn).
 function examen(c) {
@@ -378,6 +379,69 @@ function play({ t, L, stage, tip, slip, spark, win }) {
   keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1); };
   arm(); tip(L.say);
   return () => { if (busy) return ''; const w = tune[k][0]; tubes[w].classList.add('hint'); return `La nota que brilla és ${WHERE[w]}: és el ${NOTES[w].name}. El seu tub fa pampallugues.`; };
+}
+
+/* ---------- the place of each note on the staff, one note at a time ---------- */
+// a note with no colour and no name: tap its tube. Once found it takes its colour and its name, and the next one comes
+function spot({ t, L, stage, tip, slip, spark, win }) {
+  const seq = drill(L.set, L.n, Math.random), t0 = performance.now();
+  stage.innerHTML = `<div class="row"><div class="sheet mini tall" id="sheet"></div><p class="goal two">Nota <b class="sun" id="cnt"></b><br>de ${seq.length}</p></div>${WAVE}${TUBES}`;
+  const { tubes, ring } = tubesOf(stage);
+  let k = 0, busy = false;
+  const draw = done => { const N = NOTES[seq[k]]; $('#sheet').innerHTML = staff([{ step: seq[k], fig: 'r', ...(done && { hue: N.hue, label: N.short }) }], { bars: false }); $('#cnt').textContent = k + 1; };
+  async function tap(i) {
+    if (busy || !t.on) return;
+    const want = seq[k];
+    ring(i);
+    if (i !== want) { slip(); tubes[i].classList.add('shake'); return tip(`Ui! Aquest tub és el ${NOTES[i].name}. La nota és ${WHERE[want]}: és el ${NOTES[want].name}.`, 'oops'); }
+    busy = true; tubes.forEach(e => e.classList.remove('hint')); draw(true); spark($('#sheet'), NOTES[i].hue);
+    await sleep(550); if (!t.on) return;
+    if (++k < seq.length) { busy = false; return draw(false); }
+    const secs = Math.round((performance.now() - t0) / 1000);
+    tip('Totes al seu tub!', 'go');
+    win(`${seq.length} notes en ${secs} segons`);
+  }
+  stage.querySelector('.tubes').onclick = e => { const b = e.target.closest('.tube'); if (b) tap(+b.dataset.n); };
+  keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1); };
+  draw(false); tip(L.say);
+  return () => { if (busy) return ''; const w = seq[k]; tubes[w].classList.add('hint'); return `La nota és ${WHERE[w]}: és el ${NOTES[w].name}. El seu tub fa pampallugues.`; };
+}
+
+// the other way round: the name of a note, to put on the staff. A tap on a line or a space leaves the note there (and it can be moved);
+// «Aquí!» hands it in
+function place({ t, L, stage, tip, slip, spark, win }) {
+  const seq = drill(L.set, L.n, Math.random);
+  stage.innerHTML = `<p class="goal" id="goal"></p><div class="sheet board" id="sheet"></div><button class="btn" id="here" disabled>Aquí!</button><p class="cap" id="cnt"></p>`;
+  const sheet = $('#sheet'), here = $('#here');
+  let k = 0, at = null, busy = false, lit = false;
+  const draw = done => {
+    sheet.innerHTML = done ? board(at, NOTES[at].hue, NOTES[at].short) : board(at);
+    if (lit && !done) sheet.querySelector(`[data-s="${seq[k]}"]`).classList.add('hint');
+    here.disabled = at == null || busy;
+  };
+  const ask = () => {
+    at = null; busy = lit = false;
+    $('#goal').innerHTML = `Posa el <b class="sun">${NOTES[seq[k]].name}</b> al seu lloc`; $('#cnt').textContent = `Nota ${k + 1} de ${seq.length}`;
+    draw(false);
+  };
+  const put = s => { if (busy || !t.on) return; at = s; sing(NOTES[s].freq, 0.4, NOTES[s].hue); draw(false); };
+  async function check() {
+    if (busy || at == null || !t.on) return;
+    const want = seq[k], N = NOTES[want];
+    if (at !== want) { slip(); again(sheet).add('shake'); return tip(`Ui! Aquí hi va el ${NOTES[at].name}. El ${N.name} va ${WHERE[want]}.`, 'oops'); }
+    busy = true; draw(true); sing(N.freq, 0.6, N.hue); spark(sheet, N.hue); tip(`Sí! El ${N.name} va ${WHERE[want]}.`, 'go');
+    await sleep(1100); if (!t.on) return;
+    if (++k < seq.length) return ask();
+    win(`${seq.length} notes al seu lloc`);
+  }
+  sheet.onclick = e => { const b = e.target.closest('.spot'); if (b) put(+b.dataset.s); };
+  here.onclick = check;
+  keyFn = e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault(); put(e.key === 'ArrowUp' ? Math.min(7, (at ?? -1) + 1) : Math.max(0, (at ?? 8) - 1));
+  };
+  ask(); tip(L.say);
+  return () => { if (busy) return ''; lit = true; draw(false); return `El ${NOTES[seq[k]].name} va ${WHERE[seq[k]]}. El seu lloc s'ha pintat de taronja.`; };
 }
 
 /* ---------- from one note to another: the interval counts both ends ---------- */

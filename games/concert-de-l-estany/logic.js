@@ -1,6 +1,6 @@
-// The rules and the data of the concert, with no page in it. Seven projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Nine projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
-// (and tapping a bar in time), whole songs, and chords. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// (and tapping a bar in time), whole songs, chords, more scores in colour, and the place of each note on the staff. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of three circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -49,6 +49,11 @@ const taps = (beats, figs, ms, say) => ({ kind: 'drum', title: 'Tambor', beats, 
 const chord = (name, notes, say) => ({ kind: 'chord', title: `Acord de ${name}`, name, notes, say });
 // two groups of notes to listen to and compare; good is the one to choose and why says what the numbers show
 const pair = (sets, good, why, say, q = 'Quin grup sona més rodó?') => ({ kind: 'pair', title: 'Compara', sets, good, why, say, q });
+// n notes out of set, one at a time and in an order of chance (drill, below): spot shows each one white on the staff, to find its tube;
+// place says its name, to put it on the staff
+const spot = (title, set, n, say) => ({ kind: 'spot', title, set, n, say });
+const place = (title, set, n, say) => ({ kind: 'place', title, set, n, say });
+const ALL = [0, 1, 2, 3, 4, 5, 6, 7];
 
 export const SECTIONS = [
   { name: 'Llegeix i toca', sub: 'Llegeix la partitura i toca-la amb els tubs.', levels: [
@@ -125,6 +130,31 @@ export const SECTIONS = [
     chord('Do gran', [0, 2, 4, 7], 'Quatre notes: l\'acord de Do i, a dalt de tot, el Do agut.'),
     pair([[0, 3, 5], [0, 3, 6]], 0, 'Do, Fa i La fan 3, 4 i 5. Canviant només el La pel Si surten 24, 32 i 45: un sol tub ho espatlla tot.', 'Els dos grups només canvien en una nota.'),
     pair([[2, 4, 6], [0, 2, 4]], 1, 'Tots dos sonen bé. El de 4, 5 i 6 és un acord major, alegre; el de 10, 12 i 15 és menor, més fosc i trist.', 'Els dos són acords de debò. Escolta\'n el caràcter.', 'Quin acord sona més alegre?')
+  ] },
+  // These two came after the others and stay at the end, whatever circle they are in: a save keeps its stars by the place of the project
+  { name: 'Més notes de colors', sub: 'Més partitures amb les notes pintades com els tubs.', levels: [
+    play('Do, Re, Mi', '0n 1n 2n 1n | 0n 2n 0b', 1, 'Cada nota té el color del seu tub. Mira el color, mira on és la nota i toca.'),
+    play('Mi, Fa, Sol', '2n 3n 4n 3n | 2n 4n 2b', 1, 'Tres notes més amunt: Mi, Fa i Sol. Com més amunt és la nota, més curt és el tub.'),
+    play('Puja i baixa', '0n 1n 2n 3n | 4n 3n 2n 1n | 0r', 1, 'Cinc notes amunt i cinc avall, graó a graó. Acaba amb una rodona.'),
+    play('Salts de colors', '0n 2n 4n 2n | 0n 4n 0b', 1, 'Ara amb salts: de Do a Mi, de Mi a Sol. Fixa\'t que totes tres notes tenen una ratlla.'),
+    play('A dalt de tot', '4n 5n 6n 7n | 7n 6n 5n 4n', 1, 'Les quatre notes de dalt: Sol, La, Si i Do agut. El Si i el Do agut tenen el pal cap avall.'),
+    play('Hänschen klein', '4n 2n 2b | 3n 1n 1b | 0n 1n 2n 3n | 4n 4n 4b', 1, 'Una cançó alemanya que canten els nens petits. Comença baixant de Sol a Mi.'),
+    play('Oda a l\'alegria', '2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 2b 1b', 1, 'La melodia de Beethoven, ara amb colors. Va gairebé sempre per graons.'),
+    play('When the Saints', 'sn 0n 2n 3n | 4r | sn 0n 2n 3n | 4r', 1, 'Cada frase comença amb un silenci i acaba amb un Sol ben llarg.'),
+    play('Jingle Bells', '2n 2n 2b | 2n 2n 2b | 2n 4n 0n 1n | 2r', 1, 'Molts Mi seguits, tots del mateix color. Compta\'ls bé!'),
+    play('Amunt i avall', '0n 1n 2n 3n | 4n 5n 6n 7n | 7n 6n 5n 4n | 3n 2n 1n 0n', 1, 'Tota l\'escala, de Do a Do agut i tornar. Tots els colors, un darrere l\'altre.')
+  ] },
+  { name: 'Cada nota al seu lloc', sub: 'Ratlles i espais: on viu cada nota del pentagrama?', levels: [
+    spot('Ratlles', [2, 4, 6], 6, 'Mi, Sol i Si viuen a les ratlles: la ratlla els passa pel mig. Mi a la primera, Sol a la segona, Si a la tercera. Toca el tub de cada nota.'),
+    spot('Espais', [3, 5, 7], 6, 'Fa, La i Do agut viuen als espais, entre dues ratlles: Fa al primer, La al segon, Do agut al tercer.'),
+    spot('A baix de tot', [0, 1, 2], 6, 'El Do té una ratlleta per a ell sol. El Re penja just sota la primera ratlla. I el Mi ja és a la primera ratlla.'),
+    place('Posa a les ratlles', [2, 4, 6], 4, 'Ara al revés: jo dic la nota i tu la poses. Toca el pentagrama on va i prem «Aquí!». Aquestes tres van a les ratlles.'),
+    place('Posa als espais', [3, 5, 7], 4, 'Aquestes tres van als espais: Fa al primer, La al segon, Do agut al tercer.'),
+    spot('De Do a Sol', [0, 1, 2, 3, 4], 8, 'Pujant per l\'escala, les notes van fent ratlla, espai, ratlla, espai.'),
+    place('Posa de Do a Sol', [0, 1, 2, 3, 4], 5, 'Les cinc primeres notes, cadascuna al seu lloc. El Do, a la seva ratlleta de sota.'),
+    spot('Totes vuit', ALL, 10, 'Totes les notes, barrejades. No comptis des de baix: mira la ratlla o l\'espai i ja ho saps!'),
+    place('Posa-les totes', ALL, 6, 'Qualsevol de les vuit notes. Pensa primer: va a una ratlla o a un espai?'),
+    spot('A tota velocitat', ALL, 14, 'L\'últim! Catorze notes seguides. Al final veuràs quants segons has trigat: pots tornar-hi per anar més de pressa.')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -134,7 +164,7 @@ export const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
 // a project is one of the sections above, with its ten levels; the circles keep them in the order they were written in
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
-  { name: 'Notes i tubs', projects: [0, 1] },
+  { name: 'Notes i tubs', projects: [0, 7, 8, 1] },
   { name: 'Ritme i salts', projects: [2, 3, 4] },
   { name: 'El gran concert', projects: [5, 6] }
 ];
@@ -149,7 +179,7 @@ export const POINTS = [0, 5, 8, 10];
 export const VALID = 80;
 export const EXAM_PASS = 5;
 
-// What is saved is facts only: { so, secs[7], stars[70], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[9], stars[90], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
@@ -167,12 +197,12 @@ const copy = p => ({ ...p, secs: p.secs.slice(), stars: p.stars.slice(), exams: 
 // the functions below take a progress that is already clean
 export const noteOf = (p, i) => p.stars.slice(i * 10, i * 10 + 10).reduce((s, n) => s + POINTS[n], 0);
 const validated = p => PROJECTS.flatMap((_, i) => noteOf(p, i) >= VALID ? [i] : []);
-// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1110 at most
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1370 at most
 export function xpOf(p) {
   const v = validated(p);
   return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + noteOf(p, i), 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
 }
-// the level is the XP over 150, with two decimals and a comma: from 0,00 to 7,40
+// the level is the XP over 150, with two decimals and a comma: from 0,00 to 9,13
 export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
 // circle 0 opens with the Piscina and the others with the exam before them, and only when the circle before is open too
 export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && p.exams[c - 1] === true;
@@ -206,9 +236,19 @@ function shuffle(a, rnd) {
   for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
+// The n notes of a drill: the set over and over, shuffled each time, so every note comes up and none comes twice in a row
+export function drill(set, n, rnd) {
+  const out = [];
+  while (out.length < n) {
+    const bag = shuffle(set.slice(), rnd);
+    if (bag.length > 1 && bag[0] === out.at(-1)) bag.push(bag.shift());
+    out.push(...bag);
+  }
+  return out.slice(0, n);
+}
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
-// its project, and idx added. A score to play is cut to its first six signs and loses its colours and names: in an exam there is
-// one try and no help. A circle that does not exist gives the first.
+// its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
+// is cut to four: in an exam there is one try and no help. A circle that does not exist gives the first.
 export function exam(c, rnd) {
   const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
   const draw = p => {
@@ -216,7 +256,7 @@ export function exam(c, rnd) {
     for (let n = 0; n < 10 && used.has(p * 10 + idx); n++) idx = (idx + 1) % 10;   // walk on from a random place, so it ends even if rnd never varies
     used.add(p * 10 + idx);
     const L = PROJECTS[p].levels[idx];
-    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0 }), p, idx };
+    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0 }), ...((L.kind === 'spot' || L.kind === 'place') && { n: Math.min(L.n, 4) }), p, idx };
   };
   const list = ps.map(draw);
   while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));

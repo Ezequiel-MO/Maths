@@ -107,6 +107,13 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .gapbox { fill: rgb(247 198 78 / 0.3); stroke: #B5740C; stroke-width: 1.6; stroke-dasharray: 5 4; }
 .q { fill: #B5740C; font: 800 22px/1 var(--display); text-anchor: middle; }
 .glyph { width: 34px; height: 60px; color: var(--ink); overflow: visible; }
+/* one note at a time, to learn its place: a taller staff to read it from, and the staff to put it on, where each line and each space is a band to tap */
+.sheet.mini.tall .staff { height: 150px; }
+.sheet.board { width: auto; padding: 6px 14px; touch-action: manipulation; }
+.sheet.board .staff { height: min(64vw, 52dvh, 330px); }
+.spot { fill: transparent; pointer-events: all; cursor: pointer; }
+.spot.hint { fill: rgb(255 154 31 / 0.4); }
+.sheet.shake { animation: shake 0.4s; }
 
 /* the wave of the last note played: tighter the higher it sounds */
 .wave { width: 100%; max-width: 520px; height: 34px; margin-block: -6px; overflow: visible; }

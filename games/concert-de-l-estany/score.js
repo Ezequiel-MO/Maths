@@ -39,3 +39,15 @@ export function staff(items, { beats = 4, sig = false, bars = true } = {}) {
     ${sig ? [[beats, 10], [4, 30]].map(([n, y]) => `<text class="mu sig" x="62" y="${y}">${String.fromCharCode(CH.digit + n)}</text>`).join('') : ''}${body}
     <path class="bar" d="M${W - 7} 0v40"/><path class="bar thick" d="M${W - 2} 0v40"/></svg>`;
 }
+
+// A tall staff to put a note on: a band .spot for each place of the scale, lowest first, and a whole note at step sel once one is chosen;
+// hue paints it and label writes its name under the staff. The short line of Do is always there, faint, so its place can be seen
+export function board(sel = null, hue = null, label = '') {
+  const W = 124, x = 82, y = s => 50 - 5 * s;
+  const band = s => { const top = s === 7 ? -18 : y(s) - 2.5, bot = s === 0 ? 68 : y(s) + 2.5; return `<rect class="spot" data-s="${s}" x="36" y="${top}" width="${W - 36}" height="${bot - top}"/>`; };
+  return `<svg class="staff" viewBox="0 -18 ${W} 86" style="aspect-ratio:${W}/86" role="img" aria-label="Pentagrama">
+    <path class="lines" d="${[0, 10, 20, 30, 40].map(v => `M0 ${v}H${W}`).join('')}"/>${mu(CH.clef, 8, 30).replace('"mu"', '"mu clef"')}
+    <path class="ln thin" d="M${x - 11} 50h22"${sel === 0 ? '' : ' opacity="0.3"'}/>
+    ${sel == null ? '' : `<g class="nt${hue != null ? ' hue' : ''}"${hue != null ? ` style="--h:${hue}"` : ''}>${fig('r', x, y(sel))}${label ? `<text class="nm" x="${x}" y="66">${label}</text>` : ''}</g>`}
+    ${[0, 1, 2, 3, 4, 5, 6, 7].map(band).join('')}</svg>`;
+}
