@@ -24,6 +24,13 @@ h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter:
 .cloud { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; margin-top: 8px; text-align: center; }
 .cloud .btn { min-height: 44px; max-width: 100%; padding-inline: 1.2em; font-size: 1rem; background: transparent; color: var(--muted); border: 1px solid var(--edge); box-shadow: none; }
 .cloud .btn:active { transform: none; }
+/* what the account is doing for the progress, on a line of its own; under the gate the button says it all */
+.stat { flex-basis: 100%; color: var(--muted); font-size: 0.95rem; }
+.cloud.gated .stat { display: none; }
+.cloud.gated .btn { min-height: 52px; padding: 0.4em 1.6em; font-size: 1.4rem; background: var(--pad); color: var(--on-pad); border: 0; box-shadow: 0 4px 0 var(--pad-dark), 0 0 30px rgb(79 181 98 / 0.55); }
+.gate { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.gate h2 { margin: 0; font: 800 clamp(1.8rem, 7vw, 2.4rem)/1.1 var(--display); }
+#skip { align-self: center; }
 .cloud .btn:disabled { opacity: 0.6; cursor: default; }
 .acct { color: var(--muted); font-size: 1rem; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }

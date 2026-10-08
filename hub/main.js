@@ -1,5 +1,6 @@
 import { GAMES } from '../shared/games.js';
-import { profiles, active, add, choose, load } from '../shared/progress.js';
+import config from '../shared/firebase-config.js';
+import { profiles, active, add, choose, load, entries, account } from '../shared/progress.js';
 
 const $ = id => document.getElementById(id);
 const list = document.querySelector('.games');
@@ -34,6 +35,9 @@ function cards() {
 // paints whichever view the device is in, from profiles() and active(); safe to call at any time. sync is true for a repaint
 // that follows a sync: what it rebuilds may be under a finger, so it is held like a change of view
 function render(sync) {
+  const shut = gated();
+  if (gateEl) { gateEl.hidden = !shut; foot?.classList.toggle('gated', shut); if (foot) $('skip').hidden = !shut; }
+  if (shut) { $('me').hidden = $('lead').hidden = list.hidden = $('who').hidden = true; return; }
   const me = active();
   const changed = !!me && seen === 'who', back = !me && seen === 'games';
   if (!adding) $('nom').value = '';   // text typed in a box that closed must not wait in it for the next time
@@ -85,17 +89,28 @@ $('adder').onsubmit = e => {
 // The adult's account. cloud.js is loaded after the first paint (never statically: Firebase must not delay the hub) and its
 // button exists only when there is a Firebase config. who is the account name, or null with no session
 let cloud = null, who = null, busy = 0, tail = Promise.resolve();
-let btn, acct, err;
+let btn, acct, err, stat, foot;
+// The gate: on a device with no session the hub asks first for the family account, once, because without it the progress stays
+// on that device alone. «Juga sense desar» lets a child through until the browser is closed. known: the session has answered;
+// before that a device that never had a session is taken as having none, and one that had is let through (it is being restored)
+const gateEl = $('gate');
+let known = false, skipped = false;
+try { skipped = sessionStorage.getItem('sense-desar') === '1'; } catch (e) {}
+const gated = () => !!gateEl && !!config && !skipped && (known ? who === null : account() === null);
 
 // the button is disabled while anything is in flight; its label follows the session
 function paint() {
   btn.disabled = busy > 0;
-  btn.textContent = who === null ? 'Desa el progrés al núvol' : 'Tanca la sessió';
+  btn.textContent = who === null ? 'Entra amb Google' : 'Tanca la sessió';
   acct.textContent = who || '';   // an account name can be anything: text only
   acct.hidden = !who;
+  // what the account is doing for the progress, said in words: a document still pending has not reached the cloud
+  stat.textContent = busy > 0 ? 'Sincronitzant…' : who === null ? 'Sense sessió: el progrés només es desa en aquest aparell.'
+    : entries().some(e => e.pending) ? 'Hi ha progrés que encara no ha pujat al núvol. Mira si hi ha connexió.' : 'Tot el progrés és al núvol ✓';
+  if (gateEl && gateEl.hidden === gated()) render(true);   // the session came or went: the gate follows it
 }
 
-async function refresh() { const s = await cloud.session(); who = s ? s.name : null; }
+async function refresh() { const s = await cloud.session(); who = s ? s.name : null; known = true; }
 
 // one syncAll after another (a second call during a run would be given the run that is already going); the hub is repainted
 // only when the device changed, and the sync path never moves the focus
@@ -108,8 +123,9 @@ function sync() {
 const down = () => sync();
 
 function mount() {
-  const foot = document.createElement('div');
-  btn = document.createElement('button'); acct = document.createElement('span'); err = document.createElement('p');
+  foot = document.createElement('div');
+  btn = document.createElement('button'); acct = document.createElement('span'); err = document.createElement('p'); stat = document.createElement('p');
+  stat.className = 'stat';
   foot.className = 'cloud'; btn.className = 'btn'; btn.type = 'button'; acct.className = 'acct';
   err.className = 'bad'; err.setAttribute('role', 'alert'); err.hidden = true;
   err.textContent = "No s'ha pogut entrar. Torna-ho a provar.";
@@ -128,8 +144,14 @@ function mount() {
     } catch (e) {}
     busy--; paint();
   };
-  foot.append(btn, acct, err);
+  foot.append(btn, acct, err, stat);
   document.querySelector('main').append(foot);
+  if (gateEl) {
+    // under the gate the account button is the one thing to tap, and the way round it comes after
+    document.querySelector('main').append($('skip'));
+    $('skip').onclick = () => { skipped = true; try { sessionStorage.setItem('sense-desar', '1'); } catch (e) {} render(true); };
+    render();
+  }
 }
 
 async function start() {

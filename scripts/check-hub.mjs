@@ -190,7 +190,7 @@ const withXavi = () => { P.add('Xavi'); };
 {
   const c = await boot(cloud(), withXavi);
   const { btn, acct } = cloudParts();
-  check(btn.textContent === 'Desa el progrés al núvol' && acct.hidden && synced(c) === 0, 'with no session the button does not say «Desa el progrés al núvol», or the hub synced');
+  check(btn.textContent === 'Entra amb Google' && acct.hidden && synced(c) === 0, 'with no session the button does not say «Entra amb Google», or the hub synced');
   $('open').onclick(); $('nom').value = 'Laia'; submit(); await settle();
   check(synced(c) === 0, 'a profile added with no session called syncAll');
   c.signInOk = false; btn.onclick(); await settle();
@@ -200,7 +200,7 @@ const withXavi = () => { P.add('Xavi'); };
   btn.onclick(); check(err.hidden, 'the next attempt does not clear the error'); await settle();
   check(btn.textContent === 'Tanca la sessió' && cloudParts().acct.textContent === 'Ana' && synced(c) === 1, 'after a sign-in the label, the name or the sync is missing');
   btn.onclick(); await settle();
-  check(c.calls.includes('signOut') && btn.textContent === 'Desa el progrés al núvol' && cloudParts().acct.hidden, 'signing out does not bring back the first label');
+  check(c.calls.includes('signOut') && btn.textContent === 'Entra amb Google' && cloudParts().acct.hidden, 'signing out does not bring back the first label');
 }
 // ---- the button is disabled while there is work, and enabled again when it ends, also on failure; one sign-in per tap pair. contract: tasca 6; Task 5 decision 4, a double tap opens one popup
 {
