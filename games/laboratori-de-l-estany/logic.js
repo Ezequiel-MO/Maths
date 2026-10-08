@@ -53,6 +53,9 @@ export const MOLS = {
   NaCl: { name: 'sal', f: [['Na', 1], ['Cl', 1]], at: [['Na', -11, 0], ['Cl', 11, 0]], bonds: [[0, 1]] },
   H2O2: { name: 'aigua oxigenada', f: [['H', 2], ['O', 2]], at: [['H', -26, 9], ['O', -10, -2], ['O', 10, -2], ['H', 26, 9]], bonds: [[0, 1], [1, 2], [2, 3]] }
 };
+// what each one is at room temperature: a gas, unless it is said here
+const STATE = { H2O: 'liquid', H2O2: 'liquid', NaCl: 'solid', C: 'solid', Na: 'solid' };
+export const stateOf = id => STATE[id] || 'gas';
 export const formula = id => MOLS[id].f.map(([s, n]) => s + (n > 1 ? `<sub>${n}</sub>` : '')).join('');
 export const atomsOf = id => MOLS[id].f.reduce((s, [, n]) => s + n, 0);
 

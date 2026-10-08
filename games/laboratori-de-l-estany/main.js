@@ -1,9 +1,9 @@
-import { $, RM, sleep, pick, mid } from '../../shared/util.js';
+import { $, RM, sleep, rand, pick, mid } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { SECTIONS, ELEMENTS, GROUPS, MOLS, INKS, POINTS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, blend, pctHow, starsFor, clean, xpOf, rankOf, starsOf, doneOf, levelIn } from './logic.js';
+import { SECTIONS, ELEMENTS, GROUPS, MOLS, INKS, POINTS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, stateOf, blend, pctHow, starsFor, clean, xpOf, rankOf, starsOf, doneOf, levelIn } from './logic.js';
 
 const KEY = 'laboratori-de-l-estany';
 // for now every section and every level is open, to try the game out
@@ -46,12 +46,17 @@ const DROP = '<svg class="drop" viewBox="0 0 20 26" aria-hidden="true"><path d="
 const BALL = { H: ['#F3FBF8', 9], C: ['#8A98A3', 13], O: ['#FF5A4E', 13], N: ['#5B8CFF', 13], Cl: ['#58D668', 14], Na: ['#B79CFF', 14] };
 const ball = s => `<span class="ball" style="--c:${BALL[s][0]};--r:${BALL[s][1]}">${s}</span>`;
 // a molecule as joined balls; sc is how many pixels a unit of its drawing takes
-function molSvg(id, sc = 1.3) {
+// the bonds and the balls of a molecule, drawn round its middle
+function molParts(id) {
   const M = MOLS[id], P = M.at.map(([s, x, y]) => ({ s, x, y, c: BALL[s][0], r: BALL[s][1] }));
   const x0 = Math.min(...P.map(p => p.x - p.r)) - 2, x1 = Math.max(...P.map(p => p.x + p.r)) + 2, y0 = Math.min(...P.map(p => p.y - p.r)) - 2, y1 = Math.max(...P.map(p => p.y + p.r)) + 2;
-  return `<svg class="mol" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" width="${Math.round((x1 - x0) * sc)}" height="${Math.round((y1 - y0) * sc)}" aria-hidden="true">
-    ${M.bonds.map(([a, b]) => `<path d="M${P[a].x} ${P[a].y}L${P[b].x} ${P[b].y}" stroke="#9EC3C0" stroke-width="5" stroke-linecap="round"/>`).join('')}
-    ${P.map(p => `<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${p.c}" stroke="rgb(0 0 0 / 0.35)"/><circle cx="${p.x - p.r * 0.35}" cy="${p.y - p.r * 0.35}" r="${p.r * 0.3}" fill="#fff" opacity="0.55"/><text x="${p.x}" y="${p.y + 3.2}">${p.s}</text>`).join('')}</svg>`;
+  return { box: [x0, y0, x1 - x0, y1 - y0], html: `${M.bonds.map(([a, b]) => `<path d="M${P[a].x} ${P[a].y}L${P[b].x} ${P[b].y}" stroke="#9EC3C0" stroke-width="5" stroke-linecap="round"/>`).join('')}
+    ${P.map(p => `<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${p.c}" stroke="rgb(0 0 0 / 0.35)"/><circle cx="${p.x - p.r * 0.35}" cy="${p.y - p.r * 0.35}" r="${p.r * 0.3}" fill="#fff" opacity="0.55"/><text x="${p.x}" y="${p.y + 3.2}">${p.s}</text>`).join('')}` };
+}
+// a molecule as joined balls; sc is how many pixels a unit of its drawing takes
+function molSvg(id, sc = 1.3) {
+  const { box, html } = molParts(id);
+  return `<svg class="mol" viewBox="${box.join(' ')}" width="${Math.round(box[2] * sc)}" height="${Math.round(box[3] * sc)}" aria-hidden="true">${html}</svg>`;
 }
 const mols = (id, n, sc) => molSvg(id, sc).repeat(n);
 // one square of the table
@@ -237,37 +242,108 @@ function atom({ t, L, stage, tip, slip, win }) {
 }
 
 /* ---------- join atoms into molecules, as the formula says ---------- */
+// The round flask and what moves inside it, all in one drawing of 300 by 330. Its things are atoms (loose, drifting slowly) or molecules;
+// molecules behave as what they make at room temperature: a gas flies fast and bounces off the glass, a liquid falls, piles up
+// at the bottom and jostles there. Every thing is a circle for the bumps: against the round wall and against the others.
+const FL = { x: 150, y: 195, R: 120, surf: 208 };
+const FLASK = `M122 8V78.300A120 120 0 1 0 178 78.300V8`;
+function flask(svg, t) {
+  const layer = svg.querySelector('#things'), ps = [], G = 320;
+  let mode = 'atoms', seq = 0, raf = 0, last = 0;
+  const speed = () => mode === 'gas' ? 78 : 13;
+  function step(dt) {
+    for (const p of ps) {
+      if (mode === 'liquid') { p.vy += G * dt; p.vx += rand(-190, 190) * dt; p.vy += rand(-190, 190) * dt; p.vx *= 1 - 2.2 * dt; p.vy *= 1 - 2.2 * dt; }
+      else { const v = Math.hypot(p.vx, p.vy) || 1, k = 1 + (speed() / v - 1) * Math.min(1, 3 * dt); p.vx *= k; p.vy *= k; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.a += p.w * dt;
+    }
+    // two that overlap push each other apart and swap what they carried along the line between them
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+      const a = ps[i], b = ps[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, over = a.r + b.r - d;
+      if (over <= 0) continue;
+      const nx = dx / d, ny = dy / d, rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      a.x -= nx * over / 2; a.y -= ny * over / 2; b.x += nx * over / 2; b.y += ny * over / 2;
+      if (rel < 0) { const e = mode === 'liquid' ? 0.6 : 1; a.vx += nx * rel * e; a.vy += ny * rel * e; b.vx -= nx * rel * e; b.vy -= ny * rel * e; }
+    }
+    for (const p of ps) {
+      const dx = p.x - FL.x, dy = p.y - FL.y, d = Math.hypot(dx, dy) || 0.01, lim = FL.R - 5 - p.r;
+      if (d > lim) { const nx = dx / d, ny = dy / d, vn = p.vx * nx + p.vy * ny; p.x = FL.x + nx * lim; p.y = FL.y + ny * lim; if (vn > 0) { const e = mode === 'liquid' ? 1.2 : 2; p.vx -= e * vn * nx; p.vy -= e * vn * ny; } }
+      // a liquid stays under its surface
+      if (mode === 'liquid' && p.y - p.r < FL.surf) { p.y = FL.surf + p.r; if (p.vy < 0) p.vy *= -0.3; }
+    }
+  }
+  const paint = () => { for (const p of ps) p.el.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.a.toFixed(1)})`); };
+  function frame(now) {
+    raf = 0; if (!t.on || !svg.isConnected) return;
+    const dt = Math.min(0.033, (now - last) / 1000 || 0.016); last = now;
+    step(dt / 2); step(dt / 2); paint();
+    if (ps.length) raf = requestAnimationFrame(frame);
+  }
+  // with reduced motion nothing drifts: things settle at once and stay
+  const kick = () => { if (RM) { for (let i = 0; i < 240; i++) step(0.016); paint(); } else if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  function add(html, r, cls, data = {}, at = null) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'g'), ang = rand(0, 6.283), v = speed();
+    el.setAttribute('class', cls); el.innerHTML = html; el.dataset.id = ++seq; layer.append(el);
+    const p = { el, id: seq, r, ...data, x: at ? at[0] : FL.x + rand(-40, 40), y: at ? at[1] : FL.y + rand(-50, 30), vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, a: cls === 'pa' ? 0 : rand(0, 360), w: cls === 'pa' ? 0 : rand(-60, 60) };
+    ps.push(p); paint(); kick(); return p;
+  }
+  return { ps, add, kick,
+    remove(id) { const i = ps.findIndex(p => p.id === id); if (i >= 0) { ps[i].el.remove(); ps.splice(i, 1); } },
+    clear() { ps.forEach(p => p.el.remove()); ps.length = 0; },
+    set(m) { mode = m; svg.classList.add(m); for (const p of ps) p.w = m === 'liquid' ? rand(-25, 25) : rand(-90, 90); } };
+}
+const STATES = { gas: ['gas', 'és un gas: moltes molècules juntes volen de pressa, lluny les unes de les altres, i reboten contra el vidre'],
+  liquid: ['líquid', 'és un líquid: moltes molècules juntes es toquen i llisquen les unes sobre les altres, al fons del matràs'],
+  solid: ['sòlid', 'és un sòlid: les seves peces queden ben agafades, sense moure\'s de lloc'] };
 function mol({ t, L, stage, tip, slip, win }) {
-  const M = MOLS[L.id], pot = [], MAX = 16;
+  const M = MOLS[L.id], MAX = 16, state = stateOf(L.id);
   const say = f => list(f.map(([s, n]) => `${n} ${de(el(s).name)}`));
   const need = M.f.map(([s, n]) => [s, n * L.count]);
   let busy = false;
   stage.innerHTML = `<p class="goal"><b class="fml">${formula(L.id)}</b><span>${M.name}</span>${L.count > 1 ? `<b class="times">× ${L.count}</b>` : ''}</p>
-    <div class="pot" id="pot"></div><p class="cap" id="cnt"></p>
+    <svg class="rflask" id="rf" viewBox="0 -14 300 348" role="img" aria-label="El matràs">
+      <defs><clipPath id="rfc"><circle cx="${FL.x}" cy="${FL.y}" r="${FL.R - 3}"/></clipPath>
+        <radialGradient id="rfg" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#DCF6FF" stop-opacity="0.2"/><stop offset="0.6" stop-color="#6FE3FF" stop-opacity="0.05"/><stop offset="1" stop-color="#6FE3FF" stop-opacity="0.2"/></radialGradient></defs>
+      <ellipse cx="150" cy="322" rx="92" ry="9" fill="rgb(0 0 0 / 0.4)"/><path class="ring" d="M92 318q58 14 116 0"/>
+      <path d="${FLASK}Z" fill="url(#rfg)"/>
+      <g clip-path="url(#rfc)"><rect class="haze" x="0" y="60" width="300" height="270"/><g class="sea"><rect x="0" y="${FL.surf - 6}" width="300" height="140"/><path d="M0 ${FL.surf - 5}q25 -9 50 0t50 0 50 0 50 0 50 0 50 0 50 0 50 0V${FL.surf + 6}H0Z"/></g></g>
+      <g id="things"></g>
+      <path class="glass" d="${FLASK}"/><path class="rim" d="M112 8H188"/><path class="shine" d="M62 150a100 100 0 0 1 36 -52"/><path class="shine thin" d="M133 20V70"/>
+      <g class="cork"><path d="M125 -10h50l-4 34h-42Z"/></g>
+      <text class="lbl" id="rfl" x="150" y="${FL.y + 6}">Toca els àtoms de sota</text><g class="badge"><rect x="196" y="92" width="92" height="28" rx="14"/><text x="242" y="112">${STATES[state][0]}</text></g></svg>
+    <p class="cap" id="cnt"></p>
     <div class="tray">${L.tray.map(s => `<button class="atomb" data-s="${s}" aria-label="Afegeix un àtom ${de(el(s).name)}">${ball(s)}<b>+ ${el(s).name}</b></button>`).join('')}</div>
     <div class="opts"><button class="btn" id="ok">Comprova</button><button class="btn soft" id="clr">Buida</button></div>`;
-  const count = s => pot.filter(x => x === s).length;
+  const F = flask($('#rf'), t), count = s => F.ps.filter(p => p.sym === s).length;
+  const atomHtml = s => { const [c, r0] = BALL[s], r = r0 * 1.25; return `<circle r="${r}" fill="${c}" stroke="rgb(0 0 0 / 0.35)"/><circle cx="${-r * 0.35}" cy="${-r * 0.35}" r="${r * 0.3}" fill="#fff" opacity="0.55"/><text y="4.500">${s}</text>`; };
   const draw = () => {
-    $('#pot').innerHTML = pot.map((s, i) => `<button class="pb" data-i="${i}" aria-label="Treu aquest àtom">${ball(s)}</button>`).join('') || '<p class="cap">Toca els àtoms de sota per posar-los al matràs.</p>';
-    $('#cnt').innerHTML = pot.length ? `Hi ha ${say(L.tray.map(s => [s, count(s)]).filter(x => x[1]))}. Toca un àtom del matràs per treure'l.` : '&nbsp;';
+    $('#rfl').style.display = F.ps.length ? 'none' : '';
+    $('#cnt').innerHTML = F.ps.length ? `Hi ha ${say(L.tray.map(s => [s, count(s)]).filter(x => x[1]))}. Toca un àtom del matràs per treure'l.` : '&nbsp;';
   };
   stage.querySelector('.tray').onclick = e => {
     const b = e.target.closest('.atomb'); if (!b || busy) return;
-    if (pot.length >= MAX) return tip('El matràs és ple! Treu-ne algun.', 'oops');
-    pot.push(b.dataset.s); plop(pot.length); draw();
+    if (F.ps.length >= MAX) return tip('El matràs és ple! Treu-ne algun.', 'oops');
+    const s = b.dataset.s; F.add(atomHtml(s), BALL[s][1] * 1.25 + 1, 'pa', { sym: s }, [FL.x + rand(-12, 12), 96]); plop(F.ps.length); draw();
   };
-  $('#pot').onclick = e => { const b = e.target.closest('.pb'); if (b && !busy) { pot.splice(+b.dataset.i, 1); blip(330); draw(); } };
-  $('#clr').onclick = () => { if (!busy) { pot.length = 0; blip(330); draw(); } };
+  $('#things').onclick = e => { const g = e.target.closest('.pa'); if (g && !busy) { F.remove(+g.dataset.id); blip(330); draw(); } };
+  $('#clr').onclick = () => { if (!busy) { F.clear(); blip(330); draw(); } };
   $('#ok').onclick = async () => {
     if (busy || !t.on) return;
-    if (pot.length !== need.reduce((s, x) => s + x[1], 0) || need.some(([s, n]) => count(s) !== n)) {
-      slip(); again($('#pot')).add('shake');
+    if (F.ps.length !== need.reduce((s, x) => s + x[1], 0) || need.some(([s, n]) => count(s) !== n)) {
+      slip(); again($('#rf')).add('shake');
       return tip(`Ui! ${L.count > 1 ? `Cada molècula vol ${say(M.f)}, i n'has de fer ${L.count}.` : `La fórmula demana ${say(M.f)}.`} Compta què hi ha al matràs.`, 'oops');
     }
-    busy = true; $('#pot').innerHTML = mols(L.id, L.count, 1.7); $('#pot').classList.add('made'); $('#cnt').innerHTML = '&nbsp;'; spark($('#pot'), 175);
+    // the atoms take hold of each other; then many more of the same molecule come in, and the flask shows what they make together
+    busy = true; F.clear(); $('#cnt').innerHTML = '&nbsp;';
+    const { box, html } = molParts(L.id), sc = 0.82, r = Math.max(box[2], box[3]) * sc * 0.42, one = cls => F.add(`<g class="in"><g transform="scale(${sc})">${html}</g></g>`, r, cls);
+    for (let i = 0; i < L.count; i++) one('pm made');
+    spark($('#rf'), 175);
     tip(`${L.count > 1 ? `${L.count} molècules` : 'Una molècula'} ${de(M.name)}! Els àtoms s'han agafat.`, 'go');
-    await sleep(1700); if (!t.on) return;
-    win(`${L.count > 1 ? L.count + ' ' : ''}${formula(L.id)} · ${M.name}<br><small>${say(need)}</small>`);
+    await sleep(1300); if (!t.on) return;
+    F.set(state); for (let i = L.count; i < (state === 'gas' ? 9 : 12); i++) one('pm more'); chime([523, 659, 784], 0.1);
+    tip(`${cap(the(M.name))} ${STATES[state][1]}.`, 'go');
+    await sleep(4200); if (!t.on) return;
+    win(`${L.count > 1 ? L.count + ' ' : ''}${formula(L.id)} · ${M.name}<br><small>${say(need)} · ${STATES[state][0]}</small>`);
   };
   draw(); tip(L.say);
   return () => busy ? '' : `A la fórmula, el número petit va amb la lletra del seu davant: cada molècula té ${say(M.f)}.${L.count > 1 ? ` Per fer-ne ${L.count}, multiplica per ${L.count}: ${say(need)}.` : ''}`;

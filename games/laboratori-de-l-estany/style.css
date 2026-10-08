@@ -114,10 +114,23 @@ sub { font-size: 0.62em; line-height: 0; }
 .mol { flex: none; overflow: visible; } .mol text { font: 800 8.500px/1 var(--display); text-anchor: middle; fill: #06161C; }
 .fml { color: var(--sun); font-size: 2rem; font-weight: 800; line-height: 1; } .fml.huge { font-size: 2.8rem; }
 .goal .times { padding: 0 12px; border-radius: 99px; background: var(--sun); color: #2A1C00; font-size: 1.4rem; }
-.pot { width: min(100%, 440px); min-height: 150px; padding: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-content: center; align-items: center; justify-content: center;
-  border: 3px solid var(--glassline); border-top-color: transparent; border-radius: 26px 26px 90px 90px; background: linear-gradient(180deg, rgb(220 246 255 / 0.02), rgb(111 227 255 / 0.14)); box-shadow: inset 0 -14px 30px rgb(111 227 255 / 0.12); }
-.pb { padding: 0; border: 0; background: none; line-height: 0; animation: pop 0.25s cubic-bezier(0.2, 1.6, 0.4, 1); }
-.pot.made { gap: 14px; border-color: var(--mint); border-top-color: transparent; box-shadow: 0 0 30px rgb(124 245 176 / 0.4); } .pot.made .mol { animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+/* the round flask: glass, a ring to stand on, and inside it the things that move. Once the molecules are made it shows what they are
+   together: a cork and a haze for a gas, a sea with its waves for a liquid */
+.rflask { width: min(78vw, 300px); overflow: visible; }
+.rflask .glass { fill: none; stroke: var(--glassline); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.rflask .rim { fill: none; stroke: #EAF8F4; stroke-width: 7; stroke-linecap: round; }
+.rflask .shine { fill: none; stroke: #fff; stroke-width: 7; stroke-linecap: round; opacity: 0.3; } .rflask .shine.thin { stroke-width: 4; opacity: 0.2; }
+.rflask .ring { fill: none; stroke: #A9743F; stroke-width: 9; stroke-linecap: round; }
+.rflask text { font: 800 11px/1 var(--display); text-anchor: middle; fill: #06161C; pointer-events: none; }
+.rflask .lbl { font-size: 15px; fill: var(--muted); }
+.pa { cursor: pointer; } .pa circle:first-child { filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.5)); }
+.pm text { font-size: 8.500px; } .pm .in { transform-box: fill-box; transform-origin: center; animation: grow 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); } .pm.more .in { opacity: 0.8; }
+.haze, .sea, .cork, .badge { opacity: 0; transition: opacity 0.7s; }
+.haze { fill: hsl(48 90% 70%); } .rflask.gas .haze { opacity: 0.1; }
+.cork path { fill: #B98250; stroke: #6B4321; stroke-width: 2; stroke-linejoin: round; } .rflask.gas .cork { opacity: 1; }
+.sea rect, .sea path { fill: hsl(200 90% 60%); } .rflask.liquid .sea { opacity: 0.45; } .rflask.liquid .sea path { animation: tide 2.4s ease-in-out infinite alternate; }
+.badge rect { fill: var(--sun); } .badge text { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; fill: #2A1C00; } .rflask.gas .badge, .rflask.liquid .badge, .rflask.solid .badge { opacity: 1; }
+.rflask.gas, .rflask.liquid { filter: drop-shadow(0 0 18px rgb(124 245 176 / 0.45)); }
 .tray { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .atomb { min-width: 92px; min-height: 76px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; padding: 6px 10px; border-radius: 16px; border: 1px solid var(--edge); background: var(--glass); touch-action: manipulation; }
 .atomb:active { transform: translateY(3px); } .atomb b { font-size: 0.85rem; }
@@ -199,6 +212,8 @@ sub { font-size: 0.62em; line-height: 0; }
 .keys { display: grid; grid-template-columns: repeat(6, 48px); gap: 6px; }
 .key.ok { background: var(--pad); color: var(--on-pad); border-color: transparent; } .key.del { color: var(--muted); }
 
+@keyframes grow { from { transform: scale(0.2); } }
+@keyframes tide { to { transform: translateX(-50px); } }
 @keyframes pop { from { transform: scale(0.4); } }
 @keyframes beacon { 50% { box-shadow: 0 0 20px var(--sun); outline: 2px solid var(--sun); } }
 @keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
@@ -213,4 +228,4 @@ sub { font-size: 0.62em; line-height: 0; }
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
 /* a phone upright: what goes in over what comes out, with the arrow pointing down */
 @media (max-width: 699px) { .lab { flex-direction: column; gap: 2px; } .lab > .arrow { transform: rotate(90deg); } }
-@media (prefers-reduced-motion: reduce) { .frog .bub, .el.hint, .sf.full svg { animation: none; } .xp-bar i, #liq, .liq { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .frog .bub, .el.hint, .sf.full svg, .rflask.liquid .sea path { animation: none; } .xp-bar i, #liq, .liq { transition: none; } }
