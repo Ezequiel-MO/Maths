@@ -5,11 +5,13 @@
 import { clean } from '../games/abac-xines/logic.js';
 import { clean as concert, noteOf, VALID } from '../games/concert-de-l-estany/logic.js';
 import { clean as lab, noteOf as labNote, VALID as LAB_VALID } from '../games/laboratori-de-l-estany/logic.js';
+import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
 const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
+// the fractions game works the same way; a save from before its cursus kept the stars of eight sections, and clean turns them into project marks
+const slices = (s, total) => { const p = pads(s), n = Array.from({ length: total }, (_, i) => padNote(p, i)).filter(x => x >= PAD_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
-const screens = (n, total) => n ? `${n} de ${total} pantalles` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
 const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => Number.isFinite(x) && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
 // the abacus game counts projects too, but a profile that has not opened it since the update only holds the old secs: clean makes the project marks from them,
@@ -38,7 +40,7 @@ export const GAMES = [
     what: 'Multiplica números grans tros a tros i fes enlairar el coet.', total: 60, record: (s, total) => levels(sum(s.secs), total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="30" width="56" height="30" rx="7" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="1.5"/><path d="M32 30V60M4 45H60" stroke="#6FE3FF" stroke-width="1.5"/><rect x="5" y="46" width="26" height="13" rx="5" fill="#FF8FD0"/><rect x="33" y="31" width="26" height="13" rx="5" fill="#6FE3FF"/><g transform="rotate(35 40 18) translate(22 0) scale(0.56)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g><path d="M9 10l10 10M19 10L9 20" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/></svg>` },
   { id: 'nenufars-a-trossos', href: 'nenufars-a-trossos.html', store: 'nenufars-a-trossos', tag: 'Fraccions', title: 'Nenúfars a trossos',
-    what: 'Talla, pinta i ajunta nenúfars per trobar fraccions que valen el mateix.', total: 80, record: (s, total) => screens(sum(s.secs), total),
+    what: 'Pizzes, xocolata, rellotges i diners: de la primera fracció a sumar-les i fer-ne percentatges.', total: 14, record: (s, total) => slices(s, total),
     icon: `<svg viewBox="-34 -34 68 68" aria-hidden="true"><circle r="30" fill="#1C5A3C"/><path d="M0 0L0 -30A30 30 0 0 1 25.98 15Z M0 0L25.98 15A30 30 0 0 1 0 30Z" fill="#F7C64E"/><circle r="30" fill="none" stroke="#2F7F40" stroke-width="3"/><path d="M0 0V-30M0 0L25.98 -15M0 0L25.98 15M0 0V30M0 0L-25.98 15M0 0L-25.98 -15" stroke="#04131C" stroke-width="2.5" stroke-linecap="round"/></svg>` },
   { id: 'cursus-de-l-estany', href: 'cursus-de-l-estany.html', store: 'cursus-de-l-estany', tag: 'Dividir', title: "El cursus de l'estany",
     what: 'Reparteix, agrupa i divideix a trossos, i caça les errades dels fulls.', total: 8, record: (s, total) => projects(s, total),
