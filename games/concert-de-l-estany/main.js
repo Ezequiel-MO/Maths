@@ -124,6 +124,8 @@ function level(sec, idx) {
   const help = { play, cut, cm, beat, step, fit, drum: tapping }[L.kind]({ t, L, stage, tip, slip, spark, win });
   $('#hintb').onclick = () => { if (over) return; const txt = help(); if (txt) { slip(); tip(txt); } };
   stars();
+  // on a short screen the end of the stage can be under the fold, and a child does not know there is more: start from the frog's tip
+  if (stage.getBoundingClientRect().bottom > innerHeight) $('#coach').scrollIntoView({ block: 'start', behavior: 'auto' });
 }
 
 // the tubes of a stage: ring(i) sounds one and makes it glow
@@ -356,11 +358,11 @@ function tapping({ t, L, stage, tip, slip, spark, win }) {
   // how far from a note a tap still counts: generous, but never as far as the next note
   const tol = Math.min(0.34, 0.45 * Math.min(...gaps)) * ms;
   const onsets = Array.from({ length: REPS }, (_, r) => hits.map(h => r * barMs + h * ms)).flat();
-  stage.innerHTML = `<div class="sheet" id="sheet">${staff(L.figs.map(f => ({ step: FIGS[f].rest ? null : 5, fig: f })), { beats: L.beats, sig: true, bars: false })}</div>
-    <div class="bar4"><div class="strip" id="strip">${L.figs.map(block).join('')}<i class="head" id="head" hidden></i></div>${ticks(L.beats)}</div>
-    <b class="countin" id="count">&nbsp;</b>
-    <button class="pad big" id="pad" aria-label="Pica el tambor">${DRUM}</button>
-    <div class="opts"><button class="btn soft" id="listen">Escolta</button><button class="btn" id="mine">Ara jo!</button></div>`;
+  // top to bottom, all on one screen: the bar, the two steps (or the count while it runs) and the drum to tap
+  stage.innerHTML = `<div class="sheet low" id="sheet">${staff(L.figs.map(f => ({ step: FIGS[f].rest ? null : 5, fig: f })), { beats: L.beats, sig: true, bars: false })}</div>
+    <div class="bar4"><div class="strip taps" id="strip">${L.figs.map(f => `<div class="blk${FIGS[f].rest ? ' rest' : ''}" style="flex:${FIGS[f].beats}"><b>${beatsText(FIGS[f].beats)}</b><small>${FIGS[f].rest ? 'silenci' : 'pica'}</small></div>`).join('')}<i class="head" id="head" hidden></i></div>${ticks(L.beats)}</div>
+    <div class="slot"><div class="opts" id="ctl"><button class="btn" id="listen">1 · Escolta</button><button class="btn soft" id="mine">2 · Ara jo!</button></div><b class="countin" id="count" hidden></b></div>
+    <button class="pad big" id="pad" aria-label="Pica el tambor">${DRUM}</button>`;
   const nts = [...stage.querySelectorAll('.nt')], blks = [...stage.querySelectorAll('.blk')], pad = $('#pad'), head = $('#head'), count = $('#count');
   let run = null;
   const lit = j => { nts.forEach((n, i) => n.classList.toggle('now', i === j)); blks.forEach((n, i) => n.classList.toggle('now', i === j)); };
@@ -368,13 +370,13 @@ function tapping({ t, L, stage, tip, slip, spark, win }) {
   async function go(mine) {
     if (run || !t.on) return;
     const start = performance.now() + barMs, r = run = { mine, start, got: new Set(), extra: 0 };
-    stage.querySelectorAll('.opts button').forEach(b => { b.disabled = true; }); blks.forEach(b => b.classList.remove('ok'));
+    $('#ctl').hidden = true; count.hidden = false; count.textContent = 'Prepara\'t…'; blks.forEach(b => b.classList.remove('ok'));
     // a bar of clicks to get the pulse, then the bar itself, twice
     for (let i = 0; i < L.beats; i++) setTimeout(() => { if (t.on && run === r) { count.textContent = i + 1; again(count).add('on'); click(i ? 880 : 1320, 0, 0.06, 0.1); } }, i * ms);
     for (let i = 0; i < L.beats * REPS; i++) setTimeout(() => { if (t.on && run === r) click(i % L.beats ? 660 : 990, 0, 0.04, 0.035); }, barMs + i * ms);
     if (!mine) onsets.forEach(o => setTimeout(() => { if (t.on && run === r) thump(pad); }, barMs + o));
     await sleep(barMs); if (!t.on) return;
-    count.textContent = mine ? 'Pica!' : 'Escolta'; head.hidden = false;
+    count.textContent = mine ? 'Pica ara!' : 'Escolta…'; head.hidden = false;
     await new Promise(res => {
       const f = () => {
         if (!t.on) return res();
@@ -385,9 +387,10 @@ function tapping({ t, L, stage, tip, slip, spark, win }) {
       f();
     });
     await sleep(tol + 60); if (!t.on) return;
-    head.hidden = true; lit(-1); count.innerHTML = '&nbsp;'; run = null;
-    stage.querySelectorAll('.opts button').forEach(b => { b.disabled = false; });
-    if (!mine) return tip('Ara tu! Prem «Ara jo!», espera els quatre clics i pica el tambor a cada nota.');
+    head.hidden = true; lit(-1); count.hidden = true; $('#ctl').hidden = false; run = null;
+    // once heard, the step to take is the second one
+    $('#listen').className = 'btn soft'; $('#mine').className = 'btn';
+    if (!mine) return tip(`Ara tu! Prem «2 · Ara jo!». Sonaran ${L.beats} clics per agafar el ritme; després pica el tambor cada cop que la ratlla blanca entra en un bloc groc.`);
     const missed = onsets.length - r.got.size, slack = onsets.length >= 8 ? 1 : 0;
     if (missed + r.extra <= slack) return win(`${L.figs.map(f => beatsText(FIGS[f].beats)).join(' + ')} = ${L.beats} temps`);
     slip(); tip(`Gairebé! ${missed ? `T'han faltat ${missed} ${missed > 1 ? 'cops' : 'cop'}. ` : ''}${r.extra ? `N'has picat ${r.extra} de més o fora de temps${marks.some(m => m.rest) ? ': al silenci no es pica' : ''}. ` : ''}Escolta'l i torna-hi.`, 'oops');
@@ -406,7 +409,7 @@ function tapping({ t, L, stage, tip, slip, spark, win }) {
   pad.onpointerdown = e => { e.preventDefault(); tap(); };
   keyFn = e => { if (e.key === ' ') { e.preventDefault(); tap(); } };
   $('#listen').onclick = () => go(false); $('#mine').onclick = () => go(true);
-  tip(L.say);
+  tip(`${L.say} Primer prem «1 · Escolta».`);
   return () => run ? '' : `A cada volta piques ${hits.length} ${hits.length > 1 ? 'cops' : 'cop'}: un a cada nota, just quan la ratlla blanca hi entra.${marks.some(m => m.rest) ? ' Als trossos ratllats, que són silencis, no es pica.' : ''}`;
 }
 

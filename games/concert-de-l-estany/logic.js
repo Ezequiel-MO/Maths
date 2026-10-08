@@ -34,7 +34,7 @@ const beat = (beats, figs, pal, say) => ({ kind: 'beat', title: `Compàs de ${be
 const step = (from, jump, say = '') => ({ kind: 'step', title: `${cap(INTERVALS[Math.abs(jump) + 1])} ${jump > 0 ? 'amunt' : 'avall'}`, from, jump, say });
 const fit = (big, small) => ({ kind: 'fit', title: `1 ${FIGS[big].name} = ?`, big, small });
 // a bar to tap on the drum; ms is how long a beat lasts
-const taps = (beats, figs, ms, say) => ({ kind: 'drum', title: 'Al tambor', beats, figs: figs.split(' '), ms, say });
+const taps = (beats, figs, ms, say) => ({ kind: 'drum', title: 'Tambor', beats, figs: figs.split(' '), ms, say });
 
 export const SECTIONS = [
   { name: 'Llegeix i toca', sub: 'Llegeix la partitura i toca-la amb els tubs.', levels: [
@@ -79,7 +79,7 @@ export const SECTIONS = [
   ] },
   { name: 'El doble i la meitat', sub: 'Quantes negres caben en una rodona? Compta-ho i pica-ho al tambor.', levels: [
     fit('r', 'b'), fit('b', 'n'),
-    taps(4, 'n n n n', 700, 'Quatre negres: un cop a cada temps. Escolta primer i després pica tu.'),
+    taps(4, 'n n n n', 700, 'Aquí toques tu el tambor! Quatre negres: un cop a cada temps.'),
     fit('n', 'c'),
     taps(4, 'n n b', 700, 'La blanca dura 2 temps: un sol cop i esperes.'),
     fit('r', 'n'),
