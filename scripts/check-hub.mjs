@@ -94,7 +94,7 @@ const withXavi = () => { P.add('Xavi'); };
   $('open').onclick();
   check(!$('adder').hidden && $('open').hidden && D.focused === $('nom'), 'Afegeix un jugador opens the name box and puts the focus in it');   // contract: Task 3 brief; a focus that a hidden box refuses stays where it was
   $('nom').value = 'Xavi'; submit();
-  check(cards() === 7 && !D.list.hidden && $('who').hidden, `adding Xavi shows ${cards()} cards, want 7 (one per game) and no «Qui juga?»`);   // contract: tasca 6, «set targetes»
+  check(cards() === GAMES.length && !D.list.hidden && $('who').hidden, `adding Xavi shows ${cards()} cards, want ${GAMES.length} (one per game) and no «Qui juga?»`);   // contract: tasca 6, «set targetes»
   check($('name').textContent === 'Xavi' && !$('me').hidden, 'adding Xavi shows his name at the top');
   check(STORES.every(s => mem.has('xavi:' + s) && !mem.has(s)), 'choosing Xavi did not adopt the old progress of every store (choose was given no stores, or not all of them)');   // contract: tasca 6, «choose cridat amb tots els store»
   check(D.focused === $('name'), 'after Fet the focus goes to the name');   // contract: Task 3 brief, the focus goes where it is not refused
@@ -103,12 +103,12 @@ const withXavi = () => { P.add('Xavi'); };
 {
   await boot(cloud({ enabled: false }), () => { withXavi(); for (const s of STORES) mem.set(s, '{"secs":[1]}'); });
   profileButtons()[0].onclick();
-  check(cards() === 7 && STORES.every(s => mem.has('xavi:' + s) && !mem.has(s)), 'tapping a profile did not adopt the old progress of every store (choose was given no stores, or not all of them)');   // contract: tasca 6, «choose cridat amb tots els store»
+  check(cards() === GAMES.length && STORES.every(s => mem.has('xavi:' + s) && !mem.has(s)), 'tapping a profile did not adopt the old progress of every store (choose was given no stores, or not all of them)');   // contract: tasca 6, «choose cridat amb tots els store»
 }
 {
   // contract: revisió de la tasca 6, I4: a device that comes back with a profile already active shows its games and holds nothing
   await boot(cloud({ enabled: false }), () => { withXavi(); P.choose('xavi'); });
-  check(cards() === 7 && $('name').textContent === 'Xavi' && !inert(D.list), `the first paint with a profile active shows ${cards()} cards, the name «${$('name').textContent}», and the game list ${inert(D.list) ? 'is' : 'is not'} held, want 7, Xavi, not held`);
+  check(cards() === GAMES.length && $('name').textContent === 'Xavi' && !inert(D.list), `the first paint with a profile active shows ${cards()} cards, the name «${$('name').textContent}», and the game list ${inert(D.list) ? 'is' : 'is not'} held, want ${GAMES.length}, Xavi, not held`);
 }
 // ---- a refused name. contract: tasca 6, «un nom refusat deixa la casella oberta amb l'error»; «doble Fet crea un sol perfil»
 {
@@ -169,9 +169,9 @@ const withXavi = () => { P.add('Xavi'); };
   await boot(c, withXavi, false);
   check(!$('who').hidden && profileButtons().length === 1 && !inert($('profiles')) && !inert(D.list), 'the hub is not painted, or a list is held, while the cloud has not answered');   // mutants: start().finally(render); the lists held until a 4 s unlock
   profileButtons()[0]?.onclick();
-  check(cards() === 7 && inert(D.list), 'a profile tapped before the cloud answers does not show the cards');
+  check(cards() === GAMES.length && inert(D.list), 'a profile tapped before the cloud answers does not show the cards');
   advance(4000);
-  check(cards() === 7 && !inert(D.list) && !inert($('profiles')), 'the lists are still held 4 s after the first paint');
+  check(cards() === GAMES.length && !inert(D.list) && !inert($('profiles')), 'the lists are still held 4 s after the first paint');
   await until(() => c.loaded); await settle();   // the pending import must end before another page is loaded
 }
 // ---- the account button. contract: tasca 6; fix round 1 C1 and I2; Task 5 decisions 3, 4 and 6
