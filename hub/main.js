@@ -53,7 +53,10 @@ function render(sync) {
   $('profiles').replaceChildren(...profiles().map(p => {
     const li = document.createElement('li'), b = document.createElement('button');
     b.type = 'button'; b.className = 'btn soft'; b.textContent = p.name;
-    b.onclick = () => { choose(p.id, stores); adding = bad = false; render(); if (active()) $('name').focus({ preventScroll: true }); };
+    b.onclick = () => {
+      choose(p.id, stores); adding = bad = false; render(); if (active()) $('name').focus({ preventScroll: true });
+      if (active() && who !== null) down();   // with a session open, the progress of the child who was tapped comes down now
+    };
     li.append(b);
     return li;
   }));
@@ -101,6 +104,9 @@ function sync() {
   return tail = tail.then(() => cloud.syncAll()).then(changed => { if (changed) render(true); }, () => {}).finally(() => { busy--; paint(); });
 }
 
+// for render(), where sync is the name of its argument
+const down = () => sync();
+
 function mount() {
   const foot = document.createElement('div');
   btn = document.createElement('button'); acct = document.createElement('span'); err = document.createElement('p');
@@ -137,5 +143,8 @@ async function start() {
   } catch (e) {}
 }
 
+// the children of the house (the names index.html lists in data-seed) are on every device from the first visit, so a new one
+// only has to tap a name; with a session open their progress then comes down from the cloud
+for (const n of ($('profiles').dataset?.seed || '').split(',')) add(n);
 render();
 start();

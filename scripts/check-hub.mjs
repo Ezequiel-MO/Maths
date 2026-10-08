@@ -185,7 +185,7 @@ const withXavi = () => { P.add('Xavi'); };
   check(btn.textContent === 'Tanca la sessió' && acct.textContent === 'Ana' && !acct.hidden && !btn.disabled, 'with a session the button does not say «Tanca la sessió» with the name of the account');
   check(synced(c) === 1, `with a session syncAll ran ${synced(c)} times at start, want 1`);   // mutant: no sync at start
   profileButtons()[0].onclick(); $('change').onclick(); $('open').onclick(); $('nom').value = 'Laia'; submit(); await settle();
-  check(synced(c) === 2, `a profile added with a session open did not sync (syncAll ran ${synced(c)} times, want 2)`);   // mutant: no sync after adding
+  check(synced(c) === 3, `a profile tapped and a profile added with a session open did not sync once each (syncAll ran ${synced(c)} times, want 3)`);   // mutant: no sync after adding
 }
 {
   const c = await boot(cloud(), withXavi);
@@ -227,7 +227,9 @@ const withXavi = () => { P.add('Xavi'); };
   profileButtons()[0].onclick(); $('change').onclick(); $('open').onclick(); $('nom').value = 'Laia'; submit(); await settle();
   check(synced(c) === 1, 'a second syncAll started while the first was running');   // contract: Task 5 decision 6, one syncAll after another; mutant: no chain (tail)
   end?.ok(false); await settle();
-  check(synced(c) === 2 && btn.disabled, 'the sync of the new profile did not follow the first, or the button was enabled while it ran');
+  check(synced(c) === 2 && btn.disabled, 'the sync of the tapped profile did not follow the first, or the button was enabled while it ran');
+  end?.ok(false); await settle();
+  check(synced(c) === 3 && btn.disabled, 'the sync of the new profile did not follow, or the button was enabled while it ran');
   end?.ok(false); await settle();
   check(!btn.disabled, 'the button stays disabled after a sync');   // mutant: the busy-- of sync
   $('change').onclick(); $('open').onclick(); $('nom').value = 'Mia'; submit(); await settle();
