@@ -161,6 +161,50 @@ const bump = page => page.evaluate(() => { window.__skew += 1000; });
 const onQuestion = (page, k) => page.waitForFunction(k => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === k, k, { timeout: 20000 });
 const openProject = async (page, i) => { await bump(page); await page.evaluate(i => document.querySelector(`.proj[data-p="${i}"]`).click(), i); await page.waitForSelector('#dots'); await settle(page); };
 const toMap = async page => { await bump(page); await page.evaluate(() => document.querySelector('#toM').click()); await page.waitForSelector('.map'); await settle(page); };
+// the exam (task 11): six questions drawn at random from the circle's projects, so the page's Math.random is seeded before the exam is opened, and the sweep answers from what is on screen
+// (the text of the question, or the abacus for a reading), never from the game's goal. examState says what the question on screen is; examAnswer answers it right or wrong
+const seedRandom = (page, s0) => page.evaluate(s0 => { let s = s0; Math.random = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; }, s0);
+const examState = () => {
+  const rods = [...document.querySelectorAll('.abacus .rod')], text = document.querySelector('#task').innerText.replace(/\s/g, '');
+  const read = rods.reduce((a, r) => a + (r.querySelectorAll('.bead.on[data-deck="hi"]').length * 5 + r.querySelectorAll('.bead.on[data-deck="lo"]').length) * 10 ** +r.dataset.p, 0);
+  return { reading: !!document.querySelector('.opts [data-v]'), read, text };
+};
+const examAnswer = async (page, right) => {
+  await bump(page);
+  const q = await page.evaluate(examState);
+  if (q.reading) { await page.evaluate(([read, right]) => document.querySelector(`.opts [data-v="${right ? read : [...document.querySelectorAll('.opts [data-v]')].map(b => +b.dataset.v).find(v => v !== read)}"]`).click(), [q.read, right]); return q; }
+  await page.evaluate(([text, right]) => {
+    const w = text.match(/^Escriuel(\d+)$/), goal = w ? +w[1] : Function(`return ${text.replace('=?', '').replace(/−/g, '-').replace(/×/g, '*').replace(/:/g, '/')}`)();
+    const to = right ? goal : goal % 10 === 9 ? goal - 1 : goal + 1;
+    for (const rod of document.querySelectorAll('.abacus .rod')) {
+      const p = +rod.dataset.p, d = Math.floor(to / 10 ** p) % 10, wantHi = d >= 5 ? 1 : 0, wantLo = d % 5, bead = (deck, j) => rod.querySelector(`.bead[data-deck="${deck}"][data-j="${j}"]`);
+      const hi = rod.querySelectorAll('.bead.on[data-deck="hi"]').length, lo = rod.querySelectorAll('.bead.on[data-deck="lo"]').length;
+      if (hi !== wantHi) bead('hi', 0).click();
+      if (wantLo > lo) bead('lo', wantLo - 1).click(); else if (wantLo < lo) bead('lo', wantLo).click();
+    }
+    document.querySelector('#chk').click();
+  }, [q.text, right]);
+  return q;
+};
+// the row of the two buttons of an operation question (Comprova, Segueix) and the XP bar of the top row: each button holds its own text and lies inside its row, the two do not overlap,
+// and the top row (back link, XP bar, sound button) fits the screen without overlap
+const examRows = () => {
+  const R = e => e.getBoundingClientRect(), q = s => document.querySelector(s), bad = [], acts = q('.acts.two');
+  if (acts) {
+    const a = R(acts), bs = [...acts.children].map(b => [b, R(b)]);
+    for (const [b, r] of bs) {
+      if (b.scrollWidth > b.clientWidth + 1) bad.push(`the text of "${b.innerText.trim()}" does not fit its button`);
+      if (r.left < a.left - 1 || r.right > a.right + 1) bad.push(`"${b.innerText.trim()}" lies outside its row`);
+    }
+    if (bs.length === 2 && bs[0][1].right > bs[1][1].left + 1) bad.push('the two buttons of the row overlap');
+    if (a.right > innerWidth + 1 || a.left < -1) bad.push('the row of buttons lies outside the screen');
+  }
+  const top = [q('#toM'), q('#xp'), q('#so')].filter(e => e && !e.hidden).map(e => [e.id, R(e)]);
+  for (const [id, r] of top) if (r.left < -1 || r.right > innerWidth + 1) bad.push(`#${id} of the top row lies outside the screen`);
+  for (let i = 0; i + 1 < top.length; i++) if (top[i][1].right > top[i + 1][1].left + 1) bad.push(`#${top[i][0]} overlaps #${top[i + 1][0]} in the top row`);
+  const bar = q('.xp-bar'); if (bar && R(bar).width < 40) bad.push(`the XP bar is only ${Math.round(R(bar).width)}px wide`);
+  return { acts: !!acts, bad };
+};
 
 // ---- the hints (rule 10). Expected values are written here from the spec table «Les pistes», not worked out by hints.js. A ghost is `tone@place deck index` (place 0 is the units,
 // index 0 the bead nearest the beam); the bead a ghost is on is the one the tap goes to (the far end of the group that travels), as in main.js. State: columns from the units, [lo, hi].
@@ -341,6 +385,34 @@ for (const [w, h] of want) {
     if (k < 2) await page.waitForFunction(g => document.querySelector('#task')?.textContent === String(g), [5 + 2 * k], { timeout: 20000 }).catch(() => fails.push(`piscina: challenge ${k + 2} did not come up`));
   }
   try { await page.waitForSelector('.map', { timeout: 20000 }); } catch (e) { fails.push('piscina: the map did not come up after the third challenge'); }
+  // the exam (task 11): each circle's exam on a profile that has it open: the six questions fresh and after their one answer (a wrong one for the second), and the result panel.
+  // The first exam of a profile with circle 0 ready passes with five (the longest panel: the circle it opens, what to go over); «Un altre examen» is answered all wrong (the panel of a failed exam)
+  const seen = { op: 0, reading: 0 };
+  const sit = async (label, rightOf, panel) => {
+    for (let k = 0; k < 6; k++) {
+      try { await onQuestion(page, k); } catch (e) { fails.push(`${label} q${k + 1}: the question did not come up`); return; }
+      await settle(page);
+      const st = await page.evaluate(examState); seen[st.reading ? 'reading' : 'op']++;
+      judge(`${label} q${k + 1} fresh (${st.reading ? 'reading' : 'operation'})`, await page.evaluate(inspect, [strictNow, 6, true]), true);
+      const row = await page.evaluate(examRows); if (row.bad.length) fails.push(`${label} q${k + 1} fresh: ${row.bad.join('; ')}`);
+      await examAnswer(page, rightOf(k));
+      try { await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 }); } catch (e) { fails.push(`${label} q${k + 1}: «Segueix» did not come on after the answer`); return; }
+      await settle(page);
+      judge(`${label} q${k + 1} after its answer`, await page.evaluate(inspect, [strictNow, 6, true]), true);
+      await bump(page); await page.evaluate(() => document.querySelector('#nx').click());
+    }
+    try { await page.waitForSelector('.panel', { timeout: 15000 }); await settle(page); judge(`${label} result panel (${panel})`, await page.evaluate(inspect, [strictNow, 6, true]), true); } catch (e) { fails.push(`${label}: no result panel`); }
+  };
+  const openExam = async (c, s0) => { await seedRandom(page, s0); await bump(page); await page.evaluate(c => document.querySelector(`.proj.exam[data-x="${c}"]`).click(), c); await page.waitForSelector('#dots'); await settle(page); };
+  await seed(READY, 'Sis');
+  await openExam(0, 20261007);
+  await sit('exam 0 (5 of 6)', k => k !== 1, 'passed, circle 1 opens');
+  await bump(page); await page.evaluate(() => document.querySelector('#rp').click());
+  await sit('exam 0 again (0 of 6)', () => false, 'not passed');
+  await bump(page); await page.evaluate(() => document.querySelector('#bk').click()); await page.waitForSelector('.map');
+  await seed(OPEN, 'Set');   // every exam already passed: a pass gives 0 XP
+  for (const c of [1, 2]) { await openExam(c, 20261007 + c); await sit(`exam ${c} (6 of 6)`, () => true, 'passed again'); await bump(page); await page.evaluate(() => document.querySelector('#bk').click()); await page.waitForSelector('.map'); await settle(page); }
+  if (!seen.op || !seen.reading) fails.push(`the exam states did not cover both kinds of question (${seen.op} operations, ${seen.reading} readings)`);
   // the map with nothing done: every circle shut
   await seed(READY, 'Dues');   // another profile: a save never lowers what the profile already has
   judge('map (the exam of circle 0 ready, the others shut)', await page.evaluate(inspectMap, [true, false, false]), false);

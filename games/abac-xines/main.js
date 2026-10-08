@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
+import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, exam, examIn, EXAM_PASS, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
 import { board, HUES } from './board.js';
 import { hints } from './hints.js';
 
@@ -75,8 +75,9 @@ function mapa() {
   };
   $('#joc').innerHTML = `<div class="map">${CIRCLES.map((_, c) => band(c)).join('')}</div>`;
   $('#joc').onclick = e => {
-    const b = e.target.closest('.proj:not(.exam)');
+    const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
     if (b && !b.disabled && ready(e.timeStamp)) projecte(+b.dataset.p);
+    else if (x && !x.disabled && ready(e.timeStamp)) examen(+x.dataset.x);
   };
   ($(`#joc [data-p="${here}"]:not(:disabled)`) || $('#joc button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
@@ -254,6 +255,95 @@ function projecte(i) {
       if (+b.dataset.v === pl.goal) return right();
       tries++; tryAt = e.timeStamp + SETTLE; b.disabled = true; oops("No és aquest. Compta les boles que toquen la barra.");
     }
+  };
+  arm();
+}
+
+/* ---------- the exam of a circle: six questions of its projects, one answer each, no hints, saved by the sixth ---------- */
+// Each question is answered once (right or wrong) and then «Segueix» moves on; the abacus is bare (feet 'none') and there is no hint button. Nothing is saved before the
+// sixth answer, so leaving in the middle keeps nothing; the sixth is handed in at once (examIn), before any wait, so leaving in the pause after it keeps the result.
+function examen(c) {
+  const t = enter(`Examen del cercle ${c}`, true, HUE[c]), qs = exam(c, Math.random), root = $('#joc');
+  tight = true;
+  root.innerHTML = `<div class="head"><div class="hud"><span class="steps" id="dots" role="img" aria-label="Sis preguntes">${qs.map(() => '<i></i>').join('')}</span></div>
+      <p class="status tip" id="tip" role="status" aria-live="polite"></p>
+      <p class="task" id="task"></p></div>
+    <div class="stage" id="stage"></div>
+    <div class="tail" id="tail"></div>`;
+  const host = $('#stage'), tail = $('#tail'), dots = [...$('#dots').children];
+  // run[k] is true when question k was right at its one answer; res is what examIn says once the sixth is in
+  const run = [];
+  let k = -1, q, pl, n, bn = 0, rods, busy, reading, op, res = null;
+  const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+  const start = () => reading ? "Mira l'àbac i tria el nombre que marca." : op ? "Fes l'operació a l'àbac i prem Comprova." : "Posa el número a l'àbac i prem Comprova.";
+
+  function arm() {
+    k++; q = qs[k]; reading = q.read != null;
+    pl = reading ? { start: q.read, goal: q.read } : plan(q.q);
+    n = Math.max(3, String(Math.max(pl.start, ...(pl.stages || []))).length);
+    op = !reading && /\D/.test(q.q);
+    busy = false; rods = write(pl.start, n); openAt = performance.now() + SETTLE;
+    if (!bd || bn !== n) {
+      bd?.stop(); host.innerHTML = ''; bd = board(host, { n, feet: 'none', tone }); bn = n;
+      bd.onMove(moved);
+      bd.el.addEventListener('click', e => { if (reading && !busy && e.target.closest('.bead')) tip("En aquesta pregunta les boles no es mouen. Llegeix el nombre i tria'l a sota."); });
+    }
+    for (const b of bd.el.querySelectorAll('.wave')) b.classList.remove('wave');
+    bd.set(rods); bd.lock(reading);
+    dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    tail.innerHTML = reading ? `<div class="opts">${q.opts.map(v => `<button class="btn soft" data-v="${v}">${v}</button>`).join('')}<button class="btn" id="nx" disabled>Segueix</button></div>`
+      : `<div class="acts two"><button class="btn" id="chk">Comprova</button><button class="btn soft" id="nx" disabled>Segueix</button></div>`;
+    $('#task').innerHTML = reading ? "Quin nombre marca l'àbac?" : op ? q.q.replace(/\D/g, o => ` ${SIGN[o]} `) + ' = <b>?</b>' : `Escriu el <b>${q.q}</b>`;
+    tip(start());
+  }
+  // The answer of the question on screen, kept once. The sixth is handed in here (examIn), nothing before it is saved.
+  function log(ok) {
+    run[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
+    if (k === qs.length - 1) { res = examIn(prog, c, qs, run); res.first = res.good && !prog.exams[c]; prog = res.prog; save(); }
+  }
+  // busy first (a second tap, or another option together with the first, finds the question answered), then the answer is kept; «Segueix» comes after a pause
+  async function answer(ok, said) {
+    busy = true; bd.lock(true); log(ok);
+    for (const b of tail.querySelectorAll('button:not(#nx)')) b.disabled = true;
+    if (ok) { tip(`Correcte! L'àbac marca ${pl.goal}.`, 'go'); chime([523, 659, 784]); FX.celebrate(k === qs.length - 1 ? 16 : 6); }
+    else { tip(said, 'oops'); tone(150, 0, 0.45, 0.16, 'triangle'); }
+    if (op) $('#task').lastElementChild.textContent = pl.goal;
+    await sleep(600);
+    if (!t.on) return;   // left during the pause: this screen is over, «Segueix» is not for it to enable
+    const nx = $('#nx'); nx.disabled = false; nx.focus({ preventScroll: true });
+  }
+  function check() {
+    if (busy) return;
+    const v = valueOf(rods);
+    answer(v === pl.goal && tidy(rods), v === pl.goal ? "El nombre és correcte, però l'àbac no està endreçat." : `L'àbac marcava ${v}; havia de marcar ${pl.goal}.`);
+  }
+  function moved(r, m) {
+    if (busy) return;
+    rods = r;
+    if (rods[m.p][m.deck] > m.was) { const b = mid(m.bead); FX.burst(b.x, b.y, m.deck === 'hi' ? 44 : HUES[m.p], 7, b.w * 1.3); }
+  }
+  // the end: how many were right, whether the exam is passed and what that gives and opens, and what to go over
+  function finish() {
+    const r = res; bd.lock(true);
+    for (const b of tail.querySelectorAll('button')) b.disabled = true;
+    openAt = performance.now() + SETTLE;   // the buttons of the panel ignore a tap that was meant for what was here before
+    r.good ? chime([523, 659, 784, 1047, 1319]) : tone(196, 0, 0.5, 0.12, 'triangle');
+    tip(r.good ? 'Examen superat!' : 'Examen acabat. Mira què cal repassar.', r.good ? 'go' : '');
+    panel(host, `<h2>${r.score} de ${qs.length}</h2>
+      <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
+      ${r.first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
+      ${r.redo.length ? `<p class="lead">Per repassar: ${llista(r.redo.map(i => PROJECTS[i].name))}.</p>` : ''}
+      ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
+      <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre examen</button>`);
+  }
+
+  root.onclick = e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.id === 'bk') mapa();
+    else if (b.id === 'rp') examen(c);
+    else if (b.id === 'chk') check();
+    else if (b.id === 'nx') k === qs.length - 1 ? finish() : arm();
+    else if ('v' in b.dataset) { if (!busy) answer(+b.dataset.v === pl.goal, `No és aquest: l'àbac marcava ${pl.goal}.`); }
   };
   arm();
 }

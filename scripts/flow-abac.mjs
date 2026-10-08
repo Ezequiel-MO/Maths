@@ -501,6 +501,162 @@ await section('a slow screen: the tap inside the guard window', async () => {
   check(/^Fes l'operació/.test(s.tip), `a tap made inside the window and handled after it, with a slow screen: ${JSON.stringify(s)}, expected it ignored (the first tip)`);   // contract: plan Task 10, guarda de 450 ms contra el doble toc, també si la pantalla triga a construir-se
 });
 
+// ---- the exam (task 11): the questions are random, so the script seeds Math.random in the page and answers from what is on screen (the text of the question, or the abacus for a reading), never from the game's goal
+const seedRandom = page => page.evaluate(() => { let s = 20261007; Math.random = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; });
+const examQ = page => page.evaluate(() => {
+  const rods = [...document.querySelectorAll('.abacus .rod')], text = document.querySelector('#task').innerText.replace(/\s/g, '');
+  const read = rods.reduce((a, r) => a + (r.querySelectorAll('.bead.on[data-deck="hi"]').length * 5 + r.querySelectorAll('.bead.on[data-deck="lo"]').length) * 10 ** +r.dataset.p, 0);
+  return { reading: !!document.querySelector('.opts [data-v]'), read, text };
+});
+// the answer of the question on screen: right, or wrong (an abacus one off, or another option)
+async function examAnswer(page, right) {
+  await skew(page);
+  const q = await examQ(page);
+  if (q.reading) { await page.evaluate(([read, right]) => document.querySelector(`.opts [data-v="${right ? read : [...document.querySelectorAll('.opts [data-v]')].map(b => +b.dataset.v).find(v => v !== read)}"]`).click(), [q.read, right]); return q; }
+  const w = q.text.match(/^Escriuel(\d+)$/), goal = w ? +w[1] : result(q.text.replace('=?', '').replace(/−/g, '-').replace(/×/g, 'x'));
+  await setTo(page, right ? goal : goal % 10 === 9 ? goal - 1 : goal + 1);
+  await page.evaluate(() => document.querySelector('#chk').click());
+  return q;
+}
+// a whole exam, from question `from` up to (not including) `stopAt`; wrong(k) says which questions are answered wrong. Ends on the panel, or on question stopAt
+async function sit(page, { wrong = () => false, from = 0, stopAt = 6 } = {}) {
+  for (let k = from; k < stopAt; k++) {
+    await page.waitForFunction(k => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === k, k, { timeout: 15000 });
+    await examAnswer(page, !wrong(k));
+    await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 });
+    await skew(page); await page.evaluate(() => document.querySelector('#nx').click());
+  }
+  if (stopAt >= 6) await page.waitForSelector('.panel', { timeout: 15000 });
+}
+const EXAM0 = { piscina: true, notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] };   // both projects of circle 0 validated: its exam is open
+const openExam = async (page, c = 0) => { await skew(page); await page.evaluate(c => document.querySelector(`.proj.exam[data-x="${c}"]`).click(), c); await page.waitForSelector('#dots'); await seedRandom(page); };
+
+await section('the exam screen: six dots, no hint, two buttons, nothing saved by the first answers', async () => {
+  const { page } = await open(EXAM0);
+  const before = JSON.stringify(await stored(page));
+  await skew(page); await page.evaluate(() => document.querySelector('.proj.exam[data-x="0"]').click()); await page.waitForSelector('#dots');
+  const scene = () => page.evaluate(() => ({ kick: document.querySelector('#kick').textContent, dots: document.querySelectorAll('#dots i').length, back: document.querySelector('#toM').hidden, hints: document.querySelectorAll('.hints, #hintb, #rst').length, feet: [...document.querySelectorAll('.foot span')].map(f => f.textContent).join(''),
+    nx: document.querySelector('#nx')?.textContent, nxOff: document.querySelector('#nx')?.disabled, blocks: [...document.querySelector('#joc').children].map(e => e.className) }));
+  same('the exam screen', await scene(), { kick: 'Examen del cercle 0', dots: 6, back: false, hints: 0, feet: '', nx: 'Segueix', nxOff: true, blocks: ['head', 'stage', 'tail'] });   // contract: spec «L'examen», sis preguntes sense pistes; plan Task 11, títol, ← Mapa, peus 'none', «Segueix» desactivat fins que es respon
+  for (let k = 0; k < 5; k++) {
+    await examAnswer(page, true); await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 });
+    same(`after answer ${k + 1}: nothing saved`, JSON.stringify(await stored(page)), before);   // contract: plan Task 11, només es desa amb la sisena resposta
+    await skew(page); await page.evaluate(() => document.querySelector('#nx').click());
+    await page.waitForFunction(k => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === k + 1, k, { timeout: 15000 });
+  }
+});
+
+await section('an exam with 5 of 6 right passes: saved at the sixth answer, circle 1 opens, +50 XP', async () => {
+  const { page } = await open(EXAM0);
+  same('the bar before', await page.evaluate(() => document.querySelector('#xp .xp-n').textContent), 'Nivell 1,40');   // contract: spec «XP»: Piscina 50 + 80 + 80 = 210; 210 / 150 = 1,40
+  await openExam(page);
+  await sit(page, { wrong: k => k === 2, stopAt: 5 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === 5, null, { timeout: 15000 });
+  same('the sixth answer saves in the same turn', await (async () => { await examAnswer(page, true); return page.evaluate(async () => (await import('/shared/progress.js')).load('abac-xines').exams); })(), [true, false, false]);   // contract: plan Task 11, la sisena resposta fa examIn i desa abans de cap espera
+  await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 }); await skew(page); await page.evaluate(() => document.querySelector('#nx').click());
+  await page.waitForSelector('.panel', { timeout: 15000 });
+  const txt = await panelText(page);
+  check(/^5 de 6/.test(txt) && /Superat ✓ · \+50 XP/.test(txt) && /S'ha obert el cercle 1\./.test(txt) && /Per repassar: /.test(txt) && /Torna al mapa/.test(txt) && /Un altre examen/.test(txt), `the panel of an exam with 5 right: ${JSON.stringify(txt)}`);   // contract: spec «L'examen», 5 de 6 el supera i dona 50 XP; plan Task 11, el tauler diu el resultat, què s'obre i què repassar
+  same('the saved progress', await stored(page), { so: true, secs: [0, 0, 0, 0, 0, 0], piscina: true, notes: [80, 80, 0, 0, 0, 0, 0, 0, 0], exams: [true, false, false], fulls: 0 });   // contract: spec «El que es desa», només fets: l'examen superat
+  same('the bar after', await page.evaluate(() => document.querySelector('#xp .xp-n').textContent), 'Nivell 1,73');   // contract: spec «XP»: 210 + 50 = 260; 260 / 150 = 1,73
+  await skew(page); await page.evaluate(() => document.querySelector('#bk').click()); await page.waitForSelector('.map');
+  same('the map after', await page.evaluate(() => ({ shut: [...document.querySelectorAll('.ring')].map(r => r.classList.contains('shut')), exam0: document.querySelector('.proj.exam[data-x="0"] .mk').textContent })), { shut: [false, false, true], exam0: 'Superat ✓' });   // contract: spec «El mapa», superar l'examen d'un cercle obre el següent
+});
+
+await section('an exam with 4 of 6 right does not pass, and «Un altre examen» starts a new one', async () => {
+  const { page } = await open(EXAM0);
+  await openExam(page);
+  await sit(page, { wrong: k => k === 1 || k === 4 });
+  const txt = await panelText(page);
+  check(/^4 de 6/.test(txt) && /Per superar l'examen calen 5 de 6\./.test(txt) && !/Superat/.test(txt) && !/S'ha obert/.test(txt) && /Per repassar: /.test(txt), `the panel of an exam with 4 right: ${JSON.stringify(txt)}`);   // contract: spec «L'examen», amb 4 de 6 no se supera, el que falla es repassa
+  same('nothing passed is saved', (await stored(page)).exams, [false, false, false]);   // contract: spec «L'examen», només 5 o més el superen
+  await skew(page); await page.evaluate(() => document.querySelector('#rp').click()); await page.waitForSelector('#dots');
+  same('a new exam', await dots(page), { cur: 0, ok: 0, late: 0 });   // contract: plan Task 11, un altre examen comença per la pregunta 1
+  await skew(page); await page.evaluate(() => document.querySelector('#toM').click()); await page.waitForSelector('.map');
+  same('circle 1 is still shut', await page.evaluate(() => document.querySelector('.ring.r1').classList.contains('shut')), true);   // contract: spec «El mapa», el cercle 1 s'obre amb l'examen del 0
+});
+
+await section('an exam already passed gives 0 XP and opens nothing; six wrong keeps the pass', async () => {
+  const { page } = await open({ ...EXAM0, exams: [true, false, false] });
+  await openExam(page);
+  await sit(page);
+  const txt = await panelText(page);
+  check(/^6 de 6/.test(txt) && /Superat ✓ · 0 XP: ja el tenies superat\./.test(txt) && !/S'ha obert/.test(txt) && !/Per repassar/.test(txt), `the panel of a second pass: ${JSON.stringify(txt)}`);   // contract: spec «XP», 50 XP un sol cop per examen; plan Task 11, 0 XP si ja el tenia
+  await skew(page); await page.evaluate(() => document.querySelector('#rp').click()); await page.waitForSelector('#dots'); await seedRandom(page);
+  await sit(page, { wrong: () => true });
+  check(/^0 de 6/.test(await panelText(page)), 'six wrong answers: the panel does not say 0 de 6');
+  same('a pass is never taken back', (await stored(page)).exams, [true, false, false]);   // contract: spec «L'examen», examIn no desfà un examen superat
+});
+
+await section('leaving the exam at question 3 saves nothing, and a new one starts at question 1', async () => {
+  const { page } = await open(EXAM0);
+  const before = JSON.stringify(await stored(page));
+  await openExam(page);
+  await sit(page, { stopAt: 2 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === 2);
+  await skew(page); await page.evaluate(() => document.querySelector('#toM').click()); await page.waitForSelector('.map');
+  same('the saved progress', JSON.stringify(await stored(page)), before);   // contract: plan Task 11, sortir a mitges no desa res
+  await openExam(page);
+  same('a new exam', await dots(page), { cur: 0, ok: 0, late: 0 });
+});
+
+await section('the exam: a double tap on «Comprova» and two options together are one answer', async () => {
+  const { page } = await open(EXAM0);
+  await openExam(page);
+  let did = { op: false, read: false };
+  for (let k = 0; k < 6; k++) {
+    await page.waitForFunction(k => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === k, k, { timeout: 15000 });
+    await skew(page);
+    const q = await examQ(page);
+    if (q.reading && !did.read) {
+      did.read = true;
+      const [a, b] = await page.evaluate(read => [...document.querySelectorAll('.opts [data-v]')].map(x => x.dataset.v).filter(v => +v !== read).slice(0, 2), q.read);
+      await tapTwice(page, `.opts [data-v="${a}"]`, `.opts [data-v="${b}"]`);
+    } else if (!q.reading && !did.op) {
+      did.op = true; await tapTwice(page, '#chk');
+    } else { await examAnswer(page, true); await page.waitForSelector('#nx:not([disabled])'); await skew(page); await page.evaluate(() => document.querySelector('#nx').click()); continue; }
+    const d = await dots(page);
+    check(d.ok + d.late === k + 1 && d.cur === k, `the exam: two taps together on question ${k + 1} made ${d.ok + d.late} answers in all (${JSON.stringify(d)}), expected ${k + 1}`);   // contract: plan Task 11, una sola resposta per pregunta: busy abans de desar
+    await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 }); await skew(page); await page.evaluate(() => document.querySelector('#nx').click());
+    if (k === 5) break;
+  }
+  check(did.op && did.read, `the exam did not ask both kinds of question with this seed: ${JSON.stringify(did)}`);
+});
+
+await section('the exam: a tap right after question 6 comes up is ignored, and the result is saved only by its answer', async () => {
+  const { page } = await open(EXAM0);
+  const before = JSON.stringify(await stored(page));
+  await openExam(page);
+  await sit(page, { stopAt: 4 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === 4);
+  await examAnswer(page, true); await page.waitForSelector('#nx:not([disabled])', { timeout: 15000 }); await skew(page);
+  await page.evaluate(() => { document.querySelector('#nx').click(); document.querySelector('#chk, .opts [data-v]').click(); });   // «Segueix» and, in the same turn, a tap on what takes its place
+  const d = await dots(page);
+  check(d.cur === 5 && d.ok + d.late === 5, `the second tap of a double tap on «Segueix» counted: ${JSON.stringify(d)}, expected question 6 on screen and 5 answers`);   // contract: plan Task 11, guarda de 450 ms sobre la pregunta nova
+  same('nothing is saved yet', JSON.stringify(await stored(page)), before);   // contract: plan Task 11, només es desa amb la sisena resposta
+});
+
+await section('leaving in the pause after the sixth answer keeps the result', async () => {
+  const { page } = await open(EXAM0);
+  await openExam(page);
+  await sit(page, { stopAt: 5 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')) === 5);
+  await examAnswer(page, true);
+  await page.evaluate(() => { window.__skew += 1000; document.querySelector('#toM').click(); });   // the answer and the leaving are one turn of the page: no pause has time to run out in between
+  check(await page.evaluate(() => !document.querySelector('.panel') && !!document.querySelector('.map')), 'leaving in the pause after the sixth answer: the panel was already up, the leaving came too late to test the pause');
+  await page.waitForTimeout(400);
+  same('saved', (await stored(page)).exams, [true, false, false]);   // contract: plan Task 11, la sisena resposta es desa abans de l'espera
+});
+
+await section('leaving in the pause after an answer leaves no page error', async () => {
+  const { page } = await open(EXAM0);
+  await openExam(page);
+  await page.waitForFunction(() => document.querySelector('#chk, .opts [data-v]'));
+  await examAnswer(page, true);
+  await page.evaluate(() => { window.__skew += 1000; document.querySelector('#toM').click(); });
+  await page.waitForSelector('.map');   // the harness fails the section if the pause that was left touches the map
+});
+
 await browser.close();
 if (process.env.ONLY && ran === 0) { console.error(`flow-abac: ONLY=${process.env.ONLY} matches no section`); process.exit(1); }
 if (fails) { console.error(`${fails} failures`); process.exit(1); }
