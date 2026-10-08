@@ -921,6 +921,14 @@ function partD() {
     for (const name of ['sectionMenu', 'levelRow', 'wireLevels']) check(!new RegExp(`\\b${name}\\b`).test(code), `D: main.js still uses ${name}, the sections of the old game`);   // contract: plan Task 10, deixen d'usar-se
     check(/import \{[^}]*\bpanel\b[^}]*\} from '\.\.\/\.\.\/shared\/sections\.js'/.test(code), 'D: main.js does not import panel from shared/sections.js');   // contract: plan Task 10, panel es conserva
     check(!/\b(SECTIONS|LEVELS)\b/.test(code), 'D: main.js still uses SECTIONS or LEVELS, the old levels');   // contract: plan Task 10, SECTIONS i LEVELS es deixen d'usar
+    // the game is for one child alone, and the page is not a hub card
+    const logicText = readFileSync(new URL('../games/abac-xines/logic.js', import.meta.url), 'utf8');
+    for (const [name, text] of [['logic.js', logicText], ['main.js', mainText], ['hints.js', hintsText || ''], ['board.js', boardText || '']]) {
+      check(!/company|segon/i.test(text), `D: ${name} has «company» or «segon»: the game is played by one child alone`);
+      check(!/\b(SECTIONS|LEVELS)\b/.test(text), `D: ${name} still has SECTIONS or LEVELS, the old levels`);
+    }
+    check(!/>\s*Pista\s*</.test(mainText), "D: a button of main.js says «Pista» alone: it is «Dona'm una pista»");
+    check(!/data-hub/.test(htmlText || ''), 'D: abac-xines.html has data-hub');
     // the discipline of the screens: a token that every wait looks at, and a pause against the double tap
     check(/function fresh\(\) \{ tok\.on = false; tok = \{ on: true \};[^}]*hn\?\.stop\(\);[^}]*bd\?\.stop\(\);/.test(flat), 'D: fresh() of main.js does not cancel the token and stop the hints and the board of the screen it leaves: a hint that plays would go on over the map');   // contract: plan Task 10, fresh() cancel·la la pantalla anterior; Task 9, play no s'atura sol quan es canvia de pantalla
     const sleeps = (flat.match(/await sleep\(/g) || []).length, guarded = (flat.match(/await sleep\([^)]*\); if \(!t\.on\) return;/g) || []).length, plays = (flat.match(/await hn\.play\(/g) || []).length, playsGuarded = (flat.match(/await hn\.play\([^;]*\); if \(!t\.on\) return;/g) || []).length;
