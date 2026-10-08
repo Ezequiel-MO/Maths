@@ -9,11 +9,12 @@ import { LEVELS as TIMES } from '../games/coet-multiplicador/logic.js';
 import { SECTIONS as PADS } from '../games/nenufars-a-trossos/logic.js';
 import { PROJECTS } from '../games/cursus-de-l-estany/logic.js';
 import { PROJECTS as CONCERT } from '../games/concert-de-l-estany/logic.js';
+import { LEVELS as LAB } from '../games/laboratori-de-l-estany/logic.js';
 
 const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   // nine lessons and a test in each section
   'nenufars-a-trossos': PADS.reduce((n, s) => n + s.levels.length + 1, 0),
-  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length };
+  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];
