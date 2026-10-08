@@ -116,7 +116,7 @@ export const SECTIONS = [
     find('C', 'Troba el <b>carboni</b>. El seu símbol és <b>C</b>.', 'Cada element té un símbol d\'una o dues lletres. Pots tocar totes les caselles que vulguis: mirar no costa res.'),
     find('He', 'Troba l\'element <b>número 2</b>.', 'El número de cada casella diu quants protons té el seu àtom. Els elements van ordenats per aquest número.'),
     atom('He', null, 'Un àtom té protons al mig i electrons que hi donen voltes. Posa-hi 2 protons i tindràs heli.'),
-    atom('C', null, 'Quants protons té decideix quin element és. Mira la casella: el carboni és el número 6.'),
+    atom('C', null, 'Quants protons té decideix quin element és. Si no recordes el número del carboni, prem «Mira la taula».'),
     find('Na', 'Troba el <b>sodi</b>: és a la sal de cuina.', 'Compte, que el símbol del sodi no comença per S! Toca caselles i llegeix què diuen.'),
     find('Mg', 'Troba l\'element que té <b>el doble de protons</b> que el carboni.', 'El carboni és el número 6. Quin número busques?'),
     atom('Li', 4, 'Al mig de l\'àtom també hi ha neutrons. La massa és protons + neutrons. Fes un liti de massa 7.'),

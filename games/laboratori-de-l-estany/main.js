@@ -200,7 +200,17 @@ function atom({ t, L, stage, tip, slip, win }) {
   stage.innerHTML = `<p class="goal two">Fes un àtom ${de(E.name)}${mass ? ` de massa <b class="sun">${E.z + L.n}</b>` : ''}</p>
     <div class="row"><div id="av"></div><div class="who" id="who"></div></div>
     <div class="steppers">${stepper('p', '<i class="pt p"></i>Protons', p)}${mass ? stepper('n', '<i class="pt n"></i>Neutrons', n) : ''}</div>
-    <button class="btn" id="ok">Comprova</button>`;
+    <button class="btn" id="ok">Comprova</button>
+    <button class="link" id="tb" aria-expanded="false">Mira la taula</button>
+    <div class="ref" id="ref" hidden><p class="cap" id="refc">Toca una casella per saber qui és.</p>${TABLE}</div>`;
+  // the table to look things up in, under the atom: touching a square only says who it is
+  $('#tb').onclick = () => { const r = $('#ref'); r.hidden = !r.hidden; $('#tb').textContent = r.hidden ? 'Mira la taula' : 'Amaga la taula'; $('#tb').setAttribute('aria-expanded', !r.hidden); if (!r.hidden) r.scrollIntoView({ block: 'nearest', behavior: RM ? 'auto' : 'smooth' }); };
+  $('#ptable').onclick = e => {
+    const b = e.target.closest('.el'); if (!b) return;
+    const X = el(b.dataset.s); blip(440 + X.z * 8);
+    stage.querySelectorAll('.ptable .el').forEach(x => x.classList.toggle('sel', x === b));
+    $('#refc').innerHTML = `<b>${X.sym} · ${cap(X.name)}</b> és el número ${X.z}: té ${X.z} ${X.z > 1 ? 'protons' : 'protó'}.`;
+  };
   const draw = () => {
     const X = byZ(p);
     $('#av').innerHTML = atomSvg(p, mass ? n : 0);
@@ -215,7 +225,7 @@ function atom({ t, L, stage, tip, slip, win }) {
   };
   $('#ok').onclick = async () => {
     if (busy || !t.on) return;
-    if (p !== E.z) { slip(); again($('#who')).add('shake'); return tip(p ? `Ui! Amb ${p} ${p === 1 ? 'protó' : 'protons'} has fet ${the(byZ(p).name)}. Busca ${the(E.name)} a la taula: quin número té?` : 'Ui! Sense protons no hi ha àtom.', 'oops'); }
+    if (p !== E.z) { slip(); again($('#who')).add('shake'); return tip(p ? `Ui! Amb ${p} ${p === 1 ? 'protó' : 'protons'} has fet ${the(byZ(p).name)}. Prem «Mira la taula» i busca ${the(E.name)}: quin número té?` : 'Ui! Sense protons no hi ha àtom.', 'oops'); }
     if (mass && n !== L.n) { slip(); again($('#who')).add('shake'); return tip(`Ui! És ${the(E.name)}, però ${p} + ${n} fa massa ${p + n}, i ha de ser ${E.z + L.n}.`, 'oops'); }
     busy = true; spark($('#av'), GROUPS[E.group][1]); $('#av').firstChild.classList.add('won');
     tip(`Un àtom ${de(E.name)}! ${E.fact}`, 'go');

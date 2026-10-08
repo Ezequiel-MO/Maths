@@ -94,6 +94,9 @@ sub { font-size: 0.62em; line-height: 0; }
 .info .parts3 { display: flex; flex-direction: column; margin-block: 3px; color: var(--ink); font-weight: 700; font-size: 0.9rem; line-height: 1.25; }
 .info .parts3 span { display: flex; gap: 6px; align-items: center; color: var(--ink); } .info .pt { flex: none; width: 10px; height: 10px; }
 
+/* the table to look things up in, under the atom */
+.ref { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+
 /* the atom: shells that turn round a heap of protons and neutrons */
 .atomv { width: min(58vw, 240px); overflow: visible; }
 .orbit { fill: none; stroke: rgb(160 230 220 / 0.3); stroke-width: 1.2; stroke-dasharray: 3 5; }
