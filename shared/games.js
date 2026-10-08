@@ -3,6 +3,7 @@
 // total is how much there is to win, and record(saved, total) the line under the card, empty until there is something to show.
 // scripts/check.mjs stops the build when a total no longer matches the game's own data.
 import { clean } from '../games/abac-xines/logic.js';
+import { clean as concert, noteOf, VALID } from '../games/concert-de-l-estany/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 const screens = (n, total) => n ? `${n} de ${total} pantalles` : '';
@@ -11,6 +12,8 @@ const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.sli
 // the abacus game counts projects too, but a profile that has not opened it since the update only holds the old secs: clean makes the project marks from them,
 // and from anything else a save of any shape. Unlike the other cards it says 0 de 9 for a save with nothing yet, which is what the plan asks of it
 const abacus = (s, total) => `${clean(s).notes.slice(0, total).filter(x => x >= 80).length} de ${total} projectes`;
+// the concert keeps the stars of its levels, and the mark of a project comes out of them: clean makes a progress of a save of any shape
+const tunes = (s, total) => { const p = concert(s), n = Array.from({ length: total }, (_, i) => noteOf(p, i)).filter(x => x >= VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
 // (worlds 6 and 12 were the mixes, which are no longer sections of their own)
 const leaps = s => Array.isArray(s.secs) ? sum(s.secs) : Array.isArray(s.stars) ? s.stars.filter((n, i) => n > 0 && i % 6 < 5).length * 10 : 0;
@@ -38,6 +41,6 @@ export const GAMES = [
     what: 'Reparteix, agrupa i divideix a trossos, i caça les errades dels fulls.', total: 8, record: (s, total) => projects(s, total),
     icon: `<svg viewBox="-34 -34 68 68" aria-hidden="true"><circle r="31" fill="none" stroke="#B79CFF" stroke-width="3"/><circle r="21" fill="none" stroke="#6FE3FF" stroke-width="3"/><circle r="11" fill="#1C5A3C" stroke="#7CF5B0" stroke-width="3"/><g fill="#F7C64E"><rect x="-6" y="-1.500" width="12" height="3" rx="1.500"/><circle cy="-5" r="1.800"/><circle cy="5" r="1.800"/></g></svg>` },
   { id: 'concert-de-l-estany', href: 'concert-de-l-estany.html', store: 'concert-de-l-estany', tag: 'Música i mates', title: "El concert de l'estany",
-    what: 'Llegeix partitures, talla tubs amb fraccions i omple compassos amb la bateria.', total: 70, record: (s, total) => levels(sum(s.secs), total),
+    what: 'Llegeix partitures, talla tubs amb fraccions i omple compassos amb la bateria.', total: 7, record: (s, total) => tunes(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M4 60H44" stroke="#2A4B5C" stroke-width="4" stroke-linecap="round"/><rect x="6" y="6" width="8" height="52" rx="3" fill="#FF6B5E"/><rect x="16" y="19" width="8" height="39" rx="3" fill="#F7C64E"/><rect x="26" y="23" width="8" height="35" rx="3" fill="#7CF5B0"/><rect x="36" y="32" width="8" height="26" rx="3" fill="#6FE3FF"/><g fill="none" stroke="#EAF8F4" stroke-width="3" stroke-linecap="round"><path d="M55 30V8q1 7 7 9"/></g><ellipse cx="50" cy="31" rx="6" ry="4.300" transform="rotate(-20 50 31)" fill="#EAF8F4"/></svg>` }
 ];

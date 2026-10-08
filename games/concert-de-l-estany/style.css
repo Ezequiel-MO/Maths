@@ -12,6 +12,14 @@
 #app.wide h1 { display: none; }
 h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .figcard, .rule, .line, .countin, .eq { font-family: var(--display); }
 
+/* the XP bar lives in the row at the top (the back link, the bar, the sound button): always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
 #game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
 .hud { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 #st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
@@ -20,7 +28,49 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .row { width: 100%; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .panel .line { font-size: 1.35rem; font-weight: 800; }
 .panel .won { color: var(--sun); font-size: 2rem; letter-spacing: 0.12em; line-height: 1; }
+.panel .lead.go { color: var(--mint); }
 .sun { color: var(--sun); }
+
+/* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
+.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; text-align: center; padding: 4px 8px; min-height: 56px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the exam of a circle: the last button of its band, slimmer than a project and gold when it can be taken */
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+/* around the bands: what to do now (above them), the sheet of mistakes and the badges, the earned ones lit */
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+#full { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+#full:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
+
+/* the Piscina, an exam and a sheet: a dot for each step over the frog, and the buttons that answer under the stage */
+.hud.mid { justify-content: center; }
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.tail .opts .btn { font-size: 1.2rem; min-width: 0; }
+.ask.claim { max-width: 26ch; font-size: 1.5rem; line-height: 1.25; }
 
 /* the frog and its speech bubble */
 .coach { width: 100%; max-width: 600px; display: flex; gap: 14px; align-items: center; }
@@ -188,4 +238,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @keyframes baton { from { transform: rotate(-14deg); } to { transform: rotate(18deg); } }
 @keyframes snip { to { transform: rotate(180deg) translateY(-4px); } }
 @media (max-width: 480px) { .frog { width: 56px; height: 52px; } .coach { gap: 12px; } }
-@media (prefers-reduced-motion: reduce) { .nt.now, .blk.gap, .tube.hint, .frog .baton, .snip svg { animation: none; } }
+/* a phone upright: the map has no big title (the exam buttons need that height; the kicker and the bar stay) */
+@media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
+@media (prefers-reduced-motion: reduce) { .nt.now, .blk.gap, .tube.hint, .frog .baton, .snip svg { animation: none; } .xp-bar i { transition: none; } }
