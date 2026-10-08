@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { SECTIONS, LEVELS, NOTES, WHERE, FIGS, INTERVALS, beatsText, starsFor } from './logic.js';
+import { SECTIONS, LEVELS, NOTES, WHERE, FIGS, INTERVALS, beatsText, starsFor, ratio } from './logic.js';
 import { staff, glyph } from './score.js';
 import { band } from './sound.js';
 
@@ -50,12 +50,19 @@ const WAVE = '<svg class="wave" id="wave" viewBox="0 0 300 40" preserveAspectRat
 const TUBES = `<div class="tubes">${NOTES.map((n, i) => `<button class="tube" data-n="${i}" style="--h:${n.hue};--l:${n.len / 180}" aria-label="${n.name}"><span>${n.short}</span></button>`).join('')}</div>`;
 
 const HURRAY = ['Bravo!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin concert!'];
-const HUES = [175, 262, 28, 205, 318, 48];
+const HUES = [175, 262, 28, 205, 318, 48, 140];
 const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const frac = (n, d) => `<span class="fr"><b>${n}</b><i>${d}</i></span>`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
 const again = e => { e.classList.remove('ring', 'shake', 'hit', 'on', 'ok'); void e.getBoundingClientRect(); return e.classList; };
 
+const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
+// The vibrations of some notes over the same stretch of time, a row of dots each: the rows start together at the line on the left
+// and are together again at the line on the right. Few dots between the lines is what the ear hears as round
+function pulses(steps) {
+  const r = ratio(steps);
+  return `<div class="pulses">${steps.map((s, i) => `<div class="prow${r[i] > 12 ? ' many' : ''}" style="--h:${NOTES[s].hue}"><b>${NOTES[s].short}</b><span class="track">${Array.from({ length: r[i] }, (_, k) => `<i style="left:${k / r[i] * 100}%"></i>`).join('')}</span><b>${r[i]}</b></div>`).join('')}</div>`;
+}
 // the wave of a note, drawn on the strip of the stage: a tube half as long makes waves twice as tight
 function wave(ratio, hue) {
   const e = $('#wave'); if (!e) return;
@@ -113,7 +120,7 @@ function level(sec, idx) {
     await sleep(900); if (!t.on) return;
     panel(stage, `<h2>${last ? 'Concert acabat!' : end ? 'Secció superada!' : pick(HURRAY)}</h2>
       <p class="line">${line}</p><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
-      <p class="lead">${last ? 'Ja saps llegir notes, tallar tubs amb fraccions, comptar intervals i portar el ritme.' : end ? `Ara, la secció ${sec + 2}: ${SECTIONS[sec + 1].name}.` : n === 3 ? 'Ni un sol error!' : 'Si hi tornes sense errors ni pistes, tindràs les tres estrelles.'}</p>
+      <p class="lead">${last ? 'Ja saps llegir notes, tallar tubs amb fraccions, comptar intervals, portar el ritme i fer acords.' : end ? `Ara, la secció ${sec + 2}: ${SECTIONS[sec + 1].name}.` : n === 3 ? 'Ni un sol error!' : 'Si hi tornes sense errors ni pistes, tindràs les tres estrelles.'}</p>
       <button class="btn" id="nx">${last ? 'Torna a les seccions' : end ? 'Secció següent' : 'Nivell següent'}</button>${n < 3 ? '<button class="link" id="ag">Torna-hi</button>' : ''}`);
     stage.querySelector('.panel').scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
     $('#nx').onclick = () => last ? seccions() : end ? level(sec + 1, 0) : level(sec, idx + 1);
@@ -121,7 +128,7 @@ function level(sec, idx) {
   }
 
   // each kind draws its stage and gives back its hint: a function that shows the help and returns what the tip says
-  const help = { play, cut, cm, beat, step, fit, drum: tapping }[L.kind]({ t, L, stage, tip, slip, spark, win });
+  const help = { play, cut, cm, beat, step, fit, drum: tapping, chord, pair }[L.kind]({ t, L, stage, tip, slip, spark, win });
   $('#hintb').onclick = () => { if (over) return; const txt = help(); if (txt) { slip(); tip(txt); } };
   stars();
   // on a short screen the end of the stage can be under the fold, and a child does not know there is more: start from the frog's tip
@@ -197,16 +204,71 @@ function step({ t, L, stage, tip, slip, spark, win }) {
     ring(i);
     if (i !== to) { slip(); tubes[i].classList.add('shake'); count(); return tip('Ui! ' + how(), 'oops'); }
     busy = true; count(); $('#sheet').innerHTML = sheetOf(true); spark(tubes[to], B.hue);
-    tip(`${how()} Del ${A.name} al ${B.name} hi ha una ${name}!${from === 0 && n > 2 ? ` I el tub de ${B.name} fa ${frac(B.n, B.d)} del de Do.` : ''}`, 'go');
+    // the numbers under the interval: how many times each note vibrates while the other does. Small numbers meet often
+    const lo = Math.min(from, to), hi = Math.max(from, to), [q, p] = ratio([lo, hi]), round = q <= 6;
+    $('#wave').outerHTML = pulses([lo, hi]);
+    tip(`Del ${A.name} al ${B.name} hi ha una ${name}! Mentre el ${NOTES[lo].name} vibra ${q} ${q > 1 ? 'cops' : 'cop'}, el ${NOTES[hi].name} en vibra ${p}. ${round ? 'Números petits: les ones es troben sovint i sonen bé juntes.' : 'Números grans: les ones gairebé no es troben, i juntes sonen tibants.'}`, 'go');
     // one after the other, and then both at once
     await sleep(1000); if (!t.on) return; ring(from, 0.5); await sleep(520); if (!t.on) return; ring(to, 0.5);
-    await sleep(700); if (!t.on) return; ring(from, 1); ring(to, 1); await sleep(1300); if (!t.on) return;
-    win(`${A.name} → ${B.name}: una ${name}`);
+    await sleep(700); if (!t.on) return; ring(from, 1.4); ring(to, 1.4); await sleep(3200); if (!t.on) return;
+    win(`${A.name} → ${B.name}: una ${name}<br><small>${p} vibracions per cada ${q}</small>`);
   }
   stage.querySelector('.tubes').onclick = e => { const b = e.target.closest('.tube'); if (b) tap(+b.dataset.n); };
   keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1); };
   tip(L.say);
   return () => { if (busy) return ''; count(); return how(); };
+}
+
+/* ---------- chords: notes at once, and the numbers that say why they sound well ---------- */
+// build the chord on the tubes: tap its notes, and they sound together when the last one is in
+function chord({ t, L, stage, tip, slip, spark, win }) {
+  const want = L.notes, names = s => list(s.map(i => NOTES[i].name));
+  stage.innerHTML = `<div class="row"><div class="sheet mini" id="sheet">${staff([{ gap: true }], { bars: false })}</div><p class="goal two">Acord de <b class="sun">${L.name}</b><br>${want.length} notes alhora</p></div>
+    <div class="pz" id="pz"><p class="cap">Tria ${want.length} tubs. Quan els tinguis, sonaran junts.</p></div>${TUBES}`;
+  const { tubes, ring } = tubesOf(stage), sel = new Set();
+  let busy = false;
+  async function tap(i) {
+    if (busy || !t.on) return;
+    sel.has(i) ? sel.delete(i) : sel.add(i); tubes[i].classList.toggle('sel', sel.has(i)); tubes[i].classList.remove('hint'); ring(i);
+    if (sel.size < want.length) return;
+    busy = true;
+    const got = [...sel].sort((a, b) => a - b), r = ratio(got), said = `${names(got)} vibren ${list(r)} cops en el mateix temps.`;
+    await sleep(500); if (!t.on) return;
+    got.forEach(s => ring(s, 1.4)); $('#pz').innerHTML = pulses(got);
+    if (got.join() === want.join()) {
+      $('#sheet').innerHTML = staff([{ steps: want, fig: 'r' }], { bars: false }); spark($('#pz'), 48);
+      tip(`${said} ${Math.max(...r) <= 8 ? 'Números petits: les ones es troben sovint i sona rodó!' : 'Sona bé, però els números són més grans que 4, 5 i 6: per això és més fosc i trist. És un acord menor.'}`, 'go');
+      await sleep(3200); if (!t.on) return;
+      return win(`${got.map(s => NOTES[s].short).join(' · ')}<br><small>${r.join(' : ')}</small>`);
+    }
+    slip(); tip(`${said} ${got.some((x, j) => got[j + 1] === x + 1) ? 'Hi ha notes de costat: fan números més grans, les ones es troben poc i xoquen.' : `No és l'acord de ${L.name}.`} Comença pel ${NOTES[want[0]].name} i tria una nota sí, una no.`, 'oops');
+    await sleep(2200); if (!t.on) return;
+    sel.clear(); tubes.forEach(e => e.classList.remove('sel')); busy = false;
+  }
+  stage.querySelector('.tubes').onclick = e => { const b = e.target.closest('.tube'); if (b) tap(+b.dataset.n); };
+  keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1); };
+  tip(L.say);
+  return () => { if (busy) return ''; want.forEach(s => tubes[s].classList.add('hint')); return `Les notes de l'acord són ${names(want)}: els seus tubs fan pampallugues.`; };
+}
+
+// two groups of notes: listen to both, look at their numbers and choose
+function pair({ t, L, stage, tip, slip, spark, win }) {
+  let busy = false;
+  stage.innerHTML = `<p class="ask">${L.q}</p><div class="cards">${L.sets.map((s, k) => `<div class="card" data-k="${k}"><b class="names">${s.map(i => NOTES[i].short).join(' · ')}</b>${pulses(s)}
+    <div class="opts"><button class="btn soft" data-do="hear" data-k="${k}">Escolta</button><button class="btn" data-do="pick" data-k="${k}">Aquest!</button></div></div>`).join('')}</div>`;
+  const cards = [...stage.querySelectorAll('.card')];
+  const sound = k => { L.sets[k].forEach(i => sing(NOTES[i].freq, 1.3, NOTES[i].hue)); again(cards[k]).add('ring'); };
+  stage.querySelector('.cards').onclick = async e => {
+    const b = e.target.closest('button'); if (!b || busy || !t.on) return;
+    const k = +b.dataset.k; sound(k);
+    if (b.dataset.do === 'hear') return;
+    if (k !== L.good) { slip(); cards[k].classList.add('shake'); return tip('Ui! ' + L.why, 'oops'); }
+    busy = true; cards[k].classList.add('won'); spark(cards[k], 48); tip(L.why, 'go');
+    await sleep(3200); if (!t.on) return;
+    win(`${L.sets[k].map(i => NOTES[i].short).join(' · ')}<br><small>${ratio(L.sets[k]).join(' : ')}</small>`);
+  };
+  tip(L.say);
+  return () => busy ? '' : 'Cada punt és una vibració, i les ratlles grogues són on totes les notes es troben. Compta els punts: com menys n\'hi ha, més sovint es troben i més rodó sona.';
 }
 
 /* ---------- the Do tube cut to a fraction of its length ---------- */

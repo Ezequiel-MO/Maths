@@ -157,6 +157,26 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .qm { position: absolute; left: 10px; top: 14px; font-size: 2rem; line-height: 1; color: var(--sun); }
 .eq { font-size: 2.2rem; }
 
+/* the vibrations of some notes, a row of dots each, between the two yellow lines where they all fall together */
+.pulses { width: 100%; max-width: 520px; display: grid; gap: 0; padding: 4px 0; animation: pop 0.3s; }
+.prow { display: grid; grid-template-columns: 46px 1fr 34px; align-items: center; gap: 8px; font: 800 1rem/1 var(--display); color: hsl(var(--h) 92% 70%); }
+.prow b:last-child { color: var(--ink); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.track { position: relative; height: 24px; border-inline: 3px solid var(--sun); background: linear-gradient(hsl(var(--h) 60% 50% / 0.5), hsl(var(--h) 60% 50% / 0.5)) center / 100% 2px no-repeat; }
+.track i { position: absolute; top: 50%; width: 13px; height: 13px; margin: -6.5px 0 0 -1.5px; border-radius: 50%; background: hsl(var(--h) 92% 66%); box-shadow: 0 0 8px hsl(var(--h) 92% 60%); }
+.prow.many .track i { width: 5px; height: 11px; margin-top: -5.5px; border-radius: 2px; box-shadow: none; }
+/* room for the numbers that count an interval over the tubes */
+.pulses + .tubes { margin-top: 26px; }
+.pz { width: 100%; min-height: 80px; display: grid; place-items: center; }
+.tube.sel { outline: 4px solid #fff; outline-offset: 2px; filter: brightness(1.25); transform: translateY(-8px); }
+.cards { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.card { width: 100%; max-width: 560px; padding: 10px 14px 12px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.card .names { font: 800 1.3rem/1.1 var(--display); }
+.card .opts .btn { font-size: 1.15rem; min-width: 0; }
+.card.ring { animation: ring 0.45s ease-out; }
+.card.shake { animation: shake 0.4s; }
+.card.won { border-color: var(--mint); box-shadow: 0 0 26px rgb(124 245 176 / 0.5); }
+.panel .line small { display: block; margin-top: 4px; font-size: 1.05rem; color: var(--sun); }
+
 @keyframes hop { to { transform: translateY(-3px); } }
 @keyframes ring { 30% { transform: scale(1.08, 1.03); filter: brightness(1.5); } }
 @keyframes hit { 40% { transform: scale(1.08); } }

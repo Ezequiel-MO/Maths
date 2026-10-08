@@ -1,6 +1,6 @@
 // The rules and the data of the concert, with no page in it. Six sections of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
-// (and tapping a bar in time), and whole songs.
+// (and tapping a bar in time), whole songs, and chords.
 
 // The scale of Do in just intonation. A tube that is n/d as long as the Do tube sounds d/n times as high:
 // len is that length when Do measures 180, the smallest whole numbers that fit them all
@@ -20,6 +20,13 @@ export const beatsText = v => v === 0.5 ? '½' : String(v);
 // an interval is named after how many notes it holds, both ends counted: Do to Mi is a third
 export const INTERVALS = { 2: 'segona', 3: 'tercera', 4: 'quarta', 5: 'quinta', 6: 'sexta', 7: 'sèptima', 8: 'octava' };
 const cap = s => s[0].toUpperCase() + s.slice(1);
+// How many times each of these notes vibrates in the same stretch of time, in the smallest whole numbers: Do, Mi and Sol give 4, 5 and 6.
+// The smaller the numbers, the sooner the waves fall together again, and that is why some notes sound well together
+const gcd = (a, b) => b ? gcd(b, a % b) : a, lcm = (a, b) => a / gcd(a, b) * b;
+export function ratio(steps) {
+  const m = steps.map(s => NOTES[s].n).reduce(lcm), v = steps.map(s => NOTES[s].d * m / NOTES[s].n), g = v.reduce(gcd);
+  return v.map(x => x / g);
+}
 
 // '0n 2b sn': the step of the scale and the figure, or a rest on its own; a '|' between bars is only there for whoever reads the data
 const tune = s => s.split(' ').filter(x => x !== '|').map(x => FIGS[x] ? [null, x] : [+x[0], x.slice(1)]);
@@ -35,6 +42,11 @@ const step = (from, jump, say = '') => ({ kind: 'step', title: `${cap(INTERVALS[
 const fit = (big, small) => ({ kind: 'fit', title: `1 ${FIGS[big].name} = ?`, big, small });
 // a bar to tap on the drum; ms is how long a beat lasts
 const taps = (beats, figs, ms, say) => ({ kind: 'drum', title: 'Tambor', beats, figs: figs.split(' '), ms, say });
+
+// notes are the tubes of the chord, lowest first
+const chord = (name, notes, say) => ({ kind: 'chord', title: `Acord de ${name}`, name, notes, say });
+// two groups of notes to listen to and compare; good is the one to choose and why says what the numbers show
+const pair = (sets, good, why, say, q = 'Quin grup sona més rodó?') => ({ kind: 'pair', title: 'Compara', sets, good, why, say, q });
 
 export const SECTIONS = [
   { name: 'Llegeix i toca', sub: 'Llegeix la partitura i toca-la amb els tubs.', levels: [
@@ -99,6 +111,18 @@ export const SECTIONS = [
     play('Oda a l\'alegria', '2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 2b 1b | 2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 1b 0b', 0, 'La melodia de Beethoven, sencera. Va gairebé sempre per graons.'),
     play('Jingle Bells', '2n 2n 2b | 2n 2n 2b | 2n 4n 0n 1n | 2r | 3n 3n 3n 3n | 3n 2n 2n 2c 2c | 2n 1n 1n 2n | 1b 4b', 0, 'Molts Mi seguits: mira bé quants n\'hi ha a cada compàs.'),
     play('Can-can', '0b 1c 3c 2c 1c | 4n 4n 4c 5c 2c 3c | 1n 1n 1c 3c 2c 1c | 0c 7c 6c 5c 4c 3c 2c 1c | 0r', 0, 'El gran final! L\'últim compàs baixa tota l\'escala amb vuit corxeres.')
+  ] },
+  { name: 'Acords', sub: 'Tres notes alhora: per què unes sonen bé i unes altres xoquen?', levels: [
+    chord('Do', [0, 2, 4], 'Un acord són 3 notes que sonen alhora. La recepta: una nota sí, una no. Comença pel Do.'),
+    pair([[0, 2, 4], [0, 1, 2]], 0, 'Do, Mi i Sol vibren 4, 5 i 6 cops; Do, Re i Mi, 8, 9 i 10. Amb números petits les ones es troben més sovint, i l\'orella ho sent rodó.', 'Escolta els dos grups i mira els punts: cada punt és una vibració.'),
+    chord('Fa', [3, 5, 7], 'La mateixa recepta, començant pel Fa: una nota sí, una no.'),
+    pair([[3, 4, 5], [3, 5, 7]], 1, 'Fa, La i Do agut fan 4, 5 i 6: el mateix dibuix que Do, Mi i Sol! Fa, Sol i La fan 8, 9 i 10, i xoquen.', 'Quin dels dos té els números més petits?'),
+    chord('Mi', [2, 4, 6], 'Ara des del Mi. Aquest acord sona diferent: escolta\'l bé.'),
+    pair([[2, 4, 6], [2, 3, 4]], 0, 'Mi, Sol i Si fan 10, 12 i 15; Mi, Fa i Sol, 15, 16 i 18. Les notes de costat sempre donen números grans, i xoquen.', 'Tres notes de costat o una sí i una no?'),
+    pair([[0, 5, 6], [0, 4, 7]], 1, 'Do, Sol i Do agut fan 2, 3 i 4: els números més petits de tots. Les ones es troben a cada moment!', 'Un dels dos grups té una quinta i una octava.'),
+    chord('Do gran', [0, 2, 4, 7], 'Quatre notes: l\'acord de Do i, a dalt de tot, el Do agut.'),
+    pair([[0, 3, 5], [0, 3, 6]], 0, 'Do, Fa i La fan 3, 4 i 5. Canviant només el La pel Si surten 24, 32 i 45: un sol tub ho espatlla tot.', 'Els dos grups només canvien en una nota.'),
+    pair([[2, 4, 6], [0, 2, 4]], 1, 'Tots dos sonen bé. El de 4, 5 i 6 és un acord major, alegre; el de 10, 12 i 15 és menor, més fosc i trist.', 'Els dos són acords de debò. Escolta\'n el caràcter.', 'Quin acord sona més alegre?')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
