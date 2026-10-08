@@ -9,9 +9,9 @@ export function panel(host, html) {
 
 // The menu of sections under a line of introduction. done[i] counts the levels done in section i: a section opens when
 // the one before is complete, and go(section, level) is called with the first level of it still to do.
-// note(i) adds something of the game's own after the count of section i.
-export function sectionMenu(root, intro, sections, done, go, note = () => '') {
-  const open = s => s === 0 || done[s - 1] >= 10;
+// note(i) adds something of the game's own after the count of section i. all opens every section whatever is done.
+export function sectionMenu(root, intro, sections, done, go, note = () => '', all = false) {
+  const open = s => all || s === 0 || done[s - 1] >= 10;
   root.innerHTML = `<p class="status tip">${intro}</p>
     <nav class="secs" aria-label="Seccions">${sections.map((s, i) => { const n = done[i]; return `<button class="sec${n >= 10 ? ' all' : ''}" data-s="${i}"${open(i) ? '' : ' disabled'}>
       <span class="sec-n">${i + 1}</span><span class="sec-t"><b>${s.name}</b><span>${open(i) ? s.sub : 'Acaba la secció anterior per obrir-la'}</span></span>

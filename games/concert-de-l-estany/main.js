@@ -8,6 +8,8 @@ import { staff, glyph } from './score.js';
 import { band } from './sound.js';
 
 const KEY = 'concert-de-l-estany';
+// for now every section and every level is open, to try the game out; false brings back the order (a section after the one before, a level after the one before)
+const OPEN = true;
 
 // secs counts the levels done in each section; stars keeps the best of each level
 let prog = { so: true, secs: SECTIONS.map(() => 0), stars: LEVELS.map(() => 0) };
@@ -51,7 +53,7 @@ addEventListener('keydown', e => { if (keyFn && !e.ctrlKey && !e.metaKey && !e.a
 function seccions() {
   fresh(); keyFn = null; show('Música i mates', false); FX.mood(HUES[0]);
   const stars = i => prog.stars.slice(i * 10, i * 10 + 10).reduce((x, y) => x + y, 0);
-  sectionMenu($('#game'), 'Tria una secció. La música és plena de números: ho veuràs amb tubs, regles i tambors.', SECTIONS, prog.secs, level, i => stars(i) ? ` · ★ ${stars(i)}` : '');
+  sectionMenu($('#game'), 'Tria una secció. La música és plena de números: ho veuràs amb tubs, regles i tambors.', SECTIONS, prog.secs, level, i => stars(i) ? ` · ★ ${stars(i)}` : '', OPEN);
 }
 
 /* ---------- one level: the frame is the same for all, the stage is of its kind ---------- */
@@ -62,6 +64,7 @@ function level(sec, idx) {
   root.innerHTML = `${levelRow(SECTIONS[sec].levels, prog.secs[sec], idx)}
     <div class="hud"><span class="chip">${idx + 1} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     <p class="status tip" id="tip"></p><div class="stage" id="stage"></div>`;
+  if (OPEN) root.querySelectorAll('.levels button').forEach(b => { b.disabled = false; b.removeAttribute('title'); });
   wireLevels(root, i => level(sec, i));
   const stage = $('#stage');
   const tip = (txt, cls = '') => { const e = $('#tip'); e.className = 'status tip ' + cls; e.innerHTML = txt; };
