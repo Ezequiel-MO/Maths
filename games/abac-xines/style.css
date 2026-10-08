@@ -177,6 +177,14 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   #joc.lvl > .stage { grid-area: 1 / 2 / 3 / 3; align-self: stretch; max-height: calc(100dvh - 80px); position: sticky; top: 14px; }
   .head, .tail { gap: 8px; }
 }
+/* under the bands: what to do now (above them), the sheet of mistakes and the badges, the earned ones lit */
+.next { margin: 0; font-weight: 800; font-size: 0.95rem; color: var(--sun); text-align: center; }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+#full { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+#full:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
 /* the map on a short screen (a phone on its side, a laptop window): no title, and each band is one row (its name on the left, its projects side by side) */
 @media (orientation: landscape) and (max-height: 760px) {
   #app { max-width: 900px; }
@@ -184,7 +192,7 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
   .map { max-width: 820px; gap: 6px; }
   .ring, .ring.r0, .ring.r1 { width: 100%; flex-direction: row; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 22px; }
   .ring h2 { flex: none; width: 140px; flex-direction: column; gap: 2px; font-size: 1rem; }
-  .ring .why { display: none; }
+  .ring .why, .next { display: none; }
   .projs { flex: 1; min-width: 0; grid-template-columns: repeat(var(--np), minmax(0, 1fr)) 84px; }   /* the projects of the circle, and the exam in a narrow column of its own */
   .proj { min-height: 0; padding: 4px 8px; }
   .proj.exam, .proj.exam:nth-child(odd) { padding-inline: 4px; flex-direction: column; gap: 1px; grid-column: auto; }

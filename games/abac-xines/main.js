@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, exam, examIn, EXAM_PASS, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
+import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, exam, examIn, EXAM_PASS, sheet, sheetIn, BADGES, badges, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
 import { board, HUES } from './board.js';
 import { hints } from './hints.js';
 
@@ -64,6 +64,15 @@ const noteText = n => n >= VALID ? `Nota ${n} · validat ✓` : n ? `Nota ${n} �
 // The exam of a circle is one more button in its band, at the end of the projects: active when the circle is open and all its projects are validated (it stays active once
 // passed, to do it again). A shut button says what it lacks.
 const examBtn = (c, open) => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${examOpen(prog, c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : examOpen(prog, c) ? 'Sis preguntes' : open ? 'Valida els projectes' : 'Tancat'}</span></button>`;
+// one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
+function advice() {
+  for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
+    const i = CIRCLES[c].projects.find(i => prog.notes[i] < VALID);
+    if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
+    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
+  }
+  return '';
+}
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   enter('El mapa', false, 165);
@@ -73,11 +82,15 @@ function mapa() {
       ${open ? '' : `<p class="why">${c === 0 ? 'Acaba la Piscina per obrir-lo.' : `Supera l'examen del cercle ${c - 1} per obrir-lo.`}</p>`}
       <div class="projs" style="--np:${CIRCLES[c].projects.length}">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}${examBtn(c, open)}</div></section>`;
   };
-  $('#joc').innerHTML = `<div class="map">${CIRCLES.map((_, c) => band(c)).join('')}</div>`;
+  const got = badges(prog), tip = advice();
+  $('#joc').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
+    <div class="extra"><button class="btn soft" id="full"${prog.notes.some(n => n >= VALID) ? '' : ' disabled'}>Caça l'errada</button>
+      <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
   $('#joc').onclick = e => {
     const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
     if (b && !b.disabled && ready(e.timeStamp)) projecte(+b.dataset.p);
     else if (x && !x.disabled && ready(e.timeStamp)) examen(+x.dataset.x);
+    else if (e.target.closest('#full:not(:disabled)') && ready(e.timeStamp)) full();
   };
   ($(`#joc [data-p="${here}"]:not(:disabled)`) || $('#joc button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
@@ -344,6 +357,69 @@ function examen(c) {
     else if (b.id === 'chk') check();
     else if (b.id === 'nx') k === qs.length - 1 ? finish() : arm();
     else if ('v' in b.dataset) { if (!busy) answer(+b.dataset.v === pl.goal, `No és aquest: l'àbac marcava ${pl.goal}.`); }
+  };
+  arm();
+}
+
+/* ---------- «Caça l'errada»: three abacuses, one after the other; from none to two of them show another number ---------- */
+// Each one says «Aquest àbac marca N» and is locked. «És correcte» of a wrong one, or «No és correcte» of a right one, is a miss; «No és correcte» of a wrong one unlocks
+// it to be fixed, with one «Comprova». The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
+function full() {
+  const t = enter("Caça l'errada", true, 40), bs = sheet(Math.random), root = $('#joc');
+  tight = true;
+  root.innerHTML = `<div class="head"><div class="hud"><span class="steps" id="dots" role="img" aria-label="Tres àbacs">${bs.map(() => '<i></i>').join('')}</span></div>
+      <p class="status tip" id="tip" role="status" aria-live="polite"></p>
+      <p class="task" id="task"></p></div>
+    <div class="stage" id="stage"></div>
+    <div class="tail" id="tail"></div>`;
+  const host = $('#stage'), tail = $('#tail'), dots = [...$('#dots').children], run = [];
+  let k = -1, B, rods, busy, res = null;
+  const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+
+  function arm() {
+    k++; B = bs[k]; busy = false; rods = B.rods.map(r => ({ ...r })); openAt = performance.now() + SETTLE;
+    if (!bd) { bd = board(host, { n: 3, feet: 'letter', tone }); bd.onMove(r => { if (!busy) rods = r; }); }
+    bd.set(rods); bd.lock(true);
+    dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    $('#task').innerHTML = `Aquest àbac marca <b>${B.says}</b>`;
+    tail.innerHTML = `<div class="acts two"><button class="btn" id="yes">És correcte</button><button class="btn soft" id="no">No és correcte</button></div>`;
+    tip("Mira'l bé: és veritat?");
+  }
+  async function answer(ok, said) {
+    const last = k === bs.length - 1;
+    busy = true; bd.lock(true); run[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
+    if (last) { res = sheetIn(prog, run); prog = res.prog; save(); }
+    for (const b of tail.querySelectorAll('button')) b.disabled = true;
+    if (ok) { tip(said, 'go'); chime([523, 659, 784]); FX.celebrate(6); }
+    else { tip(said, 'oops'); tone(150, 0, 0.45, 0.16, 'triangle'); }
+    await sleep(ok ? 1100 : 2000); if (!t.on) return;
+    last ? finish() : arm();
+  }
+  function finish() {
+    const r = res, bad = bs.flatMap((b, i) => b.bad ? [`l'àbac ${i + 1} (marcava ${valueOf(b.rods)}, no ${b.says})`] : []);
+    openAt = performance.now() + SETTLE;
+    r.good ? chime([523, 659, 784, 1047, 1319]) : tone(196, 0, 0.5, 0.12, 'triangle');
+    tip(r.good ? 'Full perfecte!' : 'Full acabat.', r.good ? 'go' : '');
+    panel(host, `<h2>${3 - r.missed.length} de 3</h2>
+      <p class="lead${r.good ? ' go' : ''}">${r.good ? (r.gain ? `Full perfecte ✓ · +${r.gain} XP` : 'Full perfecte ✓ · 0 XP: valida més projectes per sumar-ne.') : 'Per sumar XP cal encertar els tres.'}</p>
+      <p class="lead">${bad.length ? `Tenien una errada: ${llista(bad)}.` : 'Tots tres àbacs eren correctes.'}</p>
+      ${r.news.length ? `<p class="lead go">${r.news.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${llista(r.news)}</p>` : ''}
+      <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre full</button>`);
+  }
+
+  root.onclick = e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.id === 'bk') mapa();
+    else if (b.id === 'rp') full();
+    else if (busy) return;
+    else if (b.id === 'yes') answer(!B.bad, B.bad ? `No ho era: marcava ${valueOf(B.rods)}.` : 'Sí, era correcte!');
+    else if (b.id === 'no') {
+      if (!B.bad) return answer(false, `Sí que ho era: marcava ${B.says}.`);
+      bd.lock(false); openAt = performance.now() + SETTLE;
+      tail.innerHTML = `<div class="acts two"><button class="btn" id="chk">Comprova</button></div>`;
+      tip(`Ben vist! Arregla'l perquè marqui ${B.says} i prem Comprova.`, 'go');
+    }
+    else if (b.id === 'chk') { const v = valueOf(rods), ok = v === B.says && tidy(rods); answer(ok, ok ? `Arreglat! Ara marca ${B.says}.` : `Ara marca ${v}; havia de marcar ${B.says}.`); }
   };
   arm();
 }
