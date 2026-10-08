@@ -54,7 +54,7 @@ const FLOOR = 18.25;   // board.js MIN (18) and a step
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 30))))));
 
 // what is wrong with the level screen as it is now: a list of sentences, and the numbers worth printing
-const inspect = strict => {
+const inspect = ([strict, dots = 15, back = true]) => {   // dots: how many steps the head shows (15 in a project, 6 in an exam, 3 in the Piscina); back: whether «← Mapa» is on the screen (not in the Piscina)
   const R = e => e.getBoundingClientRect(), q = s => document.querySelector(s), se = document.scrollingElement;
   document.getAnimations().filter(a => a.animationName === 'shake').forEach(a => a.finish());   // a board in the middle of its shake (after a mistake) is a few pixels to one side: that is the animation, not the layout
   const joc = q('#joc'), head = q('#joc > .head'), stage = q('#joc > .stage'), tail = q('#joc > .tail'), ab = stage?.querySelector('.abacus'), bad = [];
@@ -93,15 +93,16 @@ const inspect = strict => {
   const pn = q('#joc .panel');
   if (pn && strict) { const r = R(pn); if (r.top < s.top - 1 || r.bottom > s.bottom + 1 || r.left < s.left - 1 || r.right > s.right + 1) bad.push(`the result panel (${Math.round(r.top)} to ${Math.round(r.bottom)}) lies outside the stage (${Math.round(s.top)} to ${Math.round(s.bottom)})`); }
   const dotsN = q('#dots')?.children.length;
-  if (dotsN !== 15) bad.push(`the head has ${dotsN} dots, expected 15`);   // contract: spec «Un projecte», cinc preguntes per exercici, tres exercicis
-  const reach = [...joc.querySelectorAll('.acts button, .opts button, .panel button'), q('#toM'), pn ? null : ab.querySelector('.bead')];   // under the result panel the board is covered on purpose
+  if (dotsN !== dots) bad.push(`the head has ${dotsN} dots, expected ${dots}`);   // contract: spec «Un projecte», cinc preguntes per exercici, tres exercicis; «La Piscina», tres reptes; «L'examen», sis preguntes
+  const reach = [...joc.querySelectorAll('.acts button, .opts button, .panel button'), back ? q('#toM') : null, pn ? null : ab.querySelector('.bead')];   // under the result panel the board is covered on purpose
   for (const b of reach) {
-    if (!b) { if (pn) continue; bad.push('no back button (#toM) or no bead on the screen'); break; }
+    if (!b) { if (pn || !back) continue; bad.push('no back button (#toM) or no bead on the screen'); break; }
     b.scrollIntoView({ block: 'center', inline: 'nearest' });
     const r = R(b), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     if (b.disabled && b.closest('.tail') && pn) continue;   // under the result panel the buttons of the question are off
     if (hit !== b && !b.contains(hit)) { bad.push(`${b.id ? '#' + b.id : b.className.includes('bead') ? 'a bead' : `button "${b.innerText.trim()}"`} is covered or out of reach`); break; }
   }
+  if (q('#toM').hidden === back) bad.push(back ? '«← Mapa» is hidden' : '«← Mapa» is shown in the Piscina (the map behind it is all shut)');   // contract: plan Task 11, la Piscina no té ← Mapa
   scrollTo(0, 0);
   return { u: parseFloat(ab.style.getPropertyValue('--u')), scrolls, land, bad, info: `st ${Math.round(s.width)}x${Math.round(s.height)} ab ${Math.round(a.width)}x${Math.round(a.height)} needs ${need}` };
 };
@@ -292,7 +293,7 @@ for (const [w, h] of want) {
     Object.defineProperty(Event.prototype, 'timeStamp', { configurable: true, get() { return stamp.call(this) + window.__skew; } });
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
   });
-  const seed = async (save, who) => { await page.goto(BASE + '/index.html'); await page.evaluate(async ([save, who]) => { const P = await import('/shared/progress.js'); const a = P.add(who); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, [save, who]); await page.goto(BASE + '/abac-xines.html'); if (INJECT) await page.addStyleTag({ content: INJECT }); await page.waitForSelector('.map'); await settle(page); };
+  const seed = async (save, who, first = '.map') => { await page.goto(BASE + '/index.html'); await page.evaluate(async ([save, who]) => { const P = await import('/shared/progress.js'); const a = P.add(who); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, [save, who]); await page.goto(BASE + '/abac-xines.html'); if (INJECT) await page.addStyleTag({ content: INJECT }); await page.waitForSelector(first); await settle(page); };
   await seed(OPEN, 'Una');
   const fails = [], us = []; let scrolling = 0, states = 0;
   const judge = (label, r, projectScreen) => {
@@ -309,26 +310,37 @@ for (const [w, h] of want) {
     for (let k = 0; k < 15; k++) {
       try { await onQuestion(page, k); } catch (e) { fails.push(`p${i} q${k + 1}: the question did not come up`); break; }
       await settle(page);
-      judge(`p${i} q${k + 1} fresh`, await page.evaluate(inspect, !!MIN_U[name]), true);
-      if (k % 5 === 0) { await bump(page); await page.evaluate(mistake, [i, k]); await settle(page); judge(`p${i} q${k + 1} first mistake`, await page.evaluate(inspect, !!MIN_U[name]), true); }
+      judge(`p${i} q${k + 1} fresh`, await page.evaluate(inspect, [!!MIN_U[name]]), true);
+      if (k % 5 === 0) { await bump(page); await page.evaluate(mistake, [i, k]); await settle(page); judge(`p${i} q${k + 1} first mistake`, await page.evaluate(inspect, [!!MIN_U[name]]), true); }
       await bump(page); await page.evaluate(() => document.querySelector('#hintb').click()); await settle(page);
-      judge(`p${i} q${k + 1} hint`, await page.evaluate(inspect, !!MIN_U[name]), true);
+      judge(`p${i} q${k + 1} hint`, await page.evaluate(inspect, [!!MIN_U[name]]), true);
       await bump(page); await page.evaluate(answerRight, [i, k]);
     }
-    try { await page.waitForSelector('.panel', { timeout: 20000 }); await settle(page); judge(`p${i} result panel`, await page.evaluate(inspect, !!MIN_U[name]), true); } catch (e) { fails.push(`p${i}: no result panel`); }
+    try { await page.waitForSelector('.panel', { timeout: 20000 }); await settle(page); judge(`p${i} result panel`, await page.evaluate(inspect, [!!MIN_U[name]]), true); } catch (e) { fails.push(`p${i}: no result panel`); }
     await toMap(page);
   }
   // rule 8 with any content: a left column 150px taller must not make the board bigger (nor break anything else)
   await openProject(page, 8); await onQuestion(page, 0); await settle(page);
-  const plain = await page.evaluate(inspect, !!MIN_U[name]);
+  const plain = await page.evaluate(inspect, [!!MIN_U[name]]);
   await page.evaluate(() => { const d = document.createElement('div'); d.id = 'sweepfill'; d.style.cssText = 'height:150px;width:10px;flex:none'; document.querySelector('#joc > .tail').append(d); }); await settle(page);
-  const full = await page.evaluate(inspect, !!MIN_U[name]);
+  const full = await page.evaluate(inspect, [!!MIN_U[name]]);
   await page.evaluate(() => document.querySelector('#sweepfill').remove()); await settle(page);
   if (full.land && !(full.u <= plain.u)) full.bad.push(`--u grew from ${plain.u} to ${full.u}`);
   if (full.bad.length) fails.push(`p8 q1 with 150px more in the tail: ${full.bad.join('; ')} (u ${full.u}, ${full.info})`);
   if (HINT_SIZES.includes(name)) fails.push(...await hintChecks(page, w, h));
   const same = await page.evaluate(independent);
   if (Math.max(...same) - Math.min(...same) > 0.25) fails.push(`the fit depends on the previous size: --u after 10px and 60px was ${same.join(', ')}`);
+  // the Piscina (task 11): a profile with nothing saved; its three challenges fresh, and the first one solved (the board locked, the tip green)
+  await seed({ so: false }, 'Quatre', '#dots');
+  const strictNow = !!MIN_U[name];
+  for (let k = 0; k < 3; k++) {
+    await settle(page);
+    judge(`piscina challenge ${k + 1} fresh`, await page.evaluate(inspect, [strictNow, 3, false]), true);
+    await bump(page); await page.evaluate(() => { const r = document.querySelector('.abacus .rod[data-p="0"]'); const g = +document.querySelector('#task').textContent; if (g >= 5) r.querySelector('.bead[data-deck="hi"]').click(); if (g % 5) r.querySelector(`.bead[data-deck="lo"][data-j="${g % 5 - 1}"]`).click(); });
+    if (k === 0) { await settle(page); judge('piscina challenge 1 solved', await page.evaluate(inspect, [strictNow, 3, false]), true); }
+    if (k < 2) await page.waitForFunction(g => document.querySelector('#task')?.textContent === String(g), [5 + 2 * k], { timeout: 20000 }).catch(() => fails.push(`piscina: challenge ${k + 2} did not come up`));
+  }
+  try { await page.waitForSelector('.map', { timeout: 20000 }); } catch (e) { fails.push('piscina: the map did not come up after the third challenge'); }
   // the map with nothing done: every circle shut
   await seed(READY, 'Dues');   // another profile: a save never lowers what the profile already has
   judge('map (the exam of circle 0 ready, the others shut)', await page.evaluate(inspectMap, [true, false, false]), false);

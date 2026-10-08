@@ -46,6 +46,8 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 
 /* the operation to solve, as big as the screen allows */
 .task { font-size: clamp(1.7rem, 8vw, 2.5rem); line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; text-wrap: balance; }
+/* the Piscina: the number alone, bigger than an operation */
+.task.big { font-size: clamp(2.6rem, 14vw, 4rem); }
 .task b { color: var(--sun); text-shadow: 0 0 22px rgb(247 198 78 / 0.55); }
 
 /* the abacus: a rosewood frame with a gold inlay around a dark well. Each column is a rod; the beads are buttons placed by --s,

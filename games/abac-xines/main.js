@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, clean, handIn, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
+import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
 import { board, HUES } from './board.js';
 import { hints } from './hints.js';
 
@@ -79,6 +79,49 @@ function mapa() {
     if (b && !b.disabled && ready(e.timeStamp)) projecte(+b.dataset.p);
   };
   ($(`#joc [data-p="${here}"]:not(:disabled)`) || $('#joc button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
+}
+
+/* ---------- the Piscina: three numbers, the first thing a profile with nothing saved meets ---------- */
+// The number is shown big and the abacus is empty; when it marks the number and is tidy the challenge ends by itself (there is no button). The third one saves piscina
+// and opens the map. There is no «← Mapa» here: the map would be a screen with every circle shut and no way back in, so the way out is the page of all games, and a profile
+// that leaves in the middle keeps nothing (nothing is saved before the third number).
+function piscina() {
+  const t = enter('La Piscina', true, 165), root = $('#joc'), goals = POOL.map(Number);
+  tight = true; $('#toM').hidden = true; $('#toG').hidden = !HUB;
+  root.innerHTML = `<div class="head"><div class="hud"><span class="steps" id="dots" role="img" aria-label="Tres reptes">${goals.map(() => '<i></i>').join('')}</span></div>
+    <p class="status tip" id="tip" role="status" aria-live="polite"></p>
+    <p class="task big" id="task"></p></div>
+    <div class="stage" id="stage"></div>
+    <div class="tail" id="tail"></div>`;
+  const host = $('#stage'), dots = [...$('#dots').children];
+  let k = -1, goal, rods, busy = true;
+  const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
+  // Every challenge, the first too, ignores taps for SETTLE from the moment its number appears (the capture guard, openAt): a finger still tapping when the pause between two
+  // challenges ends must not move a bead of the new abacus before the child has seen the number. It is measured from the new number, never from the old tap, and it only
+  // lasts SETTLE: a child who has read the number and starts is never held back.
+  function arm() {
+    k++; goal = goals[k]; busy = false; rods = write(0, 3); openAt = performance.now() + SETTLE;
+    if (!bd) { host.innerHTML = ''; bd = board(host, { n: 3, feet: 'none', tone }); bd.onMove(moved); }
+    bd.set(rods); bd.lock(false);
+    dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    $('#task').innerHTML = `<b>${goal}</b>`; tip("Posa el número a l'àbac.");
+  }
+  function moved(r, m) {
+    if (busy) return;
+    rods = r;
+    if (rods[m.p][m.deck] > m.was) { const c = mid(m.bead); FX.burst(c.x, c.y, m.deck === 'hi' ? 44 : HUES[m.p], 7, c.w * 1.3); }
+    if (valueOf(rods) === goal && tidy(rods)) solved();
+  }
+  // busy first (a second tap finds the challenge over), the board locked; the third number is the end of the Piscina and is saved there and then, before any wait
+  async function solved() {
+    busy = true; bd.lock(true);
+    dots[k].classList.add('ok');
+    if (k === goals.length - 1) { prog = { ...prog, piscina: true }; save(); }
+    tip(`Sí! L'àbac marca ${goal}.`, 'go'); chime([523, 659, 784, 1047, 1319]); FX.celebrate(k === goals.length - 1 ? 16 : 8);
+    await sleep(1100); if (!t.on) return;
+    k === goals.length - 1 ? mapa() : arm();
+  }
+  arm();
 }
 
 /* ---------- a project: 15 questions in a row, one abacus ---------- */
@@ -216,4 +259,4 @@ function projecte(i) {
 }
 
 soBtn(); paintXp();
-mapa();
+prog.piscina ? mapa() : piscina();

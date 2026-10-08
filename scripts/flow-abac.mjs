@@ -47,7 +47,7 @@ async function section(name, fn) {
   pageErrors = [];
   await Promise.all(opened.map(c => c.close().catch(() => {}))); opened = [];
 }
-async function open(save, w = 390, h = 844) {
+async function open(save, w = 390, h = 844, first = '.map') {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage(), errors = [];
   opened.push(ctx); page.on('pageerror', e => { errors.push(e.message); pageErrors.push(e.message); });
   await page.addInitScript(() => {
@@ -69,7 +69,7 @@ async function open(save, w = 390, h = 844) {
   await page.goto(BASE + '/index.html');
   await page.evaluate(async save => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load('abac-xines'); P.save('abac-xines', save); }, save);
   await page.goto(BASE + '/abac-xines.html');
-  await page.waitForSelector('.map');
+  await page.waitForSelector(first);
   return { ctx, page, errors };
 }
 const stored = page => page.evaluate(async () => { const P = await import('/shared/progress.js'); return P.load('abac-xines'); });
@@ -122,24 +122,93 @@ const leaveAndReturn = (page, i) => page.evaluate(([i, stall]) => window.__leave
 const leftInTime = (what, at, tip) => check(at.cur === 0 && at.locked === true && tip.test(at.tip), `${what}: on screen when leaving ${JSON.stringify(at)}, expected question 1, the abacus locked and a tip like ${tip} (left too late: the section would test nothing)`);   // contract: plan Task 10, Review Focus 2, sortir enmig de la feina de la pantalla
 const panelText = page => page.evaluate(() => document.querySelector('.panel')?.innerText ?? '');
 
+// ---- the XP bar: text and fill for a known save (the spec's example, 340 XP), and it follows a saved mark
+await section('the XP bar: a known save, and a saved mark', async () => {
+  const { page } = await open({ piscina: true, notes: [80, 80, 80, 0, 0, 0, 0, 0, 0], exams: [true, false, false] });   // 50 + 3 x 80 + 50 = 340
+  const bar = () => page.evaluate(() => ({ text: document.querySelector('#xp .xp-n')?.textContent, fill: document.querySelector('#xp .xp-bar i')?.style.width, label: document.querySelector('#xp .xp-bar')?.getAttribute('aria-label') }));
+  same('the bar for 340 XP', await bar(), { text: 'Nivell 2,27', fill: '27%', label: '27 % del nivell' });   // contract: spec «XP, nivell i insígnies», nivell = XP / 150 amb dos decimals (340 / 150 = 2,27); plan Task 11, barra plena segons la part decimal
+  await openProject(page, 2);
+  await play(page, 2);
+  same('the bar after project 2 at the first try over a stored 80 (+20 XP)', await bar(), { text: 'Nivell 2,40', fill: '40%', label: '40 % del nivell' });   // contract: spec «XP», en millorar, només la diferència (100 - 80): 360 / 150 = 2,40
+  check(await page.evaluate(() => !document.querySelector('#xp').closest('#joc') && getComputedStyle(document.querySelector('#xp')).display !== 'none'), 'the XP bar is not in view on the result panel');   // contract: spec «XP, nivell i insígnies», la barra és sempre visible
+  // a save of the old shape shows the XP of its translation before anything is saved: { secs: [10, 10, 4, 0, 0, 0] } is the Piscina (50) and four projects at 80 (320)
+  const old = await open({ secs: [10, 10, 4, 0, 0, 0] });
+  same('the bar for a save of the old shape', await old.page.evaluate(() => document.querySelector('#xp .xp-n').textContent), 'Nivell 2,47');   // contract: spec «El que es desa», { secs: [10,10,4,0,0,0] } dona 4 notes de 80 i piscina; 370 / 150 = 2,47
+});
+
+// ---- a profile with nothing saved lands in the Piscina, passes its three challenges, and the map comes with «Nivell 0,33»
+await section('a new profile: the Piscina, three challenges, then the map', async () => {
+  const { page } = await open({}, 390, 844, '#dots');
+  const scene = () => page.evaluate(() => ({ map: !!document.querySelector('.map'), task: document.querySelector('#task')?.textContent, ok: document.querySelectorAll('#dots i.ok').length, dots: document.querySelectorAll('#dots i').length, back: document.querySelector('#toM').hidden, hub: !document.querySelector('#toG').hidden, feet: [...document.querySelectorAll('.foot span')].map(f => f.textContent).join(''), hints: document.querySelectorAll('.hints, #hintb, #chk').length }));
+  same('the screen of a profile with nothing saved', await scene(), { map: false, task: '3', ok: 0, dots: 3, back: true, hub: true, feet: '', hints: 0 });   // contract: spec «La Piscina», tres reptes: el 3, el 5 i el 7; plan Task 11, entra directament a la Piscina, peus 'none', sense botons; ← Mapa no hi és (el mapa seria tot tancat) i es surt cap a la pàgina dels jocs
+  const wait = task => page.waitForFunction(t => document.querySelector('#task')?.textContent === t, task, { timeout: 15000 });
+  await skew(page); await setTo(page, 3);   // the challenge ends by itself when the abacus marks 3 and is tidy
+  await wait('5'); await skew(page);
+  same('after the first challenge: one dot and nothing saved', [(await scene()).ok, (await stored(page)).piscina === true], [1, false]);   // contract: spec «La Piscina», en acabar s'obre el mapa; plan Task 11, piscina es desa en acabar, no abans
+  await setTo(page, 5);
+  await wait('7'); await skew(page);
+  same('after the second challenge: two dots and nothing saved', [(await scene()).ok, (await stored(page)).piscina === true], [2, false]);   // contract: plan Task 11, piscina no es desa abans del tercer repte
+  // the third: saved in the same turn as the tap that ends it, before the pause and before the map
+  const end = await page.evaluate(async () => {
+    const rod = document.querySelector('.abacus .rod[data-p="0"]');
+    rod.querySelector('.bead[data-deck="hi"]').click(); rod.querySelector('.bead[data-deck="lo"][data-j="1"]').click();   // 5 + 2
+    const P = await import('/shared/progress.js');
+    return { saved: P.load('abac-xines').piscina === true, map: !!document.querySelector('.map') };
+  });
+  same('the third challenge: saved at once, the map not yet', end, { saved: true, map: false });   // contract: plan Task 11, en acabar el tercer repte piscina passa a cert i es desa; l'obre el mapa després
+  await page.waitForSelector('.map', { timeout: 15000 });
+  const bar = await page.evaluate(() => ({ text: document.querySelector('#xp .xp-n').textContent, fill: document.querySelector('#xp .xp-bar i').style.width, shut: [...document.querySelectorAll('.ring')].map(r => r.classList.contains('shut')) }));
+  same('the map after the Piscina', bar, { text: 'Nivell 0,33', fill: '33%', shut: [false, true, true] });   // contract: spec «XP»: Piscina 50 XP, 50 / 150 = 0,33; spec «El mapa», el cercle 0 s'obre amb la Piscina i els altres necessiten l'examen anterior
+  same('the saved progress after the Piscina', await stored(page), { so: true, secs: [0, 0, 0, 0, 0, 0], piscina: true, notes: [0, 0, 0, 0, 0, 0, 0, 0, 0], exams: [false, false, false], fulls: 0 });   // contract: spec «El que es desa», només fets; secs tal com és (cap)
+});
+
+// ---- leaving the Piscina in the middle saves nothing: after two challenges the page is closed and opened again, and it starts at the first number
+await section('leaving the Piscina in the middle saves nothing', async () => {
+  const { page } = await open({}, 390, 844, '#dots');
+  const before = JSON.stringify(await stored(page));
+  await skew(page); await setTo(page, 3);
+  await page.waitForFunction(() => document.querySelector('#task')?.textContent === '5', null, { timeout: 15000 }); await skew(page);
+  await setTo(page, 5);
+  await page.waitForFunction(() => document.querySelector('#task')?.textContent === '7', null, { timeout: 15000 });
+  check(JSON.stringify(await stored(page)) === before, `two challenges done: the saved progress changed to ${JSON.stringify(await stored(page))}, expected ${before}`);   // contract: plan Task 11, sortir de la Piscina a mitges no desa res
+  await page.goto(BASE + '/abac-xines.html'); await page.waitForSelector('#dots');
+  const s = await page.evaluate(() => ({ task: document.querySelector('#task').textContent, ok: document.querySelectorAll('#dots i.ok').length, map: !!document.querySelector('.map') }));
+  same('after leaving at the third challenge and coming back', s, { task: '3', ok: 0, map: false });   // contract: plan Task 11, sortir de la Piscina a mitges no desa res: es torna a començar pel 3
+  check(JSON.stringify(await stored(page)) === before, `coming back: the saved progress is ${JSON.stringify(await stored(page))}, expected ${before}`);
+});
+
+// ---- a tap made right after a challenge comes up is ignored (the guard of 450 ms is measured from the new number), and taps on the bead that ends a challenge count once
+await section('the Piscina: the guard on a new challenge, and the double tap that ends one', async () => {
+  const { page } = await open({}, 390, 844, '#dots');
+  await skew(page); await setTo(page, 3);
+  // the new number comes up (5): in that same turn a bead is tapped, as a finger still tapping from the last challenge would
+  const stray = await page.evaluate(() => new Promise(done => {
+    new MutationObserver((_, o) => { if (document.querySelector('#task').textContent === '5') { o.disconnect(); document.querySelector('.abacus .bead[data-p="0"][data-deck="lo"][data-j="0"]').click(); done(document.querySelectorAll('.abacus .bead.on').length); } }).observe(document.querySelector('#task'), { childList: true, subtree: true, characterData: true });
+  }));
+  same('beads lit after a tap in the same turn as the new number', stray, 0);   // contract: plan Task 11, un toc perdut del repte anterior no mou cap bola del nou (guarda de 450 ms des que surt el número)
+  await skew(page);
+  await page.evaluate(() => { const b = document.querySelector('.abacus .bead[data-p="0"][data-deck="hi"]'); b.click(); b.click(); b.click(); });   // 5: the first tap ends the challenge; two more would take the bead off and put it back (a second end of the same challenge) if the board were not locked
+  await page.waitForFunction(() => document.querySelector('#task').textContent === '7', null, { timeout: 15000 });
+  await page.waitForTimeout(300);
+  const s = await page.evaluate(() => ({ ok: document.querySelectorAll('#dots i.ok').length, cur: [...document.querySelectorAll('#dots i')].findIndex(d => d.classList.contains('cur')), lit: document.querySelectorAll('.abacus .bead.on').length }));
+  same('three taps on the bead that ends the second challenge', s, { ok: 2, cur: 2, lit: 0 });   // contract: plan Task 11, cada repte s'acaba una sola vegada: dos reptes fets, el tercer a la pantalla i l'àbac buit
+});
+
 // ---- the map from a hand-made save (the old shape): circle 0 open, projects 0 to 3 at 80, circles 1 and 2 shut, as the spec «El que es desa» says for { secs: [10, 10, 4, 0, 0, 0] }
 await section('the map from a hand-made save (the old shape)', async () => {
   const { ctx, page, errors } = await open({ secs: [10, 10, 4, 0, 0, 0] });
-  const map = await page.evaluate(() => [...document.querySelectorAll('.ring')].map(r => ({ shut: r.classList.contains('shut'), btns: [...r.querySelectorAll('.proj')].map(b => ({ off: b.disabled, mk: b.querySelector('.mk').textContent })) })));
+  const map = await page.evaluate(() => [...document.querySelectorAll('.ring')].map(r => ({ shut: r.classList.contains('shut'), btns: [...r.querySelectorAll('.proj:not(.exam)')].map(b => ({ off: b.disabled, mk: b.querySelector('.mk').textContent })), exam: [...r.querySelectorAll('.proj.exam')].map(b => ({ off: b.disabled, mk: b.querySelector('.mk').textContent })) })));
   same('map from { secs: [10,10,4,0,0,0] }: which circles are shut', map.map(r => r.shut), [false, true, true]);   // contract: spec «El mapa», un cercle només és obert si l'anterior també ho és; l'examen del cercle 0 no s'ha passat
   same('map from { secs: [10,10,4,0,0,0] }: the marks', map.flatMap(r => r.btns.map(b => b.mk)), ['Nota 80 · validat ✓', 'Nota 80 · validat ✓', 'Nota 80 · validat ✓', 'Nota 80 · validat ✓', 'Per fer', 'Per fer', 'Per fer', 'Per fer', 'Per fer']);   // contract: spec «El que es desa», { secs: [10,10,4,0,0,0] } dona notes [80,80,80,80,0,0,0,0,0]
   same('map from { secs: [10,10,4,0,0,0] }: which buttons are off', map.flatMap(r => r.btns.map(b => b.off)), [false, false, true, true, true, true, true, true, true]);   // contract: plan Task 10, un cercle tancat té els botons desactivats
+  same('map from { secs: [10,10,4,0,0,0] }: the exam buttons (one per band, off or on)', map.map(r => r.exam), [[{ off: false, mk: 'Sis preguntes' }], [{ off: true, mk: 'Tancat' }], [{ off: true, mk: 'Tancat' }]]);   // contract: spec «L'examen», s'obre quan tots els projectes del cercle tenen 80 o més (circle 0: projects 0 and 1 at 80); els cercles 1 i 2 són tancats
   const mapBefore = JSON.stringify(await stored(page));
   await page.evaluate(() => document.querySelector('#so').click()); await page.evaluate(() => document.querySelector('#so').click());
   const after = await stored(page);
   same('the saved secs after the sound button (the new game writes it back as it came)', after.secs, [10, 10, 4, 0, 0, 0]);   // contract: spec «El que es desa», secs es conserva tal com és
   check(JSON.parse(mapBefore).notes === undefined, 'the seed already has notes: the test would say nothing');
   same('the saved notes after the sound button', after.notes, [80, 80, 80, 80, 0, 0, 0, 0, 0]);   // contract: spec «El que es desa», clean tradueix i es desa sencer
-  // a save with nothing: every circle is shut (the Piscina comes in a later task)
   await ctx.close();
-  const e = await open({}); const shut = await e.page.evaluate(() => [...document.querySelectorAll('.ring')].map(r => r.classList.contains('shut')));
-  same('map from {}: circles shut', shut, [true, true, true]);   // contract: plan Task 10, un progrés sense Piscina veu el cercle 0 tancat
-  await e.ctx.close();
 });
 
 // ---- a whole project at the first try gives 100 and is saved; doing it badly after does not lower it
