@@ -4,9 +4,10 @@
 // scripts/check.mjs stops the build when a total no longer matches the game's own data.
 import { clean } from '../games/abac-xines/logic.js';
 import { clean as concert, noteOf, VALID } from '../games/concert-de-l-estany/logic.js';
+import { clean as lab, noteOf as labNote, VALID as LAB_VALID } from '../games/laboratori-de-l-estany/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
-// the laboratory keeps the best stars of each level: a level with a star is a level done
-const starred = s => Array.isArray(s?.stars) ? s.stars.filter(n => n > 0).length : 0;
+// the laboratory works as the concert: the mark of a project comes out of the stars of its levels
+const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 const screens = (n, total) => n ? `${n} de ${total} pantalles` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
@@ -46,6 +47,6 @@ export const GAMES = [
     what: 'Llegeix partitures, talla tubs amb fraccions i omple compassos amb la bateria.', total: 9, record: (s, total) => tunes(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M4 60H44" stroke="#2A4B5C" stroke-width="4" stroke-linecap="round"/><rect x="6" y="6" width="8" height="52" rx="3" fill="#FF6B5E"/><rect x="16" y="19" width="8" height="39" rx="3" fill="#F7C64E"/><rect x="26" y="23" width="8" height="35" rx="3" fill="#7CF5B0"/><rect x="36" y="32" width="8" height="26" rx="3" fill="#6FE3FF"/><g fill="none" stroke="#EAF8F4" stroke-width="3" stroke-linecap="round"><path d="M55 30V8q1 7 7 9"/></g><ellipse cx="50" cy="31" rx="6" ry="4.300" transform="rotate(-20 50 31)" fill="#EAF8F4"/></svg>` },
   { id: 'laboratori-de-l-estany', href: 'laboratori-de-l-estany.html', store: 'laboratori-de-l-estany', tag: 'Química i mates', title: "El laboratori de l'estany",
-    what: 'Construeix àtoms i molècules, barreja pocions i calcula percentatges.', total: 70, record: (s, total) => levels(starred(s), total),
+    what: 'Construeix àtoms i molècules, barreja pocions i calcula percentatges.', total: 7, record: (s, total) => potions(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M26 6h12v18l16 28q3 8-6 8H16q-9 0-6-8l16-28Z" fill="#0A2A3A" stroke="#EAF8F4" stroke-width="2.5" stroke-linejoin="round"/><path d="M19.500 38h25l8 14q2 5-4 5H15.500q-6 0-4-5Z" fill="#7CF5B0"/><path d="M22 6h20" stroke="#EAF8F4" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="48" r="3" fill="#EAF8F4" opacity="0.8"/><circle cx="37" cy="44" r="2" fill="#EAF8F4" opacity="0.8"/><circle cx="33" cy="30" r="2.500" fill="#7CF5B0"/><circle cx="50" cy="14" r="5" fill="#FF6B5E"/><circle cx="57" cy="20" r="3.500" fill="#F3FBF8"/><circle cx="44" cy="19" r="3.500" fill="#F3FBF8"/></svg>` }
 ];

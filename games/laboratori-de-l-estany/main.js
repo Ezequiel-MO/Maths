@@ -1,23 +1,26 @@
 import { $, RM, sleep, rand, pick, mid } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
-import { panel, sectionMenu, levelRow, wireLevels } from '../../shared/sections.js';
+import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { SECTIONS, ELEMENTS, GROUPS, MOLS, INKS, POINTS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, stateOf, blend, pctHow, starsFor, clean, xpOf, rankOf, starsOf, doneOf, levelIn } from './logic.js';
+import { PROJECTS, CIRCLES, POOL, ELEMENTS, GROUPS, MOLS, INKS, POINTS, VALID, EXAM_PASS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, stateOf, blend, pctHow, starsFor,
+  clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn } from './logic.js';
 
 const KEY = 'laboratori-de-l-estany';
-// for now every section and every level is open, to try the game out
-const OPEN = true;
+// ?obert at the end of the address opens every circle, every exam and every level, to try the game out; without it a circle opens
+// with the exam of the one before, an exam with its projects validated, and a level after the one before
+const OPEN = new URLSearchParams(location.search).has('obert');
 
-// Facts only: { so, stars }. clean() makes a complete progress out of anything the browser holds
+// Facts only: { so, stars, piscina, exams, fulls }. clean() makes a complete progress out of anything the browser holds, the save
+// from before the cursus too
 let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
-// The bar at the top of every screen: the rank, the XP, and how far the next rank is
+// The bar at the top of every screen: «Nivell 2,27», and the fill is the decimals, the part of the level that is done
 function paintXp() {
-  const box = $('#xp'), xp = xpOf(prog), r = rankOf(xp), pct = Math.round((xp - r.from) / (r.to - r.from) * 100);
+  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
   if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
   const [n, bar] = box.children;
-  n.textContent = `${r.name} · ${xp} XP`; bar.setAttribute('aria-label', `${pct} % del rang`); bar.firstChild.style.width = pct + '%';
+  n.textContent = `Nivell ${lv}`; bar.setAttribute('aria-label', `${pct} % del nivell`); bar.firstChild.style.width = pct + '%';
 }
 
 // every new screen cancels the running one through this token
@@ -79,6 +82,7 @@ const eqHtml = (left, right) => `<div class="eq" role="img" aria-label="La recep
 
 const HURRAY = ['Eureka!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin experiment!'];
 const HUES = [205, 140, 28, 175, 262, 350, 318];
+const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
 const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
 const cap = s => s[0].toUpperCase() + s.slice(1);
@@ -94,7 +98,7 @@ function show(kicker, playing, hue) {
   $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
   $('#game').onclick = null; keyFn = null; FX.mood(hue);
 }
-$('#toS').onclick = () => seccions();
+$('#toS').onclick = () => mapa();
 function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
 $('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
 
@@ -107,27 +111,89 @@ let openAt = 0;
 // each kind of level draws its stage and gives back its hint: a function that shows the help and returns what the tip says
 const KIND = { find, atom, mol, mix, dose, react, ask };
 
-/* ---------- the menu: the shelf of potions over the sections ---------- */
-// a flask for each section, as full as the stars won in it
-const shelf = () => `<div class="shelf" role="img" aria-label="El prestatge de pocions">${SECTIONS.map((_, i) => { const s = starsOf(prog, i);
-  return `<span class="sf${s === 30 ? ' full' : ''}" style="--h:${HUES[i]}"><svg viewBox="0 0 40 46"><defs><clipPath id="sf${i}"><path d="M15 3h10v13a14 14 0 1 1-10 0Z"/></clipPath></defs>
-    <rect clip-path="url(#sf${i})" x="0" y="${44 - s / 30 * 27}" width="40" height="46" fill="hsl(${HUES[i]} 90% 60%)"/><path d="M15 3h10v13a14 14 0 1 1-10 0Z" fill="rgb(220 246 255 / 0.08)" stroke="#EAF8F4" stroke-width="2"/><path d="M12 3h16" stroke="#EAF8F4" stroke-width="2.5" stroke-linecap="round"/></svg><b>★ ${s}</b></span>`; }).join('')}</div>`;
-function seccions() {
-  fresh(); show('El laboratori', false, 165);
-  $('#game').innerHTML = `${shelf()}<div class="menu" id="menu"></div>`;
-  const done = SECTIONS.map((_, i) => doneOf(prog, i));
-  sectionMenu($('#menu'), 'Tria un experiment. Cada estrella que guanyes omple una mica la seva poció.', SECTIONS, done, (s, i) => level(s, Math.max(0, prog.stars.slice(s * 10, s * 10 + 10).findIndex(n => n < 3))), () => '', OPEN);
+/* ---------- the map: three bands, one button for each project and the exam of the circle at the end ---------- */
+const RING = [140, 195, 262];   // the colour of each circle
+const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${RING[c]} 60% 60%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
+const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
+const noteText = i => { const n = noteOf(prog, i), d = prog.stars.slice(i * 10, i * 10 + 10).filter(Boolean).length; return n >= VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
+const examBtn = c => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
+// one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
+function advice() {
+  for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
+    const i = CIRCLES[c].projects.find(i => noteOf(prog, i) < VALID);
+    if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
+    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
+  }
+  return '';
+}
+let here = -1;   // the project just left: the map puts the focus back on its button
+function mapa() {
+  fresh(); show('El mapa', false, 165);
+  const band = c => `<section class="ring r${c}${openC(c) ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
+      ${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
+      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${noteOf(prog, i) >= VALID ? ' ok' : ''}" data-p="${i}"${openC(c) ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(i)}</span></button>`).join('')}${examBtn(c)}</div></section>`;
+  const got = badges(prog), tip = advice();
+  $('#game').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
+    <div class="extra"><button class="btn soft" id="full"${OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
+      <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
+  $('#game').onclick = e => {
+    const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
+    if (b && !b.disabled) {
+      // the first level that still has something to win, as far as the project is open
+      const i = +b.dataset.p, k = prog.stars.slice(i * 10, i * 10 + 10).findIndex(n => n < 3);
+      level(i, k < 0 ? 0 : Math.min(k, OPEN ? 9 : reached(prog, i), 9));
+    }
+    else if (x && !x.disabled) examen(+x.dataset.x);
+    else if (e.target.closest('#full:not(:disabled)')) full();
+  };
+  ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
 
-/* ---------- one level: the frame is the same for all, the stage is of its kind ---------- */
+// the frame of the Piscina, of an exam and of a sheet: the dots of its steps, the frog with its tip, the stage and the room under it
+function frame(n, label) {
+  $('#game').innerHTML = `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="${label}">${'<i></i>'.repeat(n)}</span><span class="chip" id="qn" hidden></span></div>
+    <div class="coach" id="coach">${FROG}<p class="status tip" id="tip" role="status" aria-live="polite"></p></div><div class="stage" id="stage"></div><div class="tail" id="tail"></div>`;
+  const say = (txt, cls = '') => { $('#tip').className = 'status tip ' + cls; $('#tip').innerHTML = `<span>${txt}</span>`; again($('#coach')); $('#coach').className = 'coach ' + cls; };
+  return { stage: $('#stage'), tail: $('#tail'), dots: [...$('#dots').children], say };
+}
+
+/* ---------- the Piscina: three elements to find on the table, the first thing a profile with nothing saved meets ---------- */
+// Each one comes with its name and its symbol; a wrong square only shakes. The third one saves piscina and opens the map.
+// There is no «← Mapa» here: the map would have every circle shut, so the way out is the page of all games.
+function piscina() {
+  const t = fresh(); show('La Piscina', true, 165); $('#toS').hidden = true; $('#toG').hidden = !HUB;
+  const { stage, dots, say } = frame(POOL.length, 'Tres reptes');
+  let k = -1, busy = false;
+  function arm() {
+    k++; busy = false;
+    const E = el(POOL[k]);
+    dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    stage.innerHTML = `<p class="ask">Toca ${the(E.name).replace(E.name, `<b>${E.name}</b>`)}. El seu símbol és <b>${E.sym}</b>.</p>${TABLE}`;
+    $('#ptable').onclick = async e => {
+      const b = e.target.closest('.el'); if (!b || busy || !t.on) return;
+      blip(440 + el(b.dataset.s).z * 8);
+      if (b.dataset.s !== E.sym) return again(b).add('shake');
+      const last = k === POOL.length - 1;
+      busy = true; b.classList.add('won'); dots[k].classList.add('ok'); spark(b, GROUPS[E.group][1]);
+      if (last) { prog = { ...prog, piscina: true }; save(); }
+      say(`Sí! ${cap(the(E.name))}. ${E.fact}`, 'go'); chime([523, 659, 784, 1047, 1319]); FX.celebrate(last ? 16 : 8);
+      await sleep(1700); if (!t.on) return;
+      last ? mapa() : arm();
+    };
+    say('Això és el laboratori! Tot està fet d\'elements, i aquesta és la seva taula.');
+  }
+  arm();
+}
+
+/* ---------- one level of a project: the frame is the same for all, the stage is of its kind ---------- */
 function level(sec, idx) {
-  const t = fresh(); show(`Experiment ${sec + 1} · ${SECTIONS[sec].name}`, true, HUES[sec]);
-  const root = $('#game'), L = SECTIONS[sec].levels[idx];
+  const c = circleOf(sec), t = fresh(); show(`Cercle ${c} · ${PROJECTS[sec].name}`, true, HUES[sec]); here = sec;
+  const root = $('#game'), L = PROJECTS[sec].levels[idx];
   let slips = 0, over = false;
-  root.innerHTML = `${levelRow(SECTIONS[sec].levels, 10, idx)}
-    <div class="hud"><span class="chip">${idx + 1} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
+  root.innerHTML = `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
+    <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     <div class="coach" id="coach">${FROG}<p class="status tip" id="tip"></p></div><div class="stage" id="stage"></div>`;
-  // a level is marked done when it has a star, whatever the order they were played in
+  // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.stars[sec * 10 + i] > 0));
   wireLevels(root, i => level(sec, i));
   const stage = $('#stage');
@@ -135,19 +201,20 @@ function level(sec, idx) {
   const stars = () => { $('#st').textContent = starRow(starsFor(slips)); };
   const slip = () => { slips++; stars(); buzz(); };
 
-  // the level is handed in at once, before any wait
+  // the level is handed in at once, before any wait: its stars go to the mark of the project, and the mark to the XP once the project is validated
   async function win(line) {
     const r = levelIn(prog, sec, idx, slips), n = r.n, end = idx === 9;
     over = true; keyFn = null; prog = r.prog; save();
-    chime([523, 659, 784, 1047, 1319]); FX.celebrate(end || r.rank ? 16 : 8);
+    chime([523, 659, 784, 1047, 1319]); FX.celebrate(end || r.valid ? 16 : 8);
     await sleep(900); if (!t.on) return;
-    panel(stage, `<h2>${end ? 'Experiment acabat!' : pick(HURRAY)}</h2>
+    panel(stage, `<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
       <p class="line">${line}</p><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
-      ${r.rank ? `<p class="lead go">Rang nou: ${r.rank}!</p>` : ''}
-      <p class="lead">${r.gain ? `+${r.gain} XP` : 'Ja tenies aquests punts.'}${n === 3 ? '' : ` · Sense errors ni pistes en dona ${POINTS[3]}.`}</p>
-      <button class="btn" id="nx">${end ? 'Torna als experiments' : 'Nivell següent'}</button>${n < 3 ? '<button class="link" id="ag">Torna-hi</button>' : ''}`);
+      <p class="lead${r.valid ? ' go' : ''}">Nota del projecte: ${r.note} de 100${r.valid ? ' · validat ✓' : ''}${r.gain ? ` · +${r.gain} XP` : ''}</p>
+      ${r.exam ? `<p class="lead go">S'ha obert l'examen del cercle ${c}.</p>` : ''}${news(r.news)}
+      ${r.exam || r.news.length ? '' : `<p class="lead">${n === 3 ? 'Ni un sol error: 10 punts!' : `Aquest nivell dona ${POINTS[n]} punts. Sense errors ni pistes en dona 10.`}</p>`}
+      <button class="btn" id="nx">${end ? 'Torna al mapa' : 'Nivell següent'}</button>${n < 3 ? '<button class="link" id="ag">Torna-hi</button>' : ''}`);
     stage.querySelector('.panel').scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
-    $('#nx').onclick = () => end ? seccions() : level(sec, idx + 1);
+    $('#nx').onclick = () => end ? mapa() : level(sec, idx + 1);
     if (n < 3) $('#ag').onclick = () => level(sec, idx);
   }
 
@@ -156,6 +223,116 @@ function level(sec, idx) {
   stars();
   // on a short screen the end of the stage can be under the fold: start from the frog's tip
   if (stage.getBoundingClientRect().bottom > innerHeight) $('#coach').scrollIntoView({ block: 'start', behavior: 'auto' });
+}
+
+/* ---------- the exam of a circle: six levels of its projects, one try each, no hints, saved by the sixth ---------- */
+// what the frog says instead of the tip of the level: only what there is to do. The questions over a drawing keep their own line, which says what the drawing is
+const ASK = { find: 'Troba l\'element a la taula i prem «És aquest!».', atom: 'Fes l\'àtom que es demana.', mol: 'Posa al matràs els àtoms que demana la fórmula.', mix: 'Fes la poció amb la proporció de la recepta.',
+  dose: 'Posa-hi la quantitat justa.', react: 'Posa quantes molècules calen i quantes en surten.' };
+// Each question is a level played as ever, but its first slip ends it as missed and there is no hint button: the level gets a token of its own
+// that goes off with the answer, so nothing of it moves afterwards. Nothing is saved before the sixth answer, which is handed in at once (examIn).
+function examen(c) {
+  const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]);
+  const qs = exam(c, Math.random), run = [], { stage, tail, dots, say } = frame(qs.length, 'Sis preguntes');
+  let k = -1, res = null;
+  const next = () => k === qs.length - 1 ? finish() : arm();
+  function arm() {
+    k++;
+    const L = qs[k], last = k === qs.length - 1, qt = { get on() { return t.on && !done; } };
+    let done = false, failed = false;
+    const end = ok => {
+      if (done || !t.on) return;
+      done = true; failed = !ok; keyFn = null; stage.inert = true; run[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
+      if (last) { res = examIn(prog, c, qs, run); res.first = res.good && !prog.exams[c]; prog = res.prog; save(); }
+      if (ok) { say('Correcte!', 'go'); chime([523, 659, 784]); FX.celebrate(6); return sleep(1000).then(() => { if (t.on) next(); }); }
+      say('No és correcte.', 'oops'); buzz(); openAt = performance.now() + SETTLE;
+      tail.innerHTML = `<button class="btn" id="nx">${last ? 'Mira el resultat' : 'Segueix'}</button>`;
+      $('#nx').onclick = e => { if (e.timeStamp >= openAt) next(); };
+    };
+    // of what the level says, the exam keeps the cheers while it runs and, once missed, why it was wrong
+    const tip = (txt, cls = '') => { if (cls === 'oops' ? failed : cls === 'go' && !done) say(txt.replace(/^Ui! /, ''), cls); };
+    stage.inert = false; tail.innerHTML = ''; dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    $('#qn').hidden = false; $('#qn').textContent = `${k + 1} de ${qs.length} · ${PROJECTS[L.p].name}`;
+    say(ASK[L.kind] || L.say);
+    KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), win: () => end(true) });
+    scrollTo({ top: 0, behavior: 'auto' });
+  }
+  // the end: how many were right, whether the exam is passed and what that gives and opens, and what to go over
+  function finish() {
+    const r = res;
+    stage.inert = false; stage.innerHTML = tail.innerHTML = ''; $('#qn').hidden = true;
+    r.good ? chime([523, 659, 784, 1047, 1319]) : click(196, 0, 0.5, 0.12, 'triangle');
+    say(r.good ? 'Examen superat!' : 'Examen acabat. Mira què cal repassar.', r.good ? 'go' : '');
+    panel(stage, `<h2>${r.score} de ${qs.length}</h2>
+      <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? 'Molt bé! Però l\'examen només compta amb tots els projectes del cercle validats.' : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
+      ${r.first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
+      ${r.redo.length ? `<p class="lead">Per repassar: ${list(r.redo.map(i => PROJECTS[i].name))}.</p>` : ''}${news(r.news)}
+      <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre examen</button>`);
+    scrollTo({ top: 0, behavior: 'auto' });
+    $('#bk').onclick = () => mapa(); $('#rp').onclick = () => examen(c);
+  }
+  arm();
+}
+
+/* ---------- «Caça l'errada»: three things a sheet says, one after the other; from none to two of them are wrong ---------- */
+// What each kind of claim draws, what it says, how one of its values is written and what was true
+const CLAIMS = {
+  mass: C => { const E = byZ(C.z); return { pic: `<div class="row">${atomSvg(C.z, C.n)}<div class="who">${tile(E, true)}<p><b>${cap(E.name)}</b><br>${C.z} protons · ${C.n} neutrons</p></div></div>`,
+    txt: `Un àtom amb ${C.z} protons i ${C.n} neutrons té <b>massa ${C.says}</b>.`, val: v => `massa ${v}`, truth: `${C.z} + ${C.n} fa massa ${C.real}` }; },
+  atoms: C => ({ pic: PIC.mols({ list: [[C.id, C.k]] }),
+    txt: `En ${C.k} molècules ${de(MOLS[C.id].name)} hi ha <b>${C.says} àtoms</b> en total.`, val: v => `${v} àtoms`, truth: `hi ha ${C.real} àtoms` }),
+  pct: C => ({ pic: PIC.cyl({ size: C.size, step: C.size / 10, v: C.size }),
+    txt: `El ${C.pct} % de ${C.size} ml són <b>${C.says} ml</b>.`, val: v => `${v} ml`, truth: `són ${C.real} ml` }),
+  ratio: C => ({ pic: recipe([['blau', C.a], ['groc', C.b]]),
+    txt: `Amb ${inkText('blau', C.have)}, la recepta vol <b>${inkText('groc', C.says, false)}</b>.`, val: v => inkText('groc', v, false), truth: `en vol ${inkText('groc', C.real, false)}` })
+};
+// «És correcte» of a wrong one, or «No és correcte» of a right one, is a miss; «No és correcte» of a wrong one asks for the value that makes it true,
+// with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
+function full() {
+  const t = fresh(); show("Caça l'errada", true, 40);
+  const cs = sheet(Math.random), run = [], { stage, tail, dots, say } = frame(cs.length, 'Tres fulls');
+  let k = -1, C, D, busy, res = null;
+  function arm() {
+    k++; C = cs[k]; D = CLAIMS[C.kind](C); busy = false; openAt = performance.now() + SETTLE;
+    dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    stage.innerHTML = `${D.pic}<p class="ask claim">${D.txt}</p>`;
+    tail.innerHTML = `<div class="opts"><button class="btn" id="yes">És correcte</button><button class="btn soft" id="no">No és correcte</button></div>`;
+    say('Mira-ho bé: és veritat?');
+  }
+  async function answer(ok, said) {
+    const last = k === cs.length - 1;
+    busy = true; run[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
+    if (last) { res = sheetIn(prog, run); prog = res.prog; save(); }
+    for (const b of tail.querySelectorAll('button')) b.disabled = true;
+    if (ok) { say(said, 'go'); chime([523, 659, 784]); FX.celebrate(6); }
+    else { say(said, 'oops'); buzz(); }
+    await sleep(ok ? 1200 : 2600); if (!t.on) return;
+    last ? finish() : arm();
+  }
+  function finish() {
+    const r = res, bad = cs.flatMap((c, i) => c.says !== c.real ? [`el ${i + 1} (${CLAIMS[c.kind](c).truth})`] : []);
+    stage.innerHTML = tail.innerHTML = '';
+    r.good ? chime([523, 659, 784, 1047, 1319]) : click(196, 0, 0.5, 0.12, 'triangle');
+    say(r.good ? 'Full perfecte!' : 'Full acabat.', r.good ? 'go' : '');
+    panel(stage, `<h2>${cs.length - r.missed.length} de ${cs.length}</h2>
+      <p class="lead${r.good ? ' go' : ''}">${r.good ? (r.gain ? `Full perfecte ✓ · +${r.gain} XP` : 'Full perfecte ✓ · 0 XP: valida més projectes per sumar-ne.') : 'Per sumar XP cal encertar els tres.'}</p>
+      <p class="lead">${bad.length ? `Tenien una errada: ${list(bad)}.` : 'Tots tres eren correctes.'}</p>${news(r.news)}
+      <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre full</button>`);
+    $('#bk').onclick = () => mapa(); $('#rp').onclick = () => full();
+  }
+  tail.onclick = e => {
+    const b = e.target.closest('button'); if (!b || b.disabled || busy || e.timeStamp < openAt) return;
+    const bad = C.says !== C.real;
+    if (b.id === 'yes') answer(!bad, bad ? `No ho era: ${D.truth}.` : 'Sí, era correcte!');
+    else if (b.id === 'no') {
+      if (!bad) return answer(false, `Sí que ho era: ${D.truth}.`);
+      openAt = performance.now() + SETTLE;
+      tail.innerHTML = `<div class="opts">${C.opts.map(v => `<button class="btn soft" data-v="${v}">${D.val(v)}</button>`).join('')}</div>`;
+      say('Ben vist! Ara tria el valor bo.', 'go');
+    }
+    else if ('v' in b.dataset) { const ok = +b.dataset.v === C.real; answer(ok, ok ? `Arreglat: ${D.truth}.` : `No era aquest: ${D.truth}.`); }
+  };
+  arm();
 }
 
 /* ---------- find an element on the table: touching a square only says who it is, the button under it answers ---------- */
@@ -536,4 +713,5 @@ function ask({ t, L, stage, tip, slip, win }) {
   return () => busy ? '' : S.how;
 }
 
-soBtn(); paintXp(); seccions();
+soBtn(); paintXp();
+prog.piscina ? mapa() : piscina();

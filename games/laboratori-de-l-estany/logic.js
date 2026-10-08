@@ -241,34 +241,145 @@ export const SECTIONS = [
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
 
-/* ---------- stars, XP and ranks ---------- */
-// a hint is a slip too
+/* ---------- stars ---------- */
 export const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
-// what a level gives by its stars: 700 XP at most
+
+/* ---------- the cursus: circles, projects, marks ---------- */
+// Laid out as the cursus of 42 Barcelona, like the concert, the abacus and the division game: a Piscina to get in, a map of three
+// circles, a mark for each project, an exam for each circle, XP and badges. A project is one of the sections above, with its ten levels
+export const PROJECTS = SECTIONS;
+export const CIRCLES = [
+  { name: 'Àtoms i molècules', projects: [0, 1] },
+  { name: 'Mescles i percentatges', projects: [2, 3, 4] },
+  { name: 'El gran laboratori', projects: [5, 6] }
+];
+export const circleOf = i => CIRCLES.findIndex(c => c.projects.includes(i));
+// the three elements of the Piscina, the first challenges: hydrogen, oxygen and carbon
+export const POOL = ['H', 'O', 'C'];
+// the ten levels of a project are three exercises: ex00 (three levels), ex01 (three) and ex02 (four)
+export const exOf = idx => idx < 3 ? 0 : idx < 6 ? 1 : 2;
+// What a level gives to the mark of its project, by its stars: 10 with no slip, 8 with one or two, 5 with more. Ten levels make 100,
+// and a project is validated with 80
 export const POINTS = [0, 5, 8, 10];
-export const RANKS = [[0, 'Aprenent'], [80, 'Ajudant de laboratori'], [200, 'Experimentador'], [350, 'Mestre de pocions'], [520, 'Gran alquimista'], [680, 'Geni del laboratori']];
+export const VALID = 80;
+export const EXAM_PASS = 5;
+
+// What is saved is facts only: { so, stars[70], piscina, exams[3], fulls }. stars is what the game kept before the cursus (the best
+// stars of each level), so a save from then is already a progress. Marks, XP, level and badges are worked out, never stored.
 const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
 const within = (x, hi) => Math.min(hi, Math.max(0, whole(x)));
 const slots = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] : undefined);
-// What is saved is facts only: { so, stars[70] }, the best stars of each level; a level is done when it has a star.
-// A complete progress inside its limits from any value at all
+// A complete progress inside its limits from any value at all; a new object. It only ever raises: whoever played before the cursus has the Piscina done
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
-  return { so: o.so !== false, stars: slots(o.stars, LEVELS.length).map(s => within(s, 3)) };
+  const stars = slots(o.stars, LEVELS.length).map(s => within(s, 3));
+  return { so: o.so !== false, stars, piscina: o.piscina === true || stars.some(s => s > 0), exams: slots(o.exams, CIRCLES.length).map(e => e === true), fulls: Math.max(0, whole(o.fulls)) };
 }
-export const xpOf = p => p.stars.reduce((s, n) => s + POINTS[n], 0);
-// the rank of some XP: { i, name, from, to }, to being where the next rank starts (the top of the scale at the last one)
-export function rankOf(xp) {
-  const i = RANKS.findLastIndex(([at]) => xp >= at);
-  return { i, name: RANKS[i][1], from: RANKS[i][0], to: RANKS[i + 1]?.[0] ?? LEVELS.length * POINTS[3] };
+const copy = p => ({ ...p, stars: p.stars.slice(), exams: p.exams.slice() });
+// the functions below take a progress that is already clean
+export const noteOf = (p, i) => p.stars.slice(i * 10, i * 10 + 10).reduce((s, n) => s + POINTS[n], 0);
+// how many levels of a project are done from the first on: the one after them is the next to open
+export const reached = (p, i) => { const k = p.stars.slice(i * 10, i * 10 + 10).findIndex(n => n === 0); return k < 0 ? 10 : k; };
+const validated = p => PROJECTS.flatMap((_, i) => noteOf(p, i) >= VALID ? [i] : []);
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1110 at most
+export function xpOf(p) {
+  const v = validated(p);
+  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + noteOf(p, i), 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
 }
-export const starsOf = (p, sec) => p.stars.slice(sec * 10, sec * 10 + 10).reduce((s, n) => s + n, 0);
-export const doneOf = (p, sec) => p.stars.slice(sec * 10, sec * 10 + 10).filter(n => n > 0).length;
-// A level done with its slips. Returns { prog, n, gain, rank }: prog is a NEW progress that keeps the best stars of the level,
-// n the stars of this time, gain the XP it adds and rank the name of the rank it reaches, '' when it stays in the same one
-export function levelIn(p, sec, idx, slips) {
-  const n = starsFor(slips), k = sec * 10 + idx, next = { ...p, stars: p.stars.slice() };
+// the level is the XP over 150, with two decimals and a comma: from 0,00 to 7,40
+export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
+// circle 0 opens with the Piscina and the others with the exam before them
+export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && p.exams[c - 1] === true;
+// the exam of a circle opens when the circle is open and all its projects are validated
+export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => noteOf(p, i) >= VALID);
+export const BADGES = [
+  { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
+  { name: 'Primer full', what: 'Troba bé les errades d\'un full.' },
+  { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
+  { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
+  { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
+];
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+const earned = (p, next) => { const had = badges(p), now = badges(next); return BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name); };
+
+// A level done, with its slips (a hint is a slip too). Returns { prog, n, note, gain, valid, exam, news }: prog is a NEW progress
+// that keeps the best stars of the level; n the stars of this time; note the mark of the project after it; gain the XP it adds;
+// valid whether the project is validated by this very level, and exam whether that opens the exam of its circle; news the badges it earns
+export function levelIn(p, i, idx, slips) {
+  const n = starsFor(slips), k = i * 10 + idx, next = copy(p), c = circleOf(i);
   next.stars[k] = Math.max(next.stars[k], n);
-  const a = rankOf(xpOf(p)), b = rankOf(xpOf(next));
-  return { prog: next, n, gain: xpOf(next) - xpOf(p), rank: b.i > a.i ? b.name : '' };
+  return { prog: next, n, note: noteOf(next, i), gain: xpOf(next) - xpOf(p), valid: noteOf(p, i) < VALID && noteOf(next, i) >= VALID,
+    exam: !examOpen(p, c) && examOpen(next, c), news: earned(p, next) };
+}
+
+/* ---------- the exam and «Caça l'errada» ---------- */
+// Chance enters only through rnd (a function like Math.random). A whole number below n, clamped
+const at = (n, rnd) => Math.min(n - 1, Math.max(0, Math.floor(rnd() * n) || 0));
+function shuffle(a, rnd) {
+  for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// Six different levels of the projects of circle c, at least one of each project, in a random order; each is a copy of the level
+// with p, its project, and idx added. A circle that does not exist gives the first
+export function exam(c, rnd) {
+  const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
+  const draw = p => {
+    let idx = at(10, rnd);
+    for (let n = 0; n < 10 && used.has(p * 10 + idx); n++) idx = (idx + 1) % 10;
+    used.add(p * 10 + idx);
+    return { ...PROJECTS[p].levels[idx], p, idx };
+  };
+  const list = ps.map(draw);
+  while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));
+  return shuffle(list, rnd);
+}
+// The hand-in of a finished exam: qs its six questions and run one boolean per question. Returns { prog, good, score, gain, redo, news }:
+// prog is a NEW progress with exams[c] set when the exam passes (EXAM_PASS of 6, the exam open), never taken back; redo the projects of the questions missed
+export function examIn(p, c, qs, run) {
+  const score = run.filter(r => r === true).length, good = run.length === 6 && score >= EXAM_PASS && examOpen(p, c), next = copy(p);
+  if (good) next.exams[c] = true;
+  return { prog: next, good, score, gain: xpOf(next) - xpOf(p), news: earned(p, next),
+    redo: [...new Set(qs.flatMap((q, i) => run[i] !== true && Number.isInteger(q?.p) ? [q.p] : []))].sort((a, b) => a - b) };
+}
+
+// The four things a sheet can say, each { kind, says, real, opts, ... }: says is the value written on the sheet, real the true one
+// (the claim is wrong when they differ) and opts the values to choose from when fixing it. The mistakes are the ones that teach:
+// a mass that forgets the neutrons, atoms counted in one molecule when there are several, a percentage taken for the rest,
+// and a recipe that adds what it should multiply.
+const three = a => [...new Set(a.filter(v => v > 0))].slice(0, 3).sort((x, y) => x - y);
+const CLAIM = {
+  // the mass of an atom: protons plus neutrons; the wrong one only counts the protons, or one neutron too many
+  mass(bad, rnd) {
+    const z = 3 + at(8, rnd), n = z + at(2, rnd), real = z + n, says = bad ? [z, real + 1][at(2, rnd)] : real;
+    return { z, n, says, real, opts: three([says, real, real + 1, real - 1, z]) };
+  },
+  // the atoms of some molecules of one kind; the wrong one counts a single molecule, or forgets one atom of each
+  atoms(bad, rnd) {
+    const [id, each] = [['H2O', 3], ['CO2', 3], ['CH4', 5], ['NH3', 4]][at(4, rnd)], k = 2 + at(3, rnd), real = each * k, says = bad ? [each, real - k][at(2, rnd)] : real;
+    return { id, k, says, real, opts: three([says, real, real - k, each, real + k]) };
+  },
+  // a percentage of a cylinder; the wrong one is what is left over, or the number of the percentage itself
+  pct(bad, rnd) {
+    const [pct, size] = [[25, 80], [25, 200], [10, 50], [10, 300], [75, 40], [20, 150], [20, 50], [75, 200]][at(8, rnd)], real = size * pct / 100;
+    const wrong = [size - real, pct][at(2, rnd)], says = !bad ? real : wrong !== real ? wrong : real * 2;
+    return { pct, size, says, real, opts: three([says, real, size - real, pct, real * 2]) };
+  },
+  // a recipe made more times; the wrong one adds the difference instead of multiplying
+  ratio(bad, rnd) {
+    const [a, b] = [[1, 2], [1, 3], [2, 3], [3, 2], [2, 5]][at(5, rnd)], k = 2 + at(3, rnd), have = a * k, real = b * k, add = have + b - a, says = bad ? (add !== real && add > 0 ? add : real + 1) : real;
+    return { a, b, have, says, real, opts: three([says, real, real + 1, have, real - 1]) };
+  }
+};
+export const KINDS = Object.keys(CLAIM);
+// Three claims of three different kinds; from 0 to 2 of them are wrong (never all three), in any place
+export function sheet(rnd) {
+  const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
+  return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
+}
+// The hand-in of a finished sheet: run has one boolean per claim. Returns { prog, good, gain, missed, news }: prog is a NEW progress
+// with fulls + 1 only when all three are right; gain the XP that adds (0 once the cap of 3 per validated project is reached)
+export function sheetIn(p, run) {
+  const missed = [0, 1, 2].filter(i => run[i] !== true), good = !missed.length && run.length === 3, next = copy(p);
+  if (good) next.fulls = p.fulls + 1;
+  return { prog: next, good, gain: xpOf(next) - xpOf(p), missed, news: earned(p, next) };
 }
