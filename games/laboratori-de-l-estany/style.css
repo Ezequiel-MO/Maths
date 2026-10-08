@@ -178,15 +178,22 @@ sub { font-size: 0.62em; line-height: 0; }
 .eq { max-width: 100%; display: flex; gap: 6px 10px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 8px 14px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
 .term { display: flex; flex-direction: column; gap: 2px; align-items: center; } .tm { min-height: 34px; display: flex; gap: 3px; align-items: center; } .term b { font-size: 1.05rem; line-height: 1.1; }
 .op { font-size: 1.6rem; font-weight: 800; line-height: 1; } .op.arrow { color: var(--sun); font-size: 2rem; }
-.lab { width: 100%; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.lab { width: 100%; display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .grp { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.sp { width: min(43vw, 158px); padding: 8px 6px; display: flex; flex-direction: column; gap: 6px; align-items: center; border-radius: 18px; border: 1px solid var(--edge); background: var(--glass); transition: border-color 0.3s, box-shadow 0.3s; }
+.sp { width: min(43vw, 158px); padding: 6px 6px 4px; display: flex; flex-direction: column; gap: 4px; align-items: center; border-radius: 18px; border: 1px solid var(--edge); background: var(--glass); transition: border-color 0.3s, box-shadow 0.3s; }
 .sp.out { border: 2px dashed rgb(247 198 78 / 0.6); }
 .spn { font-size: 1.15rem; line-height: 1.1; } .spn small { display: block; font: 700 0.72rem/1.2 var(--body); color: var(--muted); }
-.box { width: 100%; min-height: 74px; display: flex; flex-wrap: wrap; gap: 3px; align-items: center; align-content: center; justify-content: center; transition: opacity 0.6s, filter 0.6s; }
-.sp.gone .box { opacity: 0.25; filter: grayscale(1) blur(1px); }
-.sp.born { border: 2px solid var(--mint); box-shadow: 0 0 26px rgb(124 245 176 / 0.5); } .sp.born .mol { animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+/* a beaker for each thing that goes in: it tips towards the flask and empties when the reaction starts */
+.box { position: relative; width: 84%; min-height: 84px; margin-top: 6px; padding: 6px 4px; display: flex; flex-wrap: wrap; gap: 3px; align-items: center; align-content: flex-end; justify-content: center;
+  border: 3px solid var(--glassline); border-top: 0; border-radius: 4px 4px 16px 16px; background: linear-gradient(180deg, rgb(220 246 255 / 0.03), rgb(111 227 255 / 0.14)); transform-origin: 50% 100%; }
+.box::before { content: ""; position: absolute; left: -8px; right: -8px; top: -5px; height: 6px; border-radius: 5px; background: #EAF8F4; }
+.sp.gone .box { animation: pour 0.8s ease-in-out forwards; } .sp.gone:last-child:not(:first-child) .box { animation-name: pourl; }
+.sp.gone .box .mol { opacity: 0; transition: opacity 0.5s 0.2s; }
+.sp.born { border: 2px solid var(--mint); box-shadow: 0 0 26px rgb(124 245 176 / 0.5); }
 .sp .stepper { padding: 3px 6px; border: 0; background: none; } .sp .key { width: 42px; height: 42px; }
+.rflask.small { width: min(60vw, 230px); margin-block: -2px; }
+.rflask.bang { animation: bang 0.6s ease-out; } .rflask.stir .haze { opacity: 0.06; }
+.badge:has(text:empty) { display: none; }
 
 /* the questions: the drawing, the notebook that keeps each step, and the answers or the keys */
 .comp { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 6px; }
@@ -214,6 +221,9 @@ sub { font-size: 0.62em; line-height: 0; }
 
 @keyframes grow { from { transform: scale(0.2); } }
 @keyframes tide { to { transform: translateX(-50px); } }
+@keyframes pour { 40%, 70% { transform: rotate(38deg) translateY(8px); } }
+@keyframes pourl { 40%, 70% { transform: rotate(-38deg) translateY(8px); } }
+@keyframes bang { 15% { filter: brightness(3) drop-shadow(0 0 40px #fff); transform: scale(1.06); } }
 @keyframes pop { from { transform: scale(0.4); } }
 @keyframes beacon { 50% { box-shadow: 0 0 20px var(--sun); outline: 2px solid var(--sun); } }
 @keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
@@ -226,6 +236,4 @@ sub { font-size: 0.62em; line-height: 0; }
 @media (max-width: 480px) { .frog { width: 62px; height: 54px; } .coach { gap: 12px; } .keys { grid-template-columns: repeat(6, 44px); } .keys .key { width: 44px; height: 44px; } }
 /* a phone upright: the menu has no big title (the kicker and the bar stay) */
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
-/* a phone upright: what goes in over what comes out, with the arrow pointing down */
-@media (max-width: 699px) { .lab { flex-direction: column; gap: 2px; } .lab > .arrow { transform: rotate(90deg); } }
 @media (prefers-reduced-motion: reduce) { .frog .bub, .el.hint, .sf.full svg, .rflask.liquid .sea path { animation: none; } .xp-bar i, #liq, .liq { transition: none; } }

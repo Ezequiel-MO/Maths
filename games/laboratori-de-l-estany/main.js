@@ -247,10 +247,21 @@ function atom({ t, L, stage, tip, slip, win }) {
 // at the bottom and jostles there. Every thing is a circle for the bumps: against the round wall and against the others.
 const FL = { x: 150, y: 195, R: 120, surf: 208 };
 const FLASK = `M122 8V78.300A120 120 0 1 0 178 78.300V8`;
+// the drawing of the flask: label is what it says while it is empty and badge what its things make together, shown once they do
+const flaskSvg = (label, badge, small = false) => `<svg class="rflask${small ? ' small' : ''}" id="rf" viewBox="0 -14 300 348" role="img" aria-label="El matràs">
+      <defs><clipPath id="rfc"><circle cx="${FL.x}" cy="${FL.y}" r="${FL.R - 3}"/></clipPath>
+        <radialGradient id="rfg" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#DCF6FF" stop-opacity="0.2"/><stop offset="0.6" stop-color="#6FE3FF" stop-opacity="0.05"/><stop offset="1" stop-color="#6FE3FF" stop-opacity="0.2"/></radialGradient></defs>
+      <ellipse cx="150" cy="322" rx="92" ry="9" fill="rgb(0 0 0 / 0.4)"/><path class="ring" d="M92 318q58 14 116 0"/>
+      <path d="${FLASK}Z" fill="url(#rfg)"/>
+      <g clip-path="url(#rfc)"><rect class="haze" x="0" y="60" width="300" height="270"/><g class="sea"><rect x="0" y="${FL.surf - 6}" width="300" height="140"/><path d="M0 ${FL.surf - 5}q25 -9 50 0t50 0 50 0 50 0 50 0 50 0 50 0 50 0V${FL.surf + 6}H0Z"/></g></g>
+      <g id="things"></g>
+      <path class="glass" d="${FLASK}"/><path class="rim" d="M112 8H188"/><path class="shine" d="M62 150a100 100 0 0 1 36 -52"/><path class="shine thin" d="M133 20V70"/>
+      <g class="cork"><path d="M125 -10h50l-4 34h-42Z"/></g>
+      <text class="lbl" id="rfl" x="150" y="${FL.y + 6}">${label}</text><g class="badge"><rect x="196" y="92" width="92" height="28" rx="14"/><text id="rfb" x="242" y="112">${badge}</text></g></svg>`;
 function flask(svg, t) {
   const layer = svg.querySelector('#things'), ps = [], G = 320;
   let mode = 'atoms', seq = 0, raf = 0, last = 0;
-  const speed = () => mode === 'gas' ? 78 : 13;
+  const speed = () => mode === 'gas' ? 78 : mode === 'stir' ? 55 : 13;
   function step(dt) {
     for (const p of ps) {
       if (mode === 'liquid') { p.vy += G * dt; p.vx += rand(-190, 190) * dt; p.vy += rand(-190, 190) * dt; p.vx *= 1 - 2.2 * dt; p.vy *= 1 - 2.2 * dt; }
@@ -269,7 +280,7 @@ function flask(svg, t) {
       const dx = p.x - FL.x, dy = p.y - FL.y, d = Math.hypot(dx, dy) || 0.01, lim = FL.R - 5 - p.r;
       if (d > lim) { const nx = dx / d, ny = dy / d, vn = p.vx * nx + p.vy * ny; p.x = FL.x + nx * lim; p.y = FL.y + ny * lim; if (vn > 0) { const e = mode === 'liquid' ? 1.2 : 2; p.vx -= e * vn * nx; p.vy -= e * vn * ny; } }
       // a liquid stays under its surface
-      if (mode === 'liquid' && p.y - p.r < FL.surf) { p.y = FL.surf + p.r; if (p.vy < 0) p.vy *= -0.3; }
+      if (mode === 'liquid' && svg.classList.contains('liquid') && p.y - p.r < FL.surf) { p.y = FL.surf + p.r; if (p.vy < 0) p.vy *= -0.3; }
     }
   }
   const paint = () => { for (const p of ps) p.el.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.a.toFixed(1)})`); };
@@ -290,7 +301,8 @@ function flask(svg, t) {
   return { ps, add, kick,
     remove(id) { const i = ps.findIndex(p => p.id === id); if (i >= 0) { ps[i].el.remove(); ps.splice(i, 1); } },
     clear() { ps.forEach(p => p.el.remove()); ps.length = 0; },
-    set(m) { mode = m; svg.classList.add(m); for (const p of ps) p.w = m === 'liquid' ? rand(-25, 25) : rand(-90, 90); } };
+    // a solid moves as a liquid does here: it falls and piles up, without the sea
+    set(m) { mode = m === 'solid' ? 'liquid' : m; svg.classList.add(m); for (const p of ps) p.w = m === 'liquid' ? rand(-25, 25) : rand(-90, 90); } };
 }
 const STATES = { gas: ['gas', 'és un gas: moltes molècules juntes volen de pressa, lluny les unes de les altres, i reboten contra el vidre'],
   liquid: ['líquid', 'és un líquid: moltes molècules juntes es toquen i llisquen les unes sobre les altres, al fons del matràs'],
@@ -301,16 +313,7 @@ function mol({ t, L, stage, tip, slip, win }) {
   const need = M.f.map(([s, n]) => [s, n * L.count]);
   let busy = false;
   stage.innerHTML = `<p class="goal"><b class="fml">${formula(L.id)}</b><span>${M.name}</span>${L.count > 1 ? `<b class="times">× ${L.count}</b>` : ''}</p>
-    <svg class="rflask" id="rf" viewBox="0 -14 300 348" role="img" aria-label="El matràs">
-      <defs><clipPath id="rfc"><circle cx="${FL.x}" cy="${FL.y}" r="${FL.R - 3}"/></clipPath>
-        <radialGradient id="rfg" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#DCF6FF" stop-opacity="0.2"/><stop offset="0.6" stop-color="#6FE3FF" stop-opacity="0.05"/><stop offset="1" stop-color="#6FE3FF" stop-opacity="0.2"/></radialGradient></defs>
-      <ellipse cx="150" cy="322" rx="92" ry="9" fill="rgb(0 0 0 / 0.4)"/><path class="ring" d="M92 318q58 14 116 0"/>
-      <path d="${FLASK}Z" fill="url(#rfg)"/>
-      <g clip-path="url(#rfc)"><rect class="haze" x="0" y="60" width="300" height="270"/><g class="sea"><rect x="0" y="${FL.surf - 6}" width="300" height="140"/><path d="M0 ${FL.surf - 5}q25 -9 50 0t50 0 50 0 50 0 50 0 50 0 50 0 50 0V${FL.surf + 6}H0Z"/></g></g>
-      <g id="things"></g>
-      <path class="glass" d="${FLASK}"/><path class="rim" d="M112 8H188"/><path class="shine" d="M62 150a100 100 0 0 1 36 -52"/><path class="shine thin" d="M133 20V70"/>
-      <g class="cork"><path d="M125 -10h50l-4 34h-42Z"/></g>
-      <text class="lbl" id="rfl" x="150" y="${FL.y + 6}">Toca els àtoms de sota</text><g class="badge"><rect x="196" y="92" width="92" height="28" rx="14"/><text x="242" y="112">${STATES[state][0]}</text></g></svg>
+    ${flaskSvg('Toca els àtoms de sota', STATES[state][0])}
     <p class="cap" id="cnt"></p>
     <div class="tray">${L.tray.map(s => `<button class="atomb" data-s="${s}" aria-label="Afegeix un àtom ${de(el(s).name)}">${ball(s)}<b>+ ${el(s).name}</b></button>`).join('')}</div>
     <div class="opts"><button class="btn" id="ok">Comprova</button><button class="btn soft" id="clr">Buida</button></div>`;
@@ -429,16 +432,21 @@ function dose({ t, L, stage, tip, slip, win }) {
 }
 
 /* ---------- a reaction: as many of each molecule as the recipe says, for the ones already there ---------- */
+// The ones that go in wait each in its beaker; «Reacciona!» pours them into the flask, where they fly about, flash and come out as the new ones
 function react({ t, L, stage, tip, slip, win }) {
   const all = [...L.left, ...L.right], nl = L.left.length, gi = L.given[0], counts = all.map((_, i) => i === gi ? L.given[1] : 0), MAX = 12;
+  const kinds = [...new Set(L.right.map(([id]) => stateOf(id)))], state = kinds.length === 1 ? kinds[0] : 'gas';
   let busy = false;
-  const card = ([id], i) => `<div class="sp${i >= nl ? ' out' : ''}" data-i="${i}"><b class="spn">${formula(id)} <small>${MOLS[id].name}</small></b><div class="box" id="bx${i}"></div>${stepper(i, '', counts[i], i === gi)}</div>`;
+  const card = ([id], i) => `<div class="sp${i >= nl ? ' out' : ' in'}" data-i="${i}"><b class="spn">${formula(id)} <small>${MOLS[id].name}</small></b>${i < nl ? `<div class="box" id="bx${i}"></div>` : ''}${stepper(i, '', counts[i], i === gi)}</div>`;
   stage.innerHTML = `${eqHtml(L.left, L.right)}
     <p class="ask">Hi ha <b>${counts[gi]} ${formula(all[gi][0])}</b>. Quantes en calen de les altres, i quantes en surten?</p>
-    <div class="lab"><div class="grp">${L.left.map((s, i) => card(s, i)).join('')}</div><b class="op arrow">→</b><div class="grp">${L.right.map((s, i) => card(s, nl + i)).join('')}</div></div>
+    <div class="lab"><div class="grp">${L.left.map((s, i) => card(s, i)).join('')}</div>
+      ${flaskSvg('Aquí es barrejaran', kinds.length === 1 ? STATES[state][0] : '', true)}
+      <p class="cap">Quantes molècules en sortiran?</p><div class="grp">${L.right.map((s, i) => card(s, nl + i)).join('')}</div></div>
     <button class="btn" id="ok">Reacciona!</button>`;
-  const cards = [...stage.querySelectorAll('.sp')];
-  const draw = i => { $('#bx' + i).innerHTML = mols(all[i][0], counts[i], 0.7); cards[i].querySelector('.val').textContent = counts[i]; };
+  const cards = [...stage.querySelectorAll('.sp')], F = flask($('#rf'), t);
+  const draw = i => { if (i < nl) $('#bx' + i).innerHTML = mols(all[i][0], counts[i], 0.62); cards[i].querySelector('.val').textContent = counts[i]; };
+  const thing = id => { const { box, html } = molParts(id), sc = 0.82; return [`<g class="in"><g transform="scale(${sc})">${html}</g></g>`, Math.max(box[2], box[3]) * sc * 0.42]; };
   stage.querySelector('.lab').onclick = e => {
     const b = e.target.closest('.key'); if (!b || busy) return;
     const i = +b.closest('.stepper').dataset.k;
@@ -451,12 +459,22 @@ function react({ t, L, stage, tip, slip, win }) {
       slip(); wrong.forEach(i => again(cards[i]).add('shake'));
       return tip(`Ui! No surten els comptes amb ${list(wrong.map(i => formula(all[i][0])))}. Hi ha ${counts[gi]} ${formula(all[gi][0])} i la recepta en vol ${all[gi][1]}: quants cops es fa?`, 'oops');
     }
-    busy = true; chime([392, 523, 659, 784], 0.07);
-    cards.slice(0, nl).forEach(c => { c.classList.add('gone'); spark(c, 28); });
-    await sleep(700); if (!t.on) return;
-    cards.slice(nl).forEach(c => { c.classList.add('born'); spark(c, 175); });
-    tip(`Reacció feta! La recepta s'ha fet ${cops(L.k)}: tots els números multiplicats per ${L.k}.`, 'go');
-    await sleep(1900); if (!t.on) return;
+    // the beakers tip over the flask one after the other, and their molecules fall in through the neck
+    busy = true; $('#rfl').style.display = 'none'; F.set('stir'); $('#rf').scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
+    tip('A dins! Mira com es barregen al matràs.', 'go');
+    for (let i = 0; i < nl; i++) {
+      cards[i].classList.add('gone'); plop(i * 4);
+      for (let k = 0; k < counts[i]; k++) F.add(...thing(all[i][0]), 'pm', {}, [FL.x + rand(-14, 14), 92 + rand(-8, 8)]);
+      await sleep(800); if (!t.on) return;
+    }
+    await sleep(1100); if (!t.on) return;
+    // the flash: the old molecules are gone and the new ones are there, made of the very same atoms
+    again($('#rf')).add('bang'); spark($('#rf'), 48); chime([392, 523, 659, 784], 0.07);
+    F.clear(); F.set(state);
+    L.right.forEach(([id], j) => { for (let k = 0; k < counts[nl + j]; k++) F.add(...thing(id), 'pm made'); });
+    cards.slice(nl).forEach(c => c.classList.add('born'));
+    tip(`Reacció feta! La recepta s'ha fet ${cops(L.k)}: tots els números multiplicats per ${L.k}. Els àtoms són els mateixos, però amb una altra parella.`, 'go');
+    await sleep(3600); if (!t.on) return;
     const side = (a, o) => a.map(([id], i) => `${counts[o + i]} ${formula(id)}`).join(' + ');
     win(`${side(L.left, 0)} → ${side(L.right, nl)}`);
   };
