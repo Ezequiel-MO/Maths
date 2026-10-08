@@ -61,7 +61,8 @@ function molSvg(id, sc = 1.3) {
 const mols = (id, n, sc) => molSvg(id, sc).repeat(n);
 // one square of the table
 const tile = (e, big = false) => { const [r, c] = placeOf(e); return `<${big ? 'div' : 'button'} class="el${big ? ' big' : ''}" data-s="${e.sym}" style="--h:${GROUPS[e.group][1]}${big ? '' : `;grid-area:${r > 4 ? r + 1 : r}/${c}`}"${big ? '' : ` aria-label="${e.name}, número ${e.z}"`}><i>${e.z}</i><b>${e.sym}</b>${big ? '' : `<span>${e.name}</span>`}</${big ? 'div' : 'button'}>`; };
-const TABLE = `<div class="ptable" id="ptable">${ELEMENTS.map(e => tile(e)).join('')}<p class="famous">Metalls famosos</p></div>`;
+const TABLE = `<div class="ptable" id="ptable">${ELEMENTS.map(e => tile(e)).join('')}<p class="famous">Metalls famosos</p></div>
+  <p class="fams" aria-label="Què vol dir cada color">${Object.values(GROUPS).map(([n, h]) => `<span style="--h:${h}"><i></i>${n}</span>`).join('')}</p>`;
 // a cylinder of size ml with a mark every step and v ml of liquid
 function cylHtml(size, step, v) {
   const n = size / step, every = step * Math.ceil(n / 10);
@@ -169,7 +170,7 @@ function find({ t, L, stage, tip, slip, win }) {
     tiles.forEach(x => x.classList.toggle('sel', x === b)); $('#ok').disabled = false;
     // the atom of the square touched, turning: its protons and neutrons in the middle and its electrons on their shells
     const nn = neutronsOf(sel.z), few = v => v === 1;
-    $('#info').innerHTML = `${atomSvg(sel.z, nn)}<p><b>${sel.sym} · ${cap(sel.name)}</b> · ${GROUPS[sel.group][0]}
+    $('#info').innerHTML = `${atomSvg(sel.z, nn)}<p><b>${sel.sym} · ${cap(sel.name)}</b> <span class="fam" style="--h:${GROUPS[sel.group][1]}"><i></i>${GROUPS[sel.group][0]}</span>
       <span class="parts3"><span><i class="pt p"></i>${sel.z} ${few(sel.z) ? 'protó' : 'protons'}</span><span><i class="pt n"></i>${nn} ${few(nn) ? 'neutró' : 'neutrons'}</span><span><i class="pt e"></i>${sel.z} ${few(sel.z) ? 'electró' : 'electrons'}</span></span><br><span>${sel.fact}</span></p>`;
   };
   $('#ok').onclick = async () => {

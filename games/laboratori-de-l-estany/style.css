@@ -87,6 +87,12 @@ sub { font-size: 0.62em; line-height: 0; }
 .el.big { flex: none; width: 64px; aspect-ratio: 1; border-radius: 14px; } .el.big b { font-size: 1.9rem; } .el.big i { font-size: 0.75rem; left: 6px; top: 5px; }
 .el.none { --h: 200; border-style: dashed; opacity: 0.6; }
 .famous { grid-row: 5; grid-column: 1 / -1; align-self: end; padding-top: 4px; font: 800 0.72rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+/* what each colour of the table means: the families, each with its dot */
+.fams { max-width: 560px; display: flex; gap: 3px 12px; flex-wrap: wrap; justify-content: center; font-weight: 700; font-size: 0.82rem; line-height: 1.2; color: var(--muted); }
+.fams span, .info .fam { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.fams i, .fam i { flex: none; width: 11px; height: 11px; border-radius: 3px; background: hsl(var(--h) 60% 40%); border: 1.5px solid hsl(var(--h) 80% 62%); }
+.info .fam { color: var(--ink); font-weight: 700; }
+
 /* who the touched square is: its atom turning, and next to it its name, what it is made of and where a child knows it from */
 .info { width: 100%; max-width: 560px; min-height: 164px; display: flex; gap: 14px; align-items: center; justify-content: center; padding: 7px 12px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
 .info .atomv { flex: none; width: min(38vw, 150px); animation: pop 0.3s cubic-bezier(0.2, 1.6, 0.4, 1); }
