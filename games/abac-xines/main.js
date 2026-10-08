@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, clean, handIn, firstTry, isOpen, VALID } from './logic.js';
+import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, clean, handIn, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
 import { board, HUES } from './board.js';
 import { hints } from './hints.js';
 
@@ -12,7 +12,15 @@ const KEY = 'abac-xines';
 // Facts only: { so, secs, piscina, notes, exams, fulls }. clean() makes a complete progress out of anything the browser holds (the old { so, secs } too, which
 // it translates). It is saved back whole, secs as it came: the new game never writes secs of its own, and nothing it saves is lower than what was loaded.
 let prog = clean(load(KEY));
-const save = () => store(KEY, prog);
+const save = () => { store(KEY, prog); paintXp(); };
+// The bar at the top of every screen, built once and then updated (so the fill slides): «Nivell 2,27», and the fill is the decimals (27 %), the part of the level
+// that is done. It is painted from prog, so it also shows the XP of a save of the old shape before anything is saved, and every save paints it again.
+function paintXp() {
+  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
+  if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
+  const [n, bar] = box.children;
+  n.textContent = `Nivell ${lv}`; bar.setAttribute('aria-label', `${pct} % del nivell`); bar.firstChild.style.width = pct + '%';
+}
 
 // Every new screen cancels the running one through this token, and lets go of the abacus (and of the hints on it) that it had.
 let tok = { on: true }, bd = null, hn = null;
@@ -53,6 +61,9 @@ const HUE = [140, 195, 262];   // the colour of each circle
 // a circle of concentric rings, drawn with the rings up to this one filled
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${HUE[c]} 60% 60%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
 const noteText = n => n >= VALID ? `Nota ${n} · validat ✓` : n ? `Nota ${n} · no validat` : 'Per fer';
+// The exam of a circle is one more button in its band, at the end of the projects: active when the circle is open and all its projects are validated (it stays active once
+// passed, to do it again). A shut button says what it lacks.
+const examBtn = (c, open) => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${examOpen(prog, c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : examOpen(prog, c) ? 'Sis preguntes' : open ? 'Valida els projectes' : 'Tancat'}</span></button>`;
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   enter('El mapa', false, 165);
@@ -60,11 +71,11 @@ function mapa() {
     const open = isOpen(prog, c);
     return `<section class="ring r${c}${open ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
       ${open ? '' : `<p class="why">${c === 0 ? 'Acaba la Piscina per obrir-lo.' : `Supera l'examen del cercle ${c - 1} per obrir-lo.`}</p>`}
-      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}</div></section>`;
+      <div class="projs" style="--np:${CIRCLES[c].projects.length}">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}${examBtn(c, open)}</div></section>`;
   };
   $('#joc').innerHTML = `<div class="map">${CIRCLES.map((_, c) => band(c)).join('')}</div>`;
   $('#joc').onclick = e => {
-    const b = e.target.closest('.proj');
+    const b = e.target.closest('.proj:not(.exam)');
     if (b && !b.disabled && ready(e.timeStamp)) projecte(+b.dataset.p);
   };
   ($(`#joc [data-p="${here}"]:not(:disabled)`) || $('#joc button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
@@ -204,5 +215,5 @@ function projecte(i) {
   arm();
 }
 
-soBtn();
+soBtn(); paintXp();
 mapa();

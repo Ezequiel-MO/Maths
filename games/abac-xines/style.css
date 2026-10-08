@@ -8,6 +8,15 @@
 #app { max-width: 620px; min-height: calc(100dvh - 38px); }
 h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 
+/* The XP bar lives in the row at the top (the back link, the bar, the sound button), so it is always in view and adds no height to any screen: the 80px of the
+   landscape rule at the end still hold. It takes what the two links leave; its text never shrinks, the fill does. */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
 /* inside a level the big title gives its height to the abacus */
 #app.wide h1 { display: none; }
 #joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
@@ -103,7 +112,7 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 /* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
 .map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
-.ring.r0 { --rh: 140; width: 88%; } .ring.r1 { --rh: 195; width: 94%; } .ring.r2 { --rh: 262; }
+.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; }   /* wide enough for two projects side by side on a phone upright (2 x 150px) */
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 26px; height: 26px; }
@@ -115,6 +124,11 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 .proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
 .proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
 .proj.ok { border-color: #7CF5B0; } .proj.ok .mk { color: #7CF5B0; }
+/* the exam of a circle: the last button of its band, slimmer than a project (it has no subtitle) and gold when it can be taken */
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: #7CF5B0; }
+.proj.exam:disabled { border-color: rgb(77 116 134 / 0.6); }
 .proj:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
 .proj:disabled b, .proj:disabled .mk { color: var(--muted); }
 
@@ -126,6 +140,10 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 
 @keyframes lit { 50% { filter: brightness(1.7) saturate(1.4); } }
 @keyframes ghost { 0%, 20% { transform: none; opacity: 0.9; } 75%, 100% { transform: translate(var(--fx), var(--fy)); opacity: 0.3; } }
+/* a phone upright: the map has no title either (the exam buttons need that height; the game is named by the page, and the bar and the kicker stay) */
+@media (max-width: 699px) {
+  #app:not(.wide) h1 { display: none; }
+}
 /* a tablet or a laptop: bigger type and the title back over the level */
 @media (min-width: 700px) {
   .status.tip { font-size: 1.1rem; }
@@ -160,13 +178,14 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 /* the map on a short screen (a phone on its side, a laptop window): no title, and each band is one row (its name on the left, its projects side by side) */
 @media (orientation: landscape) and (max-height: 760px) {
   #app { max-width: 900px; }
-  #app:not(.wide) h1 { display: none; }
+  #app:not(.wide) h1, #app header { display: none; }   /* the map has no title nor kicker here: the bar is in the top row */
   .map { max-width: 820px; gap: 6px; }
   .ring, .ring.r0, .ring.r1 { width: 100%; flex-direction: row; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 22px; }
   .ring h2 { flex: none; width: 140px; flex-direction: column; gap: 2px; font-size: 1rem; }
   .ring .why { display: none; }
-  .projs { flex: 1; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .projs { flex: 1; min-width: 0; grid-template-columns: repeat(var(--np), minmax(0, 1fr)) 84px; }   /* the projects of the circle, and the exam in a narrow column of its own */
   .proj { min-height: 0; padding: 4px 8px; }
+  .proj.exam, .proj.exam:nth-child(odd) { padding-inline: 4px; flex-direction: column; gap: 1px; grid-column: auto; }
 }
 /* and when it is short as well, the left column spends less */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -179,5 +198,6 @@ h1, h2, .btn, .chip, .status, .task { font-family: var(--display); }
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .abacus.shake, .bead.wave { animation: none; }
   .bead { transition: none; }
+  .xp-bar i { transition: none; }
   .ghost { animation: none; }   /* the ghosts stay on their bead with the arrow: no loop */
 }

@@ -915,7 +915,7 @@ function partD() {
     const code = mainText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1'), flat = code.replace(/\s+/g, ' ');
     // the progress: loaded through clean(), saved whole, secs never written
     check(/\bprog\s*=\s*clean\(\s*load\(\s*KEY\s*\)\s*\)/.test(flat) && /const KEY = 'abac-xines'/.test(flat), "D: main.js does not load the progress through clean(load(KEY)) with KEY 'abac-xines': a save of the old shape would be shown as it is, with no marks");   // contract: spec «El que es desa», clean(d) fa un progrés vàlid de qualsevol JSON; la clau continua sent abac-xines
-    check(/const save = \(\) => store\(KEY, prog\)/.test(flat), 'D: main.js does not save the whole progress (store(KEY, prog)): a field left out would be lost from the save');   // contract: spec «El que es desa», es desa sencer
+    check(/const save = \(\) => \{ store\(KEY, prog\); paintXp\(\); \};/.test(flat), 'D: main.js does not save the whole progress (store(KEY, prog)) and paint the bar of XP after it: a field left out would be lost from the save, and a bar not painted would show the level before the mark');   // contract: spec «El que es desa», es desa sencer
     check(!/\bsecs\b\s*(\[[^\]]*\])?\s*=[^=]/.test(code) && !/\bsecs\s*:/.test(code) && !/\bsecs\b\s*\.\s*(push|splice|fill|pop|shift|unshift|sort|reverse)\b/.test(code), 'D: main.js writes secs (an assignment, a property or a call that changes it): the new game never does');   // contract: spec «El que es desa», el joc nou no l'escriu mai
     // the old sections of the shared menu are not used any more; the panel stays
     for (const name of ['sectionMenu', 'levelRow', 'wireLevels']) check(!new RegExp(`\\b${name}\\b`).test(code), `D: main.js still uses ${name}, the sections of the old game`);   // contract: plan Task 10, deixen d'usar-se
@@ -961,6 +961,16 @@ function partD() {
     }
     // what the old hint left in the stylesheet
     check(cssText !== null && !/\.rod\.glow|\.bead\.next|@keyframes column|\.levels\b/.test(cssText.replace(/\/\*[\s\S]*?\*\//g, '')), 'D: style.css still has the glow of a column, the gold bead of the old hint or the row of levels');   // contract: plan Task 10, es treuen els residus de la pista antiga
+  });
+  // the bar of XP and the exam buttons of the map (task 11): the bar is a fact of the page, painted from the progress; the exam is one more button of each band
+  sectionD('the bar of XP and the exam buttons', () => {
+    if (mainText === null) { check(false, `D: main.js cannot be read: ${mainError}`); return; }
+    const code = mainText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1'), flat = code.replace(/\s+/g, ' ');
+    const paint = /function paintXp\(\) \{(.*?)\n?\}\s*(?:const|function|let|\/\/)/.exec(flat);
+    check(!!paint && /levelText\(prog\)/.test(paint[1]) && /pct = \+lv\.split\(','\)\[1\]/.test(paint[1]) && /style\.width = pct \+ '%'/.test(paint[1]) && /`Nivell \$\{lv\}`/.test(paint[1]), 'D: paintXp() of main.js does not write «Nivell» and the level of levelText(prog), nor fill the bar with the decimal part of the level (27 % for 2,27)');   // contract: spec «XP, nivell i insígnies», nivell = XP / 150 amb dos decimals; plan Task 11, text del nivell i barra plena segons la part decimal
+    check(/soBtn\(\); paintXp\(\);/.test(flat), 'D: main.js does not paint the bar of XP when it starts: it would be empty until the first save');   // contract: spec «XP, nivell i insígnies», la barra és sempre visible
+    check(/examOpen\(prog, c\) \? '' : ' disabled'/.test(flat) && /data-x="\$\{c\}"/.test(flat), 'D: the exam button of a band of the map is not disabled unless examOpen(prog, c)');   // contract: spec «L\'examen», s'obre quan tots els projectes del cercle tenen 80 o més; plan Task 11, actiu quan examOpen
+    if (htmlText !== null) check(/<div class="xp" id="xp"><\/div>/.test(htmlText), 'D: abac-xines.html has no #xp, the place of the bar of XP');   // contract: plan Task 11, element #xp
   });
 }
 // the second argument of every setProperty('--u', …) in a text, as written, however the call is split over lines: read up to the closing parenthesis of the call

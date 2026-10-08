@@ -16,7 +16,7 @@
 //  10. the hints (task 9), at HINT_SIZES: for each row of the spec table «Les pistes» the ghosts (tone and bead), the card and the label that the layer draws, each ghost
 //      centred on its bead, the same after the screen changes size (Review Focus 5), a tap clears it (Review Focus 3), a set() and a strip() in one tick leave no ghost of the old
 //      state, and no infinite animation under reduced motion
-//  11. the map (task 10): no horizontal scroll, no scroll at all at the sizes of MIN_U, the bands do not overlap, the text of a project fits its button, and every project button,
+//  11. the map (tasks 10 and 11): the exam button at the end of each band, active where the spec says, no horizontal scroll, no scroll at all at the sizes of MIN_U, the bands do not overlap, the text of a project fits its button, and every project button,
 //      the back link and the sound button are the thing at their own centre. The project screen's rules above hold at every question (the 15 dots are in the head)
 //  12. the result panel (task 10) lies inside the stage (at the sizes of MIN_U: a small phone has a stage at its floor, smaller than the panel, and the page scrolls there anyway) and its
 //      buttons are the thing at their own centre (the board under it is covered on purpose)
@@ -48,7 +48,8 @@ const MIN_U = {
 const MAY_SCROLL = { '375x667': 2, '360x640': 26, '320x568': 26, '667x375': 2, '740x360': 2, '568x320': 308 };
 const INJECT = process.env.INJECT || '';
 const OPEN = { so: false, piscina: true, notes: Array(9).fill(80), exams: [true, true, true] };   // every circle open, every project validated
-const SHUT = {};   // nothing done: every circle shut
+const READY = { so: false, piscina: true, notes: [80, 80, 0, 0, 0, 0, 0, 0, 0] };   // circle 0 validated, its exam ready, circles 1 and 2 shut
+const SHUT = { so: false, piscina: true };   // the Piscina only (a profile with nothing saved has no map: it starts in the Piscina): circle 0 open with nothing done, circles 1 and 2 shut
 const FLOOR = 18.25;   // board.js MIN (18) and a step
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 30))))));
 
@@ -116,13 +117,16 @@ const independent = async () => {
 };
 
 // rule 11: what is wrong with the map as it is now
-const inspectMap = () => {
+const inspectMap = want => {
   const R = e => e.getBoundingClientRect(), q = s => document.querySelector(s), se = document.scrollingElement, bad = [], rings = [...document.querySelectorAll('#joc .ring')];
   scrollTo(0, 0);
   if (rings.length !== 3) return { u: NaN, scrolls: false, bad: [`${rings.length} bands on the map, expected 3`], info: '' };   // contract: spec «El mapa», tres cercles
   for (let i = 0; i + 1 < rings.length; i++) if (R(rings[i]).bottom > R(rings[i + 1]).top + 1) bad.push(`band ${i} overlaps band ${i + 1}`);
   if (se.scrollWidth > innerWidth) bad.push('horizontal scroll');
   for (const r of rings) { const a = R(r); if (a.left < -1 || a.right > innerWidth + 1) bad.push('a band lies outside the screen'); }
+  // the exam: one button at the end of each band, active only where the spec says so (circle open and all its projects validated)   // contract: spec «L'examen», s'obre quan tots els projectes del cercle tenen 80 o més; plan Task 11, un botó a cada banda
+  const exams = rings.map(r => r.querySelectorAll('.proj.exam')), got = rings.map((r, i) => exams[i].length === 1 && r.querySelector('.proj:last-child') === exams[i][0] ? !exams[i][0].disabled : null);
+  if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`the exam buttons are active ${JSON.stringify(got)}, expected ${JSON.stringify(want)} (null: not exactly one, at the end of the band)`);
   const last = Math.round(R(rings[2]).bottom), scrolls = se.scrollHeight > innerHeight + 1;
   for (const b of [...document.querySelectorAll('#joc .proj'), q('#toG'), q('#so')]) {
     if (!b || b.hidden) continue;
@@ -298,7 +302,7 @@ for (const [w, h] of want) {
     if (need && r.scrolls) r.bad.push(`the page scrolls at ${name}`);
     if (r.bad.length) fails.push(`${label}: ${r.bad.join('; ')} (u ${r.u}, ${r.info})`);
   };
-  judge('map (every circle open)', await page.evaluate(inspectMap), false);
+  judge('map (every circle open)', await page.evaluate(inspectMap, [true, true, true]), false);
   // every question of every project, in order: fresh, after a first mistake (the first of each exercise), after the hint; then the result panel
   for (let i = 0; i < 9; i++) {
     await openProject(page, i);
@@ -326,8 +330,10 @@ for (const [w, h] of want) {
   const same = await page.evaluate(independent);
   if (Math.max(...same) - Math.min(...same) > 0.25) fails.push(`the fit depends on the previous size: --u after 10px and 60px was ${same.join(', ')}`);
   // the map with nothing done: every circle shut
-  await seed(SHUT, 'Dues');   // another profile: a save never lowers what the profile already has
-  judge('map (every circle shut)', await page.evaluate(inspectMap), false);
+  await seed(READY, 'Dues');   // another profile: a save never lowers what the profile already has
+  judge('map (the exam of circle 0 ready, the others shut)', await page.evaluate(inspectMap, [true, false, false]), false);
+  await seed(SHUT, 'Tres');
+  judge('map (circles 1 and 2 shut, circle 0 not validated)', await page.evaluate(inspectMap, [false, false, false]), false);
   if (name in MAY_SCROLL && scrolling > MAY_SCROLL[name]) fails.push(`the page scrolls in ${scrolling} states, ${MAY_SCROLL[name]} at the most expected at ${name}`);
   if (errors.length) fails.push('page error: ' + errors[0]);
   const us2 = us.filter(Number.isFinite);
