@@ -8,6 +8,7 @@ import { clean as lab, noteOf as labNote, VALID as LAB_VALID } from '../games/la
 import { clean as times, noteOf as timesNote, VALID as TIMES_VALID } from '../games/coet-multiplicador/logic.js';
 import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
 import { clean as frog, noteOf as frogNote, VALID as FROG_VALID } from '../games/salts-de-granota/logic.js';
+import { clean as trip, noteOf as tripNote, VALID as TRIP_VALID } from '../games/volta-al-mon/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
 const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
@@ -25,6 +26,8 @@ const abacus = (s, total) => `${clean(s).notes.slice(0, total).filter(x => x >= 
 const tunes = (s, total) => { const p = concert(s), n = Array.from({ length: total }, (_, i) => noteOf(p, i)).filter(x => x >= VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the frog game works the same way; a save from before its cursus kept the levels done in ten sections, and clean turns them into project marks
 const leaps = (s, total) => { const p = frog(s), n = Array.from({ length: total }, (_, i) => frogNote(p, i)).filter(x => x >= FROG_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
+// the trip round the world keeps the medals of its levels, and the mark of a project comes out of them
+const stamps = (s, total) => { const p = trip(s), n = Array.from({ length: total }, (_, i) => tripNote(p, i)).filter(x => x >= TRIP_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 
 export const GAMES = [
   { id: 'salts-de-granota', href: 'salts-de-granota.html', store: 'salts-de-granota', tag: 'Càlcul mental', title: 'Salts de Granota',
@@ -53,5 +56,8 @@ export const GAMES = [
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M4 60H44" stroke="#2A4B5C" stroke-width="4" stroke-linecap="round"/><rect x="6" y="6" width="8" height="52" rx="3" fill="#FF6B5E"/><rect x="16" y="19" width="8" height="39" rx="3" fill="#F7C64E"/><rect x="26" y="23" width="8" height="35" rx="3" fill="#7CF5B0"/><rect x="36" y="32" width="8" height="26" rx="3" fill="#6FE3FF"/><g fill="none" stroke="#EAF8F4" stroke-width="3" stroke-linecap="round"><path d="M55 30V8q1 7 7 9"/></g><ellipse cx="50" cy="31" rx="6" ry="4.300" transform="rotate(-20 50 31)" fill="#EAF8F4"/></svg>` },
   { id: 'laboratori-de-l-estany', href: 'laboratori-de-l-estany.html', store: 'laboratori-de-l-estany', tag: 'Química i mates', title: "El laboratori de l'estany",
     what: 'Construeix àtoms i molècules, barreja pocions i calcula percentatges.', total: 7, record: (s, total) => potions(s, total),
-    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M26 6h12v18l16 28q3 8-6 8H16q-9 0-6-8l16-28Z" fill="#0A2A3A" stroke="#EAF8F4" stroke-width="2.5" stroke-linejoin="round"/><path d="M19.500 38h25l8 14q2 5-4 5H15.500q-6 0-4-5Z" fill="#7CF5B0"/><path d="M22 6h20" stroke="#EAF8F4" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="48" r="3" fill="#EAF8F4" opacity="0.8"/><circle cx="37" cy="44" r="2" fill="#EAF8F4" opacity="0.8"/><circle cx="33" cy="30" r="2.500" fill="#7CF5B0"/><circle cx="50" cy="14" r="5" fill="#FF6B5E"/><circle cx="57" cy="20" r="3.500" fill="#F3FBF8"/><circle cx="44" cy="19" r="3.500" fill="#F3FBF8"/></svg>` }
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M26 6h12v18l16 28q3 8-6 8H16q-9 0-6-8l16-28Z" fill="#0A2A3A" stroke="#EAF8F4" stroke-width="2.5" stroke-linejoin="round"/><path d="M19.500 38h25l8 14q2 5-4 5H15.500q-6 0-4-5Z" fill="#7CF5B0"/><path d="M22 6h20" stroke="#EAF8F4" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="48" r="3" fill="#EAF8F4" opacity="0.8"/><circle cx="37" cy="44" r="2" fill="#EAF8F4" opacity="0.8"/><circle cx="33" cy="30" r="2.500" fill="#7CF5B0"/><circle cx="50" cy="14" r="5" fill="#FF6B5E"/><circle cx="57" cy="20" r="3.500" fill="#F3FBF8"/><circle cx="44" cy="19" r="3.500" fill="#F3FBF8"/></svg>` },
+  { id: 'volta-al-mon', href: 'volta-al-mon.html', store: 'volta-al-mon', tag: 'Geometria', title: "La volta al món de l'estany",
+    what: 'Banderes, geoplà, miralls, mapes i cubs: la geometria dels cinc continents, amb medalles olímpiques.', total: 10, record: (s, total) => stamps(s, total),
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="27" r="22" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="2"/><path d="M10 27H54M32 5V49M32 5Q16 27 32 49M32 5Q48 27 32 49M14 15Q32 22 50 15M14 39Q32 32 50 39" fill="none" stroke="#6FE3FF" stroke-width="1.3" opacity="0.7"/><path d="M32 12L44 33H20Z" fill="#F7C64E" opacity="0.92"/><g fill="none" stroke-width="2.6"><circle cx="16" cy="52" r="6" stroke="#2F9BE0"/><circle cx="32" cy="52" r="6" stroke="#C9D6DB"/><circle cx="48" cy="52" r="6" stroke="#EE334E"/><circle cx="24" cy="58" r="6" stroke="#FCB131"/><circle cx="40" cy="58" r="6" stroke="#2DBE6C"/></g></svg>` }
 ];

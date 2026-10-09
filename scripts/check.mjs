@@ -10,10 +10,11 @@ import { PROJECTS as PADS } from '../games/nenufars-a-trossos/logic.js';
 import { PROJECTS } from '../games/cursus-de-l-estany/logic.js';
 import { PROJECTS as CONCERT } from '../games/concert-de-l-estany/logic.js';
 import { PROJECTS as LAB } from '../games/laboratori-de-l-estany/logic.js';
+import { PROJECTS as TRIP } from '../games/volta-al-mon/logic.js';
 
 const TOTALS = { 'salts-de-granota': TRICKS.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   'nenufars-a-trossos': PADS.length,
-  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length };
+  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length, 'volta-al-mon': TRIP.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];

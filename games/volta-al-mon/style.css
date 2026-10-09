@@ -1,0 +1,219 @@
+/* Layout: the night pond of the other games, on a trip round the world. One centred column: the row of levels, the frog with its
+   torch and its tip in a speech bubble, and a stage that each kind of level fills: a flag, a board of pegs, a grid to paint, an
+   angle to open, a map, a solid that turns or a pile of cubes. Two fixed canvases paint the sky behind and the sparks in front.
+   Written for a phone held upright; it only grows on a wide screen. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --sky: #6FE3FF; --gold: #F7C64E; --silver: #D5DEE3; --bronze: #D98A4E; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 780px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .line, .read, .disp, .huge, .mname, .mapg, .fig text, .shape text, .cubes text { font-family: var(--display); }
+
+/* the rank and the XP live in the row at the top: always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#st { flex: none; overflow: visible; display: inline-flex; gap: 6px; align-items: center; }
+.hud .link { flex: none; white-space: nowrap; }
+.stage { position: relative; width: 100%; min-height: 330px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.stage svg { max-width: 100%; height: auto; flex: none; }
+.row { width: 100%; display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.panel .line { font-size: 1.3rem; font-weight: 800; }
+.panel .line small { display: block; margin-top: 4px; font-size: 1rem; line-height: 1.25; color: var(--sun); }
+.panel .lead.go, .intro .lead.go { color: var(--mint); }
+.sun { color: var(--sun); }
+
+/* medals: a dot wherever one is counted, and the big one a level gives */
+.dot { flex: none; display: inline-block; width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25); }
+.m3 { --m: var(--gold); } .m2 { --m: var(--silver); } .m1 { --m: var(--bronze); }
+.dot { background: var(--m); }
+.medalv { width: 74px; overflow: visible; filter: drop-shadow(0 0 14px var(--m)); animation: pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.medalv .rim { fill: var(--m); stroke: rgb(0 0 0 / 0.3); stroke-width: 1.5; } .medalv .in { fill: none; stroke: rgb(0 0 0 / 0.22); stroke-width: 2; }
+.medalv text { font: 800 26px/1 var(--display); text-anchor: middle; fill: rgb(0 0 0 / 0.55); }
+.mname { font-weight: 800; font-size: 1.15rem; line-height: 1; color: var(--m); }
+
+/* the map: the five rings over it, then a band for each one; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.rings { width: 150px; overflow: visible; filter: drop-shadow(0 0 10px rgb(110 230 255 / 0.3)); }
+.rings circle { transition: opacity 0.6s; } .rings .off { stroke: #4D7486; opacity: 0.45; stroke-dasharray: 3 2.2; }
+.panel .rings { width: 130px; }
+.tally { display: flex; gap: 4px 14px; flex-wrap: wrap; justify-content: center; font-weight: 800; font-size: 0.9rem; }
+.tally span { display: inline-flex; gap: 6px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid color-mix(in srgb, var(--rc) 65%, transparent); background: var(--glass); }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 small { font: 800 0.72rem/1.6 var(--body); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.rdot { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 4px solid var(--rc); }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; text-align: center; padding: 4px 8px; min-height: 56px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.ico { font-style: normal; margin-right: 6px; }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the exam of a circle: the last button of its band, slimmer than a project and gold when it can be taken */
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; grid-column: 1 / -1; }
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+.proj:disabled .ico { opacity: 0.5; }
+/* around the bands: what to do now, the two side games, the passport with a stamp for each validated project, and the badges */
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; justify-content: center; }
+.extra .btn { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pass { width: 100%; display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 8px 10px 10px; border-radius: 18px; border: 1px solid var(--edge); background: var(--glass); }
+.pass > b { font: 800 0.8rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.stamps, .badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.stamps li { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 2px dashed rgb(77 116 134 / 0.7); font-size: 1.15rem; filter: grayscale(1); opacity: 0.4; }
+.stamps li.on { border: 2px solid var(--sun); filter: none; opacity: 1; box-shadow: 0 0 10px rgb(247 198 78 / 0.45); transform: rotate(-8deg); }
+.stamps li.on:nth-child(even) { transform: rotate(6deg); }
+.badges { gap: 4px; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
+
+/* the Piscina, an exam and a sheet: a dot for each step over the frog, and the buttons that answer under the stage */
+.hud.mid { justify-content: center; }
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.tail .opts .btn { font-size: 1.2rem; min-width: 0; }
+.ask.claim { max-width: 28ch; font-size: 1.4rem; line-height: 1.25; }
+/* the lightning round: what it is, then the count, the time that runs out and one question after another */
+.intro { max-width: 440px; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 18px 16px; border-radius: 26px; background: var(--glass); border: 1px solid var(--edge); }
+.intro h2 { margin: 0; font-size: 1.7rem; line-height: 1.1; }
+.clockbar { flex: 1; height: 12px; border-radius: 99px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.clockbar i { display: block; height: 100%; width: 100%; border-radius: 99px; background: var(--sun); }
+.ask.big { font-size: 1.6rem; min-height: 2.6em; display: grid; place-items: center; }
+
+/* the frog and its speech bubble */
+.coach { width: 100%; max-width: 600px; display: flex; gap: 14px; align-items: center; }
+.frog { flex: none; width: 80px; height: 75px; overflow: visible; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); transform-origin: 50% 90%; }
+.frog .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flame 0.7s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px #FF8A3D); }
+.coach.go .frog { animation: leap 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.coach.oops .frog { animation: shake 0.4s; }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+
+/* what every stage uses: the question, the small print, the answers and the round keys */
+.ask { font-weight: 800; font-size: 1.25rem; line-height: 1.25; text-wrap: balance; font-variant-numeric: tabular-nums; max-width: 32ch; }
+.ask b { color: var(--sun); }
+.ask small { display: block; font: 800 0.8rem/1.4 var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.cap { color: var(--muted); font-weight: 700; font-size: 0.95rem; text-wrap: balance; }
+.cap b { color: var(--ink); }
+.opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.opts .btn { font-size: 1.3rem; min-width: 88px; }
+.opts .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* an answer that is a drawing */
+.picb { min-width: 0 !important; padding: 10px 12px; border-radius: 20px; display: grid; place-items: center; min-height: 96px; }
+.picb svg { display: block; pointer-events: none; }
+.picb.won { outline: 3px solid var(--mint); box-shadow: 0 0 26px var(--mint); }
+.key { width: 48px; height: 48px; padding: 0; border-radius: 14px; border: 1px solid var(--edge); background: var(--glass); font-weight: 800; font-size: 1.5rem; line-height: 1; touch-action: manipulation; }
+.key:active { background: var(--sun); color: #2A1C00; }
+.side { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.side small { color: var(--muted); font-weight: 700; font-size: 0.8rem; line-height: 1.25; }
+.shake { animation: shake 0.4s; }
+.read { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--sun); font-variant-numeric: tabular-nums; }
+.read.sm { font-size: 1.15rem; color: var(--ink); }
+.tbox { display: flex; flex-direction: column; gap: 4px; align-items: center; padding: 8px 22px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
+.huge { font-size: 2.4rem; font-weight: 800; line-height: 1.1; color: var(--sun); white-space: nowrap; }
+
+/* flat drawings: a flag, a shape, a rectangle with what its sides measure, squares on a grid, a clock */
+.flag { border-radius: 4px; filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.5)); }
+.shape { overflow: visible; } .shape polygon, .shape rect, .shape circle { fill: hsl(195 75% 45% / 0.55); stroke: var(--sky); stroke-width: 2.5; stroke-linejoin: round; }
+.shape text, .fig text { font-weight: 800; font-size: 15px; text-anchor: middle; fill: var(--ink); } .fig text.sm { font-size: 13px; } .fig text.sun { fill: var(--sun); font-size: 18px; }
+.fig { overflow: visible; }
+.fig .f { fill: hsl(195 75% 45% / 0.45); } .fig .o { stroke: var(--sky); stroke-width: 2.5; stroke-linejoin: round; } rect.o:not(.f), circle.o:not(.f) { fill: none; }
+.fig .e { fill: none; stroke: rgb(160 230 220 / 0.18); stroke-width: 1; }
+.fig .gl { fill: none; stroke: rgb(234 248 244 / 0.45); stroke-width: 1.2; }
+.fig .half { fill: hsl(45 90% 60% / 0.75); } .fig .cut { stroke: var(--sun); stroke-width: 2.5; }
+.clock .hand { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; } .clock .hand.hr { stroke: var(--sun); }
+.hub { fill: var(--ink); } .arc { fill: hsl(45 90% 60% / 0.4); stroke: var(--sun); stroke-width: 1.5; } circle.arc { fill: hsl(45 90% 60% / 0.25); }
+
+/* the angle: a flat ray, one that turns, and the wedge between them */
+.angw { width: min(72vw, 270px); touch-action: none; cursor: grab; border-radius: 50%; } .angw.still { width: min(56vw, 200px); cursor: default; }
+.ang { display: block; width: 100%; overflow: visible; }
+.ray { stroke: var(--ink); stroke-width: 6; stroke-linecap: round; } .ray.mv { stroke: var(--sky); }
+.sqm { fill: none; stroke: var(--mint); stroke-width: 3; }
+.knob { fill: var(--sky); stroke: #fff; stroke-width: 3; filter: drop-shadow(0 0 8px var(--sky)); }
+.angw.won .ray.mv, .angw.won .knob { stroke: var(--mint); } .angw.won { filter: drop-shadow(0 0 16px var(--mint)); }
+
+/* the board of pegs: a band stretched round the ones touched */
+.geob { width: min(86vw, 330px); border-radius: 22px; background: linear-gradient(160deg, #5A3B22, #3B2514); border: 3px solid #7A5433; box-shadow: 0 10px 24px rgb(0 0 0 / 0.5); touch-action: manipulation; }
+.geob .gl { fill: none; stroke: rgb(255 255 255 / 0.08); stroke-width: 1; }
+.band { fill: none; stroke: var(--sun); stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.5)); }
+.band.shut { fill: hsl(45 90% 60% / 0.3); }
+.peg { cursor: pointer; outline: none; } .peg .hit { fill: transparent; } .peg .pin { fill: #DCE6EA; stroke: #5B6B73; stroke-width: 2; }
+.peg.on .pin { fill: var(--sun); stroke: #fff; } .peg.first .pin { animation: beacon 0.8s ease-in-out infinite; } .peg:focus-visible .pin { stroke: var(--sky); stroke-width: 4; }
+.geob.won { box-shadow: 0 0 30px var(--mint); border-color: var(--mint); } .geob.won .band { stroke: var(--mint); fill: hsl(150 85% 60% / 0.3); }
+
+/* the grid to paint: squares that turn on, the model in blue, and the mirrors as gold lines */
+.pgrid { position: relative; display: grid; grid-template-columns: repeat(var(--w), minmax(0, 42px)); gap: 3px; padding: 6px; border-radius: 16px; background: var(--glass); border: 1px solid var(--edge); touch-action: none; }
+.pc { aspect-ratio: 1; padding: 0; border-radius: 6px; border: 1px solid rgb(160 230 220 / 0.22); background: rgb(160 230 220 / 0.07); }
+.pc.on { background: var(--sun); border-color: #fff; box-shadow: 0 0 8px rgb(247 198 78 / 0.6); }
+.pc.given { background: var(--sky); border-color: #fff; opacity: 1; cursor: default; }
+.axis { position: absolute; background: var(--sun); border-radius: 3px; box-shadow: 0 0 10px var(--sun); pointer-events: none; }
+.axis.v { left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; } .axis.h { top: 50%; left: 0; right: 0; height: 4px; margin-top: -2px; }
+.pgrid.won { box-shadow: 0 0 30px var(--mint); border-color: var(--mint); } .pgrid.won .pc.on { background: var(--mint); }
+
+/* the map: squares with a letter and a number; water cannot be walked */
+.mapg { display: grid; grid-template-columns: 1.4em repeat(var(--w), minmax(0, 50px)); gap: 3px; align-items: center; font-weight: 800; }
+.mapg .ax { color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+.mc { aspect-ratio: 1; padding: 0; display: grid; place-items: center; border-radius: 8px; border: 1px solid rgb(160 230 220 / 0.22); background: hsl(140 35% 22% / 0.75); font-size: clamp(1.1rem, 5.5vw, 1.7rem); line-height: 1; touch-action: manipulation; }
+.mc.wet { background: repeating-linear-gradient(170deg, hsl(205 80% 42%) 0 6px, hsl(205 80% 50%) 6px 12px); border-color: hsl(205 80% 65%); }
+.mc.sel { outline: 3px solid #fff; box-shadow: 0 0 16px var(--sun); background: hsl(45 80% 45% / 0.7); }
+.mc.won { outline: 3px solid var(--mint); box-shadow: 0 0 26px var(--mint); }
+.mc.here { background: hsl(140 55% 32%); }
+.tok { display: grid; place-items: center; width: 78%; aspect-ratio: 1; border-radius: 50%; background: var(--pad); color: var(--on-pad); font-style: normal; font-size: 0.8em; transform: rotate(var(--a)); transition: transform 0.25s; box-shadow: 0 0 10px rgb(79 181 98 / 0.7); }
+.pads .btn { min-width: 0; font-size: 1.05rem; padding: 0.5em 0.9em; }
+
+/* solids: faces lit from the upper left; the ones behind are a dashed outline */
+.solid { overflow: visible; filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.45)); } .solid.live { touch-action: none; cursor: grab; }
+.solid .face { stroke: rgb(255 255 255 / 0.85); stroke-width: 1.6; stroke-linejoin: round; } .solid .skin { stroke-width: 0.8; }
+.solid .hid { fill: none; stroke: rgb(234 248 244 / 0.4); stroke-width: 1.2; stroke-dasharray: 4 4; stroke-linejoin: round; }
+.solid .bline { fill: none; stroke: rgb(255 255 255 / 0.5); stroke-width: 1.2; }
+
+/* cubes: the floor as tiles, each cube with its three faces; the views as flat squares */
+.cubes { overflow: visible; }
+.cubes .tile { fill: rgb(160 230 220 / 0.06); stroke: rgb(160 230 220 / 0.3); stroke-width: 1; }
+.cubes polygon:not(.tile) { stroke: #06222C; stroke-width: 1.3; stroke-linejoin: round; }
+.ct { fill: hsl(195 85% 72%); } .cl { fill: hsl(195 75% 50%); } .cr { fill: hsl(195 75% 34%); }
+.cubes text { font-weight: 800; font-size: 11px; fill: var(--muted); }
+#iso { min-height: 150px; display: grid; place-items: center; } #iso.won { filter: drop-shadow(0 0 16px var(--mint)); }
+.view rect { fill: hsl(195 75% 50%); stroke: #06222C; stroke-width: 1.3; } .view.net rect { fill: hsl(45 85% 60%); }
+.views { display: flex; gap: 22px; align-items: flex-end; justify-content: center; padding: 8px 18px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
+.views figure { margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; } .views figcaption { font-weight: 800; font-size: 0.8rem; color: var(--muted); }
+.pad { display: grid; grid-template-columns: repeat(var(--w), 48px); gap: 5px; }
+.pad .key.on { background: hsl(195 75% 40%); border-color: var(--sky); }
+
+/* the questions: the notebook that keeps each step, and the answers or the keys */
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; } .notes:empty { display: none; }
+.notes li { font-weight: 800; font-size: 1rem; line-height: 1.25; color: var(--mint); animation: pop 0.3s; } .notes li::before { content: "✓ "; }
+.ans { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.disp { min-width: 150px; display: flex; gap: 8px; align-items: baseline; justify-content: center; padding: 0 18px; border-radius: 16px; border: 2px solid var(--sun); background: var(--glass); font-size: 2.1rem; font-weight: 800; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.disp span { font-size: 1.1rem; color: var(--muted); }
+.keys { display: grid; grid-template-columns: repeat(6, 48px); gap: 6px; }
+.key.ok { background: var(--pad); color: var(--on-pad); border-color: transparent; } .key.del { color: var(--muted); }
+
+@keyframes pop { from { transform: scale(0.4); } }
+@keyframes beacon { 50% { r: 10px; fill: #fff; } }
+@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
+@keyframes flame { to { transform: scale(0.88, 1.12) rotate(4deg); } }
+@media (max-width: 480px) { .frog { width: 62px; height: 58px; } .coach { gap: 12px; } .keys { grid-template-columns: repeat(6, 44px); } .keys .key { width: 44px; height: 44px; } .pgrid { gap: 2px; padding: 4px; } }
+/* a phone upright: the menu has no big title (the kicker and the bar stay) */
+@media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
+@media (prefers-reduced-motion: reduce) { .frog .flame, .peg.first .pin, .medalv { animation: none; } .xp-bar i, .tok { transition: none; } }
