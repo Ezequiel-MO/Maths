@@ -5,12 +5,15 @@
 import { clean } from '../games/abac-xines/logic.js';
 import { clean as concert, noteOf, VALID } from '../games/concert-de-l-estany/logic.js';
 import { clean as lab, noteOf as labNote, VALID as LAB_VALID } from '../games/laboratori-de-l-estany/logic.js';
+import { clean as times, noteOf as timesNote, VALID as TIMES_VALID } from '../games/coet-multiplicador/logic.js';
 import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
 const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the fractions game works the same way; a save from before its cursus kept the stars of eight sections, and clean turns them into project marks
 const slices = (s, total) => { const p = pads(s), n = Array.from({ length: total }, (_, i) => padNote(p, i)).filter(x => x >= PAD_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
+// the multiplying rocket works the same way; a save from before its cursus kept the stars of six sections, and clean turns them into project marks
+const rockets = (s, total) => { const p = times(s), n = Array.from({ length: total }, (_, i) => timesNote(p, i)).filter(x => x >= TIMES_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
 const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => Number.isFinite(x) && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
@@ -37,7 +40,7 @@ export const GAMES = [
     what: 'Mou les boles per sumar, restar, multiplicar i repartir.', total: 9, record: (s, total) => abacus(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="5" y="7" width="54" height="50" rx="9" fill="#6B321C" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="12" width="44" height="40" rx="4" fill="#061A24"/><path d="M19 12V52M32 12V52M45 12V52" stroke="#F7C64E" stroke-width="1.5"/><rect x="10" y="25" width="44" height="4" fill="#C07A48"/><g fill="#5B4A1C"><ellipse cx="19" cy="15.5" rx="5.5" ry="3"/><ellipse cx="45" cy="15.5" rx="5.5" ry="3"/></g><g fill="#F7C64E"><ellipse cx="32" cy="21.500" rx="5.5" ry="3"/></g><g fill="#7CF5B0"><ellipse cx="45" cy="32.500" rx="5.5" ry="3"/><ellipse cx="45" cy="39" rx="5.5" ry="3"/></g><ellipse cx="32" cy="32.500" rx="5.5" ry="3" fill="#6FE3FF"/><g fill="#B79CFF"><ellipse cx="19" cy="32.500" rx="5.5" ry="3"/><ellipse cx="19" cy="39" rx="5.5" ry="3"/><ellipse cx="19" cy="45.5" rx="5.5" ry="3"/></g><g fill="#1B3F52"><ellipse cx="32" cy="42" rx="5.5" ry="3"/><ellipse cx="32" cy="48.500" rx="5.5" ry="3"/><ellipse cx="45" cy="48.500" rx="5.5" ry="3"/></g></svg>` },
   { id: 'coet-multiplicador', href: 'coet-multiplicador.html', store: 'coet-multiplicador', tag: 'Multiplicar', title: 'El coet multiplicador',
-    what: 'Multiplica números grans tros a tros i fes enlairar el coet.', total: 60, record: (s, total) => levels(sum(s.secs), total),
+    what: 'Zeros màgics, ratlles japoneses i multiplicacions en columna per fer enlairar el coet.', total: 9, record: (s, total) => rockets(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="30" width="56" height="30" rx="7" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="1.5"/><path d="M32 30V60M4 45H60" stroke="#6FE3FF" stroke-width="1.5"/><rect x="5" y="46" width="26" height="13" rx="5" fill="#FF8FD0"/><rect x="33" y="31" width="26" height="13" rx="5" fill="#6FE3FF"/><g transform="rotate(35 40 18) translate(22 0) scale(0.56)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g><path d="M9 10l10 10M19 10L9 20" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/></svg>` },
   { id: 'nenufars-a-trossos', href: 'nenufars-a-trossos.html', store: 'nenufars-a-trossos', tag: 'Fraccions', title: 'Nenúfars a trossos',
     what: 'Pizzes, xocolata, rellotges i diners: de la primera fracció a sumar-les i fer-ne percentatges.', total: 14, record: (s, total) => slices(s, total),
