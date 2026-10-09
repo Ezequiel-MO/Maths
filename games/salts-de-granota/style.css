@@ -1,5 +1,5 @@
-/* Layout: the pond at night, like the other games. One centred column: the menu of sections (sums or subtractions), or a level with
-   its operation, its picture and a keypad of big keys on one glass card, so nothing needs the phone's keyboard. Two fixed canvases
+/* Layout: the pond at night, like the other games. One centred column: the map of the cursus (a band for each circle, a lily pad for
+   each project), or a level with its operation, its picture and a keypad of big keys on one glass card, so nothing needs the phone's keyboard. Two fixed canvases
    paint the sky behind and the sparks in front. The rules are written for a phone held upright; the media queries at the end add
    what a wider screen needs. */
 @import "../../shared/base.css";
@@ -20,18 +20,74 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 .btn.glow { outline: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hud.mid { justify-content: center; }
+.sun { color: var(--sun); }
+.lead.go { color: var(--mint); font-weight: 800; }
 
-/* the menu: sums or subtractions, then the sections of that path, one under the other */
-.ops { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
-.ops button { min-height: 44px; display: flex; gap: 8px; align-items: center; border: 0; background: none; border-radius: 999px; padding: 2px 16px; font: 800 1.2rem/1 var(--display); color: var(--muted); }
-.ops button span { font: 800 0.9rem/1 var(--body); font-variant-numeric: tabular-nums; }
-.ops button[aria-pressed="true"] { background: var(--pad); color: var(--on-pad); box-shadow: 0 0 24px rgb(79 181 98 / 0.5); }
-.ops button[data-o="1"][aria-pressed="true"] { background: var(--flower); color: #2A0718; box-shadow: 0 0 24px rgb(255 143 208 / 0.5); }
-.foot { width: min(100%, 560px); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; color: var(--muted); font-weight: 700; font-size: 1rem; }
+/* the level and the part of it that is done, at the top of every screen */
+.top > span { flex: none; }
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+
+/* the frog, wherever it is drawn: it blinks now and then */
+.frog-s { display: block; width: 100%; height: 100%; overflow: visible; }
+.lid { opacity: 0; animation: wink 4.6s step-end infinite; }
+.pad { display: block; overflow: visible; }
+.pad .lp, .nl .lp { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; stroke-linejoin: round; }
+.pad .vein { fill: none; stroke: var(--pad-dark); stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
+.fl ellipse { fill: var(--flower); } .fl circle { fill: var(--sun); }
+.fly { width: 22px; height: 18px; flex: none; }
+
+/* the map: a band for each circle, with its projects two by two and its exam at the end */
+.map { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 18px; justify-content: center; align-items: center; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
+.stats span { display: inline-flex; gap: 5px; align-items: center; } .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: linear-gradient(160deg, hsl(var(--rh) 60% 30% / 0.25), transparent 60%) var(--glass); }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 8px; align-content: center; text-align: left; padding: 6px 8px; min-height: 80px; border-radius: 18px; border: 2px solid #4D7486; background: #1F3D4D; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; transition: border-color 0.2s, background 0.2s; }
+.proj > :not(.orb) { grid-column: 2; }
+.proj:not(:disabled):hover { border-color: hsl(var(--h, 48) 90% 70%); background: #28505F; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the lily pad of a project: its flower opens when the project is validated */
+.orb { grid-row: 1 / span 4; align-self: center; width: 44px; filter: drop-shadow(0 0 8px hsl(var(--h, 140) 80% 60% / 0.6)); }
+.orb .fl { display: none; } .proj.ok .orb .fl { display: block; }
+.proj:disabled .orb { filter: grayscale(0.85) brightness(0.6); }
+.pp { display: flex; gap: 3px; margin-block: 2px; }
+.pp i { width: 8px; height: 8px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pp i.s1, .pp i.s2 { background: var(--pad); }
+.pp i.s3 { background: var(--sun); box-shadow: 0 0 6px rgb(247 198 78 / 0.7); }
+.proj.exam { display: flex; align-items: center; justify-content: center; min-height: 40px; border-color: var(--sun); gap: 8px; text-align: center; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+.extra .btn { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+.extra .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); background: rgb(247 198 78 / 0.1); }
+/* the row of levels: the ones done take the colour of their stars */
+.levels button.s1, .levels button.s2 { background: #1E6B4A; border-color: #7CF5B0; }
+.levels button.s3 { background: #6A5310; border-color: var(--sun); }
+.levels button[aria-current].s1, .levels button[aria-current].s2, .levels button[aria-current].s3 { background: var(--sun); border-color: #fff; }
+.chip.flies { display: inline-flex; gap: 5px; align-items: center; flex: none; }
+
 
 /* the level: one glass card where everything happens */
 .play {
-  width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 16px 14px 18px; border-radius: 26px;
+  position: relative; width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 16px 14px 18px; border-radius: 26px;
   background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
 }
@@ -40,11 +96,57 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 .q { color: var(--sun); }
 .cap { min-height: 2.9em; font-size: 1.2rem; font-weight: 700; max-width: 34ch; text-wrap: balance; }
 .hint { color: var(--sky); font-weight: 700; text-wrap: balance; }
-.dots { display: flex; gap: 7px; min-height: 18px; align-items: center; }
-.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--dim); }
-.dots i.ok { background: var(--mint); box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); }
-.dots i.slow { background: #4D7486; }
-.dots i.now { outline: 3px solid var(--sun); outline-offset: 1px; }
+.stage { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.play.intro { max-width: 460px; }
+.score { font: 800 2.2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+/* the frog's way through a level: a lily pad for each operation. A flower opens on the ones answered at the first try */
+.lane { position: relative; width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); align-items: end; padding-top: 30px; }
+.lane::before { content: ""; position: absolute; left: 0; right: 0; bottom: 3px; height: 16px; border-radius: 999px; background: linear-gradient(rgb(111 227 255 / 0.3), rgb(111 227 255 / 0.08)); }
+.lane .pad { position: relative; width: min(100%, 52px); margin-inline: auto; opacity: 0.55; transition: opacity 0.3s; }
+.lane .pad .fl { transform: scale(0); transform-box: fill-box; transform-origin: center; transition: transform 0.4s cubic-bezier(0.2, 1.8, 0.4, 1); }
+.lane .pad:first-child, .lane .pad.ok, .lane .pad.slow { opacity: 1; }
+.lane .pad.ok .fl { transform: scale(1); }
+.lane .pad.ok { filter: drop-shadow(0 0 8px rgb(247 198 78 / 0.7)); }
+.lane .pad.slow .lp { fill: #3F7F6A; }
+.hopper { position: absolute; bottom: 9px; left: calc((var(--k) + 0.5) * 100% / var(--n)); width: 44px; height: 34px; margin-left: -22px; transition: left 0.45s ease-in-out; }
+.hopper.hop .frog-s { animation: hop 0.45s ease-out; }
+.hopper.gulp .frog-s { animation: gulp 0.3s ease-out; }
+.bug { position: fixed; left: 0; top: 0; z-index: 6; width: 22px; height: 18px; margin: -9px -11px; pointer-events: none; filter: drop-shadow(0 0 6px var(--sun)); }
+.leap { position: fixed; left: -140px; bottom: 6vh; z-index: 6; width: 130px; height: 100px; pointer-events: none; animation: across 1.4s linear forwards; filter: drop-shadow(0 0 22px rgb(124 245 176 / 0.8)); }
+.leap span { display: block; width: 100%; height: 100%; animation: arch 0.7s cubic-bezier(0.2, 0.7, 0.5, 1) 2 alternate; }
+.combo { position: absolute; z-index: 2; top: -12px; right: 14px; padding: 1px 12px; border-radius: 999px; background: linear-gradient(90deg, #FF8A3C, var(--sun)); color: #2A1C00; font: 800 0.95rem/1.5 var(--display); box-shadow: 0 0 18px rgb(247 198 78 / 0.7); white-space: nowrap; }
+.combo.pop { animation: combo 0.4s cubic-bezier(0.2, 1.8, 0.4, 1); }
+.fuse { width: 100%; max-width: 520px; height: 16px; border-radius: 999px; background: rgb(160 230 220 / 0.1); border: 1px solid var(--edge); overflow: hidden; }
+.fuse i { display: block; width: 100%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--bad), var(--sun) 40%, var(--mint)); background-size: 520px 100%; }
+/* the end of a level: its stars and the mark of the project, with a line where it is validated */
+.won { display: flex; gap: 10px; }
+.won i { width: 54px; height: 54px; }
+.won svg { display: block; width: 100%; height: 100%; fill: rgb(160 230 220 / 0.16); stroke: rgb(160 230 220 / 0.3); stroke-width: 1; stroke-linejoin: round; }
+.won i.on svg { fill: var(--sun); stroke: #fff; filter: drop-shadow(0 0 12px rgb(247 198 78 / 0.8)); animation: star 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) backwards; animation-delay: calc(var(--i) * 0.22s); }
+.mark { width: 100%; max-width: 380px; display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 0.95rem; color: var(--muted); }
+.mark b { color: var(--ink); font: 800 1.4rem/1 var(--display); font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.nbar { position: relative; flex: 1; height: 14px; border-radius: 999px; background: rgb(160 230 220 / 0.16); }
+.nbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--pad), var(--mint)); transition: width 0.8s; }
+.nbar::after { content: ""; position: absolute; left: 80%; top: -4px; bottom: -4px; width: 3px; border-radius: 2px; background: var(--sun); }
+/* the frog says the trick, and what it thinks of each answer of a sheet */
+.coach { width: 100%; max-width: 520px; display: flex; gap: 12px; align-items: center; }
+.pilot { flex: none; width: 62px; height: 48px; }
+.coach.go .pilot { animation: hop 0.5s ease-out; }
+.coach.oops .pilot { animation: shake 0.4s; }
+.tipb { position: relative; flex: 1; margin: 0; padding: 8px 14px; border-radius: 18px; text-align: left; font-weight: 700; color: var(--sky); background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); text-wrap: pretty; }
+.coach.go .tipb { color: var(--mint); } .coach.oops .tipb { color: var(--bad); }
+/* «Caça l'errada»: a sheet of paper with one operation answered, and the dots of the three */
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.sheetbox, .tail { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.tail { min-height: 52px; }
+.paper { width: min(100%, 420px); padding: 22px 16px; border-radius: 6px 18px 6px 18px; transform: rotate(-1deg); background: repeating-linear-gradient(#FBF6E4 0 31px, #C9DCEB 31px 32px); color: #2A2416; box-shadow: 0 10px 26px rgb(0 0 0 / 0.45); animation: pop 0.35s cubic-bezier(0.2, 1.5, 0.4, 1); }
+.claim { font: 800 clamp(1.8rem, 8vw, 2.6rem)/1.25 var(--display); font-variant-numeric: tabular-nums; }
+.claim b { color: #B3261E; }
+.row .btn:disabled { opacity: 0.5; }
 
 /* the answer is typed into the operation itself, with the keys below it */
 #rhs:empty { display: none; }
@@ -55,6 +157,7 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 #ans:empty::after { content: "?"; color: var(--sun); animation: blink 1.2s ease-in-out infinite; }
 #ans.good { border-color: var(--mint); color: var(--mint); box-shadow: 0 0 26px 4px rgb(124 245 176 / 0.6); }
 #ans.shake { border-color: var(--bad); animation: shake 0.35s; }
+#ans.told { color: var(--sun); }
 #msg { min-height: 1.5em; font-weight: 800; text-wrap: balance; }
 #msg.bad { color: var(--bad); }
 #msg.good { color: var(--mint); text-shadow: 0 0 22px rgb(124 245 176 / 0.6); }
@@ -67,27 +170,36 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 .key.del { background: none; color: var(--muted); }
 .key.ok { background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
 .key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+/* below zero: one key more for the minus sign, and the tick takes two places */
+.keys.neg { grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.keys.neg .ok { grid-column: span 2; }
+.key.sign { font-size: 1.15rem; border-color: var(--sky); color: var(--sky); }
 
 /* pictures: the number line, the ten lily pads, the bars and cubes */
 #viz { width: 100%; }
 svg.nl { width: 100%; height: auto; display: block; }
-.nl .axis { stroke: rgb(160 230 220 / 0.4); stroke-width: 6; stroke-linecap: round; }
-.nl .tick { stroke: var(--muted); stroke-width: 2; }
-.nl .tick.ten { stroke-width: 5; }
+.nl .water { fill: rgb(111 227 255 / 0.22); stroke: rgb(111 227 255 / 0.45); stroke-width: 2; }
+/* below zero the water is deeper */
+.nl .deep { fill: rgb(88 70 200 / 0.5); }
+.nl .zero { stroke: var(--sun); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 8; }
+.nl .tick { stroke: rgb(234 248 244 / 0.55); stroke-width: 2; stroke-linecap: round; }
+.nl .tick.ten { stroke: var(--ink); stroke-width: 4; }
 .nl text { font-family: var(--display); text-anchor: middle; font-variant-numeric: tabular-nums; }
 .nl .tl { fill: var(--muted); font-size: 26px; font-weight: 600; }
+.nl .zl { fill: #B7A8FF; font-size: 22px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .nl .pl { fill: var(--ink); font-size: 36px; font-weight: 800; }
-.nl .pl.q { fill: var(--sun); }
-.nl .lp { fill: var(--pad); }
+.nl .pl.q, .nl .jl.q { fill: var(--sun); }
 /* a jump forwards is blue, a jump backwards is yellow */
 .nl .arc { fill: none; stroke: var(--sky); stroke-width: 5; stroke-linecap: round; }
 .nl .jl { fill: var(--sky); font-size: 34px; font-weight: 800; }
 .nl .arc.back { stroke: var(--sun); }
 .nl .jl.back { fill: var(--sun); }
-.fb { fill: #4FB562; stroke: #2F7F40; stroke-width: 2; }
-.fe { fill: #fff; stroke: #2F7F40; stroke-width: 2; }
-.fp { fill: #06220D; }
-.fm { fill: none; stroke: #2F7F40; stroke-width: 2.5; stroke-linecap: round; }
+/* two rows of flowers for a double */
+.twin { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); max-width: 440px; margin-inline: auto; }
+.trow { width: 100%; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 22px)); gap: 4px; justify-content: center; }
+.trow i { aspect-ratio: 1; border-radius: 50%; background: radial-gradient(var(--sun) 30%, var(--pad) 34%); opacity: 0.55; transition: opacity 0.2s, transform 0.2s; }
+.trow i.on { opacity: 1; background: radial-gradient(var(--sun) 30%, var(--flower) 34%); transform: scale(1.12); }
+.trow i.extra { outline: 2px dashed var(--sun); outline-offset: 1px; }
 .frame { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 400px; margin-inline: auto; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); }
 .frame span { position: relative; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 110deg, var(--pad) 325deg, transparent 0); display: grid; place-items: center; }
 .frame span::after { content: ""; width: 52%; aspect-ratio: 1; border-radius: 50%; }
@@ -97,6 +209,7 @@ svg.nl { width: 100%; height: auto; display: block; }
 /* a hint asked twice counts the flowers */
 .frame b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 1.15rem/1 var(--display); color: #2A1C00; animation: grow 0.25s ease-out; }
 .split { font: 800 1.6rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 12px; }
+.nl + .split { margin-top: 0; }
 .split b { color: var(--sun); }
 .blocks { display: flex; gap: 26px; justify-content: center; align-items: flex-end; }
 .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -110,6 +223,13 @@ svg.nl { width: 100%; height: auto; display: block; }
 .cubes.full { gap: 0; border-radius: 4px; outline: 3px solid var(--sun); outline-offset: 2px; }
 .cubes.full .cube { height: 13.8px; border-radius: 0; background: var(--flower); }
 
+@keyframes wink { 0%, 100% { opacity: 0; } 95% { opacity: 1; } 98% { opacity: 0; } }
+@keyframes hop { 40% { transform: translateY(-22px) scale(0.94, 1.1); } 85% { transform: translateY(0) scale(1.08, 0.9); } }
+@keyframes gulp { 40% { transform: scale(1.25, 1.15); } }
+@keyframes across { to { transform: translateX(calc(100vw + 280px)); } }
+@keyframes arch { to { transform: translateY(-46vh) rotate(-8deg); } }
+@keyframes combo { from { transform: scale(0.4); } }
+@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @keyframes pop { from { transform: scale(0.7); opacity: 0; } }
 @keyframes grow { from { transform: scale(0.2); } }
 @keyframes wilt { to { transform: scale(0); opacity: 0; } }
@@ -123,9 +243,20 @@ svg.nl { width: 100%; height: auto; display: block; }
   .key { height: 60px; }
   .blocks { gap: 40px; }
   .bars { gap: 8px; }
+  .hopper { width: 54px; height: 42px; margin-left: -27px; }
+  .lane { padding-top: 38px; }
+}
+/* a phone: what the screen is about takes a row of its own above the counter and the flies */
+@media (max-width: 520px) { .hud { flex-wrap: wrap; justify-content: center; } .hud .chip:first-child { flex: 1 1 100%; text-align: center; } }
+/* a narrow phone: the lily pads of the map and the keys of the pad below zero get smaller */
+@media (max-width: 420px) {
+  .proj { grid-template-columns: 32px minmax(0, 1fr); column-gap: 6px; } .orb { width: 32px; }
+  .keys.neg .key { font-size: 1.45rem; } .keys.neg .key.sign { font-size: 0.95rem; }
+  .won i { width: 46px; height: 46px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  h1, .play h2, .btn.glow, #ans:empty::after, #ans.shake, .frame .new::after, .frame b, .cube.new { animation: none; }
+  h1, .play h2, .btn.glow, #ans:empty::after, #ans.shake, .frame .new::after, .frame b, .cube.new, .lid, .hopper .frog-s, .coach .pilot, .combo.pop, .won i.on svg, .paper { animation: none; }
+  .hopper, .lane .pad .fl, .xp-bar i, .nbar i, .trow i { transition: none; }
   .frame .gone::after { animation: none; opacity: 0; }
   .btn.glow { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); }
   .key { transition: none; }

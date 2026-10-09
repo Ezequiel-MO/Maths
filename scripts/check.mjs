@@ -2,7 +2,7 @@
 // build and stops it when a total in shared/games.js has drifted from the data, or a card points at a page that is not there.
 import { existsSync } from 'node:fs';
 import { GAMES } from '../shared/games.js';
-import { SECTIONS as TRICKS, PLAN } from '../games/salts-de-granota/logic.js';
+import { PROJECTS as TRICKS } from '../games/salts-de-granota/logic.js';
 import { LEVELS as ROCKET } from '../games/memoria-visual/logic.js';
 import { PROJECTS as ABACUS } from '../games/abac-xines/logic.js';
 import { PROJECTS as TIMES } from '../games/coet-multiplicador/logic.js';
@@ -11,7 +11,7 @@ import { PROJECTS } from '../games/cursus-de-l-estany/logic.js';
 import { PROJECTS as CONCERT } from '../games/concert-de-l-estany/logic.js';
 import { PROJECTS as LAB } from '../games/laboratori-de-l-estany/logic.js';
 
-const TOTALS = { 'salts-de-granota': TRICKS.length * PLAN.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
+const TOTALS = { 'salts-de-granota': TRICKS.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   'nenufars-a-trossos': PADS.length,
   'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length };
 const bad = [];

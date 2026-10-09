@@ -7,6 +7,7 @@ import { clean as concert, noteOf, VALID } from '../games/concert-de-l-estany/lo
 import { clean as lab, noteOf as labNote, VALID as LAB_VALID } from '../games/laboratori-de-l-estany/logic.js';
 import { clean as times, noteOf as timesNote, VALID as TIMES_VALID } from '../games/coet-multiplicador/logic.js';
 import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
+import { clean as frog, noteOf as frogNote, VALID as FROG_VALID } from '../games/salts-de-granota/logic.js';
 const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
 const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
@@ -22,13 +23,12 @@ const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.sli
 const abacus = (s, total) => `${clean(s).notes.slice(0, total).filter(x => x >= 80).length} de ${total} projectes`;
 // the concert keeps the stars of its levels, and the mark of a project comes out of them: clean makes a progress of a save of any shape
 const tunes = (s, total) => { const p = concert(s), n = Array.from({ length: total }, (_, i) => noteOf(p, i)).filter(x => x >= VALID).length; return n ? `${n} de ${total} projectes` : ''; };
-// the frog game counts levels by section; a save from before that kept stars by world, and a world with a star is a section done
-// (worlds 6 and 12 were the mixes, which are no longer sections of their own)
-const leaps = s => Array.isArray(s.secs) ? sum(s.secs) : Array.isArray(s.stars) ? s.stars.filter((n, i) => n > 0 && i % 6 < 5).length * 10 : 0;
+// the frog game works the same way; a save from before its cursus kept the levels done in ten sections, and clean turns them into project marks
+const leaps = (s, total) => { const p = frog(s), n = Array.from({ length: total }, (_, i) => frogNote(p, i)).filter(x => x >= FROG_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 
 export const GAMES = [
   { id: 'salts-de-granota', href: 'salts-de-granota.html', store: 'salts-de-granota', tag: 'Càlcul mental', title: 'Salts de Granota',
-    what: 'Trucs per sumar i restar de cap, sense comptar amb els dits.', total: 100, record: (s, total) => levels(leaps(s), total),
+    what: 'Trucs per sumar i restar de cap, amb números grans i per sota de zero.', total: 23, record: (s, total) => leaps(s, total),
     icon: `<svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>` },
   { id: 'llums', href: 'memoria-visual.html', store: 'memoria-visual', tag: 'Memòria visual', title: 'Repeteix els llums',
     what: "Mira quins llums s'encenen i toca'ls en el mateix ordre.", record: s => s.best > 0 ? `Rècord: ${s.best | 0} punts` : '',
