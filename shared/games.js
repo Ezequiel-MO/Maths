@@ -9,14 +9,15 @@ import { clean as times, noteOf as timesNote, VALID as TIMES_VALID } from '../ga
 import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
 import { clean as frog, noteOf as frogNote, VALID as FROG_VALID } from '../games/salts-de-granota/logic.js';
 import { clean as trip, noteOf as tripNote, VALID as TRIP_VALID } from '../games/volta-al-mon/logic.js';
-const sum = a => Array.isArray(a) ? a.reduce((x, y) => x + (y | 0), 0) : 0;
+import { clean as code, noteOf as codeNote, VALID as CODE_VALID } from '../games/memoria-visual/logic.js';
+// the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
+const programs = (s, total) => { const p = code(s), n = Array.from({ length: total }, (_, i) => codeNote(p, i)).filter(x => x >= CODE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
 const potions = (s, total) => { const p = lab(s), n = Array.from({ length: total }, (_, i) => labNote(p, i)).filter(x => x >= LAB_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the fractions game works the same way; a save from before its cursus kept the stars of eight sections, and clean turns them into project marks
 const slices = (s, total) => { const p = pads(s), n = Array.from({ length: total }, (_, i) => padNote(p, i)).filter(x => x >= PAD_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the multiplying rocket works the same way; a save from before its cursus kept the stars of six sections, and clean turns them into project marks
 const rockets = (s, total) => { const p = times(s), n = Array.from({ length: total }, (_, i) => timesNote(p, i)).filter(x => x >= TIMES_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
-const levels = (n, total) => n ? `${n} de ${total} nivells` : '';
 // the division game keeps a mark per project in notes; 80 validates a project. Whatever else notes holds (not a list, junk inside) counts for nothing
 const projects = (s, total) => { const n = Array.isArray(s?.notes) ? s.notes.slice(0, total).filter(x => Number.isFinite(x) && x >= 80).length : 0; return n ? `${n} de ${total} projectes` : ''; };
 // the abacus game counts projects too, but a profile that has not opened it since the update only holds the old secs: clean makes the project marks from them,
@@ -37,7 +38,7 @@ export const GAMES = [
     what: "Mira quins llums s'encenen i toca'ls en el mateix ordre.", record: s => s.best > 0 ? `Rècord: ${s.best | 0} punts` : '',
     icon: `<svg viewBox="0 0 68 68" aria-hidden="true"><g fill="#1B3F52"><rect x="4" y="4" width="18" height="18" rx="5"/><rect x="25" y="4" width="18" height="18" rx="5"/><rect x="46" y="4" width="18" height="18" rx="5"/><rect x="4" y="25" width="18" height="18" rx="5"/><rect x="46" y="25" width="18" height="18" rx="5"/><rect x="4" y="46" width="18" height="18" rx="5"/><rect x="25" y="46" width="18" height="18" rx="5"/></g><rect x="25" y="25" width="18" height="18" rx="5" fill="#6FE3FF"/><rect x="46" y="46" width="18" height="18" rx="5" fill="#FF8FD0"/><circle cx="34" cy="34" r="16" fill="none" stroke="#6FE3FF" stroke-width="1.5" opacity="0.6"/></svg>` },
   { id: 'coet', href: 'memoria-visual.html#coet', store: 'memoria-visual', tag: 'Programació', title: 'El coet',
-    what: 'Escriu les ordres perquè el coet reculli totes les estrelles.', total: 50, record: (s, total) => levels(sum(s.secs), total),
+    what: 'Escriu les ordres perquè el coet reculli totes les estrelles: girs, repeticions, colors, ajudants i recursivitat.', total: 9, record: (s, total) => programs(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 14l1.6 3.6 3.9.4-2.9 2.7.8 3.9L10 22.600l-3.400 2 .8-3.9-2.900-2.700 3.900-.4z" fill="#F7C64E"/><g transform="rotate(35 32 32)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g></svg>` },
   { id: 'abac-xines', href: 'abac-xines.html', store: 'abac-xines', tag: 'Operacions', title: "L'àbac xinès",
     what: 'Mou les boles per sumar, restar, multiplicar i repartir.', total: 9, record: (s, total) => abacus(s, total),
