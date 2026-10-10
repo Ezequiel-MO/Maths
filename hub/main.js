@@ -3,6 +3,8 @@ import config from '../shared/firebase-config.js';
 import { profiles, active, add, choose, load, entries, account } from '../shared/progress.js';
 
 const $ = id => document.getElementById(id);
+// ?obert is handed on to every game, where it opens everything that is shut (shared/util.js)
+const OBERT = typeof location !== 'undefined' && /[?&]obert(=|&|$)/.test(location.search || '') ? '?obert' : '';
 const list = document.querySelector('.games');
 // adopting old progress needs every store once; two games of one page share theirs
 const stores = [...new Set(GAMES.map(g => g.store))];
@@ -27,7 +29,7 @@ function hold(g, ms) {
 
 // one card per game, with what this player has won in it when there is something saved
 function cards() {
-  list.innerHTML = GAMES.map(g => `<li><a class="game" href="${g.href}">
+  list.innerHTML = GAMES.map(g => `<li><a class="game" href="${g.href.replace(/(?=#|$)/, OBERT)}">
   ${g.icon}
   <span class="txt"><span class="tag">${g.tag}</span><b>${g.title}</b><span class="what">${g.what}</span><span class="rec">${g.record(load(g.store) || {}, g.total)}</span></span></a></li>`).join('');
 }

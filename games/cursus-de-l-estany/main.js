@@ -1,4 +1,4 @@
-import { $, RM, sleep, mid } from '../../shared/util.js';
+import { $, RM, sleep, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
@@ -8,6 +8,8 @@ import { problems, statements, fact, SVM, ROUND, ROUND_PASS } from './raco.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and the corner of thinking, to look at any of it; what is done there is judged and kept by the same rules as ever
+const OPEN = OBERT;
 
 // Facts only: { so, piscina, equip, notes, exams, fulls, probs, savi, rapid }. clean() makes a complete progress inside its limits out of anything the browser
 // holds (not JSON, a string, notes that are not a list ...). XP, level and badges are worked out when painted, never kept.
@@ -133,6 +135,7 @@ const RACO = [
   { go: 'rapid', name: 'Repte llampec', sub: 'Un minut de càlcul mental', mk: p => p.rapid ? `Rècord ${p.rapid}` : 'Per fer' },
   { id: 'cor', name: 'Caça l\'errada', sub: 'Tres divisions fetes: són bones?', mk: p => count(p.fulls, 'full ben corregit', 'fulls ben corregits') }
 ];
+const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c), inside = () => OPEN || prog.piscina;
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   const t = enter('El mapa', false), got = badges(prog);
@@ -142,7 +145,7 @@ function mapa() {
     return team(t, $('#stage'));
   }
   const ring = (c) => {
-    const open = isOpen(prog, c), exam = examOpen(prog, c), todo = CIRCLES[c].projects.filter(i => prog.notes[i] < VALID).map(i => PROJECTS[i].name);
+    const open = openC(c), exam = openX(c), todo = CIRCLES[c].projects.filter(i => prog.notes[i] < VALID).map(i => PROJECTS[i].name);
     return `<section class="ring r${c}${open ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
       ${open ? '' : `<p class="why">${c === 0 ? 'Acaba la Piscina per obrir aquest cercle.' : `Supera l'examen del cercle ${c - 1} per obrir aquest cercle.`}</p>`}
       <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}</div>
@@ -151,8 +154,8 @@ function mapa() {
   $('#game').innerHTML = `<p class="status tip" id="tip">${nextTip()}</p>
     <div class="map">${prog.piscina ? '' : '<button class="btn" id="pool">Fes la Piscina</button>'}${CIRCLES.map((_, c) => ring(c)).join('')}
       <section class="ring raco" aria-labelledby="rhr"><h2 id="rhr"><span>El racó de pensar</span></h2>
-        ${prog.piscina ? '' : '<p class="why">Acaba la Piscina per obrir el racó.</p>'}
-        <div class="projs">${RACO.map(a => `<button class="proj" ${a.id ? `id="${a.id}"` : `data-a="${a.go}"`}${prog.piscina ? '' : ' disabled'}><b>${a.name}</b><span>${a.sub}</span><span class="mk">${a.mk(prog)}</span></button>`).join('')}</div></section></div>
+        ${inside() ? '' : '<p class="why">Acaba la Piscina per obrir el racó.</p>'}
+        <div class="projs">${RACO.map(a => `<button class="proj" ${a.id ? `id="${a.id}"` : `data-a="${a.go}"`}${inside() ? '' : ' disabled'}><b>${a.name}</b><span>${a.sub}</span><span class="mk">${a.mk(prog)}</span></button>`).join('')}</div></section></div>
     <h2 class="bh">Insígnies</h2><ul class="badges" aria-label="Insígnies">${BADGES.map((b, i) => `<li class="bd${got[i] ? ' got' : ''}"><b>${b.name}</b><span>${b.what}</span><span class="st">${got[i] ? 'Aconseguida ✓' : 'Encara no'}</span></li>`).join('')}</ul>`;
   $('#game').onclick = e => {
     const b = e.target.closest('button');
@@ -290,7 +293,7 @@ function projecte(i) {
 }
 // Caça l'errada: a sheet of three divisions, each judged once; fulls + 1 only when all three are right, and nothing is kept before the last one is judged
 function corregir() {
-  const items = sheet(validated(prog)), t = enter('Caça l\'errada', true);
+  const items = sheet(OPEN ? PROJECTS.map((_, i) => i) : validated(prog)), t = enter('Caça l\'errada', true);
   quiz(t, items.map(i => i.q), { items,
     settle(res) { const r = sheetIn(prog, res.map(firstTry)); prog = r.prog; save(); return r; },
     end: (r, stage) => finish(t, stage, r.good, r.good ? 'Full ben corregit!' : missText(r.missed.map(i => items[i].ok)), `<h2>${r.good ? 'Full ben corregit' : 'Full per repassar'}</h2>
@@ -315,7 +318,7 @@ function examen(c) {
 const capText = (gain, n) => gain ? `+${gain} XP` : n > RACO_CAP ? `0 XP: les ${RACO_CAP} primeres rondes ja te n'han donat.` : '';
 // Stories: the question loop with the material in view from the start, as a tool; a story counts when the first answer written is the right one (the hint and the material are free)
 function problemes() {
-  const qs = problems(isOpen(prog, 1)), t = enter('Problemes de l\'estany', true);
+  const qs = problems(openC(1)), t = enter('Problemes de l\'estany', true);
   quiz(t, qs, { help: true,
     settle(res) { const hits = res.filter(r => r.tries === 0).length, r = roundIn(prog, 'probs', hits >= ROUND_PASS); prog = r.prog; save(); return { ...r, hits }; },
     end: (r, stage) => finish(t, stage, r.hits >= ROUND_PASS, r.hits >= ROUND_PASS ? 'Ronda ben resolta!' : 'Ronda acabada.', `<h2>${r.hits} de ${ROUND} a la primera</h2>
@@ -323,7 +326,7 @@ function problemes() {
 }
 // Sentences: one at a time with the three choices; the reason comes with the answer, right or wrong, and «Segueix» goes on
 function raona() {
-  const qs = statements(isOpen(prog, 1)), t = enter('Sempre, de vegades o mai', true); let k = 0, hits = 0, done = false;
+  const qs = statements(openC(1)), t = enter('Sempre, de vegades o mai', true); let k = 0, hits = 0, done = false;
   tight = true;
   $('#game').innerHTML = `<div class="hud"><span class="steps" id="dots" role="img" aria-label="Frases">${qs.map(() => '<i></i>').join('')}</span></div>
     <p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage" id="stage"></div>`;
@@ -354,7 +357,7 @@ function raona() {
 // The lightning round: RAPID seconds of facts with four choices, one tap each. A miss shows the right one for a moment and the clock keeps running. Only a better record is kept.
 const RAPID = 60;
 function llampec() {
-  const t = enter('Repte llampec', true), wide = isOpen(prog, 1);
+  const t = enter('Repte llampec', true), wide = openC(1);
   $('#game').innerHTML = '<p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage pool" id="stage"></div>';
   const stage = $('#stage');
   tip('Dividir i multiplicar són la mateixa taula mirada de dos costats.');
@@ -392,4 +395,4 @@ function llampec() {
 }
 
 soBtn();
-prog.piscina ? mapa() : piscina();
+inside() ? mapa() : piscina();

@@ -1,4 +1,4 @@
-import { $, RM, sleep, pick, mid } from '../../shared/util.js';
+import { $, RM, sleep, pick, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { levelRow, wireLevels, panel } from '../../shared/sections.js';
@@ -7,9 +7,9 @@ import { PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID, ROOM, want, r
   clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, streakIn, rapidIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 
 const KEY = 'nenufars-a-trossos';
-// ?obert at the end of the address opens every circle, every exam and every level, to try the game out; without it a circle opens
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
 // with the exam of the one before, an exam with its projects validated, and a level after the one before
-const OPEN = new URLSearchParams(location.search).has('obert');
+const OPEN = OBERT;
 
 // Facts only: { so, lv, piscina, exams, fulls, rapid, ratxa }. clean() makes a complete progress out of anything the browser holds,
 // the save from before the cursus too
@@ -604,4 +604,4 @@ function full() {
 }
 
 soBtn(); paintXp();
-prog.piscina ? mapa() : piscina();
+prog.piscina || OPEN ? mapa() : piscina();

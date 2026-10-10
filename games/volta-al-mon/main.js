@@ -1,4 +1,4 @@
-import { $, RM, sleep, pick, mid } from '../../shared/util.js';
+import { $, RM, sleep, pick, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
@@ -7,9 +7,9 @@ import { PROJECTS, CIRCLES, POOL, SOLIDS, NETS, NAMES, PEGS, COLS, DIRS, TURN, P
   clean, noteOf, reached, validated, medals, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, poolIn, levelIn, rapidIn, exam, examIn, sheet, sheetIn, quick } from './logic.js';
 
 const KEY = 'volta-al-mon';
-// ?obert at the end of the address opens every circle, every exam and every level, to try the game out; without it a circle opens
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
 // with the exam of the one before, an exam with its projects validated, and a level after the one before
-const OPEN = new URLSearchParams(location.search).has('obert');
+const OPEN = OBERT;
 
 // Facts only: { so, stars, piscina, exams, fulls, rapid }. clean() makes a complete progress out of anything the browser holds
 let prog = clean(load(KEY));
@@ -704,4 +704,4 @@ function build({ t, L, stage, tip, slip, win }) {
 }
 
 soBtn(); paintXp();
-prog.piscina ? mapa() : piscina();
+prog.piscina || OPEN ? mapa() : piscina();

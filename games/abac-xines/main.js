@@ -1,4 +1,4 @@
-import { $, sleep, mid } from '../../shared/util.js';
+import { $, sleep, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
@@ -44,6 +44,8 @@ $('#joc').addEventListener('click', e => { if (tight && !ready(e.timeStamp)) e.s
 /* ---------- the shell: every screen starts with enter() and gets its token back ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
 const HUB = /abac-xines\.html$/.test(location.pathname);
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and «Caça l'errada», to look at any of it
+const OPEN = OBERT, openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
 // inner screens (a project) show ← Mapa instead of ← Tots els jocs; the sky takes the colour of the circle
 function enter(kicker, inner, hue) {
   const t = fresh(); tight = false; openAt = performance.now() + SETTLE;
@@ -63,7 +65,7 @@ const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4]
 const noteText = n => n >= VALID ? `Nota ${n} · validat ✓` : n ? `Nota ${n} · no validat` : 'Per fer';
 // The exam of a circle is one more button in its band, at the end of the projects: active when the circle is open and all its projects are validated (it stays active once
 // passed, to do it again). A shut button says what it lacks.
-const examBtn = (c, open) => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${examOpen(prog, c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : examOpen(prog, c) ? 'Sis preguntes' : open ? 'Valida els projectes' : 'Tancat'}</span></button>`;
+const examBtn = (c, open) => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : open ? 'Valida els projectes' : 'Tancat'}</span></button>`;
 // one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
 function advice() {
   for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
@@ -77,14 +79,14 @@ let here = -1;   // the project just left: the map puts the focus back on its bu
 function mapa() {
   enter('El mapa', false, 165);
   const band = c => {
-    const open = isOpen(prog, c);
+    const open = openC(c);
     return `<section class="ring r${c}${open ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
       ${open ? '' : `<p class="why">${c === 0 ? 'Acaba la Piscina per obrir-lo.' : `Supera l'examen del cercle ${c - 1} per obrir-lo.`}</p>`}
       <div class="projs" style="--np:${CIRCLES[c].projects.length}">${CIRCLES[c].projects.map(i => `<button class="proj${prog.notes[i] >= VALID ? ' ok' : ''}" data-p="${i}"${open ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(prog.notes[i])}</span></button>`).join('')}${examBtn(c, open)}</div></section>`;
   };
   const got = badges(prog), tip = advice();
   $('#joc').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
-    <div class="extra"><button class="btn soft" id="full"${prog.notes.some(n => n >= VALID) ? '' : ' disabled'}>Caça l'errada</button>
+    <div class="extra"><button class="btn soft" id="full"${OPEN || prog.notes.some(n => n >= VALID) ? '' : ' disabled'}>Caça l'errada</button>
       <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
   $('#joc').onclick = e => {
     const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
@@ -425,4 +427,4 @@ function full() {
 }
 
 soBtn(); paintXp();
-prog.piscina ? mapa() : piscina();
+prog.piscina || OPEN ? mapa() : piscina();

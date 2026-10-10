@@ -1,4 +1,4 @@
-import { $, RM, sleep, mid } from '../../shared/util.js';
+import { $, RM, sleep, mid, OBERT } from '../../shared/util.js';
 import { voice, pentatonic } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { load, save as store } from '../../shared/progress.js';
@@ -6,9 +6,9 @@ import { pick, bar, cub, num, make, sums, PROJECTS, PLAN, CIRCLES, NEG, VALID, E
   circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, fliesIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 
 const KEY = 'salts-de-granota';
-// ?obert at the end of the address opens every circle, every exam and every level, to try the game out; without it a circle opens
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
 // with the exam of the one before, an exam with its projects validated, and a level after the one before
-const OPEN = new URLSearchParams(location.search).has('obert');
+const OPEN = OBERT;
 const root = $('#joc');
 
 // Facts only: { so, lv, piscina, exams, fulls, rapid, ratxa, mosques }. clean() makes a complete progress out of anything the browser

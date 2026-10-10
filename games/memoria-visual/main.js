@@ -1,4 +1,4 @@
-import { $, RM, sleep, rand, pick, mid } from '../../shared/util.js';
+import { $, RM, sleep, rand, pick, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
@@ -10,9 +10,9 @@ import { GRIDS, LIVES, makeSeq, begin, step, hueOf, pitchOf, PROJECTS, LEVELS, D
 const KEY = 'memoria-visual';
 const board = $('#board'), stage = $('#stage'), statusEl = $('#status'), dotsEl = $('#dots');
 
-// ?obert at the end of the address opens every circle, every exam and every level of the rocket game, to try it out; without it a
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level of the rocket game, to try it out; without it a
 // circle opens with the exam of the one before, an exam with its projects validated, and a level after the one before
-const OPEN = new URLSearchParams(location.search).has('obert');
+const OPEN = OBERT;
 
 // Facts only: { best, so, lv, piscina, exams, fulls, rapid, ratxa }. clean() makes a complete progress out of anything the browser
 // holds, the save from before the cursus too (the levels done in five sections)

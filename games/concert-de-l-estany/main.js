@@ -1,4 +1,4 @@
-import { $, RM, sleep, pick, mid } from '../../shared/util.js';
+import { $, RM, sleep, pick, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
@@ -9,9 +9,9 @@ import { staff, glyph, board } from './score.js';
 import { band } from './sound.js';
 
 const KEY = 'concert-de-l-estany';
-// ?obert at the end of the address opens every circle, every exam and every level, to try the game out; without it a circle opens
+// ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
 // with the exam of the one before, an exam with its projects validated, and a level after the one before
-const OPEN = new URLSearchParams(location.search).has('obert');
+const OPEN = OBERT;
 
 // Facts only: { so, secs, stars, piscina, exams, fulls }. clean() makes a complete progress out of anything the browser holds, the save
 // from before the cursus too: its stars already are the marks of its projects.
@@ -733,4 +733,4 @@ function tapping({ t, L, stage, tip, slip, spark, win }) {
 }
 
 soBtn(); paintXp();
-prog.piscina ? mapa() : piscina();
+prog.piscina || OPEN ? mapa() : piscina();
