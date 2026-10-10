@@ -3,15 +3,16 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated, exam, examIn, EXAM_PASS } from './logic.js';
+import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated, exam, examIn, EXAM_PASS, roundIn, rapidIn, RACO_CAP } from './logic.js';
+import { problems, statements, fact, SVM, ROUND, ROUND_PASS } from './raco.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 
 const KEY = 'cursus-de-l-estany';
 
-// Facts only: { so, piscina, equip, notes, exams, fulls }. clean() makes a complete progress inside its limits out of anything the browser
+// Facts only: { so, piscina, equip, notes, exams, fulls, probs, savi, rapid }. clean() makes a complete progress inside its limits out of anything the browser
 // holds (not JSON, a string, notes that are not a list ...). XP, level and badges are worked out when painted, never kept.
 let prog = clean(load(KEY));
-function save() { const { so, piscina, equip, notes, exams, fulls } = prog; store(KEY, { so, piscina, equip, notes, exams, fulls }); paintXp(); }
+function save() { const { so, piscina, equip, notes, exams, fulls, probs, savi, rapid } = prog; store(KEY, { so, piscina, equip, notes, exams, fulls, probs, savi, rapid }); paintXp(); }
 
 // every new screen cancels the running one through this token
 let tok = { on: true };
@@ -124,6 +125,14 @@ function nextTip() {
   if (examOpen(prog, c)) return `Tens validats tots els projectes del cercle ${c}: ja pots fer-ne l'examen!`;
   return `Cercle ${c}: valida ${CIRCLES[c].projects.filter(i => prog.notes[i] < VALID).map(i => PROJECTS[i].name).join(', ')} (nota de 80 o més) per obrir-ne l'examen.`;
 }
+// the four activities of «El racó de pensar», with what the child has done in each
+const count = (n, one, many) => n ? `${n} ${n === 1 ? one : many}` : 'Per fer';
+const RACO = [
+  { go: 'prob', name: 'Problemes de l\'estany', sub: 'Històries per resoldre amb el material', mk: p => count(p.probs, 'ronda ben resolta', 'rondes ben resoltes') },
+  { go: 'savi', name: 'Sempre, de vegades o mai', sub: 'Raona si una frase és certa', mk: p => count(p.savi, 'ronda ben raonada', 'rondes ben raonades') },
+  { go: 'rapid', name: 'Repte llampec', sub: 'Un minut de càlcul mental', mk: p => p.rapid ? `Rècord ${p.rapid}` : 'Per fer' },
+  { id: 'cor', name: 'Caça l\'errada', sub: 'Tres divisions fetes: són bones?', mk: p => count(p.fulls, 'full ben corregit', 'fulls ben corregits') }
+];
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   const t = enter('El mapa', false), got = badges(prog);
@@ -141,12 +150,14 @@ function mapa() {
   };
   $('#game').innerHTML = `<p class="status tip" id="tip">${nextTip()}</p>
     <div class="map">${prog.piscina ? '' : '<button class="btn" id="pool">Fes la Piscina</button>'}${CIRCLES.map((_, c) => ring(c)).join('')}
-      <button class="btn soft" id="cor"${prog.piscina ? '' : ' disabled'}>Caça l'errada</button></div>
+      <section class="ring raco" aria-labelledby="rhr"><h2 id="rhr"><span>El racó de pensar</span></h2>
+        ${prog.piscina ? '' : '<p class="why">Acaba la Piscina per obrir el racó.</p>'}
+        <div class="projs">${RACO.map(a => `<button class="proj" ${a.id ? `id="${a.id}"` : `data-a="${a.go}"`}${prog.piscina ? '' : ' disabled'}><b>${a.name}</b><span>${a.sub}</span><span class="mk">${a.mk(prog)}</span></button>`).join('')}</div></section></div>
     <h2 class="bh">Insígnies</h2><ul class="badges" aria-label="Insígnies">${BADGES.map((b, i) => `<li class="bd${got[i] ? ' got' : ''}"><b>${b.name}</b><span>${b.what}</span><span class="st">${got[i] ? 'Aconseguida ✓' : 'Encara no'}</span></li>`).join('')}</ul>`;
   $('#game').onclick = e => {
     const b = e.target.closest('button');
     if (!b || b.disabled || !ready()) return;
-    if (b.dataset.p) projecte(+b.dataset.p); else if (b.dataset.x) examen(+b.dataset.x); else if (b.id === 'cor') corregir(); else if (b.id === 'pool') piscina();
+    if (b.dataset.p) projecte(+b.dataset.p); else if (b.dataset.x) examen(+b.dataset.x); else if (b.dataset.a) ({ prob: problemes, savi: raona, rapid: llampec })[b.dataset.a](); else if (b.id === 'cor') corregir(); else if (b.id === 'pool') piscina();
   };
   ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
@@ -173,7 +184,7 @@ function tapEntry(B, e) {
 }
 // the two choices of a sheet look the same and neither is chosen beforehand (the focus goes to the group): one sheet in five has no mistake, and a button that stands out would be right by itself
 const CHOICE = '<div class="verd" role="group" aria-label="És correcta?" tabindex="-1"><button class="btn soft" id="yes">És correcta</button><button class="btn soft" id="no">No és correcta</button></div>';
-const eq = q => q.mode === 'proof' ? `${q.d} × ${q.q}${q.r ? ` + ${q.r}` : ''} =` : `${q.D} ÷ ${q.d} =`;
+const eq = q => q.mode === 'story' ? q.text : q.mode === 'proof' ? `${q.d} × ${q.q}${q.r ? ` + ${q.r}` : ''} =` : `${q.D} ÷ ${q.d} =`;
 const llista = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} i ${a[a.length - 1]}` : a[0];
 const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
 const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top < 0) e.scrollIntoView({ block: 'start', behavior: RM ? 'auto' : 'smooth' }); };
@@ -186,12 +197,12 @@ const showTip = () => { const e = $('#tip'); if (e.getBoundingClientRect().top <
 function quiz(t, qs, o) {
   const per = o.per || qs.length, res = []; tight = true; document.body.classList.add('work');   // the column as tall as the screen (style.css)
   $('#game').innerHTML = `<div class="hud col">${o.labels ? `<nav class="exrow" aria-label="Exercicis">${o.labels.map(l => `<span>${l}</span>`).join('')}</nav>` : ''}
-    <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span></div>
+    <span class="steps" id="dots" role="img" aria-label="Preguntes">${qs.map((_, j) => `<i${j && j % per === 0 ? ' class="gap"' : ''}></i>`).join('')}</span><span class="ratxa" id="ratxa" role="status" hidden></span></div>
     <div class="tipbox"><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>${o.help ? '<button class="btn soft" id="hintb">Dona\'m una pista</button>' : ''}
     <div class="stage work" id="stage"><div class="mat" id="mat"></div><div class="desk"><div class="ask" id="ask"></div><div id="keys"></div></div></div>`;
   const dots = [...$('#dots').children], chips = [...document.querySelectorAll('.exrow span')], stage = $('#stage'), mat = $('#mat');
   const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; };
-  let k = 0, q, B, fig, tries, helped, busy, it, verd, go;   // it: the sheet item being judged; verd: its choice is still to be made; go: what «Segueix» resolves
+  let k = 0, q, B, fig, tries, helped, busy, it, verd, go, streak = 0;   // it: the sheet item being judged; verd: its choice is still to be made; go: what «Segueix» resolves
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
@@ -206,7 +217,7 @@ function quiz(t, qs, o) {
     fig?.stop(); fig = null; mat.innerHTML = ''; q = qs[k]; tries = 0; helped = false; busy = false; openAt = performance.now() + SETTLE;
     chips.forEach((c, j) => c.classList.toggle('on', j === Math.floor(k / per))); dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     it = o.items?.[k]; verd = !!it; go = null;
-    $('#ask').innerHTML = `<span class="eq${it ? ' sh' : ''}">${eq(q)}${it ? ' ' + told(q, it.shown) : ''}</span><span class="bxs"${it ? ' hidden' : ''}></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
+    $('#ask').innerHTML = `<span class="eq${it ? ' sh' : q.mode === 'story' ? ' story' : ''}">${eq(q)}${it ? ' ' + told(q, it.shown) : ''}</span><span class="bxs"${it ? ' hidden' : ''}></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
     $('#keys').innerHTML = it ? CHOICE : KEYS;
     $('#ask').classList.remove('far');
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
@@ -222,6 +233,10 @@ function quiz(t, qs, o) {
     }
     busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : once ? 'miss' : 'late');
     if (ok) { tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); }
+    // the streak: answers right at the first try, one after the other; it shows from the second and every fifth is a small party
+    streak = firstTry(res[k]) ? streak + 1 : 0;
+    const rx = $('#ratxa'); rx.hidden = streak < 2; rx.textContent = `Ratxa ${streak}`;
+    if (streak > 1) { shake(rx); if (streak % 5 === 0) { chime([659, 784, 988, 1319]); FX.celebrate(3); } }
     tip(it ? `${ok ? 'Ben vist.' : it.ok ? 'Aquesta ja era bona.' : 'Aquesta tenia una errada.'} ${said(q)}` : ok ? said(q) : `Ui! ${explain(q, true, ans)}`, ok ? 'go' : 'oops'); showTip();
     if (ok) { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
     const last = k === qs.length - 1, out = last ? o.settle(res) : null;
@@ -293,6 +308,87 @@ function examen(c) {
         <p class="${r.good ? 'lead go' : 'lead'}">${r.score} de 6${r.good ? ` · ${first ? `+${r.gain} XP` : '0 XP: ja el tenies superat.'}` : `: en calen ${EXAM_PASS}.${r.prog.exams[c] ? ' El teu examen superat continua superat.' : ''}`}${redo(r)}</p>
         ${first && c < 2 ? `<p class="lead go">S'ha obert el cercle ${c + 1}: ${CIRCLES[c + 1].name}.</p>` : ''}${all ? '<p class="lead go">Has superat els tres exàmens: el cursus és complet!</p>' : ''}${nova(r)}`, 'Un altre examen', () => examen(c));
     } });
+}
+
+
+/* ---------- «El racó de pensar»: stories, sentences to reason about, and the lightning round (raco.js) ---------- */
+const capText = (gain, n) => gain ? `+${gain} XP` : n > RACO_CAP ? `0 XP: les ${RACO_CAP} primeres rondes ja te n'han donat.` : '';
+// Stories: the question loop with the material in view from the start, as a tool; a story counts when the first answer written is the right one (the hint and the material are free)
+function problemes() {
+  const qs = problems(isOpen(prog, 1)), t = enter('Problemes de l\'estany', true);
+  quiz(t, qs, { help: true,
+    settle(res) { const hits = res.filter(r => r.tries === 0).length, r = roundIn(prog, 'probs', hits >= ROUND_PASS); prog = r.prog; save(); return { ...r, hits }; },
+    end: (r, stage) => finish(t, stage, r.hits >= ROUND_PASS, r.hits >= ROUND_PASS ? 'Ronda ben resolta!' : 'Ronda acabada.', `<h2>${r.hits} de ${ROUND} a la primera</h2>
+        <p class="${r.hits >= ROUND_PASS ? 'lead go' : 'lead'}">${r.hits >= ROUND_PASS ? `Ronda ben resolta. ${capText(r.gain, prog.probs)}` : `Per comptar la ronda en calen ${ROUND_PASS}. Llegeix bé què et demana cada problema: no sempre és el quocient.`}</p>`, 'Més problemes', problemes) });
+}
+// Sentences: one at a time with the three choices; the reason comes with the answer, right or wrong, and «Segueix» goes on
+function raona() {
+  const qs = statements(isOpen(prog, 1)), t = enter('Sempre, de vegades o mai', true); let k = 0, hits = 0, done = false;
+  tight = true;
+  $('#game').innerHTML = `<div class="hud"><span class="steps" id="dots" role="img" aria-label="Frases">${qs.map(() => '<i></i>').join('')}</span></div>
+    <p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage" id="stage"></div>`;
+  const stage = $('#stage'), dots = [...$('#dots').children];
+  function ask() {
+    done = false; openAt = performance.now() + SETTLE; dots.forEach((d, j) => d.classList.toggle('cur', j === k));
+    tip('Passa sempre, només de vegades, o mai? Busca un exemple que ho compleixi i un que no.');
+    stage.innerHTML = `<div class="fly say"><p class="sq">${qs[k].s}</p><div class="svm" role="group" aria-label="Quan passa?">${SVM.map((n, i) => `<button class="btn soft" data-v="${i}">${n}</button>`).join('')}</div>
+      <p class="swhy" hidden></p><button class="btn" id="go" hidden>Segueix</button></div>`;
+  }
+  $('#game').onclick = e => {
+    const b = e.target.closest('[data-v]');
+    if (b && !done) {
+      const q = qs[k], ok = +b.dataset.v === q.a; done = true; if (ok) hits++;
+      stage.querySelectorAll('[data-v]').forEach((x, i) => { x.disabled = true; x.classList.toggle('yes', i === q.a); x.classList.toggle('no', x === b && !ok); });
+      dots[k].classList.add(ok ? 'ok' : 'miss'); tip(ok ? 'Ben raonat!' : `No: la resposta és «${SVM[q.a]}».`, ok ? 'go' : 'oops');
+      if (ok) { tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); const p = mid(b); FX.burst(p.x, p.y, 48, 22, 190); } else { tone(150, 0, 0.45, 0.16, 'triangle'); shake($('.say', stage)); }
+      const w = $('.swhy', stage), g = $('#go'); w.textContent = q.why; w.hidden = g.hidden = false; openAt = performance.now() + SETTLE; g.focus({ preventScroll: true });
+    } else if (e.target.closest('#go') && done) {
+      if (++k < qs.length) return ask();
+      const good = hits >= ROUND_PASS, r = roundIn(prog, 'savi', good); prog = r.prog; save(); tight = false;
+      finish(t, stage, good, good ? 'Ronda ben raonada!' : 'Ronda acabada.', `<h2>${hits} de ${ROUND}</h2>
+        <p class="${good ? 'lead go' : 'lead'}">${good ? `Ronda ben raonada. ${capText(r.gain, prog.savi)}` : `Per comptar la ronda en calen ${ROUND_PASS}. Un sol exemple que no ho compleix ja fa que no sigui «Sempre».`}</p>`, 'Una altra ronda', raona);
+    }
+  };
+  ask();
+}
+// The lightning round: RAPID seconds of facts with four choices, one tap each. A miss shows the right one for a moment and the clock keeps running. Only a better record is kept.
+const RAPID = 60;
+function llampec() {
+  const t = enter('Repte llampec', true), wide = isOpen(prog, 1);
+  $('#game').innerHTML = '<p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage pool" id="stage"></div>';
+  const stage = $('#stage');
+  tip('Dividir i multiplicar són la mateixa taula mirada de dos costats.');
+  panel(stage, `<h2>Repte llampec</h2><p class="lead">${RAPID} segons. Toca el número que falta a cada operació: quantes n'encertaràs?</p>
+    ${prog.rapid ? `<p class="lead go">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button>`);
+  function run() {
+    stage.classList.remove('pool');
+    stage.innerHTML = '<div class="fly rapid"><div class="clock" role="img" aria-label="El temps que queda"><i></i></div><p class="rq" id="rq" aria-live="polite"></p><div class="ropts" id="ro"></div><p class="rn"><b id="rn">0</b> encerts</p></div>';
+    const end = performance.now() + RAPID * 1000, bar = $('.clock i', stage);
+    let hits = 0, q = null, lock = false, over = false, miss = null;
+    tip('Toca el número que falta.');
+    function next() {
+      let n; do n = fact(wide); while (q && n.text === q.text);
+      q = n; lock = false; $('#rq').textContent = q.text; $('#ro').innerHTML = q.opts.map(o => `<button class="key" data-o="${o}">${o}</button>`).join('');
+    }
+    function stop() {
+      over = true; const r = rapidIn(prog, hits); prog = r.prog; if (r.best) save();
+      finish(t, stage, r.best ? 12 : hits >= 10, 'Temps!', `<h2>${hits} ${hits === 1 ? 'encert' : 'encerts'}</h2>
+        <p class="${r.best ? 'lead go' : 'lead'}">${r.best ? 'Rècord nou!' : `El teu rècord: ${prog.rapid}`}</p>${miss ? `<p class="lead">Per recordar: ${miss}.</p>` : ''}`, 'Torna-hi', llampec);
+    }
+    (function tick() {
+      if (!t.on || over) return;
+      const left = end - performance.now(); bar.style.width = Math.max(0, left / RAPID / 10) + '%';
+      left <= 0 ? stop() : setTimeout(tick, 100);
+    })();
+    $('#game').onclick = async e => {
+      const b = e.target.closest('[data-o]'); if (!b || lock || over) return;
+      if (+b.dataset.o === q.w) { hits++; $('#rn').textContent = hits; tone(660 + 40 * Math.min(hits, 12), 0, 0.1, 0.07); const p = mid(b); FX.burst(p.x, p.y, 48, 12, 150); return next(); }
+      lock = true; miss = q.told; tone(150, 0, 0.3, 0.14, 'triangle'); b.classList.add('no'); $(`#ro [data-o="${q.w}"]`).classList.add('yes'); shake($('#rq'));
+      await sleep(900); if (t.on && !over) next();
+    };
+    next();
+  }
+  $('#game').onclick = e => { if (e.target.closest('#go') && ready()) run(); };
 }
 
 soBtn();

@@ -5,6 +5,7 @@
 //   'rem'    quotient and remainder [q, r]    'proof'  the dividend D, from d, q and r (D = d × q + r)
 //   'split'  parts: [p1, p2]; the quotient of each part, then the total [a, b, q]
 //   'long'   parts: [p1, p2(, p3)]; each part but the last divides exactly; [...partials, q, r]
+//   'story'  a problem in words (raco.js): it carries its answer (w) and its own texts (text, hint, why, and fb: what a given wrong answer means)
 // bare (exam and sheets): no material, no parts and no partials, so split wants q and long wants [q, r]; the rules of parts do not apply.
 const FIT = { hands: true };
 // [D, d] or, for split and long, [D, d, parts]
@@ -56,6 +57,7 @@ export function want(q) {
   switch (q.mode) {
     case 'share': case 'group': case 'fact': case 'tens': return Q;
     case 'proof': return q.D;
+    case 'story': return q.w;
     case 'rem': return [Q, R];
     case 'split': return q.bare ? Q : [...q.parts.map(p => p / q.d), Q];
     case 'long': return q.bare ? [Q, R] : [...q.parts.slice(0, -1).map(p => p / q.d), Math.floor(q.parts[q.parts.length - 1] / q.d), Q, R];
@@ -122,6 +124,7 @@ export function tipFor(q) {
     case 'share': return `Reparteix les ${D} cuques entre ${d} nenúfars. Quantes en toquen a cada nenúfar?`;
     case 'group': return `Fes grups de ${d} amb les ${D} cuques. Quants grups surten?`;
     case 'fact': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
+    case 'story': return 'Llegeix el problema i escriu la resposta. Pots fer servir el material.';
     case 'rem': return `Fes grups de ${d} amb les ${D} cuques. Escriu quants grups surten i quantes en sobren.`;
     case 'proof': return `S'han fet grups de ${d}: ${q.q === 1 ? 'ha' : 'han'} sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
     case 'tens': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
@@ -143,6 +146,7 @@ const back = (q, a) => fin(a) && +a * q.d !== q.D ? `${q.d} × ${+a} fa ${q.d * 
 export function explain(q, deep, ans) {
   const { D, d } = q, [Q, R] = qr(q);
   switch (q.mode) {
+    case 'story': return (fin(ans) && q.fb?.[+ans] ? q.fb[+ans] + ' ' : q.kind === 'exact' ? back(q, ans) : '') + (deep ? q.why : q.hint);
     case 'share': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${d} nenúfars amb ${Q} cuques cada un fan ${d} × ${Q} = ${D}.` : `Reparteix-les d'una en una entre els ${d} nenúfars, fins que no en quedi cap. Tots n'han de tenir les mateixes.`);
     case 'group': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${Q} grups de ${d} fan ${Q} × ${d} = ${D}.` : `Encercla ${d} cuques i torna-ho a fer, fins que no en quedi cap. Quants cercles has fet?`);
     case 'fact': return back(q, ans) + (deep ? `${d} × ${Q} = ${D}, per tant ${D} ÷ ${d} = ${Q}.` : `Pensa en la taula del ${d}: quin número multiplicat per ${d} fa ${D}?`);
@@ -170,6 +174,7 @@ export function explain(q, deep, ans) {
 export function said(q) {
   const { D, d } = q, [Q, R] = qr(q);
   switch (q.mode) {
+    case 'story': return q.why;
     case 'share': return `${D} ÷ ${d} = ${Q}: a cada nenúfar en toquen ${Q}.`;
     case 'group': return `${D} ÷ ${d} = ${Q}: surten ${Q} grups de ${d}.`;
     case 'fact': case 'tens': return `${D} ÷ ${d} = ${Q}, perquè ${d} × ${Q} = ${D}.`;
@@ -184,8 +189,8 @@ export function said(q) {
 /* ---------- exams and sheets ---------- */
 export const EXAM_PASS = 5;
 // a random whole number below n; clamped, so a rnd that returns 1 (or nonsense) still lands inside the list
-const at = (n, rnd) => Math.min(n - 1, Math.max(0, Math.floor(rnd() * n) || 0));
-function shuffle(a, rnd) {
+export const at = (n, rnd) => Math.min(n - 1, Math.max(0, Math.floor(rnd() * n) || 0));
+export function shuffle(a, rnd) {
   for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
@@ -245,7 +250,7 @@ export const judge = (item, saysOk, fix) => item.ok ? !!saysOk : !saysOk && righ
 export const told = (q, s) => Array.isArray(s) ? `${s[0]} i ${sobra(s[1])}` : String(s);
 
 /* ---------- progress ---------- */
-// What is saved is facts only: { so, piscina, equip, notes, exams, fulls }. XP, level and badges are worked out from it, never stored, so they cannot drift apart.
+// What is saved is facts only: { so, piscina, equip, notes, exams, fulls, probs, savi, rapid }. XP, level and badges are worked out from it, never stored, so they cannot drift apart.
 export const VALID = 80;
 // a mark out of 100 from the questions right at the first try, of the 15 of an exercise
 export const mark = firsts => Math.round(100 * firsts / 15);
@@ -262,15 +267,20 @@ export function clean(d) {
     equip: Number.isInteger(o.equip) && o.equip >= -1 && o.equip <= 2 ? o.equip + 0 : -1,   // + 0 turns -0 into 0
     notes: slots(o.notes, 8).map(n => Math.min(100, Math.max(0, whole(n)))),
     exams: slots(o.exams, 3).map(e => e === true),
-    fulls: Math.max(0, whole(o.fulls))
+    fulls: Math.max(0, whole(o.fulls)),
+    // the corner of thinking: rounds of stories solved, rounds of sentences judged well, the record of the lightning round
+    probs: Math.max(0, whole(o.probs)), savi: Math.max(0, whole(o.savi)), rapid: Math.max(0, whole(o.rapid))
   };
 }
 // the projects with a mark of at least VALID; the functions below take a progress that is already clean
 export const validated = p => p.notes.flatMap((n, i) => n >= VALID ? [i] : []);
-// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1240 at most
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project (1240 at most),
+// and 10 per round of stories and per round of sentences, up to RACO_CAP of each: 1340 at most. The record of the lightning round gives none.
+export const RACO_CAP = 5;
 export function xpOf(p) {
   const v = validated(p);
-  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + p.notes[i], 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
+  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + p.notes[i], 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length)
+    + 10 * (Math.min(p.probs || 0, RACO_CAP) + Math.min(p.savi || 0, RACO_CAP));
 }
 export const levelText = xp => (xp / 150).toFixed(2).replace('.', ',');
 // circle 0 opens with the Piscina, circles 1 and 2 with the exam before them, and only when the circle before is open too (a damaged save cannot skip one); a circle that does not exist is shut
@@ -321,3 +331,14 @@ export function examIn(p, c, qs, run) {
 }
 // hue in degrees for CSS hsl: cyan, orange and green, each at least 60 degrees from the others and bright enough for a dark night pond
 export const TEAMS = [{ name: 'Libèl·lules', hue: 195 }, { name: 'Tritons', hue: 28 }, { name: 'Cuques', hue: 105 }];
+// A round of the corner of thinking that went well: field ('probs' or 'savi') + 1 when good. Returns { prog, gain }: prog is a NEW progress, gain the XP it adds (0 past the cap).
+export function roundIn(p, field, good) {
+  const next = { ...p, notes: p.notes.slice(), exams: p.exams.slice() };
+  if (good) next[field] = p[field] + 1;
+  return { prog: next, gain: xpOf(next) - xpOf(p) };
+}
+// the lightning round: only a better record is kept. Returns { prog, best }: best says the record is new.
+export function rapidIn(p, hits) {
+  const best = hits > p.rapid;
+  return { prog: { ...p, notes: p.notes.slice(), exams: p.exams.slice(), rapid: best ? hits : p.rapid }, best };
+}

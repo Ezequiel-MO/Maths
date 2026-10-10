@@ -243,7 +243,9 @@ export function chunks(host, q, { t } = {}) {
 }
 chunks.still = true;
 
-export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks };
+export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks,
+  // a story has the material of its division: the lily pads of a sharing, or the rings of groups with what is left over apart
+  story: (host, q, o) => fireflies(host, { ...q, mode: q.fig }, o) };
 // what to do with the material of a `hands` question, in the words of its figure
 export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
@@ -254,7 +256,7 @@ export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca
 
 // the labels of the boxes of a question, in want order (the pieces of a split or long question name their division)
 const LABELS = { share: ['A cada nenúfar'], group: ['Grups'], rem: ['Grups', 'En sobren'], proof: ['Dividend'] };
-export const labelsOf = q => q.bare && q.mode === 'share' ? ['Quocient'] : q.mode === 'split' || q.mode === 'long'
+export const labelsOf = q => q.mode === 'story' ? [q.lab] : q.bare && q.mode === 'share' ? ['Quocient'] : q.mode === 'split' || q.mode === 'long'
   ? [...(q.bare ? [] : q.parts.map(p => `${p} ÷ ${q.d}`)), q.bare ? 'Quocient' : 'Total', ...(q.mode === 'long' ? ['Residu'] : [])] : LABELS[q.mode] || ['Quocient'];
 
 /* ---------- where the child writes: the pad of keys and the boxes of the answer ---------- */

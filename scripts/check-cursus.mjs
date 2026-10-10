@@ -475,7 +475,7 @@ check(VALID === 80, `VALID is ${VALID}`);   // contract: spec «Projecte validat
 check([0, 11, 12, 15].map(mark).join() === '0,73,80,100', `mark of 0, 11, 12, 15 firsts is ${[0, 11, 12, 15].map(mark)}`);   // contract: plan, tasca 4; 11 / 15 = 73,3 %
 check(mark(14) === 93 && mark(1) === 7, `mark(14) is ${mark(14)}, mark(1) is ${mark(1)}`);   // contract: 14 / 15 = 93,3 %, 1 / 15 = 6,7 %
 // the shape clean must always return, whatever it is given
-const wellFormed = p => p && typeof p === 'object' && Object.keys(p).sort().join() === 'equip,exams,fulls,notes,piscina,so'
+const wellFormed = p => p && typeof p === 'object' && Object.keys(p).sort().join() === 'equip,exams,fulls,notes,piscina,probs,rapid,savi,so'
   && typeof p.so === 'boolean' && typeof p.piscina === 'boolean' && int(p.equip) && p.equip >= -1 && p.equip <= 2
   && Array.isArray(p.notes) && p.notes.length === 8 && p.notes.every(n => int(n) && n >= 0 && n <= 100 && !Object.is(n, -0))
   && Array.isArray(p.exams) && p.exams.length === 3 && p.exams.every(e => typeof e === 'boolean')
@@ -496,7 +496,7 @@ JUNK.forEach(j => {
 });
 // what clean decides, field by field
 const same = (a, b, msg) => check(JSON.stringify(a) === JSON.stringify(b), `${msg}: got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`);
-same(clean({}), { so: true, piscina: false, equip: -1, notes: [0, 0, 0, 0, 0, 0, 0, 0], exams: [false, false, false], fulls: 0 }, 'clean({})');   // contract: plan, progrés buit
+same(clean({}), { so: true, piscina: false, equip: -1, notes: [0, 0, 0, 0, 0, 0, 0, 0], exams: [false, false, false], fulls: 0, probs: 0, savi: 0, rapid: 0 }, 'clean({})');   // contract: plan, progrés buit
 same(clean({ notes: [500, -3, 79.6] }).notes, [100, 0, 79, 0, 0, 0, 0, 0], 'notes [500, -3, 79.6]');   // contract: plan, 500 → 100, −3 → 0, 79,6 → 79 (truncated, never rounded up to 80)
 same(clean({ notes: [79.99, 80.4] }).notes.slice(0, 2), [79, 80], 'notes 79.99 and 80.4');   // contract: 79,99 truncated is 79, so it does not validate
 same(clean({ notes: [NaN, Infinity, '90', null, {}, [100]] }).notes.slice(0, 6), [0, 0, 0, 0, 0, 0], 'notes that are not finite numbers');   // contract: plan, no-números → 0
