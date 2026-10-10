@@ -207,7 +207,7 @@ const DELTA = { w: 6, h: 5, things: {}, water: ['C1', 'C2', 'C3', 'E5', 'E4'] };
 const PODIUM = [[2, 3, 1]], C = count;
 
 export const SECTIONS = [
-  { name: 'Banderes', ico: '🚩', sub: 'Les formes que s\'amaguen a les banderes del món.', levels: [
+  { name: 'Banderes del món', ico: '🚩', sub: 'Les formes que s\'amaguen a les banderes del món.', levels: [
     ask('La bandera olímpica', { t: 'flag', id: 'oli' }, [
       st('Quantes anelles hi ha a la bandera olímpica?', 5, [4, 5, 6], '', '5 anelles: una per cada continent', 'Compta-les: tres a dalt i dues a baix.'),
       st('Quina forma té cada anella?', 'cercle', ['quadrat', 'cercle', 'triangle'], '', 'Cada anella és un cercle', 'És la forma rodona: no té cap costat ni cap punta.')], 'Benvingut a Europa, on van néixer els Jocs Olímpics! Les cinc anelles són els cinc continents, agafats de la mà.'),
@@ -219,7 +219,7 @@ export const SECTIONS = [
     ask('Jamaica', { t: 'flag', id: 'jm' }, [st('Quants triangles hi ha a la bandera de Jamaica?', 4, [2, 4, 6], '', '4 triangles: 2 de verds i 2 de negres', 'Compta els verds i després els negres.')], 'Dues ratlles creuades, una aspa, parteixen la bandera de Jamaica.'),
     ask('Kuwait', { t: 'flag', id: 'kw' }, [st('La part negra té 4 costats, i només 2 són paral·lels. Com es diu?', 'trapezi', ['trapezi', 'triangle', 'rectangle'], '', 'La part negra és un trapezi: 2 costats paral·lels', 'Té 4 costats, així que no és un triangle. I no té 4 angles rectes.')], 'Dos costats són paral·lels quan no es trobarien mai, com els rails del tren.'),
     ask('El Nepal', { t: 'flag', id: 'np' }, [st('Quants costats té la vora de la bandera del Nepal?', 5, [3, 4, 5, 6], '', 'La vora té 5 costats: és un pentàgon amb una osca', 'Ressegueix la vora amb el dit i compta cada tros recte.')], "La bandera del Nepal és l'única del món que no és un rectangle ni un quadrat."),
-    ask('Trinitat i Tobago', { t: 'flag', id: 'tt' }, [st('La franja negra té els costats paral·lels de dos en dos, i cap angle recte. Com es diu?', 'paral·lelogram', ['rectangle', 'paral·lelogram', 'trapezi'], '', 'La franja negra és un paral·lelogram', 'Un rectangle té angles rectes, i un trapezi només té 2 costats paral·lels.')], 'L\'última bandera d\'Europa... que és d\'una illa del Carib!')
+    ask('Trinitat i Tobago', { t: 'flag', id: 'tt' }, [st('La franja negra té els costats paral·lels de dos en dos, i cap angle recte. Com es diu?', 'paral·lelogram', ['rectangle', 'paral·lelogram', 'trapezi'], '', 'La franja negra és un paral·lelogram', 'Un rectangle té angles rectes, i un trapezi només té 2 costats paral·lels.')], 'L\'última bandera del projecte ve d\'una illa del Carib!')
   ] },
   { name: 'El geoplà', ico: '📌', sub: 'Estira la goma entre els claus i fes polígons.', levels: [
     geo('Un triangle', 'Fes un <b>triangle</b>.', { n: 3 }, [[0, 0], [2, 0], [0, 2]], 'Això és un geoplà: una fusta amb claus. Toca claus per passar-hi la goma, i torna a tocar el primer per tancar la figura.', 'Toca 3 claus que no estiguin en línia, i després torna a tocar el primer.'),
