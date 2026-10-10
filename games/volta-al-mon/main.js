@@ -529,13 +529,13 @@ function geo({ t, L, stage, tip, slip, win }) {
   const N = PEGS, G = 44, at = i => [i % N, Math.floor(i / N)], px = v => 22 + v * G;
   let path = [], closed = false, busy = false;
   stage.innerHTML = `<p class="ask">${L.ask}</p><svg class="geob" id="gb" viewBox="0 0 ${px(N - 1) + 22} ${px(N - 1) + 22}" role="group" aria-label="Geoplà"></svg>
-    <p class="cap" id="cnt">&nbsp;</p><div class="opts"><button class="btn" id="ok" disabled>Comprova</button><button class="btn soft" id="clr">Esborra</button></div>`;
+    <p class="cap" id="cnt">&nbsp;</p><div class="opts"><button class="btn" id="ok" disabled>Comprova</button><button class="btn soft" id="un" disabled>Desfés</button><button class="btn soft" id="clr">Esborra</button></div>`;
   const draw = () => {
     const pts = path.map(i => at(i).map(px).join(',')).join(' ');
     $('#gb').innerHTML = `<path class="gl" d="${Array.from({ length: N }, (_, i) => `M${px(i)} ${px(0)}V${px(N - 1)}M${px(0)} ${px(i)}H${px(N - 1)}`).join('')}"/>
       ${closed ? `<polygon class="band shut" points="${pts}"/>` : `<polyline class="band" points="${pts}"/>`}
       ${Array.from({ length: N * N }, (_, i) => { const [x, y] = at(i).map(px); return `<g class="peg${path.includes(i) ? ' on' : ''}${path[0] === i && !closed && path.length > 2 ? ' first' : ''}" data-p="${i}" tabindex="0" role="button" aria-label="Clau ${i % N + 1}, ${Math.floor(i / N) + 1}"><circle class="hit" cx="${x}" cy="${y}" r="21"/><circle class="pin" cx="${x}" cy="${y}" r="7"/></g>`; }).join('')}`;
-    $('#ok').disabled = !closed;
+    $('#ok').disabled = !closed; $('#un').disabled = !path.length;
     $('#cnt').innerHTML = closed ? 'Figura tancada. Prem «Comprova».' : path.length > 2 ? 'Torna a tocar el <b>primer clau</b> per tancar la figura.' : path.length ? 'Segueix tocant claus.' : '&nbsp;';
   };
   const tap = i => {
@@ -547,6 +547,7 @@ function geo({ t, L, stage, tip, slip, win }) {
   };
   $('#gb').onclick = e => { const g = e.target.closest('.peg'); if (g) tap(+g.dataset.p); };
   $('#gb').onkeydown = e => { const g = e.target.closest('.peg'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tap(+g.dataset.p); $(`#gb [data-p="${g.dataset.p}"]`)?.focus(); } };
+  $('#un').onclick = () => { if (busy || !path.length) return; if (closed) closed = false; else path.pop(); blip(330); draw(); };
   $('#clr').onclick = () => { if (!busy) { path = []; closed = false; blip(330); draw(); } };
   $('#ok').onclick = async () => {
     if (busy || !closed || !t.on) return;
