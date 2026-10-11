@@ -1,0 +1,242 @@
+/* Layout: the night of the other games, laid out as a cursus. The map is a band for each circle, a piece for each project.
+   A level is one centred column: the lane on top (a pawn walking to its crown), then the field (the board, as big as it fits) and the
+   desk (the counter of the two changes of a move, the square being typed and the keys: a row of letters and a row of numbers).
+   Two fixed canvases paint the sky behind and the sparks in front. The rules are written for a phone held upright; the media
+   queries at the end put field and desk side by side. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --light: #4FA3AC; --dark: #1B5A6A; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 1040px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .calc, .combo, .claim, .lot { font-family: var(--display); }
+
+/* the level and the XP live in the row at the top: always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
+#game, #board { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+#game { margin-bottom: auto; }
+.hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hud.mid { justify-content: center; }
+#st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
+.hud .link { flex: none; white-space: nowrap; }
+.sun { color: var(--sun); }
+
+/* the pieces: white ones are cream with a dark edge, black ones are night with a pink edge */
+.pc .body { stroke-width: 3.5px; stroke-linejoin: round; }
+.pc .dt { fill: none; stroke-width: 3px; stroke-linecap: round; }
+.pc.w .body { fill: #F6FBF4; stroke: #0A2A3A; } .pc.w .dt { stroke: #0A2A3A; } .pc.w circle.dt { fill: #0A2A3A; }
+.pc.b .body { fill: #2B1B45; stroke: #FF8FD0; } .pc.b .dt { stroke: #FF8FD0; } .pc.b circle.dt { fill: #FF8FD0; }
+svg.ico { display: inline-block; width: 1.5em; height: 1.5em; vertical-align: middle; overflow: visible; flex: none; }
+svg.ico .star path { fill: var(--sun); }
+
+/* the map: a band for each circle; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 580px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: linear-gradient(160deg, hsl(var(--rh) 60% 30% / 0.25), transparent 60%) var(--glass); }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+/* a project: its piece on the left, then its name, what it is about, a dot per level and its mark */
+.proj { position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr); column-gap: 8px; align-content: center; text-align: left; padding: 6px 8px; min-height: 76px; border-radius: 18px; border: 2px solid #4D7486; background: #1F3D4D; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; transition: border-color 0.2s, background 0.2s; }
+.proj > :not(.orb) { grid-column: 2; }
+.proj:not(:disabled):hover { border-color: hsl(var(--h, 48) 90% 70%); background: #28505F; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the square of the board a project stands on, in its own colour */
+.orb { grid-row: 1 / span 4; align-self: center; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  background: linear-gradient(160deg, hsl(var(--h) 60% 46%), hsl(var(--h) 60% 22%)); box-shadow: 0 0 14px hsl(var(--h) 90% 60% / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.3); }
+.orb svg.ico { width: 36px; height: 36px; }
+.proj.ok .orb { box-shadow: 0 0 0 3px var(--sun), 0 0 14px rgb(247 198 78 / 0.6); }
+.proj:disabled .orb { filter: grayscale(0.85) brightness(0.6); box-shadow: none; }
+/* a dot for each of the ten levels of a project: green once done, gold with its three stars */
+.pp { display: flex; gap: 3px; margin-block: 2px; }
+.pp i { width: 8px; height: 8px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
+.pp i.s1, .pp i.s2 { background: var(--pad); }
+.pp i.s3 { background: var(--sun); box-shadow: 0 0 6px rgb(247 198 78 / 0.7); }
+/* the exam of a circle: the last button of its band, slimmer than a project and gold when it can be taken */
+.proj.exam { display: flex; align-items: center; justify-content: center; min-height: 40px; border-color: var(--sun); gap: 8px; text-align: center; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+/* around the bands: what to do now (above them), the two extra games and the badges, the earned ones lit */
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+.extra .btn { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); background: rgb(247 198 78 / 0.1); }
+.intro { width: min(100%, 440px); display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 20px 16px; border-radius: 26px; background: var(--glass); border: 1px solid var(--edge); }
+.intro h2 { margin: 0; font-size: 1.8rem; line-height: 1.1; }
+
+/* the lane: --p is the share of the level done; a pawn walks along it towards the queen it will become */
+.lane { position: relative; width: 100%; max-width: 560px; height: 42px; border-radius: 999px; border: 1px solid var(--edge); overflow: hidden;
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.05) 0 21px, transparent 21px 42px), linear-gradient(90deg, rgb(8 32 44 / 0.8), hsl(var(--ph) 60% 22% / 0.7)); }
+.fuel { position: absolute; inset: 6px auto 6px 5px; width: calc((100% - 84px) * var(--p) + 22px); border-radius: 999px; background: linear-gradient(90deg, rgb(247 198 78 / 0), #FF8A3C 70%, var(--sun)); transition: width 0.5s cubic-bezier(0.4, 0, 0.3, 1); }
+.rk { position: absolute; top: 2px; left: calc((100% - 84px) * var(--p)); width: 38px; height: 38px; transition: left 0.5s cubic-bezier(0.4, 0, 0.3, 1), transform 0.9s, opacity 0.9s; filter: drop-shadow(0 0 8px rgb(255 220 120 / 0.8)); }
+.rk svg.ico, .goal svg.ico, .launch svg.ico, .pilot svg.ico { display: block; width: 100%; height: 100%; }
+.goal { position: absolute; right: 5px; top: 2px; width: 38px; height: 38px; opacity: 0.45; transition: opacity 0.5s; }
+.lane.won .rk { left: calc(100% - 44px); transform: scale(0.2); opacity: 0; }
+.lane.won .goal { opacity: 1; filter: drop-shadow(0 0 10px var(--sun)); animation: hop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 2; }
+/* the queen that crosses the screen when a level is done */
+.launch { position: fixed; left: 50%; bottom: -150px; z-index: 6; width: 130px; height: 130px; margin-left: -65px; pointer-events: none; filter: drop-shadow(0 0 26px rgb(255 200 110 / 0.9)); animation: launch 1.5s cubic-bezier(0.55, 0, 0.9, 0.5) forwards; }
+/* a lightning round has a fuse that burns down instead of a lane */
+.fuse { width: 100%; max-width: 560px; height: 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); overflow: hidden; }
+.fuse i { display: block; width: 100%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--bad), var(--sun) 40%, var(--mint)); background-size: 560px 100%; }
+#board .status.tip:empty { display: none; }
+.status.tip { min-height: 4.05em; }
+
+.split { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px 24px; justify-content: center; align-items: center; }
+/* the run of right answers, pinned to the top of the field */
+.combo { position: absolute; z-index: 2; top: -10px; left: 50%; transform: translateX(-50%); padding: 1px 12px; border-radius: 999px; background: linear-gradient(90deg, #FF8A3C, var(--sun)); color: #2A1C00; font-weight: 800; font-size: 0.95rem; box-shadow: 0 0 18px rgb(247 198 78 / 0.7); white-space: nowrap; }
+.combo.pop { animation: combo 0.4s cubic-bezier(0.2, 1.8, 0.4, 1); }
+
+/* the field holds the board, as big as the screen lets it */
+.field { width: min(100%, 600px); padding: 8px 10px 4px 2px; border-radius: 26px; border: 1px solid var(--edge); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(120% 90% at 50% 110%, rgb(90 80 200 / 0.22), transparent 70%), linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
+svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: visible; }
+.bd .frame { fill: #082230; stroke: rgb(160 230 220 / 0.35); stroke-width: 3px; }
+.bd .s.l { fill: var(--light); } .bd .s.d { fill: var(--dark); } .bd .s.p { fill: #2F7684; stroke: #1B5A6A; stroke-width: 2px; }
+/* the letters and the numbers round the board; the one being typed grows and lights up */
+.bd .lab { font: 800 36px var(--display); fill: var(--muted); text-anchor: middle; transition: fill 0.15s; }
+.bd .lab.on { fill: var(--sun); font-size: 48px; filter: drop-shadow(0 0 8px var(--sun)); }
+/* what is typed: the column of the letter, the row of the number and the square where they cross */
+.bd .hi .col, .bd .hi .row { fill: rgb(247 198 78 / 0.26); }
+.bd .hi .cell { fill: rgb(247 198 78 / 0.3); stroke: var(--sun); stroke-width: 7px; }
+/* squares ringed for a reason: right, wrong, the piece that moves, somewhere it can go, somewhere dangerous, the square a sheet talks about */
+.bd .m { pointer-events: none; }
+.bd .m.ok { fill: rgb(124 245 176 / 0.5); stroke: var(--mint); stroke-width: 5px; animation: popin 0.3s backwards; transform-box: fill-box; transform-origin: center; }
+.bd .m.bad { fill: rgb(255 107 94 / 0.55); stroke: var(--bad); stroke-width: 5px; }
+.bd .m.sel { fill: rgb(247 198 78 / 0.14); stroke: var(--sun); stroke-width: 6px; stroke-dasharray: 16 11; animation: march 1.2s linear infinite; }
+.bd .m.dot { fill: var(--mint); opacity: 0.85; filter: drop-shadow(0 0 8px var(--mint)); animation: popin 0.3s backwards; transform-box: fill-box; transform-origin: center; }
+.bd .m.risk { fill: rgb(255 107 94 / 0.42); stroke: var(--bad); stroke-width: 5px; stroke-dasharray: 10 8; }
+.bd .m.ask { fill: none; stroke: #fff; stroke-width: 6px; stroke-dasharray: 6 9; }
+.bd .pc { transition: transform 0.38s cubic-bezier(0.3, 1.25, 0.5, 1); }
+.bd .pi { filter: drop-shadow(0 5px 3px rgb(0 0 0 / 0.45)); transform-box: fill-box; transform-origin: center; transition: transform 0.4s, opacity 0.4s; }
+.bd .pc.w .pi { filter: drop-shadow(0 5px 3px rgb(0 0 0 / 0.45)) drop-shadow(0 0 10px rgb(255 255 255 / 0.35)); }
+.bd .gone .pi, .bd .star.gone > g { transform: scale(0) rotate(90deg); opacity: 0; }
+.bd .pc.crown .pi { animation: crown 0.7s cubic-bezier(0.2, 1.7, 0.4, 1); }
+.bd .star > g { transform-box: fill-box; transform-origin: center; animation: twirl 2.4s ease-in-out infinite; transition: transform 0.4s, opacity 0.4s; }
+.bd .star path { fill: var(--sun); stroke: #FFF3C4; stroke-width: 2.5px; stroke-linejoin: round; filter: drop-shadow(0 0 10px rgb(247 198 78 / 0.9)); }
+.bd .rock path { fill: #5E7482; stroke: #1C2B36; stroke-width: 3.5px; }
+.bd .rock .sh { fill: none; stroke: #A9BCC6; stroke-width: 4px; stroke-linecap: round; }
+
+/* the desk: the counter of the move, the square being typed, and the keys */
+.desk { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+/* the counter: how much the letter and the number change from where the piece is to where it would go, next to the rule of the piece */
+.calc { width: 100%; display: grid; gap: 4px; padding: 8px 12px; border-radius: 16px; background: rgb(4 19 28 / 0.55); border: 1px dashed var(--edge); text-align: left; }
+.calc .rule { font: 700 0.92rem/1.3 var(--body); color: var(--muted); text-wrap: pretty; }
+.calc .row { display: grid; grid-template-columns: 5.2em 1fr 3ch; align-items: baseline; gap: 8px; font-weight: 800; font-size: 1.25rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.calc .row span { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.calc .row i { font-style: normal; color: var(--sun); text-align: right; font-size: 1.45rem; }
+.ask { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 0.3em; font-weight: 800; font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ask.long { font-size: clamp(1.15rem, 4.6vw, 1.5rem); white-space: normal; text-wrap: balance; }
+.ask:empty { display: none; }
+.ask.shake, .keys.shake { animation: shake 0.35s; }
+.ask svg.ico { width: 1.6em; height: 1.6em; }
+.in { min-width: 2.6ch; height: 48px; padding: 0 10px; border-radius: 12px; border: 2px solid var(--sun); background: rgb(247 198 78 / 0.12); display: inline-grid; place-items: center; letter-spacing: 0.06em; }
+#ctl { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.keys { width: 100%; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.key {
+  height: 52px; padding: 0; border-radius: 12px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F;
+  font-size: 1.55rem; font-weight: 800; line-height: 1; touch-action: manipulation; transition: transform 0.08s, box-shadow 0.08s, opacity 0.15s;
+}
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.key.l { border-color: #6FE3FF; } .key.n { border-color: #FF8FD0; }
+/* the keys that cannot come next step back */
+.keys[data-next="l"] .key.n, .keys[data-next="n"] .key.l, .keys[data-next="x"] .key.l, .keys[data-next="x"] .key.n { opacity: 0.32; }
+.key.del { grid-column: span 3; background: none; color: var(--muted); }
+.key.ok { grid-column: span 5; background: var(--pad); border-color: var(--mint); color: var(--on-pad); box-shadow: 0 4px 0 var(--pad-dark), 0 0 22px rgb(79 181 98 / 0.55); }
+.key.ok:active { box-shadow: 0 1px 0 var(--pad-dark); }
+.keys[data-next="x"] .key.ok { animation: beacon 1s ease-in-out infinite; }
+.choices { width: 100%; display: grid; grid-template-columns: repeat(var(--c), 1fr); gap: 10px; }
+.choices .key { height: 66px; font-size: clamp(1.1rem, 4.6vw, 1.5rem); white-space: nowrap; }
+/* pieces in a line, each with what it is worth under it */
+.lot { display: flex; gap: 14px; justify-content: center; align-items: flex-end; padding: 18px 8px; }
+.lot span { display: grid; justify-items: center; gap: 4px; }
+.lot svg.ico { width: clamp(64px, 20vw, 110px); height: clamp(64px, 20vw, 110px); filter: drop-shadow(0 6px 6px rgb(0 0 0 / 0.5)); }
+.lot b { font-size: 1.6rem; color: var(--sun); }
+
+.panel .score { font: 800 2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.panel .won { display: flex; gap: 6px; font-size: 2.8rem; line-height: 1; }
+.panel .won i { font-style: normal; color: rgb(160 230 220 / 0.25); }
+.panel .won i.on { color: var(--sun); text-shadow: 0 0 24px rgb(247 198 78 / 0.6); animation: star 0.5s calc(var(--i) * 0.22s + 0.2s) cubic-bezier(0.2, 1.8, 0.4, 1) backwards; }
+.panel .lead.go { color: var(--mint); }
+
+/* «Caça l'errada»: a dot for each claim over the knight, the sheet, and the buttons that answer under it */
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.coach { width: 100%; max-width: 560px; display: flex; gap: 14px; align-items: center; }
+.pilot { flex: none; width: 64px; height: 64px; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); }
+.coach.go .pilot { animation: hop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.coach.oops .pilot { animation: shake 0.4s; }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center; background: var(--glass); border: 1px solid var(--edge); }
+.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+.stage { position: relative; width: 100%; min-height: 220px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+/* the sheet is paper: dark ink on cream, slightly askew */
+.paper { width: min(100%, 440px); padding: 18px 16px; border-radius: 6px 18px 6px 18px; display: flex; flex-direction: column; gap: 14px; align-items: center; transform: rotate(-1deg);
+  background: repeating-linear-gradient(#FFF8E1 0 31px, #E4D9B6 31px 32px); color: #2A2416; box-shadow: 0 18px 40px rgb(0 0 0 / 0.5); }
+.claim { max-width: 24ch; font-weight: 800; font-size: 1.45rem; line-height: 1.4; font-variant-numeric: tabular-nums; text-wrap: balance; }
+.claim b { color: #B3261E; }
+.paper svg.bd { max-width: 300px; }
+.paper .bd .lab { fill: #5A4E2E; }
+.paper .bd .m.ask { stroke: #B3261E; }
+.paper .lot { padding: 4px; }
+.paper .lot svg.ico { width: 70px; height: 70px; }
+.tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.opts .btn { font-size: 1.2rem; min-width: 88px; }
+
+@keyframes beacon { 50% { box-shadow: 0 4px 0 var(--pad-dark), 0 0 18px 6px var(--sun); } }
+@keyframes launch { 12% { transform: translateY(-40px); } to { transform: translateY(-140vh); } }
+@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
+@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
+@keyframes hop { 40% { transform: translateY(-14px) scale(1.08, 0.94); } }
+@keyframes popin { from { transform: scale(0); opacity: 0; } }
+@keyframes march { to { stroke-dashoffset: -27; } }
+@keyframes twirl { 50% { transform: scale(1.14) rotate(12deg); } }
+@keyframes crown { from { transform: scale(0.3) rotate(-25deg); } }
+/* a tablet or a laptop: the board and the desk side by side */
+@media (min-width: 760px), (min-width: 600px) and (orientation: landscape) {
+  .status.tip { font-size: 1.1rem; min-height: 2.8em; max-width: 70ch; }
+  .split { flex-direction: row; align-items: flex-start; }
+  .field { flex: 1.5 1 0; max-width: min(600px, max(340px, 100dvh - 300px)); }   /* the whole board in view under the lane and the tip */
+  .desk { flex: 1 1 0; max-width: 380px; padding: 14px; }
+  .combo { left: 30%; }
+}
+/* a phone held upright: the whole desk stays at the bottom of the screen while the board scrolls above it, so it is kept short:
+   no lane, no rule, and the two changes of the counter side by side */
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  .lane, .calc .rule { display: none; }
+  .status.tip { min-height: 0; }
+  .desk { position: sticky; bottom: 0; z-index: 2; gap: 6px; padding: 8px 8px 10px; border-radius: 20px 20px 0 0; background: #0A2633; }
+  .calc { grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 10px; }
+  .calc .row { grid-template-columns: auto 1fr auto; gap: 6px; font-size: 1.05rem; }
+  .calc .row span { font-size: 0.7rem; } .calc .row i { font-size: 1.2rem; }
+  .ask { min-height: 44px; } .in { height: 42px; }
+  .key { height: 46px; font-size: 1.35rem; }
+}
+@media (min-width: 760px) and (min-height: 900px) { #app.wide h1 { display: block; } }
+@media (max-width: 759px) { #app:not(.wide) h1 { display: none; } }
+/* a phone: the name of the level takes a row of its own, over the stars and the hint */
+@media (max-width: 520px) { .hud { flex-wrap: wrap; justify-content: space-around; } .hud .chip:first-child { flex: 1 1 100%; text-align: center; } .key { height: 48px; font-size: 1.35rem; } }
+@media (max-width: 420px) { .proj { grid-template-columns: 36px minmax(0, 1fr); column-gap: 6px; } .orb { width: 34px; height: 34px; } .orb svg.ico { width: 28px; height: 28px; } .pilot { width: 52px; height: 52px; } }
+@media (prefers-reduced-motion: reduce) {
+  h1, .panel, .panel .won i.on, .lane.won .goal, .combo.pop, .bd .m, .bd .star > g, .bd .pc.crown .pi, .coach .pilot, .keys[data-next="x"] .key.ok { animation: none; }
+  .fuel, .rk, .xp-bar i, .bd .pc, .bd .pi { transition: none; }
+}

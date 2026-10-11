@@ -10,6 +10,7 @@ import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/n
 import { clean as frog, noteOf as frogNote, VALID as FROG_VALID } from '../games/salts-de-granota/logic.js';
 import { clean as trip, noteOf as tripNote, VALID as TRIP_VALID } from '../games/volta-al-mon/logic.js';
 import { clean as code, noteOf as codeNote, VALID as CODE_VALID } from '../games/memoria-visual/logic.js';
+import { clean as chess, noteOf as chessNote, VALID as CHESS_VALID } from '../games/escacs-de-l-estany/logic.js';
 // the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
 const programs = (s, total) => { const p = code(s), n = Array.from({ length: total }, (_, i) => codeNote(p, i)).filter(x => x >= CODE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
@@ -29,6 +30,8 @@ const tunes = (s, total) => { const p = concert(s), n = Array.from({ length: tot
 const leaps = (s, total) => { const p = frog(s), n = Array.from({ length: total }, (_, i) => frogNote(p, i)).filter(x => x >= FROG_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the trip round the world keeps the medals of its levels, and the mark of a project comes out of them
 const stamps = (s, total) => { const p = trip(s), n = Array.from({ length: total }, (_, i) => tripNote(p, i)).filter(x => x >= TRIP_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
+// the chess game works the same way
+const moves = (s, total) => { const p = chess(s), n = Array.from({ length: total }, (_, i) => chessNote(p, i)).filter(x => x >= CHESS_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 
 export const GAMES = [
   { id: 'salts-de-granota', href: 'salts-de-granota.html', store: 'salts-de-granota', tag: 'Càlcul mental', title: 'Salts de Granota',
@@ -60,5 +63,8 @@ export const GAMES = [
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M26 6h12v18l16 28q3 8-6 8H16q-9 0-6-8l16-28Z" fill="#0A2A3A" stroke="#EAF8F4" stroke-width="2.5" stroke-linejoin="round"/><path d="M19.500 38h25l8 14q2 5-4 5H15.500q-6 0-4-5Z" fill="#7CF5B0"/><path d="M22 6h20" stroke="#EAF8F4" stroke-width="4" stroke-linecap="round"/><circle cx="27" cy="48" r="3" fill="#EAF8F4" opacity="0.8"/><circle cx="37" cy="44" r="2" fill="#EAF8F4" opacity="0.8"/><circle cx="33" cy="30" r="2.500" fill="#7CF5B0"/><circle cx="50" cy="14" r="5" fill="#FF6B5E"/><circle cx="57" cy="20" r="3.500" fill="#F3FBF8"/><circle cx="44" cy="19" r="3.500" fill="#F3FBF8"/></svg>` },
   { id: 'volta-al-mon', href: 'volta-al-mon.html', store: 'volta-al-mon', tag: 'Geometria', title: "La volta al món de l'estany",
     what: 'Banderes, geoplà, miralls, mapes i cubs: la geometria dels cinc continents, amb medalles olímpiques.', total: 10, record: (s, total) => stamps(s, total),
-    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="27" r="22" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="2"/><path d="M10 27H54M32 5V49M32 5Q16 27 32 49M32 5Q48 27 32 49M14 15Q32 22 50 15M14 39Q32 32 50 39" fill="none" stroke="#6FE3FF" stroke-width="1.3" opacity="0.7"/><path d="M32 12L44 33H20Z" fill="#F7C64E" opacity="0.92"/><g fill="none" stroke-width="2.6"><circle cx="16" cy="52" r="6" stroke="#2F9BE0"/><circle cx="32" cy="52" r="6" stroke="#C9D6DB"/><circle cx="48" cy="52" r="6" stroke="#EE334E"/><circle cx="24" cy="58" r="6" stroke="#FCB131"/><circle cx="40" cy="58" r="6" stroke="#2DBE6C"/></g></svg>` }
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="27" r="22" fill="#0A2A3A" stroke="#6FE3FF" stroke-width="2"/><path d="M10 27H54M32 5V49M32 5Q16 27 32 49M32 5Q48 27 32 49M14 15Q32 22 50 15M14 39Q32 32 50 39" fill="none" stroke="#6FE3FF" stroke-width="1.3" opacity="0.7"/><path d="M32 12L44 33H20Z" fill="#F7C64E" opacity="0.92"/><g fill="none" stroke-width="2.6"><circle cx="16" cy="52" r="6" stroke="#2F9BE0"/><circle cx="32" cy="52" r="6" stroke="#C9D6DB"/><circle cx="48" cy="52" r="6" stroke="#EE334E"/><circle cx="24" cy="58" r="6" stroke="#FCB131"/><circle cx="40" cy="58" r="6" stroke="#2DBE6C"/></g></svg>` },
+  { id: 'escacs-de-l-estany', href: 'escacs-de-l-estany.html', store: 'escacs-de-l-estany', tag: 'Escacs i coordenades', title: "Els escacs de l'estany",
+    what: 'Mou les peces escrivint la casella: rectes, diagonals, salts en L, punts i escac i mat.', total: 9, record: (s, total) => moves(s, total),
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="10" fill="#1B5A6A" stroke="#6FE3FF" stroke-width="1.5"/><path d="M32 4H50Q60 4 60 14V32H32ZM4 32H32V60H14Q4 60 4 50Z" fill="#4FA3AC"/><rect x="32" y="4" width="28" height="28" fill="#F7C64E" opacity="0.3"/><path d="M19 52C19 40 26 35 29 28C25 31 20 33 16 31C12 29 13 24 16 21L26 12L25 4L33 10C45 12 50 26 46 52Z" fill="#F6FBF4" stroke="#0A2A3A" stroke-width="2.200" stroke-linejoin="round"/><circle cx="27.500" cy="18.500" r="2" fill="#0A2A3A"/><path d="M13 58Q13 51 20 51H45Q52 51 52 58Z" fill="#F6FBF4" stroke="#0A2A3A" stroke-width="2.200" stroke-linejoin="round"/></svg>` }
 ];
