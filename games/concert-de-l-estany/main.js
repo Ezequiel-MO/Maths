@@ -4,7 +4,7 @@ import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, NOTES, WHERE, FIGS, INTERVALS, POINTS, VALID, EXAM_PASS, beatsText, temps, starsFor, ratio, clean, noteOf, levelText, isOpen, examOpen,
-  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, drill } from './logic.js';
+  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, drill, darks } from './logic.js';
 import { staff, glyph, board } from './score.js';
 import { band } from './sound.js';
 
@@ -54,7 +54,7 @@ const WAVE = '<svg class="wave" id="wave" viewBox="0 0 300 40" preserveAspectRat
 const TUBES = `<div class="tubes">${NOTES.map((n, i) => `<button class="tube" data-n="${i}" style="--h:${n.hue};--l:${n.len / 180}" aria-label="${n.name}"><span>${n.short}</span></button>`).join('')}</div>`;
 
 const HURRAY = ['Bravo!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin concert!'];
-const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85];
+const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85, 232];
 const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const frac = (n, d) => `<span class="fr"><b>${n}</b><i>${d}</i></span>`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
@@ -342,8 +342,9 @@ function tubesOf(stage) {
 
 /* ---------- read the score and play it on the tubes ---------- */
 function play({ t, L, stage, tip, slip, spark, win }) {
-  const tune = L.tune;
-  stage.innerHTML = `<div class="sheet" id="sheet">${staff(tune.map(([step, f]) => ({ step, fig: f, hue: L.help && step != null ? NOTES[step].hue : null, label: L.help > 1 && step != null ? NOTES[step].short : '' })))}</div>${WAVE}${TUBES}`;
+  // some levels leave a few notes without their colour, others each time the level is played
+  const tune = L.tune, dark = darks(tune, L.dark || 0, Math.random);
+  stage.innerHTML = `<div class="sheet" id="sheet">${staff(tune.map(([step, f], i) => ({ step, fig: f, hue: L.help && step != null && !dark.has(i) ? NOTES[step].hue : null, label: L.help > 1 && step != null ? NOTES[step].short : '' })))}</div>${WAVE}${TUBES}`;
   const nts = [...stage.querySelectorAll('.nt')], { tubes, ring } = tubesOf(stage), sheet = $('#sheet');
   let k = 0, busy = false;
   // the rests pass on their own; the note to play glows

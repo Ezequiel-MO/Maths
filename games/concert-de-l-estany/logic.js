@@ -1,6 +1,7 @@
-// The rules and the data of the concert, with no page in it. Nine projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Ten projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
-// (and tapping a bar in time), whole songs, chords, more scores in colour, and the place of each note on the staff. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
+// their colours little by little. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of three circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -34,6 +35,8 @@ export function ratio(steps) {
 const tune = s => s.split(' ').filter(x => x !== '|').map(x => FIGS[x] ? [null, x] : [+x[0], x.slice(1)]);
 // help 2 writes the name under each note and paints it like its tube, 1 only paints it, 0 leaves the notes white
 const play = (title, notes, help, say) => ({ kind: 'play', title, tune: tune(notes), help, say });
+// a score in colour where dark of the notes, drawn by chance each time it is played (darks, below), are left without their colour
+const fade = (title, notes, dark, say) => ({ ...play(title, notes, 1, say), dark });
 const cut = note => ({ kind: 'cut', title: `Fes un ${NOTES[note].name}`, note });
 const cm = (note, base, opts) => ({ kind: 'cm', title: `${NOTES[note].name} en cm`, note, base, opts });
 // '?' is the figure to find; pal is what the player can choose from
@@ -131,7 +134,7 @@ export const SECTIONS = [
     pair([[0, 3, 5], [0, 3, 6]], 0, 'Do, Fa i La fan 3, 4 i 5. Canviant només el La pel Si surten 24, 32 i 45: un sol tub ho espatlla tot.', 'Els dos grups només canvien en una nota.'),
     pair([[2, 4, 6], [0, 2, 4]], 1, 'Tots dos sonen bé. El de 4, 5 i 6 és un acord major, alegre; el de 10, 12 i 15 és menor, més fosc i trist.', 'Els dos són acords de debò. Escolta\'n el caràcter.', 'Quin acord sona més alegre?')
   ] },
-  // These two came after the others and stay at the end, whatever circle they are in: a save keeps its stars by the place of the project
+  // These three came after the others and stay at the end, whatever circle they are in: a save keeps its stars by the place of the project
   { name: 'Més notes de colors', sub: 'Més partitures amb les notes pintades com els tubs.', levels: [
     play('Do, Re, Mi', '0n 1n 2n 1n | 0n 2n 0b', 1, 'Cada nota té el color del seu tub. Mira el color, mira on és la nota i toca.'),
     play('Mi, Fa, Sol', '2n 3n 4n 3n | 2n 4n 2b', 1, 'Tres notes més amunt: Mi, Fa i Sol. Com més amunt és la nota, més curt és el tub.'),
@@ -155,6 +158,20 @@ export const SECTIONS = [
     spot('Totes vuit', ALL, 10, 'Totes les notes, barrejades. No comptis des de baix: mira la ratlla o l\'espai i ja ho saps!'),
     place('Posa-les totes', ALL, 6, 'Qualsevol de les vuit notes. Pensa primer: va a una ratlla o a un espai?'),
     spot('A tota velocitat', ALL, 14, 'L\'últim! Catorze notes seguides. Al final veuràs quants segons has trigat: pots tornar-hi per anar més de pressa.')
+  ] },
+  // From nearly all the notes in colour to none: the bridge between the scores in colour and the ones without. The tunes of Star Wars are
+  // set on the eight tubes: the Imperial March on La, its second phrase an octave lower, and the first note of the Force theme an octave higher
+  { name: 'Cada cop menys colors', sub: 'Les notes van perdent el color a poc a poc. Amb músiques de Star Wars!', levels: [
+    fade('Tres notes amigues', '0n 2n 4n 2n | 0n 4n 2b', 1, 'Totes les notes tenen color menys una. Per saber quina és, mira a quina ratlla o a quin espai és.'),
+    fade('La marxa imperial', '5n 5n 5n 3c 7c | 5n 3c 7c 5b', 2, 'La música d\'en Darth Vader! Dues notes han perdut el color. Si una nota sense color és al mateix lloc que una de color, és la mateixa nota.'),
+    fade('Star Wars', '0b 4b | 3c 2c 1c 7b 4c', 2, 'Així comença Star Wars: un salt de Do a Sol, tres notes que baixen de pressa i el Do agut ben llarg.'),
+    fade('Brilla, brilla, estrelleta', '0n 0n 4n 4n | 5n 5n 4b | 3n 3n 2n 2n | 1n 1n 0b', 4, 'Aquesta ja la saps. Quatre notes sense color: fixa\'t si la ratlla els passa pel mig o si són en un espai.'),
+    fade('La marxa imperial, segona part', '2n 2n 2n 3c 7c | 5n 3c 7c 5b', 4, 'Ara comença al Mi, a la primera ratlla. Gairebé la meitat de les notes ja no tenen color.'),
+    fade('El tema de la Força', 'sb sn 5n | 1b 2n 3c 4c | 3b 5b', 4, 'La música dels Jedi. Entra després dels silencis. Ara hi ha més notes sense color que amb color!'),
+    fade('Oda a l\'alegria', '2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 2b 1b', 9, 'Va per graons: si una nota és just un lloc més amunt que la d\'abans, és el tub del costat.'),
+    fade('Star Wars, sencera', '0b 4b | 3c 2c 1c 7b 4c | 3c 2c 1c 7b 4c | 3c 2c 3c 1b sc', 12, 'La melodia sencera. Només queden quatre notes de color: fes-les servir per no perdre\'t.'),
+    fade('La marxa imperial, sencera', '5n 5n 5n 3c 7c | 5n 3c 7c 5b | 2n 2n 2n 3c 7c | 5n 3c 7c 5b', 15, 'Les dues parts seguides. Recorda: La al segon espai, Fa al primer espai, Do agut al tercer espai.'),
+    fade('Star Wars, el gran final', '0b 4b | 3c 2c 1c 7b 4c | 3c 2c 1c 7b 4c | 3c 2c 3c 1b sc', 16, 'Ni un sol color! Ja llegeixes les notes pel lloc on són, com els músics de debò. Que la Força t\'acompanyi!')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -164,7 +181,7 @@ export const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
 // a project is one of the sections above, with its ten levels; the circles keep them in the order they were written in
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
-  { name: 'Notes i tubs', projects: [0, 7, 8, 1] },
+  { name: 'Notes i tubs', projects: [0, 7, 8, 9, 1] },
   { name: 'Ritme i salts', projects: [2, 3, 4] },
   { name: 'El gran concert', projects: [5, 6] }
 ];
@@ -179,7 +196,7 @@ export const POINTS = [0, 5, 8, 10];
 export const VALID = 80;
 export const EXAM_PASS = 5;
 
-// What is saved is facts only: { so, secs[9], stars[90], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[10], stars[100], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
@@ -197,12 +214,12 @@ const copy = p => ({ ...p, secs: p.secs.slice(), stars: p.stars.slice(), exams: 
 // the functions below take a progress that is already clean
 export const noteOf = (p, i) => p.stars.slice(i * 10, i * 10 + 10).reduce((s, n) => s + POINTS[n], 0);
 const validated = p => PROJECTS.flatMap((_, i) => noteOf(p, i) >= VALID ? [i] : []);
-// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1370 at most
+// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1500 at most
 export function xpOf(p) {
   const v = validated(p);
   return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + noteOf(p, i), 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
 }
-// the level is the XP over 150, with two decimals and a comma: from 0,00 to 9,13
+// the level is the XP over 150, with two decimals and a comma: from 0,00 to 10,00
 export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
 // circle 0 opens with the Piscina and the others with the exam before them, and only when the circle before is open too
 export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && p.exams[c - 1] === true;
@@ -246,6 +263,8 @@ export function drill(set, n, rnd) {
   }
   return out.slice(0, n);
 }
+// The notes of a score that lose their colour: n places of tune that hold a note (never a rest), by chance
+export const darks = (tune, n, rnd) => new Set(shuffle(tune.flatMap(([step], i) => step == null ? [] : [i]), rnd).slice(0, Math.max(0, n)));
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
 // is cut to four: in an exam there is one try and no help. A circle that does not exist gives the first.
