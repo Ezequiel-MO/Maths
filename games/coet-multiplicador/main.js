@@ -258,8 +258,6 @@ function mission(sec, idx, told) {
         : k === 0 ? 'Comença per la dreta: quants punts hi ha a la franja de les unitats, la que brilla?'
         : st.cross.length > 1 ? `Ara la franja ${ofP(st.p)}: hi ha ${st.cross.length} grups de punts. Quants punts són, tots junts?` : `Ara la franja ${ofP(st.p)}. Quants punts hi ha?`;
       case 'plus': return `I ara suma-hi ${st.carry} que portaves de la franja ${ofP(st.p - 1)}.`;
-      case 'zero': return st.bi === 1 ? `Ara toca ${art(st.d)}, que és a les desenes i val ${st.d * 10}. Per això la fila comença amb un zero: escriu-lo!`
-        : st.col === 0 ? `Ara toca ${art(st.d)}, que és a les centenes i val ${st.d * 100}. Per això la fila comença amb dos zeros: escriu el primer!` : 'I ara el segon zero.';
       case 'prod': return (st.ai === 0 && st.bi === 0 ? `Comencem per la dreta: ${st.d} × ${st.x}. Escriu el resultat a la casella que brilla.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
         + (st.last && st.v > 9 ? " És l'última: s'escriu el número sencer." : '');
       case 'mul': return st.ai === 0 && st.bi === 0 ? 'Multiplica de dreta a esquerra i escriu només la xifra de la casella que brilla. La que et portes s\'apunta sola a dalt.'
@@ -280,7 +278,6 @@ function mission(sec, idx, told) {
         if (cs.length === 1) return deep ? `${rat(one.x)} per ${rat(one.d)}: ${one.x} × ${one.d} = ${pts(st.want)}.` : `Compta els punts que brillen, o fes ${one.x} × ${one.d}.`;
         return deep ? `${cs.map(c => `${c.x} × ${c.d} = ${c.x * c.d}`).join(' i ')}. Tots junts: ${cs.map(c => c.x * c.d).join(' + ')} = ${pts(st.want)}.` : `Compta cada grup de punts que brilla i suma'ls: ${cs.map(c => `${c.x} × ${c.d}`).join(' + ')}.`; }
       case 'plus': return deep ? `${st.tot} + ${st.carry} = ${st.v}.` : `${pts(st.tot)} més ${st.carry} que portaves.`;
-      case 'zero': return st.bi === 1 ? 'Aquesta fila comença amb un 0, perquè ara multipliquem per desenes.' : 'Aquesta fila comença amb dos zeros, perquè ara multipliquem per centenes.';
       case 'prod': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}.` : `Pensa-hi bé: ${mul}${st.carry ? carried(st.carry) : ''}.`;
       case 'mul': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}. S'escriu el ${st.v % 10}${st.v > 9 ? ` i te'n portes ${Math.floor(st.v / 10)}` : ''}.` : `En aquesta casella: ${mul}${st.carry ? carried(st.carry) : ''}. Escriu-ne només l'última xifra.`;
       case 'top': return `${mul}${st.carry ? carried(st.carry) : ''} fan ${st.v}. El ${st.want} que et portes va al davant.`;
@@ -295,16 +292,22 @@ function mission(sec, idx, told) {
   }
   // gets the next step ready: its cells glow, its piece of the field glows, its question and its tip are shown
   function arm() {
-    const st = steps[k]; buf = ''; help = 0;
+    let st = steps[k], zero = ''; buf = ''; help = 0;
+    // the zeros a row of the tens or of the hundreds starts with are not asked: they are already written, and the tip says why
+    while (st.part === 'zero') {
+      cells[st.row + ':' + st.col] = 0;
+      zero = `Ara toca ${art(st.d)}, que és a les ${st.bi === 1 ? 'desenes' : 'centenes'} i val ${st.d * 10 ** st.bi}. Per això la fila ja comença amb ${zeros(st.bi)}. `;
+      st = steps[++k];
+    }
     for (const key in marks) delete marks[key];
     targets(st).forEach(key => { marks[key] = 'next'; });
     // the carries of one row of the multiplication do not belong to the next one
-    if (st.part === 'zero' || st.part === 'sum' || st.ai === 0) for (const key in cells) if (key.startsWith('mc:')) delete cells[key];
+    if (st.part === 'sum' || st.ai === 0) for (const key in cells) if (key.startsWith('mc:')) delete cells[key];
     root.querySelectorAll('.piece.now, .cl.now, .bd.now').forEach(e => e.classList.remove('now'));
     if (st.part === 'band') { st.cross.forEach(c => crossEl(c).classList.add('now')); bandEl(st.p).classList.add('now'); }
     else if (st.part === 'plus') bandEl(st.p).classList.add('now');
-    else if (st.part !== 'zero' && st.part !== 'sum') pieceEl(st)?.classList.add('now');
-    drawSheet(); drawAsk(st); tip(tipFor(st));
+    else if (st.part !== 'sum') pieceEl(st)?.classList.add('now');
+    drawSheet(); drawAsk(st); tip(zero + tipFor(st));
     // on a phone the cell being asked can be off screen or under the keys: bring the tip, the field and the sheet back
     const see = sheet.querySelector('.next') || $('#ask'), r = see.getBoundingClientRect(), keys = root.querySelector('.keys');
     if (r.top < 0 || r.bottom > innerHeight - (getComputedStyle(keys).position === 'sticky' ? keys.offsetHeight : 0)) $('#tip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
