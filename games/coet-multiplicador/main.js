@@ -4,7 +4,7 @@ import { pond } from '../../shared/fx.js';
 import { levelRow, wireLevels, panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID, PLACES, digitsOf, zerosOf, pieces, bands, plan, starsFor, wantQ,
-  clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
+  clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, exam, examIn, sprint, sheet, sheetIn, passed, LINES } from './logic.js';
 
 const KEY = 'coet-multiplicador';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -41,15 +41,17 @@ const ROCKET = `<svg viewBox="0 0 64 64" aria-hidden="true"><g class="flame"><pa
 const PH = [190, 318, 262, 48, 150];
 const fx1 = n => +n.toFixed(1);
 // a × b in lines, the Japanese way: one group of lines per digit, those of a falling to the right and those of b rising, so that the
-// crossings of the same place fall one over the other in a band. A zero is a dashed line that crosses nothing. bare leaves out the
-// numbers and the bands: only the lines and their points
+// crossings of the same place fall one over the other in a band. A zero is a dashed line that crosses nothing. Under each band go its
+// points (.bt), the box of the digit it gives (.br) and the name of its place. bare leaves out the numbers and the bands: only the
+// lines and their points. fill draws it already worked out
 const K = 0.7071, GAP = 70, STEP = 10, OUT = 36;
-function linesSvg(a, b, bare) {
+function linesSvg(a, b, bare, fill) {
   const As = [...String(a)].map(Number), Bs = [...String(b)].map(Number), nA = As.length, nB = Bs.length, pts = [];
   const at = (u, v) => { const p = [fx1((u + v) * K), fx1((v - u) * K)]; pts.push(p); return p; };
   const offs = n => Array.from({ length: n || 1 }, (_, k) => (k - ((n || 1) - 1) / 2) * STEP);
   const u1 = (nA - 1) * GAP + OUT, v1 = (nB - 1) * GAP + OUT;
   let n = 0, lines = '', dots = '', labs = '';
+  const fin = {}; if (fill) plan({ a, b, mode: 'lines' }).forEach(st => { fin[st.p] = st; });
   const seg = (p, q, cls) => `<path class="jl ${cls}" style="--i:${n++}" pathLength="1" d="M${p}L${q}"/>`;
   const lab = (p, txt, cls) => bare ? '' : `<text class="jn ${cls}" x="${p[0]}" y="${p[1] + 6}">${txt}</text>`;
   As.forEach((x, i) => { offs(x).forEach(o => { lines += seg(at(i * GAP + o, -OUT), at(i * GAP + o, v1), 'la' + (x ? '' : ' zero')); }); labs += lab(at(i * GAP, -OUT - 14), x, 'la'); });
@@ -57,18 +59,18 @@ function linesSvg(a, b, bare) {
   As.forEach((x, i) => Bs.forEach((d, j) => {
     if (!x || !d) return;
     const p = nA + nB - 2 - i - j, c = at(i * GAP, j * GAP), ext = (x + d - 2) * STEP * K / 2;
-    dots += `<g class="cl" data-p="${nA - 1 - i},${nB - 1 - j}" style="--h:${PH[p]}">${offs(x).flatMap(o => offs(d).map(w => { const q = at(i * GAP + o, j * GAP + w); return `<circle cx="${q[0]}" cy="${q[1]}" r="3.800"/>`; })).join('')}<text x="${c[0]}" y="${fx1(c[1] - ext - 9)}"></text></g>`;
+    dots += `<g class="cl${fill ? ' done' : ''}" data-p="${nA - 1 - i},${nB - 1 - j}" style="--h:${PH[p]}">${offs(x).flatMap(o => offs(d).map(w => { const q = at(i * GAP + o, j * GAP + w); return `<circle cx="${q[0]}" cy="${q[1]}" r="3.800"/>`; })).join('')}<text x="${c[0]}" y="${fx1(c[1] - ext - 9)}">${fill ? x * d : ''}</text></g>`;
   }));
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs) - 14, y0 = Math.min(...ys) - 14, x1 = Math.max(...xs) + 14, y1 = Math.max(...ys) + 14, bw = fx1(GAP * K);
-  const strips = bare ? '' : Array.from({ length: nA + nB - 1 }, (_, s) => { const p = nA + nB - 2 - s, x = fx1(s * GAP * K);
-    return `<g class="bd" data-b="${p}" style="--h:${PH[p]}"><rect x="${fx1(x - bw / 2 + 2)}" y="${y0 + 2}" width="${bw - 4}" height="${fx1(y1 - y0 + 34)}" rx="12"/><text class="bt" x="${x}" y="${fx1(y1 + 12)}"></text><text class="bl" x="${x}" y="${fx1(y1 + 30)}">${['U', 'D', 'C', 'M', 'DM'][p]}</text></g>`; }).join('');
-  return `<svg class="jp" viewBox="${fx1(x0)} ${fx1(y0)} ${fx1(x1 - x0)} ${fx1(y1 - y0 + (bare ? 0 : 40))}" style="--n:${n}" role="img" aria-label="${bare ? 'Una multiplicació dibuixada amb ratlles' : `${a} × ${b} dibuixat amb ratlles`}">${strips}${lines}${dots}${labs}</svg>`;
+  const strips = bare ? '' : Array.from({ length: nA + nB - 1 }, (_, s) => { const p = nA + nB - 2 - s, x = fx1(s * GAP * K), f = fin[p];
+    return `<g class="bd${f ? ' done' : ''}" data-b="${p}" style="--h:${PH[p]}"><rect class="bs" x="${fx1(x - bw / 2 + 2)}" y="${fx1(y0 + 2)}" width="${bw - 4}" height="${fx1(y1 - y0 + 70)}" rx="12"/><text class="bt" x="${x}" y="${fx1(y1 + 12)}">${f ? f.carry ? `${f.tot}+${f.carry}` : f.tot : ''}</text>
+      <rect class="bx" x="${fx1(x - 17)}" y="${fx1(y1 + 20)}" width="34" height="30" rx="8"/><text class="br" x="${x}" y="${fx1(y1 + 43)}">${f ? f.put : ''}</text><text class="bl" x="${x}" y="${fx1(y1 + 66)}">${['U', 'D', 'C', 'M', 'DM'][p]}</text></g>`; }).join('');
+  return `<svg class="jp" viewBox="${fx1(x0)} ${fx1(y0)} ${fx1(x1 - x0)} ${fx1(y1 - y0 + (bare ? 0 : 76))}" style="--n:${n}" role="img" aria-label="${bare ? 'Una multiplicació dibuixada amb ratlles' : `${a} × ${b} dibuixat amb ratlles`}">${strips}${lines}${dots}${labs}</svg>`;
 }
 // The rows of the written operation, from the top: [id, class, sign] or 'ln' for a line. sc and mc are the small rows of what is carried
 function rowsOf(mode, a, b) {
   const B = digitsOf(b);
   if (mode === 'pieces') { const ps = pieces(a, b); return [['sc', 'cy'], ...ps.map((p, i) => ['p' + i, 'c' + p.bi, i === ps.length - 1 ? '+' : '']), 'ln', ['sum']]; }
-  if (mode === 'lines') { const on = bands(a, b).flatMap((t, p) => t ? [p] : []); return [['sc', 'cy'], ...on.map((p, i) => ['t' + p, 'c' + p, i === on.length - 1 && i ? '+' : '']), 'ln', ['sum']]; }
   return [['mc', 'cy'], ['a'], ['b', '', '×'], 'ln', ...(B.length > 1 ? [['sc', 'cy'], ...B.map((_, bi) => ['r' + bi, 'c' + bi, bi === B.length - 1 ? '+' : '']), 'ln', ['sum']] : [['r0', 'c0']])];
 }
 // the sheet: W columns of digits after one for the sign; cells is what is written, by 'row:column', and marks the class of the cells that glow or shake
@@ -87,6 +89,16 @@ const ORD = ['Primera', 'Segona', 'Tercera'];
 const zeros = z => z === 1 ? 'un zero' : `${z} zeros`;
 const art = n => n === 1 ? "l'1" : `el ${n}`;
 const rat = n => n === 1 ? '1 ratlla' : `${n} ratlles`;
+const pts = n => n === 1 ? '1 punt' : `${n} punts`;
+// «de les desenes», «a les desenes»: the thousands are the only place that is not feminine
+const ofP = p => (p === 3 ? 'dels ' : 'de les ') + PLACES[p], toP = p => (p === 3 ? 'als ' : 'a les ') + PLACES[p];
+// what is said before the first level of each project in lines, next to a multiplication already worked out
+const HOW = {
+  2: { a: 12, b: 3, title: 'Multiplicar amb ratlles', lead: "Ja saps multiplicar en columna. Al Japó hi ha qui ho fa dibuixant: és una altra manera d'arribar al mateix resultat.",
+    steps: ['<b>Ratlles.</b> Cada xifra és un grup de ratlles: el 12 és 1 ratlla i 2 ratlles; el 3, 3 ratlles.', '<b>Punts.</b> On es creuen les ratlles hi ha punts. Es compten franja per franja, començant per la dreta.', '<b>Xifres.</b> Cada franja dona una xifra: 3 desenes i 6 unitats. 12 × 3 = 36.'] },
+  3: { a: 14, b: 3, title: 'Ratlles i portades', lead: 'A cada franja només hi cap una xifra. Si té més de 9 punts, es fa com en columna.',
+    steps: ["<b>Unitats.</b> 4 × 3 = 12 punts: escric el 2 i me'n porto 1.", '<b>Desenes.</b> 1 × 3 = 3 punts, més 1 que portava: 4.', '<b>Resultat.</b> 14 × 3 = 42.'] }
+};
 const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
 const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
@@ -141,13 +153,13 @@ const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4]
 const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
 const starsOf = i => prog.lv.slice(i * 10, i * 10 + 10);
 const noteText = i => { const n = noteOf(prog, i), d = starsOf(i).filter(Boolean).length; return n >= VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
-const examBtn = c => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
+const examBtn = c => `<button class="proj exam${passed(prog, c) ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${passed(prog, c) ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
 // one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
 function advice() {
   for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
     const i = CIRCLES[c].projects.find(i => noteOf(prog, i) < VALID);
     if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
-    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
+    if (!passed(prog, c)) return `Ara toca: l'examen del cercle ${c}`;
   }
   return '';
 }
@@ -155,7 +167,7 @@ let here = -1;   // the project just left: the map puts the focus back on its bu
 function mapa() {
   fresh(); show('El mapa', false, 205);
   const band = c => `<section class="ring${openC(c) ? '' : ' shut'}" style="--rh:${RING[c]}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
-      ${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
+      ${CIRCLES[c].sub ? `<p class="why">${CIRCLES[c].sub}</p>` : ''}${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
       <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${noteOf(prog, i) >= VALID ? ' ok' : ''}" data-p="${i}" style="--h:${HUES[i]}"${openC(c) ? '' : ' disabled'}><i class="orb" aria-hidden="true"></i><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span>
         <span class="pp" aria-hidden="true">${starsOf(i).map(s => `<i class="s${s}"></i>`).join('')}</span><span class="mk">${noteText(i)}</span></button>`).join('')}${examBtn(c)}</div></section>`;
   const got = badges(prog), tip = advice(), any = OPEN || validated(prog).length > 0;
@@ -178,26 +190,36 @@ function mapa() {
 }
 
 /* ---------- one level: a multiplication, the steps of plan() asked one by one ---------- */
-function mission(sec, idx) {
+function mission(sec, idx, told) {
   const c = circleOf(sec), P = PROJECTS[sec], L = P.levels[idx], t = fresh(); show(`Cercle ${c} · ${P.name}`, true, HUES[sec]); here = sec;
   const root = $('#game'), { a, b, mode } = L, steps = plan(L);
-  const A = digitsOf(a), B = digitsOf(b), W = widthOf(a, b), rows = mode === 'zeros' ? [] : rowsOf(mode, a, b);
+  // the first level of a project in lines starts by showing how it is done
+  if (HOW[sec] && idx === 0 && !told) {
+    const H = HOW[sec];
+    root.innerHTML = `<div class="intro how"><h2>${H.title}</h2><p class="lead">${H.lead}</p>${linesSvg(H.a, H.b, false, true)}<ol>${H.steps.map(x => `<li>${x}</li>`).join('')}</ol><button class="btn" id="go">Som-hi!</button></div>`;
+    $('#go').focus({ preventScroll: true }); $('#go').onclick = () => mission(sec, idx, true);
+    return;
+  }
+  const A = digitsOf(a), B = digitsOf(b), W = widthOf(a, b), rows = mode === 'zeros' || mode === 'lines' ? [] : rowsOf(mode, a, b);
   const za = zerosOf(a), zb = zerosOf(b), da = a / 10 ** za, db = b / 10 ** zb, unit = 10 ** (za + zb);
   // what is written on the sheet so far, by 'row:column', and the cells that glow or shake
-  const cells = {}, marks = {}, eqs = [];
+  const cells = {}, marks = {}, eqs = [], res = {};   // res is the digit each band of lines has given
   let k = 0, slips = 0, help = 0, buf = '', busy = false;
 
   const cols = A.map((x, ai) => ({ x, ai })).filter(c => c.x).reverse();
+  // over the rectangle: the whole multiplication, and how its numbers are cut in parts
+  const split = n => digitsOf(n).map((d, i) => d * 10 ** i).filter(Boolean).reverse(), cuts = [a, b].filter(n => split(n).length > 1).map(n => `${n} = ${split(n).join(' + ')}`);
+  const head = `<p class="op">${a} × ${b}</p>${cuts.length ? `<p class="cap">${cuts.join(' · ')}: un tros per a cada part</p>` : ''}`;
   const field = mode === 'free' ? '' : mode === 'zeros'
     ? `<div class="field"><div class="tokens" id="toks" style="--tc:${db}">${`<i class="tok">${unit}</i>`.repeat(da * db)}</div><p class="cap">${da} files de ${db} peces · cada peça val ${unit}</p></div>`
     : mode === 'lines' ? `<div class="field">${linesSvg(a, b)}<p class="cap"><span class="la">Ratlles verdes: ${a}</span> · <span class="lb">ratlles grogues: ${b}</span></p></div>`
-    : `<div class="field"><div class="rect" style="grid-template-columns:auto ${cols.map(c => [1, 1.2, 1.5][c.ai] + 'fr').join(' ')}"><span class="side">×</span>${cols.map(c => `<span class="side">${c.x * 10 ** c.ai}</span>`).join('')}
+    : `<div class="field">${head}<div class="rect" style="grid-template-columns:auto ${cols.map(c => [1, 1.2, 1.5][c.ai] + 'fr').join(' ')}"><span class="side">×</span>${cols.map(c => `<span class="side">${c.x * 10 ** c.ai}</span>`).join('')}
       ${B.map((d, bi) => d ? `<span class="side c${bi}">${d * 10 ** bi}</span>` + cols.map(c => `<div class="piece" data-p="${c.ai},${bi}" style="--h:${PH[bi]}"><span>${c.x * 10 ** c.ai} × ${d * 10 ** bi}</span></div>`).join('') : '').join('')}</div></div>`;
   root.innerHTML = `${levelRow(P.levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${a} × ${b}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     <div class="lane" id="lane" style="--p:0;--ph:${HUES[sec]}" aria-hidden="true"><i class="fuel"></i><span class="rk">${ROCKET}</span><i class="planet"></i></div>
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
-    <div class="split" id="split">${field}<div class="desk"><div class="sheet${mode === 'zeros' ? ' eqs' : ''}" id="sheet"></div><p class="ask" id="ask"></p>${KEYS}</div><span class="combo" id="cb" hidden></span></div>`;
+    <div class="split" id="split">${field}<div class="desk"><div class="sheet${mode === 'zeros' || mode === 'lines' ? ' eqs' : ''}" id="sheet"></div><p class="ask" id="ask"></p><p class="cap kbd">Escriu amb el teclat</p>${KEYS.replace('"keys"', '"keys kb"')}</div><span class="combo" id="cb" hidden></span></div>`;
   const sheet = $('#sheet'), lane = $('#lane');
   // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((e, i) => e.classList.toggle('done', prog.lv[sec * 10 + i] > 0));
@@ -211,7 +233,14 @@ function mission(sec, idx) {
   if (mode === 'guided' || mode === 'free') { write('a', 0, a); write('b', 0, b); }
   function drawSheet() {
     if (mode === 'zeros') { sheet.innerHTML = eqs.map(e => `<p>${e}</p>`).join(''); return; }
-    sheet.style.setProperty('--w', W + 1); sheet.innerHTML = sheetHtml(rows, W, cells, marks);
+    if (mode === 'lines') { const ds = bands(a, b).map((_, p) => res[p] ?? '_').reverse(); sheet.innerHTML = `<p>${a} × ${b} = <b>${ds.join(ds.includes('_') ? ' ' : '')}</b></p>`; return; }
+    sheet.style.setProperty('--w', W + 1); sheet.innerHTML = sheetHtml(rows, W, { ...cells, ...typed() }, marks);
+  }
+  // a small product is typed where it is written: its last digit in its cell and the one before in front of it, or up with the carries
+  function typed() {
+    const st = steps[k], o = {};
+    if (st?.part === 'prod') [...buf].reverse().forEach((ch, i) => { o[i ? st.last ? st.row + ':' + (st.col + 1) : 'mc:' + (st.ai + 1) : st.row + ':' + st.col] = ch; });
+    return o;
   }
   function donePiece(st) {
     const el = pieceEl(st); if (!el) return;
@@ -225,17 +254,18 @@ function mission(sec, idx) {
       case 'core': return `Primer sense zeros: ${da} × ${db}. Són ${da} files de ${db} peces.`;
       case 'full': return `Cada peça val ${unit}. Escriu ${st.core} i torna-hi a posar ${st.z === 1 ? 'el zero' : `els ${st.z} zeros`}.`;
       case 'piece': { const z = st.ai + st.bi; return z ? `Tros ${st.av} × ${st.bv}. Truc dels zeros: fes ${st.x} × ${st.d} i afegeix-hi ${zeros(z)}.` : `Tros ${st.av} × ${st.bv}: aquest surt de la taula del ${st.d}.`; }
-      case 'cross': return k === 0 ? `Cada xifra és un grup de ratlles. Quants punts hi ha on es creuen les ${rat(st.x)} amb les ${rat(st.d)}?`.replace(/les 1 ratlla/g, 'la ratlla')
-        : `Ara la franja de les ${PLACES[st.p]}: ${rat(st.x)} per ${rat(st.d)}. Quants punts?`;
-      case 'band': return `La franja de les ${PLACES[st.p]} té ${st.adds.length} grups de punts. Quants punts són, tots junts?`;
+      case 'band': return !st.cross.length ? `${k ? 'A' : 'Comença per la dreta: a'} la franja ${ofP(st.p)} només hi ha la ratlla de punts del zero, que no creua res. Quants punts hi ha?`
+        : k === 0 ? 'Comença per la dreta: quants punts hi ha a la franja de les unitats, la que brilla?'
+        : st.cross.length > 1 ? `Ara la franja ${ofP(st.p)}: hi ha ${st.cross.length} grups de punts. Quants punts són, tots junts?` : `Ara la franja ${ofP(st.p)}. Quants punts hi ha?`;
+      case 'plus': return `I ara suma-hi ${st.carry} que portaves de la franja ${ofP(st.p - 1)}.`;
       case 'zero': return st.bi === 1 ? `Ara toca ${art(st.d)}, que és a les desenes i val ${st.d * 10}. Per això la fila comença amb un zero: escriu-lo!`
         : st.col === 0 ? `Ara toca ${art(st.d)}, que és a les centenes i val ${st.d * 100}. Per això la fila comença amb dos zeros: escriu el primer!` : 'I ara el segon zero.';
-      case 'prod': return (st.ai === 0 && st.bi === 0 ? `Comencem per la dreta: ${st.d} × ${st.x}.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
+      case 'prod': return (st.ai === 0 && st.bi === 0 ? `Comencem per la dreta: ${st.d} × ${st.x}. Escriu el resultat a la casella que brilla.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
         + (st.last && st.v > 9 ? " És l'última: s'escriu el número sencer." : '');
       case 'mul': return st.ai === 0 && st.bi === 0 ? 'Multiplica de dreta a esquerra i escriu només la xifra de la casella que brilla. La que et portes s\'apunta sola a dalt.'
         : st.ai === 0 ? `Ara multiplica per ${art(st.d)}, també de dreta a esquerra.` : 'Segueix cap a l\'esquerra. No t\'oblidis de la que portes!';
       case 'top': return 'I la que portaves, al davant.';
-      default: return st.col ? 'Segueix sumant la columna que brilla.' : `Ara suma ${mode === 'pieces' ? 'tots els trossos' : mode === 'lines' ? 'les franges' : B.length > 2 ? 'les tres files' : 'les dues files'}, columna a columna, començant per la dreta.`;
+      default: return st.col ? 'Segueix sumant la columna que brilla.' : `Ara suma ${mode === 'pieces' ? 'tots els trossos' : B.length > 2 ? 'les tres files' : 'les dues files'}, columna a columna, començant per la dreta.`;
     }
   }
   // what to say after a wrong answer or a hint: first what to work out, then the whole sum
@@ -245,8 +275,11 @@ function mission(sec, idx) {
       case 'core': return deep ? `${da} × ${db} = ${st.want}. Compta les peces: ${da} files de ${db}.` : `Mira les peces: hi ha ${da} files de ${db}. Quantes són?`;
       case 'full': return deep ? `${st.core} peces de ${unit} són ${st.want}: ${st.core} i ${zeros(st.z)}.` : `Són ${st.core} peces, i cada una val ${unit}.`;
       case 'piece': { const z = st.ai + st.bi; return deep ? `${st.x} × ${st.d} = ${st.x * st.d}${z ? `, i amb ${zeros(z)}: ${st.val}` : ''}.` : z ? `Primer ${st.x} × ${st.d}, i després ${zeros(z)}.` : `Repassa la taula del ${st.d}: ${st.x} × ${st.d}.`; }
-      case 'cross': return deep ? `${rat(st.x)} per ${rat(st.d)}: ${st.x} × ${st.d} = ${st.want} punts.` : `Compta els punts que brillen, o fes ${st.x} × ${st.d}.`;
-      case 'band': return deep ? `${st.adds.join(' + ')} = ${st.want} punts.` : `Suma els grups de la franja: ${st.adds.join(' + ')}.`;
+      case 'band': { const cs = st.cross, one = cs[0];
+        if (!cs.length) return 'La ratlla de punts és un zero i no creua res: hi ha 0 punts.';
+        if (cs.length === 1) return deep ? `${rat(one.x)} per ${rat(one.d)}: ${one.x} × ${one.d} = ${pts(st.want)}.` : `Compta els punts que brillen, o fes ${one.x} × ${one.d}.`;
+        return deep ? `${cs.map(c => `${c.x} × ${c.d} = ${c.x * c.d}`).join(' i ')}. Tots junts: ${cs.map(c => c.x * c.d).join(' + ')} = ${pts(st.want)}.` : `Compta cada grup de punts que brilla i suma'ls: ${cs.map(c => `${c.x} × ${c.d}`).join(' + ')}.`; }
+      case 'plus': return deep ? `${st.tot} + ${st.carry} = ${st.v}.` : `${pts(st.tot)} més ${st.carry} que portaves.`;
       case 'zero': return st.bi === 1 ? 'Aquesta fila comença amb un 0, perquè ara multipliquem per desenes.' : 'Aquesta fila comença amb dos zeros, perquè ara multipliquem per centenes.';
       case 'prod': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}.` : `Pensa-hi bé: ${mul}${st.carry ? carried(st.carry) : ''}.`;
       case 'mul': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}. S'escriu el ${st.v % 10}${st.v > 9 ? ` i te'n portes ${Math.floor(st.v / 10)}` : ''}.` : `En aquesta casella: ${mul}${st.carry ? carried(st.carry) : ''}. Escriu-ne només l'última xifra.`;
@@ -257,9 +290,8 @@ function mission(sec, idx) {
 
   function drawAsk(st) {
     const box = '<output class="in" id="in" aria-label="La teva resposta"></output>';
-    $('#ask').innerHTML = st.kind === 'digit' ? '' : st.part === 'core' ? `${da} × ${db} = ${box}` : st.part === 'full' ? `${a} × ${b} = ${box}`
-      : st.part === 'piece' ? `${st.av} × ${st.bv} = ${box}` : st.part === 'cross' ? `${st.x} × ${st.d} = ${box}` : st.part === 'band' ? `${st.adds.join(' + ')} = ${box}`
-      : `${st.d} × ${st.x}${st.carry ? ` <i>+ ${st.carry}</i>` : ''} = ${box}`;
+    $('#ask').innerHTML = st.kind === 'digit' || st.part === 'prod' ? '' : st.part === 'core' ? `${da} × ${db} = ${box}` : st.part === 'full' ? `${a} × ${b} = ${box}`
+      : st.part === 'piece' ? `${st.av} × ${st.bv} = ${box}` : st.part === 'band' ? `${st.cross.map(c => `${c.x} × ${c.d}`).join(' + ') || 'Punts'} = ${box}` : `${st.tot} <i>+ ${st.carry}</i> = ${box}`;
   }
   // gets the next step ready: its cells glow, its piece of the field glows, its question and its tip are shown
   function arm() {
@@ -269,8 +301,8 @@ function mission(sec, idx) {
     // the carries of one row of the multiplication do not belong to the next one
     if (st.part === 'zero' || st.part === 'sum' || st.ai === 0) for (const key in cells) if (key.startsWith('mc:')) delete cells[key];
     root.querySelectorAll('.piece.now, .cl.now, .bd.now').forEach(e => e.classList.remove('now'));
-    if (st.part === 'cross') crossEl(st).classList.add('now');
-    else if (st.part === 'band') bandEl(st.p).classList.add('now');
+    if (st.part === 'band') { st.cross.forEach(c => crossEl(c).classList.add('now')); bandEl(st.p).classList.add('now'); }
+    else if (st.part === 'plus') bandEl(st.p).classList.add('now');
     else if (st.part !== 'zero' && st.part !== 'sum') pieceEl(st)?.classList.add('now');
     drawSheet(); drawAsk(st); tip(tipFor(st));
     // on a phone the cell being asked can be off screen or under the keys: bring the tip, the field and the sheet back
@@ -288,11 +320,15 @@ function mission(sec, idx) {
     await sleep(520); e.remove();
   }
   const spark = (el, h = 48) => { if (el) { const p = mid(el); FX.burst(p.x, p.y, h, 14, 120); } };
-  // a band of lines is counted: its points go to the sheet as what they are worth in their place
-  async function bandDone(p, tot) {
-    const el = bandEl(p), val = tot * 10 ** p; el.classList.remove('now'); el.classList.add('done'); el.querySelector('.bt').textContent = tot; spark(el.querySelector('.bt'), PH[p]);
-    await fly(val, el.querySelector('.bt'), cell('t' + p + ':0'), 'c' + p); write('t' + p, 0, val);
-    return p ? `${tot} ${PLACES[p]} són ${val}.` : `${tot} unitats: ${val}.`;
+  // a band of lines is settled: its digit drops into the box under it, and what does not fit goes over to the next band
+  async function bandDone(st) {
+    const el = bandEl(st.p), bt = el.querySelector('.bt'), br = el.querySelector('.br');
+    el.classList.remove('now'); el.classList.add('done');
+    await fly(st.put, bt, br, 'c' + st.p); br.textContent = st.put; res[st.p] = st.put;
+    if (!st.out) return st.last && st.v > 9 ? `${st.v}: és l'última franja, s'escriu sencer.` : `Franja ${ofP(st.p)}: escric ${art(st.put)}.`;
+    const nx = bandEl(st.p + 1).querySelector('.bt');
+    await fly('+' + st.out, bt, nx, 'cy'); nx.textContent = '+' + st.out; nx.classList.add('cy');
+    return `${st.v}: escric ${art(st.put)} i me'n porto ${st.out} ${toP(st.p + 1)}, com en columna.`;
   }
 
   // a right answer lands where it is written; resolves when the next step can be asked
@@ -306,15 +342,15 @@ function mission(sec, idx) {
       const el = pieceEl(st); donePiece(st); spark(el, PH[st.bi]);
       await fly(st.val, el, cell(st.row + ':0'), 'c' + st.bi);
       write(st.row, 0, st.val); msg = pick(BRAVO); wait = 500;
-    } else if (st.part === 'cross') {
-      const el = crossEl(st); el.classList.remove('now'); el.classList.add('done'); el.querySelector('text').textContent = st.want; spark(el, PH[st.p]);
-      if (st.solo) { msg = await bandDone(st.p, st.tot); wait = 1000; } else { msg = `${st.want} punts.`; wait = 450; }
-    } else if (st.part === 'band') { msg = await bandDone(st.p, st.want); wait = 1000; }
+    } else if (st.part === 'band') {
+      // every crossing of the band shows its points, and the band their sum
+      st.cross.forEach(c => { const el = crossEl(c); el.classList.remove('now'); el.classList.add('done'); el.querySelector('text').textContent = c.x * c.d; });
+      const bt = bandEl(st.p).querySelector('.bt'); bt.classList.remove('cy'); bt.textContent = st.carry ? `${st.tot}+${st.carry}` : st.tot; spark(bt, PH[st.p]);
+      if (st.carry) { msg = `${pts(st.tot)}.`; wait = 450; } else { msg = await bandDone(st); wait = 1100; }
+    } else if (st.part === 'plus') { msg = await bandDone(st); wait = 1100; }
     else if (st.part === 'prod') {
-      const src = $('#in'), put = st.last ? st.v : st.v % 10; donePiece(st);
-      await Promise.all([fly(put, src, cell(st.row + ':' + st.col), 'c' + st.bi), st.out ? fly(st.out, src, cell('mc:' + (st.ai + 1)), 'cy') : 0]);
-      write(st.row, st.col, put); if (st.out) cells['mc:' + (st.ai + 1)] = st.out;
-      msg = st.out ? `${st.v}: escric el ${st.v % 10} i me'n porto ${st.out}.` : st.v > 9 ? `${st.v}: és l'última, l'escric sencer.` : `Escric el ${st.v}.`; wait = 1000;
+      donePiece(st); write(st.row, st.col, st.last ? st.v : st.v % 10); if (st.out) cells['mc:' + (st.ai + 1)] = st.out;
+      msg = st.out ? `${st.v}: escric el ${st.v % 10} i me'n porto ${st.out}.` : st.v > 9 ? `${st.v}: és l'última, l'escric sencer.` : `Escric el ${st.v}.`; wait = st.v > 9 ? 1000 : 500;
     } else {
       cells[st.row + ':' + st.col] = st.want;
       if (st.out) cells[st.part === 'sum' ? 'sc:' + (st.col + 1) : 'mc:' + (st.ai + 1)] = st.out;
@@ -332,6 +368,12 @@ function mission(sec, idx) {
 
   function wrong(st, n) {
     slips++; help++; streak = 0; drawCombo(); stars(); buzz(); tip('Ui! ' + explain(st, help > 1), 'oops');
+    // a wrong product shows where it was typed for a moment
+    if (st.part === 'prod') {
+      busy = true; Object.keys(typed()).forEach(key => { marks[key] = 'bad'; }); drawSheet();
+      setTimeout(() => { if (!t.on) return; buf = ''; for (const key in marks) delete marks[key]; targets(st).forEach(key => { marks[key] = 'next'; }); drawSheet(); busy = false; }, 600);
+      return;
+    }
     if (st.kind === 'val') { buf = ''; const o = $('#in'); o.textContent = ''; o.className = 'in'; void o.offsetWidth; o.className = 'in shake'; return; }
     // the wrong digit shows in its cell for a moment
     const key = st.row + ':' + st.col; busy = true; cells[key] = n; marks[key] = 'bad'; drawSheet();
@@ -371,7 +413,10 @@ function mission(sec, idx) {
     if (st.kind === 'digit') { if (key > -1) answer(+key); return; }
     if (key === 'ok') { if (buf) answer(+buf); return; }
     buf = key === 'del' ? buf.slice(0, -1) : (buf + key).slice(0, 7);
-    const o = $('#in'); o.className = 'in'; o.textContent = buf; tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05);
+    tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05);
+    if (st.part === 'prod') drawSheet(); else { const o = $('#in'); o.className = 'in'; o.textContent = buf; }
+    // a number with all its digits is handed in without ✓
+    if (buf.length >= String(st.want).length) answer(+buf);
   };
   root.querySelector('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
   $('#hintb').onclick = () => { if (busy || !keyFn) return; slips++; help++; streak = 0; drawCombo(); stars(); tip(explain(steps[k], help > 1)); };
@@ -430,7 +475,7 @@ function board(o) {
   // the figure of the question; lab shows the answer on it
   function drawField() {
     let h = '';
-    if (q.kind === 'lines' || q.kind === 'which') h = linesSvg(q.a, q.b, q.kind === 'which' && !lab);
+    if (q.kind === 'lines' || q.kind === 'which') h = linesSvg(q.a, q.b, q.kind === 'which' && !lab, q.kind === 'lines' && lab);
     else if (q.kind === 'miss') {
       const T = q.a - q.a % 10, U = q.a % 10, cut = (v, miss, h) => `<div class="piece ${miss && !lab ? 'now' : 'done'}" style="--h:${h}"><span>${v} × ${q.b}</span><b>${miss && !lab ? '?' : v * q.b}</b></div>`;
       h = `<div class="rect" style="grid-template-columns:auto 1.3fr 1fr"><span class="side">×</span><span class="side">${T}</span><span class="side">${U}</span><span class="side c0">${q.b}</span>${cut(T, q.tens, PH[1])}${cut(U, !q.tens, PH[0])}</div>`;
@@ -457,8 +502,8 @@ function board(o) {
     drawField(); drawAsk(); drawCtl(); tip(how === 'rapid' ? '' : tipQ(q)); o.chip?.(st);
     if ($('#tip').getBoundingClientRect().top < 0) $('#tip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
   }
-  // the answer is shown on the figure and in the box; a drawing in lines with its numbers already says it all
-  function reveal() { lab = true; if (q.kind !== 'lines') drawField(); drawAsk(); }
+  // the answer is shown on the figure and in the box; a drawing in lines is worked out where it stands, without drawing itself again
+  function reveal() { lab = true; drawField(); field.querySelector('.jp')?.classList.add('still'); drawAsk(); }
 
   async function submit(ans) {
     if (busy || over || !t.on || performance.now() < openAt) return;
@@ -542,7 +587,7 @@ function examen(c) {
   let r;
   $('#game').innerHTML = '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>';
   board({ t, qs, how: 'exam', hue: RING[c], chip: st => { $('#st').textContent = `${st.hits} de ${qs.length}`; },
-    onLast: st => { const got = run(), first = !prog.exams[c]; r = examIn(prog, c, qs, qs.map((_, i) => st.marks[i] === 'ok')); r.news = [...got, ...r.news]; r.first = r.good && first; prog = r.prog; save(); },
+    onLast: st => { const got = run(), first = !passed(prog, c); r = examIn(prog, c, qs, qs.map((_, i) => st.marks[i] === 'ok')); r.news = [...got, ...r.news]; r.first = r.good && first; prog = r.prog; save(); },
     onEnd: () => {
       r.good ? (chime([523, 659, 784, 1047, 1319]), launch(), FX.celebrate(16)) : tone(196, 0, 0.5, 0.12, 'triangle');
       curtain(`<h2>${r.good ? 'Examen superat!' : 'Encara no!'}</h2><p class="score">${r.score} de ${qs.length}</p>
@@ -587,7 +632,7 @@ const CLAIMS = {
 // with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
-  const cs = sheet(Math.random), marks = [];
+  const cs = sheet(Math.random, OPEN || LINES.some(i => starsOf(i).some(Boolean))), marks = [];   // the lines only once they have been played
   $('#game').innerHTML = `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
     <div class="coach" id="coach"><span class="pilot">${ROCKET}</span><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>
     <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`;

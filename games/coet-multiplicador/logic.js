@@ -1,7 +1,7 @@
 // Nine projects of ten levels. A level is one multiplication, a × b, and the way it is worked:
 //   'zeros'   one piece: the product without its zeros, then with them
 //   'pieces'  the rectangle cut by digits: one product per piece, then the pieces added in a column
-//   'lines'   the Japanese way: a group of lines per digit, the crossings counted, then the bands added in a column
+//   'lines'   the Japanese way: a group of lines per digit, the points of each band counted, and each band gives a digit of the result
 //   'guided'  the school algorithm, typing each small product whole; the game writes its last digit and carries the rest
 //   'free'    the school algorithm, one written digit at a time
 const lv = (mode, list) => list.map(([a, b]) => ({ a, b, mode }));
@@ -10,9 +10,9 @@ export const PROJECTS = [
     levels: lv('zeros', [[3, 20], [4, 30], [6, 40], [7, 200], [5, 300], [20, 30], [40, 60], [30, 200], [50, 400], [70, 800]]) },
   { name: 'Trossejar', sub: 'Un número gran, tros a tros',
     levels: lv('pieces', [[23, 3], [42, 4], [56, 7], [123, 3], [214, 6], [342, 5], [406, 7], [538, 6], [764, 8], [987, 9]]) },
-  { name: 'Ratlles japoneses', sub: 'Dibuixa ratlles i compta on es creuen',
+  { name: 'Ratlles japoneses', sub: 'Una altra manera: ratlles, punts i xifres',
     levels: lv('lines', [[12, 3], [23, 2], [31, 3], [12, 13], [21, 14], [31, 12], [23, 13], [22, 14], [24, 13], [14, 23]]) },
-  { name: 'Ratlles i portades', sub: 'Més ratlles, zeros i números de tres xifres',
+  { name: 'Ratlles i portades', sub: "Franges de més de 9 punts: escric i me'n porto",
     levels: lv('lines', [[23, 24], [32, 23], [34, 22], [20, 13], [213, 3], [103, 12], [123, 12], [213, 21], [132, 23], [234, 32]]) },
   { name: 'En columna', sub: "Escric una xifra i me'n porto una altra",
     levels: [...lv('guided', [[32, 3], [27, 3], [48, 6], [123, 3], [236, 4], [458, 7]]), ...lv('free', [[324, 6], [507, 8], [689, 7], [978, 9]])] },
@@ -65,15 +65,17 @@ export function plan({ a, b, mode }) {
     return steps.concat(sumSteps(ps.map(p => p.val)));
   }
   if (mode === 'lines') {
-    // band by band from the units: each crossing is counted, and a band with more than one crossing is added up. solo says the
-    // crossing is the whole of its band; tot is what the band holds
+    // band by band from the units: its points are counted (cross are its crossings, tot its points), and what the band before
+    // carried is added (part 'plus'). A band holds one digit, put: the rest, out, is carried to the next, and the last band is written whole
     const ps = pieces(a, b), T = bands(a, b);
+    let carry = 0;
     T.forEach((tot, p) => {
-      const mine = ps.filter(c => c.ai + c.bi === p);
-      mine.forEach(c => steps.push({ kind: 'val', part: 'cross', want: c.x * c.d, ...c, p, solo: mine.length === 1, tot }));
-      if (mine.length > 1) steps.push({ kind: 'val', part: 'band', want: tot, p, adds: mine.map(c => c.x * c.d) });
+      const v = tot + carry, last = p === T.length - 1, base = { p, tot, carry, v, last, put: last ? v : v % 10, out: last ? 0 : Math.floor(v / 10) };
+      steps.push({ kind: 'val', part: 'band', want: tot, cross: ps.filter(c => c.ai + c.bi === p), ...base });
+      if (carry) steps.push({ kind: 'val', part: 'plus', want: v, ...base });
+      carry = base.out;
     });
-    return steps.concat(sumSteps(T.map((t, p) => t * 10 ** p)));
+    return steps;
   }
   B.forEach((d, bi) => {
     let carry = 0;
@@ -137,13 +139,16 @@ function draw(p, rnd, i, seen) {
 
 /* ---------- the cursus: circles, projects, marks ---------- */
 // Laid out as the cursus of 42 Barcelona, like the other games of the pond: a Piscina to get in, a map of four circles,
-// a mark for each project, an exam for each circle, XP and badges.
+// a mark for each project, an exam for each circle, XP and badges. The lines come last, as an extra for whoever already masters
+// the school algorithm. They used to be the second circle: x is the place of the exam of each circle in what is saved, which keeps that order
 export const CIRCLES = [
-  { name: 'Rampa de llançament', projects: [0, 1] },
-  { name: "L'art de les ratlles", projects: [2, 3] },
-  { name: 'En òrbita', projects: [4, 5] },
-  { name: 'Espai profund', projects: [6, 7, 8] }
+  { name: 'Rampa de llançament', projects: [0, 1], x: 0 },
+  { name: 'En òrbita', projects: [4, 5], x: 2 },
+  { name: 'Espai profund', projects: [6, 7, 8], x: 3 },
+  { name: "Extra: l'art de les ratlles", projects: [2, 3], x: 1, sub: 'Una altra manera de multiplicar, per a qui ja domina la columna.' }
 ];
+export const LINES = [2, 3];   // the projects in lines
+export const passed = (p, c) => p.exams[CIRCLES[c].x] === true;
 export const circleOf = i => CIRCLES.findIndex(c => c.projects.includes(i));
 // the three questions of the Piscina, the first challenges
 export const POOL = [{ kind: 'calc', a: 6, b: 7 }, { kind: 'calc', a: 4, b: 20 }, { kind: 'miss', a: 13, b: 3, tens: false }];
@@ -157,7 +162,8 @@ export const EXAM_PASS = 5;
 // the seconds of a lightning round
 export const RAPID = 60;
 
-// What is saved is facts only: { so, lv[90], piscina, exams[4], fulls, rapid, ratxa }. lv is the best stars of each level, rapid the
+// What is saved is facts only: { so, lv[90], piscina, exams[4], fulls, rapid, ratxa }. lv is the best stars of each level (by project), exams the
+// exam of each circle at its place x, rapid the
 // most right answers in a lightning round and ratxa the longest run of right answers. Marks, XP, level and badges are worked out, never stored.
 const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
 const within = (x, hi) => Math.min(hi, Math.max(0, whole(x)));
@@ -188,7 +194,7 @@ export function xpOf(p) {
 // the level is the XP over 150, with two decimals and a comma: from 0,00 to 9,47
 export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
 // circle 0 opens with the Piscina and the others with the exam before them
-export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && p.exams[c - 1] === true;
+export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && passed(p, c - 1);
 // the exam of a circle opens when the circle is open and all its projects are validated
 export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => noteOf(p, i) >= VALID);
 export const BADGES = [
@@ -203,7 +209,7 @@ export const BADGES = [
   { name: 'Cursus complet', what: 'Supera els quatre exàmens.' }
 ];
 export const badges = p => [p.piscina === true, validated(p).length > 0, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.ratxa >= 20,
-  CIRCLES[1].projects.every(i => noteOf(p, i) >= VALID), p.fulls >= 1, p.fulls >= 10, p.rapid >= 15, p.exams.every(e => e === true)];
+  LINES.every(i => noteOf(p, i) >= VALID), p.fulls >= 1, p.fulls >= 10, p.rapid >= 15, p.exams.every(e => e === true)];
 const earned = (p, next) => { const had = badges(p), now = badges(next); return BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name); };
 
 // A level done, with its slips (a hint is a slip too). Returns { prog, n, note, gain, valid, exam, news }: prog is a NEW progress
@@ -234,7 +240,7 @@ export function exam(c, rnd) {
 // prog is a NEW progress with exams[c] set when the exam passes (EXAM_PASS of 6, the exam open), never taken back; redo the projects of the questions missed
 export function examIn(p, c, qs, run) {
   const score = run.filter(r => r === true).length, good = run.length === 6 && score >= EXAM_PASS && examOpen(p, c), next = copy(p);
-  if (good) next.exams[c] = true;
+  if (good) next.exams[CIRCLES[c].x] = true;
   return { prog: next, good, score, gain: xpOf(next) - xpOf(p), news: earned(p, next),
     redo: [...new Set(qs.flatMap((q, i) => run[i] !== true && Number.isInteger(q?.p) ? [q.p] : []))].sort((a, b) => a - b) };
 }
@@ -282,10 +288,10 @@ const CLAIM = {
   }
 };
 export const KINDS = Object.keys(CLAIM);
-// Three claims of three different kinds; from 0 to 2 of them are wrong (never all three), in any place
-export function sheet(rnd) {
+// Three claims of three different kinds; from 0 to 2 of them are wrong (never all three), in any place. lines false leaves the lines out
+export function sheet(rnd, lines = true) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
-  return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
+  return shuffle(KINDS.filter(k => lines || k !== 'lines'), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
 }
 // The hand-in of a finished sheet: run has one boolean per claim. Returns { prog, good, gain, missed, news }: prog is a NEW progress
 // with fulls + 1 only when all three are right; gain the XP that adds (0 once the cap of 3 per validated project is reached)
