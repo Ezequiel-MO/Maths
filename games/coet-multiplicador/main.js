@@ -236,10 +236,10 @@ function mission(sec, idx, told) {
     if (mode === 'lines') { const ds = bands(a, b).map((_, p) => res[p] ?? '_').reverse(); sheet.innerHTML = `<p>${a} × ${b} = <b>${ds.join(ds.includes('_') ? ' ' : '')}</b></p>`; return; }
     sheet.style.setProperty('--w', W + 1); sheet.innerHTML = sheetHtml(rows, W, { ...cells, ...typed() }, marks);
   }
-  // a small product is typed where it is written: its last digit in its cell and the one before in front of it, or up with the carries
+  // a small product is typed where it is written: its last digit in its cell and, for the last one of a row, the one before in front of it
   function typed() {
     const st = steps[k], o = {};
-    if (st?.part === 'prod') [...buf].reverse().forEach((ch, i) => { o[i ? st.last ? st.row + ':' + (st.col + 1) : 'mc:' + (st.ai + 1) : st.row + ':' + st.col] = ch; });
+    if (st?.part === 'prod') [...buf].reverse().forEach((ch, i) => { o[st.row + ':' + (st.col + i)] = ch; });
     return o;
   }
   function donePiece(st) {
@@ -258,8 +258,10 @@ function mission(sec, idx, told) {
         : k === 0 ? 'Comença per la dreta: quants punts hi ha a la franja de les unitats, la que brilla?'
         : st.cross.length > 1 ? `Ara la franja ${ofP(st.p)}: hi ha ${st.cross.length} grups de punts. Quants punts són, tots junts?` : `Ara la franja ${ofP(st.p)}. Quants punts hi ha?`;
       case 'plus': return `I ara suma-hi ${st.carry} que portaves de la franja ${ofP(st.p - 1)}.`;
-      case 'prod': return (st.ai === 0 && st.bi === 0 ? `Comencem per la dreta: ${st.d} × ${st.x}. Escriu el resultat a la casella que brilla.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
-        + (st.last && st.v > 9 ? " És l'última: s'escriu el número sencer." : '');
+      case 'prod': { const first = st.ai === 0 && st.bi === 0;
+        return (first ? `Comencem per la dreta: ${st.d} × ${st.x}.` : st.carry ? `Ara ${st.d} × ${st.x},${carried(st.carry)}.` : `Ara ${st.d} × ${st.x}.`)
+          + (st.v < 10 ? first ? ' Escriu el resultat a la casella que brilla.' : '' : st.last ? " És l'última: s'escriu el número sencer."
+            : first ? " A la casella que brilla escriu-ne només l'última xifra: la que et portes s'apunta sola a dalt." : " Escriu-ne només l'última xifra."); }
       case 'mul': return st.ai === 0 && st.bi === 0 ? 'Multiplica de dreta a esquerra i escriu només la xifra de la casella que brilla. La que et portes s\'apunta sola a dalt.'
         : st.ai === 0 ? `Ara multiplica per ${art(st.d)}, també de dreta a esquerra.` : 'Segueix cap a l\'esquerra. No t\'oblidis de la que portes!';
       case 'top': return 'I la que portaves, al davant.';
@@ -278,7 +280,8 @@ function mission(sec, idx, told) {
         if (cs.length === 1) return deep ? `${rat(one.x)} per ${rat(one.d)}: ${one.x} × ${one.d} = ${pts(st.want)}.` : `Compta els punts que brillen, o fes ${one.x} × ${one.d}.`;
         return deep ? `${cs.map(c => `${c.x} × ${c.d} = ${c.x * c.d}`).join(' i ')}. Tots junts: ${cs.map(c => c.x * c.d).join(' + ')} = ${pts(st.want)}.` : `Compta cada grup de punts que brilla i suma'ls: ${cs.map(c => `${c.x} × ${c.d}`).join(' + ')}.`; }
       case 'plus': return deep ? `${st.tot} + ${st.carry} = ${st.v}.` : `${pts(st.tot)} més ${st.carry} que portaves.`;
-      case 'prod': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}.` : `Pensa-hi bé: ${mul}${st.carry ? carried(st.carry) : ''}.`;
+      case 'prod': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}.${st.out ? ` S'escriu el ${st.v % 10} i te'n portes ${st.out}.` : ''}`
+        : `Pensa-hi bé: ${mul}${st.carry ? carried(st.carry) : ''}.${st.out ? " Escriu-ne només l'última xifra." : ''}`;
       case 'mul': return deep ? `${mul} = ${st.x * st.d}${st.carry ? `,${carried(st.carry)} fan ${st.v}` : ''}. S'escriu el ${st.v % 10}${st.v > 9 ? ` i te'n portes ${Math.floor(st.v / 10)}` : ''}.` : `En aquesta casella: ${mul}${st.carry ? carried(st.carry) : ''}. Escriu-ne només l'última xifra.`;
       case 'top': return `${mul}${st.carry ? carried(st.carry) : ''} fan ${st.v}. El ${st.want} que et portes va al davant.`;
       default: { const sum = st.adds.join(' + ') + (st.carry ? ` + ${st.carry} que portaves` : ''); return deep ? `${sum} = ${st.v}. S'escriu el ${st.want}${st.out ? ` i te'n portes ${st.out}` : ''}.` : `Suma la columna que brilla: ${sum}.`; }

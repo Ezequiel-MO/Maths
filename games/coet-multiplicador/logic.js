@@ -2,7 +2,7 @@
 //   'zeros'   one piece: the product without its zeros, then with them
 //   'pieces'  the rectangle cut by digits: one product per piece, then the pieces added in a column
 //   'lines'   the Japanese way: a group of lines per digit, the points of each band counted, and each band gives a digit of the result
-//   'guided'  the school algorithm, typing each small product whole; the game writes its last digit and carries the rest
+//   'guided'  the school algorithm, typing the last digit of each small product; the game carries the rest, and the last product of a row is typed whole
 //   'free'    the school algorithm, one written digit at a time
 const lv = (mode, list) => list.map(([a, b]) => ({ a, b, mode }));
 export const PROJECTS = [
@@ -82,7 +82,7 @@ export function plan({ a, b, mode }) {
     for (let col = 0; col < bi; col++) steps.push({ kind: 'digit', part: 'zero', row: 'r' + bi, col, want: 0, d, bi });
     A.forEach((x, ai) => {
       const v = x * d + carry, last = ai === A.length - 1, base = { row: 'r' + bi, col: ai + bi, x, d, ai, bi, carry, v, last, out: last ? 0 : Math.floor(v / 10) };
-      if (mode === 'guided') steps.push({ kind: 'val', part: 'prod', want: v, ...base });
+      if (mode === 'guided') steps.push({ kind: 'val', part: 'prod', want: last ? v : v % 10, ...base });
       else {
         steps.push({ kind: 'digit', part: 'mul', want: v % 10, ...base });
         if (last && v > 9) steps.push({ kind: 'digit', part: 'top', want: Math.floor(v / 10), ...base, col: ai + bi + 1 });
