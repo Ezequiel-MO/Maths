@@ -358,6 +358,39 @@ export function trace(lv, code, max = 300) {
   }
   return { steps, end: 'fuel' };
 }
+// the reference flight, tile by tile, with the stars picked up by then; turns is how many turns it takes
+export function routeOf(lv) {
+  const route = [{ x: lv.start[0], y: lv.start[1], got: 0 }];
+  let turns = 0;
+  for (const st of trace(lv, lv.ref).steps) {
+    if (st.turn) turns++;
+    else if (!st.skip && lv.ref[st.f][st.i].op === 'f') route.push({ x: st.x, y: st.y, got: route[route.length - 1].got + (st.star ? 1 : 0) });
+  }
+  return Object.assign(route, { turns });
+}
+// Where a program goes wrong, read against the reference route. Returns the trace plus:
+//   kind   'win'; 'fall' or 'off' (an advance that leaves the route, into the water or onto another tile); 'end' (out of orders
+//          while still on the route) or 'fuel' (never stops, and no longer advances)
+//   k      the step at fault for 'fall' and 'off'; for 'fuel' the steps up to its last advance; else the number of steps
+//   j      how far along the route the rocket got; x, y, d its place and direction there (before the step at fault)
+//   want   the direction of the next tile of the route, d0 the direction it had on arriving at this tile
+//   turns, skipped   the steps since it arrived at this tile that turned it, and the ones skipped for their colour
+export function diagnose(lv, code, max = 150) {
+  const r = trace(lv, code, max), route = routeOf(lv);
+  let [x, y, d] = lv.start, j = 0, d0 = d, turns = [], skipped = [], last = 0;
+  const out = (kind, k) => { const n = route[j + 1], want = n ? DX.findIndex((dx, q) => x + dx === n.x && y + DY[q] === n.y) : -1; return { ...r, kind, k, j, x, y, d, d0, want, turns, skipped, route }; };
+  if (r.end === 'win') return out('win', r.steps.length);
+  for (let k = 0; k < r.steps.length; k++) {
+    const st = r.steps[k];
+    if (st.skip) { skipped.push(k); continue; }
+    if (code[st.f][st.i].op === 'f') {
+      const n = route[j + 1];
+      if (!n || n.x !== st.x || n.y !== st.y) return out(k === r.steps.length - 1 && r.end === 'fall' ? 'fall' : 'off', k);
+      j++; x = st.x; y = st.y; d0 = d; turns = []; skipped = []; last = k + 1;
+    } else if (st.turn) { d = st.d; turns.push(k); }
+  }
+  return out(r.end, r.end === 'fuel' ? last : r.steps.length);
+}
 
 /* ---------- the rocket game as a cursus: circles, projects, marks ---------- */
 // Laid out as the cursus of 42 Barcelona, like the other games of the pond: a Piscina to get in, a map of four circles,

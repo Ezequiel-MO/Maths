@@ -108,6 +108,10 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
 .prog .btn { min-height: 44px; font-size: 1.15rem; padding: 0.35em 1em; }
 .prog .row .btn { flex: 1 1 auto; padding-inline: 0.5em; font-size: 1.05rem; white-space: nowrap; }
 .prog .row { order: 1; position: sticky; bottom: 0; z-index: 2; flex-wrap: nowrap; margin: 0 -12px -12px; padding: 10px 12px 12px; border-top: 1px solid var(--edge); border-radius: 0 0 24px 24px; background: #0A2633; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper button { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; font: 800 1.1rem/1 var(--display); }
+.stepper button:disabled { opacity: 0.35; }
+.stepper span { flex: 1; text-align: center; font-weight: 800; font-size: 0.95rem; color: var(--muted); }
 .stackline { min-height: 1.7em; font-weight: 700; font-size: 0.95rem; color: var(--muted); }
 .stackline b { display: inline-block; margin: 0 2px; padding: 0 8px; border-radius: 8px; background: #2A4B5C; color: var(--sun); font-family: var(--display); }
 /* hints: lights run along the tiles to visit next, and the slot to look at pulses */

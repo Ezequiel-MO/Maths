@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { GRIDS, LIVES, makeSeq, begin, step, hueOf, pitchOf, PROJECTS, LEVELS, DX, DY, readMap, trace, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID,
+import { GRIDS, LIVES, makeSeq, begin, step, hueOf, pitchOf, PROJECTS, LEVELS, readMap, routeOf, diagnose, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID,
   starsFor, clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn,
   exam, examIn, sprint, sheet, sheetIn, wantQ, slotOf, turned } from './logic.js';
 
@@ -291,12 +291,15 @@ function coet(sec, idx) {
   const t = fresh(); pickFn = null; show('coet', `Cercle ${circleOf(sec)} · ${PROJECTS[sec].name}`, true); FX.mood(HUES[sec]); back = mapa; $('#toM').textContent = '← Mapa'; here = sec;
   const root = $('#coet'), lv = LEVELS[sec * 10 + idx], g = readMap(lv.map), size = Math.max(g.w, g.h), ox = Math.floor((size - g.w) / 2);
   const code = lv.slots.map(k => Array(k).fill(null));
-  // the reference route, tile by tile, with the stars picked up by then: a hint lights up what comes next
-  const route = [{ x: lv.start[0], y: lv.start[1], got: 0 }];
-  for (const st of trace(lv, lv.ref).steps) if (!st.skip && lv.ref[st.f][st.i].op === 'f') route.push({ x: st.x, y: st.y, got: route[route.length - 1].got + (st.star ? 1 : 0) });
+  // the reference route, tile by tile: a hint lights up what comes next
+  const route = routeOf(lv), total = lv.slots.reduce((s, n) => s + n, 0);
   let sel = [0, 0], brush = '', job = null, ang = 0, at = [0, 0], got = 0, geo = { x: 0, y: 0, pitch: 0 };
-  // hint state: how many were asked, the slot being pointed at, the order given away after asking three times at the same spot
-  let asks = 0, slow = false, mark = null, reveal = null, stuck = ['', 0];
+  // set while the board shows the program part of the way through (after a flight that failed, a hint or a walk step by step):
+  // dg is the diagnosis of the program as it is written and k how many of its steps are done. Any change to the program clears it
+  let dbg = null;
+  // hint state: how many were asked, the slot being pointed at, the order given away, the fault the last hint was about with how
+  // many times it was asked, and whether an order was given away already
+  let asks = 0, slow = false, mark = null, reveal = null, rung = ['', 0], gave = false;
   // launches that did not get every star, plus hints asked: they set what the level is worth
   let slips = 0;
   const worth = () => { $('#cpts').textContent = `${POINTS[starsFor(slips)]} punts`; };
@@ -305,6 +308,7 @@ function coet(sec, idx) {
     <p class="status tip" id="ctip" role="status" aria-live="polite"></p>
     <div class="split" id="split"><div class="stage" id="cstage"><div class="board" id="cboard" style="--n:${size};--gh:${g.h}"></div></div>
     <div class="prog" id="prog"><div id="fns"></div>
+      <div class="stepper"><button id="sb" aria-label="Un pas enrere">◀</button><span id="sn"></span><button id="sf" aria-label="Un pas endavant">▶</button></div>
       <div><p class="label">Ordres</p><div class="pal" id="pal">${[...lv.cmds].map(op => `<button class="cmd" data-op="${op}" aria-label="${OPS[op][1]}">${OPS[op][0]}</button>`).join('')}<button class="cmd" data-op="x" aria-label="Buida la casella">✕</button></div></div>
       ${lv.conds ? `<div><p class="label">Fes-la només si el coet és damunt de…</p><div class="brush">${['', ...lv.conds].map(c => `<button data-c="${c}" class="${c ? 'c' + c : ''}"><i></i>${c ? CNAME[c] : 'sempre'}</button>`).join('')}</div></div>` : ''}
       <div class="row"><button class="btn" id="runb">▶ Engega</button><button class="btn soft" id="clr">Esborra</button><button class="btn soft" id="hintb">Pista</button></div>
@@ -340,13 +344,20 @@ function coet(sec, idx) {
     root.querySelectorAll('.cmd').forEach(b => { b.className = 'cmd' + (brush && b.dataset.op !== 'x' ? ' c' + brush : '') + (reveal && reveal.op === b.dataset.op ? ' glow' : ''); });
     root.querySelectorAll('.brush button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.c === brush); b.classList.toggle('glow', !!reveal && (reveal.c || '') === b.dataset.c); });
   }
-  function stop() { if (job) job.on = false; job = null; runb.textContent = '▶ Engega'; setup(); drawCode(); }
+  // the stepper under the program: which step the board shows
+  function bar() {
+    const k = dbg ? dbg.k : 0, n = dbg ? dbg.dg.steps.length : 1;
+    $('#sn').textContent = k ? `Pas ${k}${dbg.dg.end === 'fuel' ? '' : ' de ' + n}` : 'Pas a pas';
+    $('#sb').disabled = !k; $('#sf').disabled = k >= n;
+  }
+  function stop() { if (job) job.on = false; job = null; dbg = null; runb.textContent = '▶ Engega'; setup(); drawCode(); bar(); }
   const launch = () => { const me = job = { on: true }; runb.textContent = '■ Atura'; return me; };
   function sink() {
     const p = mid(rk()); FX.burst(p.x, p.y, 200, 24, 150); FX.ring(p.x, p.y, 200, 6, p.w);
     put(at[0], at[1], ' scale(0.1)'); rk().style.opacity = 0; tone(150, 0, 0.45, 0.16, 'triangle');
   }
 
+  const stackOf = st => 'Funcions en marxa: ' + st.stack.slice(0, 9).map(f => `<b>F${f + 1}</b>`).join('▸') + (st.stack.length > 9 ? '…' : '');
   // plays the steps of a trace on the board; false if the run was stopped on the way
   async function fly(steps, me, pace) {
     let k = 0;
@@ -354,7 +365,7 @@ function coet(sec, idx) {
       const el = root.querySelector(`.slot[data-f="${st.f}"][data-i="${st.i}"]`), op = code[st.f][st.i].op;
       el.classList.add(st.skip ? 'skip' : 'run');
       if (!st.skip) {
-        $('#stk').innerHTML = 'Funcions en marxa: ' + st.stack.slice(0, 9).map(f => `<b>F${f + 1}</b>`).join('▸') + (st.stack.length > 9 ? '…' : '');
+        $('#stk').innerHTML = stackOf(st);
         if (op === 'f') { const p = mid(rk()); FX.burst(p.x, p.y, 38, 8, 70, 0); put(st.x, st.y); tone(330, 0, 0.12, 0.06); }
         else if (st.turn) { ang += 90 * st.turn; put(st.x, st.y); tone(440, 0, 0.1, 0.05); }
         else tone(660, 0, 0.12, 0.06);
@@ -370,15 +381,110 @@ function coet(sec, idx) {
     return true;
   }
 
+  /* ----- debugging: what the program did, said in words ----- */
+  const tileName = (x, y) => CNAME[g.cells.get(x + ',' + y)];
+  const where = st => `F${st.f + 1}, casella ${st.i + 1}`;
+  // the board as the program leaves it after k of its steps, with no flight
+  function pose(dg, k) {
+    setup();
+    let n = 0, [x, y, d] = lv.start;
+    dg.steps.slice(0, k).forEach(st => {
+      if (st.star) { cb.querySelector(`[data-k="${st.star}"]`).classList.remove('star'); n++; }
+      if (g.cells.has(st.x + ',' + st.y)) [x, y, d] = [st.x, st.y, st.d];
+    });
+    count(n); ang = d * 90; still(() => put(x, y));
+    if (k) $('#stk').innerHTML = stackOf(dg.steps[k - 1]);
+  }
+  // lights run along the tiles of the route after its place j: as far as the next star, or all of them
+  function lights(j, all) {
+    let next = route.slice(j + 1);
+    if (!all) { const star = next.findIndex(c => c.got > route[j].got); next = next.slice(0, star < 0 ? next.length : star + 1).slice(0, 8); }
+    next.forEach((c, n) => { const e = cb.querySelector(`[data-k="${c.x},${c.y}"]`); e.classList.add('trail'); e.style.setProperty('--d', n * 220); });
+  }
+  // one step of the program in words: which order it was and what the rocket did with it
+  function tell(dg, k) {
+    const st = dg.steps[k - 1], s = code[st.f][st.i], p = dg.steps[k - 2], [x, y] = p ? [p.x, p.y] : lv.start;
+    const head = `${where(st)}, «${OPS[s.op][0]}»${s.c ? ' només al ' + CNAME[s.c] : ''}: `;
+    if (st.skip) return head + `el coet és al ${tileName(x, y)} i aquesta ordre se salta.`;
+    if (s.op === 'f') return head + (g.cells.has(st.x + ',' + st.y) ? `el coet avança una casella${st.star ? ' i agafa una estrella' : ''}.` : 'davant del coet no hi ha camí. Xof!');
+    if (st.turn) return head + `el coet gira cap a la seva ${st.turn < 0 ? 'esquerra' : 'dreta'} i ara mira ${DIR[st.d]}.`;
+    return head + (+s.op - 1 === st.f ? `F${s.op} torna a començar.` : `ara es fan les ordres de F${s.op}.`)
+      + (code[st.f].slice(st.i + 1).some(Boolean) ? ' Les ordres que té al darrere queden guardades per a després.' : '');
+  }
+  // one step on or back through the program as it is written; the first step of a walk reads the program. It costs nothing
+  function walk(by) {
+    const dg = dbg ? dbg.dg : diagnose(lv, code), k = (dbg ? dbg.k : 0) + by;
+    if (!dg.steps.length) return tip('Posa alguna ordre a F1 i després mira-la pas a pas.', 'oops');
+    if (k < 0 || k > dg.steps.length) return;
+    const st = dg.steps[k - 1], last = k === dg.steps.length;
+    if (by < 0) pose(dg, k);
+    else {
+      if (!dbg) pose(dg, 0);
+      cb.querySelectorAll('.trail').forEach(e => e.classList.remove('trail'));
+      const s = code[st.f][st.i];
+      if (st.skip) tone(392, 0, 0.08, 0.04);
+      else if (st.turn) { ang += 90 * st.turn; put(at[0], at[1]); tone(440, 0, 0.1, 0.05); }
+      else if (s.op !== 'f') tone(660, 0, 0.12, 0.06);
+      else if (g.cells.has(st.x + ',' + st.y)) { put(st.x, st.y); tone(330, 0, 0.12, 0.06); }
+      else sink();
+      if (st.star) { cb.querySelector(`[data-k="${st.star}"]`).classList.remove('star'); count(got + 1); tone(1047, 0, 0.3, 0.1); }
+      $('#stk').innerHTML = stackOf(st);
+    }
+    dbg = { dg, k }; mark = st ? { f: st.f, i: st.i, kind: st.skip ? 'skip' : 'run' } : null; reveal = null;
+    drawCode(); bar();
+    if (!k) return tip(lv.tip);
+    const off = k - 1 === dg.k && (dg.kind === 'off' || dg.kind === 'fall'), won = last && dg.end === 'win';
+    tip(tell(dg, k) + (off && dg.kind === 'off' ? ' Aquí el coet surt del camí.' : '')
+      + (won ? ' Totes les estrelles! Aquest programa funciona: prem Engega.' : last && dg.end === 'end' ? " I aquí s'acaben les ordres." : last && dg.end === 'fuel' ? " I així sense parar: el programa no s'acaba mai." : ''),
+      off ? 'oops' : won ? 'go' : '');
+  }
+  // what went wrong, as it was seen on the board
+  function what(dg) {
+    const left = g.stars.size - route[dg.j].got;
+    switch (dg.kind) {
+      case 'fall': return `Xof! El coet mirava ${DIR[dg.d]} i ha fet «↑» (${where(dg.steps[dg.k])}): davant no hi havia camí.`;
+      case 'off': return `Aquí el coet surt del camí: mirava ${DIR[dg.d]} i ha fet «↑» (${where(dg.steps[dg.k])}), però les estrelles són cap a un altre costat.`;
+      case 'end': return `S'han acabat les ordres i el coet s'ha quedat aquí, mirant ${DIR[dg.d]}. ${left === 1 ? 'Encara queda 1 estrella' : `Encara queden ${left} estrelles`}.`;
+      default: return "El programa no s'acaba mai i el coet ja no avança pel camí: s'ha quedat sense combustible.";
+    }
+  }
+  // why it went wrong: what the rocket needed at that tile and what the program gave it
+  function why(dg) {
+    const empty = code.flat().filter(s => !s).length;
+    if (dg.kind === 'end') return empty ? `${empty === 1 ? 'Encara tens 1 casella buida' : `Encara tens ${empty} caselles buides`}. Mira cap on mira el coet i segueix el camí de llums: quina ordre ve ara?`
+      : /[123]/.test(lv.cmds) ? 'Totes les caselles són plenes i encara falta camí: no pots escriure cada pas. Busca el tros del camí que es repeteix, escriu-lo un sol cop i fes que torni a començar.'
+      : 'Totes les caselles són plenes i encara falta camí: hi ha alguna ordre que sobra. Ves enrere amb ◀ i busca una ordre que no ajudi el coet a seguir el camí.';
+    if (dg.kind === 'fuel') return 'Mira amb ▶ el tros que es repeteix, ordre per ordre: cap de les seves ordres fa avançar el coet pel camí. Hi falta un «↑», o bé el «↑» només es fa en un color on el coet no és.';
+    const rel = (dg.want - dg.d + 4) % 4, col = tileName(dg.x, dg.y);
+    if (!dg.turns.length) {
+      const sk = dg.skipped.map(k => dg.steps[k]).find(st => 'LR'.includes(code[st.f][st.i].op));
+      if (sk) return `El programa té un gir (${where(sk)}), però s'ha saltat: és només per al ${CNAME[code[sk.f][sk.i].c]} i aquí el coet és al ${col}. De quin color és la casella on cal girar?`;
+      return rel === 2 ? "Les estrelles són darrere del coet, i el coet no sap anar enrere. Abans d'aquest «↑» cal fer mitja volta: dos girs seguits."
+        : `Aquí el camí gira cap a ${rel === 1 ? 'la dreta' : "l'esquerra"} del coet, i el coet ha avançat sense girar. Abans d'aquest «↑» hi falta un gir, o bé hi ha un «↑» de més.`;
+    }
+    if (dg.d0 === dg.want) return `Aquí el camí segueix recte, ${DIR[dg.want]}, però el coet ha girat i ha quedat mirant ${DIR[dg.d]}. En aquesta casella${lv.conds ? `, que és de color ${col},` : ''} el gir sobra.`;
+    return `El coet ha girat, però ha quedat mirant ${DIR[dg.d]} i el camí va ${DIR[dg.want]}. `
+      + (dg.turns.length === 1 && rel === 2 ? "El gir és cap a l'altre costat: posa't al lloc del coet i mira cap on mira ell." : 'Compta els girs que fa el coet en aquesta casella.');
+  }
+  // The board at the fault of a program that does not win: the rocket where it went wrong, the way on in lights and the order to
+  // look at marked (the last turn before an advance that leaves the route, or that advance). tgt marks another slot instead
+  function fault(dg, txt, tgt) {
+    const bad = dg.kind === 'fall' || dg.kind === 'off', st = bad ? dg.steps[dg.turns.length ? dg.turns[dg.turns.length - 1] : dg.k] : null;
+    dbg = { dg, k: dg.k }; pose(dg, dg.k); lights(dg.j);
+    mark = tgt ? { f: tgt[0], i: tgt[1], kind: code[tgt[0]][tgt[1]] ? 'think' : 'next' } : st ? { f: st.f, i: st.i, kind: 'think' } : null;
+    if (mark) sel = [mark.f, mark.i];
+    drawCode(); bar(); tip(txt, 'oops'); look();
+  }
+
   async function go() {
-    const r = trace(lv, code, 150);
-    if (!r.steps.length) return tip('Posa alguna ordre a F1 i torna a prémer Engega.', 'oops');
-    mark = reveal = null; setup(); drawCode(); root.querySelector('.slot.sel')?.classList.remove('sel');
+    const dg = diagnose(lv, code);
+    if (!dg.steps.length) return tip('Posa alguna ordre a F1 i torna a prémer Engega.', 'oops');
+    mark = reveal = dbg = null; setup(); drawCode(); bar(); root.querySelector('.slot.sel')?.classList.remove('sel');
     const me = launch(), alive = () => me.on && t.on;
     tip(lv.tip); look(); tone(523, 0, 0.15);
-    // after asking for a hint the rocket flies slower, so each order can be followed
-    if (!await fly(r.steps, me, slow ? 700 : STEP)) return;
-    if (r.end === 'win') {
+    // after asking for a hint the rocket flies slower, so each order can be followed; a program that never stops is cut short
+    if (!await fly(dg.end === 'fuel' ? dg.steps.slice(0, 40) : dg.steps, me, slow ? 700 : STEP)) return;
+    if (dg.end === 'win') {
       runb.disabled = true; ang += 360; put(at[0], at[1]);
       // the level is handed in as the last star is picked up: its stars go to the mark of the project, and the mark to the XP once the project is validated
       streak = slips ? 0 : streak + 1; top = Math.max(top, streak);
@@ -397,54 +503,50 @@ function coet(sec, idx) {
       return;
     }
     slips++; streak = 0; worth();
-    if (r.end === 'fall') sink(); else buzz();
-    tip({ fall: "Xof! El coet ha caigut a l'aigua. Canvia les ordres i torna-hi.", end: "S'han acabat les ordres i encara queden estrelles.", fuel: "El coet s'ha quedat sense combustible: fa voltes sense arribar enlloc." }[r.end] + ' Si no saps com seguir, prem Pista.', 'oops');
-    await sleep(1500); if (!alive()) return;
-    stop();
+    if (dg.end === 'fall') sink(); else buzz();
+    await sleep(900); if (!alive()) return;
+    // the flight is not wiped: the rocket goes back to where it went wrong, to be looked at
+    job = null; runb.textContent = '▶ Engega';
+    fault(dg, what(dg) + ' Mira-ho ordre per ordre amb ◀ i ▶, o prem Pista.');
   }
 
-  // shortest way over the tiles from the rocket to a star still on the board, for a rocket that left the reference route
-  function wayToStar() {
-    const seen = new Map([[at.join(','), null]]), queue = [at.join(',')];
-    while (queue.length) {
-      const k = queue.shift(), [x, y] = k.split(',').map(Number);
-      if (k !== at.join(',') && cb.querySelector(`[data-k="${k}"]`).classList.contains('star')) { const out = []; for (let c = k; seen.get(c) !== null; c = seen.get(c)) out.unshift(c); return out; }
-      for (let d = 0; d < 4; d++) { const n = (x + DX[d]) + ',' + (y + DY[d]); if (g.cells.has(n) && !seen.has(n)) { seen.set(n, k); queue.push(n); } }
-    }
-    return [];
-  }
-  // A hint replays, slowly, what is written so far and leaves the rocket where the program leaves it. Then lights run along
-  // the tiles to visit next, and the first slot that is empty or differs from the reference program is marked.
+  // A hint goes up one rung each time it is asked about the same fault. With nothing written it is about reading the level: be the
+  // rocket along the lit route, count the orders against the slots, then what the level is about. With a program that does not win
+  // it is about the fault: the flight replayed slowly up to it and why it happens there, then what the level is about. The last rung
+  // gives away one order: the first slot that differs from the reference program
   async function coach() {
     slow = true;
-    const hint = lv.hints[asks++ % lv.hints.length], r = trace(lv, code, 150);
-    if (r.end === 'win') return tip('Aquest programa ja funciona! Prem Engega i mira com vola.', 'go');
+    const dg = diagnose(lv, code);
+    if (dg.kind === 'win') return tip('Aquest programa ja funciona! Prem Engega i mira com vola.', 'go');
     slips++; streak = 0; worth();
+    const none = !dg.steps.length, bad = dg.kind === 'fall' || dg.kind === 'off', key = none ? 'none' : [dg.kind, dg.j, bad ? where(dg.steps[dg.k]) : ''].join();
+    rung = [key, rung[0] === key ? rung[1] + 1 : 1];
+    const n = rung[1], give = n >= (gave ? 2 : none ? 4 : 3), seen = !!dbg;
     let tgt = [0, 0];
     lv.ref.some((fn, f) => fn.some((b, i) => { const a = code[f][i]; return (!a || a.op !== b.op || (a.c || null) !== b.c) && (tgt = [f, i]); }));
-    const filled = !!code[tgt[0]][tgt[1]], key = tgt + '|' + filled, steps = r.steps.slice(0, 40), fell = r.end === 'fall';
-    stuck = [key, stuck[0] === key ? stuck[1] + 1 : 1];
-    mark = reveal = null; setup(); drawCode(); root.querySelector('.slot.sel')?.classList.remove('sel');
-    if (steps.length) {
-      const me = launch(); tip('Mirem què fa el teu programa…'); look();
+    const given = () => { gave = true; reveal = lv.ref[tgt[0]][tgt[1]]; return "Una manera de fer-ho: l'ordre que brilla a baix és la que va a la casella marcada."; };
+    mark = reveal = null; root.querySelector('.slot.sel')?.classList.remove('sel');
+    if (none) {
+      const moves = route.length - 1, need = moves + route.turns;
+      dbg = null; setup(); lights(0, true);
+      const txt = give ? given()
+        : n === 1 ? "Abans d'escriure res, fes de coet: segueix el camí de llums amb el dit, des del coet fins a l'última estrella, i digues cada pas en veu alta: «endavant», «gira»…"
+        : n === 2 ? `Escrit pas per pas, el camí demana ${need} ordres: ${moves} «↑»${route.turns ? ` i ${route.turns === 1 ? '1 gir' : route.turns + ' girs'}` : ''}. Tens ${total} caselles. `
+          + (need > total ? 'No hi caben! Busca el tros del camí que es repeteix. ' : /[123]/.test(lv.cmds) ? '' : 'Hi caben: escriu-les en el mateix ordre que les has dit. ') + lv.hints[0]
+        : lv.hints[lv.hints.length - 1] + ' Si encara no ho veus, torna a prémer Pista i et diré la primera ordre.';
+      if (give) { mark = { f: tgt[0], i: tgt[1], kind: 'next' }; sel = tgt; }
+      drawCode(); bar(); look(); return tip(txt);
+    }
+    // the program was changed since the board last showed its fault: fly it again, slowly, as far as the fault
+    if (!seen) {
+      const steps = dg.steps.slice(0, Math.min(40, bad ? dg.k + 1 : dg.steps.length)), me = launch();
+      dbg = null; setup(); drawCode(); bar(); tip('Mirem què fa el teu programa…'); look();
       if (!await fly(steps, me, 700)) return;
-      if (fell) {
-        // show the splash, then put the rocket back on the last tile it stood on
-        const prev = steps[steps.length - 2];
-        sink(); await sleep(900); if (!me.on || !t.on) return;
-        rk().style.opacity = ''; put(prev ? prev.x : lv.start[0], prev ? prev.y : lv.start[1]);
-      }
+      if (dg.kind === 'fall' && steps.length > dg.k) { sink(); await sleep(900); if (!me.on || !t.on) return; }
       job = null; runb.textContent = '▶ Engega';
     }
-    const j = route.findIndex(c => c.x === at[0] && c.y === at[1] && c.got === got);
-    let next = j < 0 ? wayToStar() : route.slice(j + 1).map(c => c.x + ',' + c.y);
-    if (j >= 0) { const star = route.slice(j + 1).findIndex(c => c.got > got); next = next.slice(0, star < 0 ? next.length : star + 1); }
-    next.slice(0, 8).forEach((k, n) => { const c = cb.querySelector(`[data-k="${k}"]`); c.classList.add('trail'); c.style.setProperty('--d', n * 220); });
-    mark = { f: tgt[0], i: tgt[1], kind: filled ? 'think' : 'next' }; sel = tgt;
-    if (stuck[1] >= 3) reveal = lv.ref[tgt[0]][tgt[1]];
-    drawCode(); look();
-    tip((fell ? 'Xof! Aquí el coet cau. ' : r.end === 'fuel' ? 'El coet fa voltes sense arribar enlloc. ' : steps.length ? 'Fins aquí arriba el teu programa. ' : '')
-      + (reveal ? "L'ordre que brilla a baix és la que va a la casella marcada. " : filled ? 'Repassa la casella marcada amb «?» i segueix el camí de llums. ' : 'Segueix el camí de llums i continua a la casella que brilla. ') + hint);
+    if (give) { const txt = given(); return fault(dg, txt, tgt); }
+    fault(dg, n === 1 ? (seen ? '' : what(dg) + ' ') + why(dg) : 'Pensa-hi així: ' + lv.hints[asks++ % lv.hints.length] + ' Si encara no surt, torna a prémer Pista.');
   }
 
   $('#prog').onclick = e => {
@@ -452,6 +554,7 @@ function coet(sec, idx) {
     if (b === runb) return job ? stop() : go();
     if (job) return;
     if (b.id === 'hintb') return coach();
+    if (b.id === 'sb' || b.id === 'sf') return walk(b.id === 'sf' ? 1 : -1);
     if (b.classList.contains('slot')) sel = [+b.dataset.f, +b.dataset.i];
     else if ('c' in b.dataset) brush = b.dataset.c;
     else if (b.dataset.op === 'x') code[sel[0]][sel[1]] = null;
@@ -460,11 +563,12 @@ function coet(sec, idx) {
       if (sel[1] + 1 < code[sel[0]].length) sel = [sel[0], sel[1] + 1];
     }
     else if (b.id === 'clr') { code.forEach(fn => fn.fill(null)); sel = [0, 0]; }
-    // any change to the program clears the hint marks; the lights on the board stay until the next flight
+    // any change to the program clears the hint marks and ends a walk step by step; the board and its lights stay until the next flight
     if (!('c' in b.dataset)) mark = reveal = null;
-    drawCode();
+    if (b.dataset.op || b.id === 'clr') dbg = null;
+    drawCode(); bar();
   };
-  tip(lv.tip); setup(); drawCode(); worth();
+  tip(lv.tip); setup(); drawCode(); bar(); worth();
 }
 
 /* ---------- the board: a run of quick questions, one at a time. The Piscina, an exam and a lightning round all play on it ---------- */
