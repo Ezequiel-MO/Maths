@@ -3,7 +3,7 @@ import { voice } from '../../shared/audio.js';
 import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
-import { GRIDS, LIVES, makeSeq, begin, step, hueOf, pitchOf, PROJECTS, LEVELS, readMap, routeOf, diagnose, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID,
+import { GRIDS, LIVES, makeSeq, begin, step, hueOf, pitchOf, PROJECTS, LEVELS, readMap, routeOf, piecesOf, diagnose, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID,
   starsFor, clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn,
   exam, examIn, sprint, sheet, sheetIn, wantQ, slotOf, turned } from './logic.js';
 
@@ -293,6 +293,8 @@ function coet(sec, idx) {
   const code = lv.slots.map(k => Array(k).fill(null));
   // the reference route, tile by tile: a hint lights up what comes next
   const route = routeOf(lv), total = lv.slots.reduce((s, n) => s + n, 0);
+  // the same route cut into the pieces each function flies: a hint paints them on the board
+  const pieces = piecesOf(lv);
   let sel = [0, 0], brush = '', job = null, ang = 0, at = [0, 0], got = 0, geo = { x: 0, y: 0, pitch: 0 };
   // set while the board shows the program part of the way through (after a flight that failed, a hint or a walk step by step):
   // dg is the diagnosis of the program as it is written and k how many of its steps are done. Any change to the program clears it
@@ -328,7 +330,7 @@ function coet(sec, idx) {
     cb.style.setProperty('--cs', pitch - gap + 'px');
     // the stylesheet centres the rows: read where the map landed from one of its tiles
     const c = cb.querySelector('.cell'), [x, y] = c.dataset.k.split(',').map(Number);
-    geo = { x: c.offsetLeft - x * pitch, y: c.offsetTop - y * pitch, pitch };
+    geo = { x: c.offsetLeft - x * pitch, y: c.offsetTop - y * pitch, pitch, cs: pitch - gap };
   }
   const still = fn => { rk().style.transition = 'none'; fn(); void rk().offsetWidth; rk().style.transition = ''; };
   const count = k => { got = k; $('#cstars').textContent = `★ ${k} de ${g.stars.size}`; };
@@ -337,7 +339,7 @@ function coet(sec, idx) {
     cb.innerHTML = [...g.cells].map(([k, c]) => { const [x, y] = k.split(',').map(Number); return `<div class="cell c${c}${g.stars.has(k) ? ' star' : ''}" data-k="${k}" style="grid-column:${x + ox + 1};grid-row:${y + 1}"></div>`; }).join('') + `<div class="rocket">${ROCKET}</div>`;
     measure(); ang = lv.start[2] * 90; still(() => put(lv.start[0], lv.start[1])); count(0); $('#stk').textContent = '';
   }
-  replace = () => { measure(); still(() => put(at[0], at[1])); };
+  replace = () => { const plan = cb.querySelector('.plan'); measure(); still(() => put(at[0], at[1])); if (plan) paint(); };
   function drawCode() {
     $('#fns').innerHTML = code.map((fn, f) => `<div class="fn"><span class="fname">F${f + 1}</span><div class="slots">${fn.map((s, i) =>
       `<button class="slot${s ? ' full' : ''}${s && s.c ? ' c' + s.c : ''}${sel[0] === f && sel[1] === i ? ' sel' : ''}${mark && mark.f === f && mark.i === i ? ' ' + mark.kind : ''}" data-f="${f}" data-i="${i}" aria-label="F${f + 1}, casella ${i + 1}: ${s ? OPS[s.op][1] + (s.c ? ', només al ' + CNAME[s.c] : '') : 'buida'}">${s ? OPS[s.op][0] : ''}</button>`).join('')}</div></div>`).join('');
@@ -401,6 +403,38 @@ function coet(sec, idx) {
     if (!all) { const star = next.findIndex(c => c.got > route[j].got); next = next.slice(0, star < 0 ? next.length : star + 1).slice(0, 8); }
     next.forEach((c, n) => { const e = cb.querySelector(`[data-k="${c.x},${c.y}"]`); e.classList.add('trail'); e.style.setProperty('--d', n * 220); });
   }
+  // The route painted on the board, piece by piece: a ribbon over the tiles a function flies, in the colour of that function and
+  // with its name, and a ring on the tile where it turns. The pieces come one after the other, so the ones that repeat can be seen
+  function paint() {
+    cb.querySelectorAll('.trail').forEach(e => e.classList.remove('trail')); cb.querySelector('.plan')?.remove();
+    const u = geo.cs, ctr = ([x, y]) => [geo.x + x * geo.pitch + u / 2, geo.y + y * geo.pitch + u / 2], named = {};
+    // The names go on top of every ribbon, and only the first two pieces of a function carry one: a staircase has too many.
+    // A level with F1 alone needs none
+    const gap = Math.min(0.35, 3 / pieces.length), names = [];
+    const name = (p, n, x, y) => { if (code.length > 1 && (named[p.f] = (named[p.f] || 0) + 1) < 3) names.push(`<text class="f${p.f}" style="--t:${(n * gap).toFixed(2)}s" x="${x}" y="${y}">F${p.f + 1}</text>`); };
+    // a piece that only turns has its name on the rim of its ring, on the side away from the tiles before and after
+    const rim = (n, [x, y]) => {
+      const a = pieces[n - 1]?.pts.at(-2), b = pieces[n + 1]?.pts[1], [cx, cy] = ctr([x, y]);
+      const dx = Math.sign((a ? x - a[0] : 0) + (b ? x - b[0] : 0)), dy = Math.sign((a ? y - a[1] : 0) + (b ? y - b[1] : 0)) || (dx ? 0 : -1), k = u * 0.37 / Math.hypot(dx, dy);
+      return [cx + dx * k, cy + dy * k];
+    };
+    cb.insertAdjacentHTML('beforeend', `<svg class="plan" style="--u:${u}px" aria-hidden="true">${pieces.map((p, n) => {
+      const pts = p.pts.map(ctr), m = pts.length - 1;
+      let out = [...new Set(p.turns.map(String))].map(k => { const [x, y] = ctr(k.split(',').map(Number)); return `<circle cx="${x}" cy="${y}" r="${u * 0.37}"/>`; }).join('');
+      if (!m) name(p, n, ...rim(n, p.pts[0]));
+      else {
+        // both ends are cut short, so two pieces in a row do not touch and the star of the last tile stays in sight
+        const cut = (a, b, k) => [a[0] + Math.sign(b[0] - a[0]) * u * k, a[1] + Math.sign(b[1] - a[1]) * u * k];
+        const line = [cut(pts[0], pts[1], 0.34), ...pts.slice(1, -1), cut(pts[m], pts[m - 1], 0.4)], [ex, ey] = line[m];
+        const i = Math.floor(m / 2), a = pts[i], b = pts[Math.min(m, i + 1)], t = m / 2 - i;
+        out = `<polyline pathLength="1" points="${line.map(q => q.join(',')).join(' ')}"/>
+          <path d="M-0.17,-0.17 L0.12,0 L-0.17,0.17Z" transform="translate(${ex} ${ey}) rotate(${Math.atan2(pts[m][1] - pts[m - 1][1], pts[m][0] - pts[m - 1][0]) * 180 / Math.PI}) scale(${u})"/>`
+          + out;
+        name(p, n, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t);
+      }
+      return `<g class="f${p.f}" style="--t:${(n * gap).toFixed(2)}s">${out}</g>`;
+    }).join('')}${names.join('')}</svg>`);
+  }
   // one step of the program in words: which order it was and what the rocket did with it
   function tell(dg, k) {
     const st = dg.steps[k - 1], s = code[st.f][st.i], p = dg.steps[k - 2], [x, y] = p ? [p.x, p.y] : lv.start;
@@ -420,7 +454,7 @@ function coet(sec, idx) {
     if (by < 0) pose(dg, k);
     else {
       if (!dbg) pose(dg, 0);
-      cb.querySelectorAll('.trail').forEach(e => e.classList.remove('trail'));
+      cb.querySelectorAll('.trail').forEach(e => e.classList.remove('trail')); cb.querySelector('.plan')?.remove();
       const s = code[st.f][st.i];
       if (st.skip) tone(392, 0, 0.08, 0.04);
       else if (st.turn) { ang += 90 * st.turn; put(at[0], at[1]); tone(440, 0, 0.1, 0.05); }
@@ -511,9 +545,11 @@ function coet(sec, idx) {
   }
 
   // A hint goes up one rung each time it is asked about the same fault. With nothing written it is about reading the level: be the
-  // rocket along the lit route, count the orders against the slots, then what the level is about. With a program that does not win
-  // it is about the fault: the flight replayed slowly up to it and why it happens there, then what the level is about. The last rung
-  // gives away one order: the first slot that differs from the reference program
+  // rocket along the painted route, count the orders against the slots, then what the level is about. With a program that does not
+  // win it is about the fault: the flight replayed slowly up to it and why it happens there, then what the level is about, with the
+  // route painted in its pieces. A program that only ran out of orders, in a level where the route does not fit order by order, has
+  // no fault to explain: it goes straight to the pieces. The last rung gives away one order: the first slot that differs from the
+  // reference program
   async function coach() {
     slow = true;
     const dg = diagnose(lv, code);
@@ -526,13 +562,14 @@ function coet(sec, idx) {
     lv.ref.some((fn, f) => fn.some((b, i) => { const a = code[f][i]; return (!a || a.op !== b.op || (a.c || null) !== b.c) && (tgt = [f, i]); }));
     const given = () => { gave = true; reveal = lv.ref[tgt[0]][tgt[1]]; return "Una manera de fer-ho: l'ordre que brilla a baix és la que va a la casella marcada."; };
     mark = reveal = null; root.querySelector('.slot.sel')?.classList.remove('sel');
+    const calls = /[123]/.test(lv.cmds), moves = route.length - 1, need = moves + route.turns;
+    const see = `Mira el camí pintat${code.length > 1 ? ': cada tros és feina de la funció que hi diu' : calls ? ': cada tros és una volta sencera de F1' : ''}.${route.turns ? ' A les rotllanes toca girar.' : ''} `;
     if (none) {
-      const moves = route.length - 1, need = moves + route.turns;
-      dbg = null; setup(); lights(0, true);
+      dbg = null; setup(); paint();
       const txt = give ? given()
-        : n === 1 ? "Abans d'escriure res, fes de coet: segueix el camí de llums amb el dit, des del coet fins a l'última estrella, i digues cada pas en veu alta: «endavant», «gira»…"
+        : n === 1 ? (calls ? see + lv.hints[0] : "Abans d'escriure res, fes de coet: segueix el camí pintat amb el dit, des del coet fins a l'última estrella, i digues cada pas en veu alta: «endavant», «gira»…" + (route.turns ? ' A les rotllanes toca girar.' : ''))
         : n === 2 ? `Escrit pas per pas, el camí demana ${need} ordres: ${moves} «↑»${route.turns ? ` i ${route.turns === 1 ? '1 gir' : route.turns + ' girs'}` : ''}. Tens ${total} caselles. `
-          + (need > total ? 'No hi caben! Busca el tros del camí que es repeteix. ' : /[123]/.test(lv.cmds) ? '' : 'Hi caben: escriu-les en el mateix ordre que les has dit. ') + lv.hints[0]
+          + (need > total ? 'No hi caben! Busca el tros del camí que es repeteix. ' : calls ? '' : 'Hi caben: escriu-les en el mateix ordre que les has dit. ') + (calls ? '' : lv.hints[0])
         : lv.hints[lv.hints.length - 1] + ' Si encara no ho veus, torna a prémer Pista i et diré la primera ordre.';
       if (give) { mark = { f: tgt[0], i: tgt[1], kind: 'next' }; sel = tgt; }
       drawCode(); bar(); look(); return tip(txt);
@@ -546,7 +583,10 @@ function coet(sec, idx) {
       job = null; runb.textContent = '▶ Engega';
     }
     if (give) { const txt = given(); return fault(dg, txt, tgt); }
-    fault(dg, n === 1 ? (seen ? '' : what(dg) + ' ') + why(dg) : 'Pensa-hi així: ' + lv.hints[asks++ % lv.hints.length] + ' Si encara no surt, torna a prémer Pista.');
+    const tight = dg.kind === 'end' && calls && need > total;
+    if (n === 1 && !tight) return fault(dg, (seen ? '' : what(dg) + ' ') + why(dg));
+    fault(dg, (n === 1 ? `Pas per pas calen ${need} ordres i només tens ${total} caselles: no hi caben. ` : '') + see + lv.hints[asks++ % lv.hints.length] + ' Si encara no surt, torna a prémer Pista.');
+    paint();
   }
 
   $('#prog').onclick = e => {

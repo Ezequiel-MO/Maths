@@ -121,6 +121,17 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
 .slot.think { border-color: #FFB347; animation: wobble 0.9s ease-in-out infinite; }
 .slot.think::after { content: "?"; position: absolute; top: -10px; right: -9px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #FFB347; color: #2A1C00; font-size: 0.9rem; }
 .cmd.glow, .brush button.glow { border-color: var(--sun); animation: beacon 1s ease-in-out infinite; }
+/* the route painted in pieces: one colour for each function, the same as its name beside its slots */
+.fn:nth-child(2) .fname, .plan .f1 { color: #7FF3FF; }
+.fn:nth-child(3) .fname, .plan .f2 { color: #E0B8FF; }
+.plan { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; z-index: 2; pointer-events: none; color: var(--sun); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.7)); }
+.plan polyline { fill: none; stroke: currentColor; stroke-width: calc(var(--u) * 0.15); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: draw 0.45s ease-out var(--t) both; }
+.plan circle { fill: none; stroke: currentColor; stroke-width: calc(var(--u) * 0.07); stroke-dasharray: calc(var(--u) * 0.16) calc(var(--u) * 0.1); }
+.plan path { fill: currentColor; }
+.plan text { fill: currentColor; stroke: #06202B; stroke-width: calc(var(--u) * 0.09); paint-order: stroke; font: 800 calc(var(--u) * 0.34)/1 var(--display); text-anchor: middle; dominant-baseline: central; }
+.plan circle, .plan path, .plan text { animation: show 0.3s ease-out calc(var(--t) + 0.3s) both; }
+@keyframes draw { from { stroke-dashoffset: 1; } }
+@keyframes show { from { opacity: 0; } }
 @keyframes trail { 0%, 55%, 100% { opacity: 0; transform: scale(0.4); } 18% { opacity: 0.95; transform: scale(1); } }
 @keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
 @keyframes wobble { 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
@@ -304,6 +315,7 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
   h1, .panel .won i.on, .combo.pop, .coach .pilot, .ask.shake, .lives i, .cell.star::after, .rocket .flame, .slot.next, .slot.think, .cmd.glow, .brush button.glow, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
   .tile, .xp-bar i, .turnq .pilot { transition: none; }
   .cell.trail::before { animation: none; opacity: 0.85; }
+  .plan polyline, .plan circle, .plan path, .plan text { animation: none; }
   .slot.next, .cmd.glow, .brush button.glow { box-shadow: 0 0 16px 5px var(--sun); }
   .banner { animation: bannerCalm 1.9s both; }
   @keyframes bannerCalm { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }

@@ -368,6 +368,20 @@ export function routeOf(lv) {
   }
   return Object.assign(route, { turns });
 }
+// the reference flight cut into pieces, one for each stretch a function is at work: the tiles it flies over and where it turns
+export function piecesOf(lv) {
+  const out = [];
+  let [x, y] = lv.start, cur = null;
+  for (const st of trace(lv, lv.ref).steps) {
+    if (st.skip) continue;
+    // a call hands the work over: whoever goes on after it starts a new piece
+    if ('123'.includes(lv.ref[st.f][st.i].op)) { cur = null; continue; }
+    if (!cur || cur.f !== st.f) out.push(cur = { f: st.f, pts: [[x, y]], turns: [] });
+    if (st.turn) cur.turns.push([x, y]);
+    else { [x, y] = [st.x, st.y]; cur.pts.push([x, y]); }
+  }
+  return out;
+}
 // Where a program goes wrong, read against the reference route. Returns the trace plus:
 //   kind   'win'; 'fall' or 'off' (an advance that leaves the route, into the water or onto another tile); 'end' (out of orders
 //          while still on the route) or 'fuel' (never stops, and no longer advances)
