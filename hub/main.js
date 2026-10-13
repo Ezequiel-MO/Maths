@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id);
 // ?obert is handed on to every game, where it opens everything that is shut (shared/util.js)
 const OBERT = typeof location !== 'undefined' && /[?&]obert(=|&|$)/.test(location.search || '') ? '?obert' : '';
 const list = document.querySelector('.games');
-// adopting old progress needs every store once; two games of one page share theirs
+// adopting old progress needs every store once
 const stores = [...new Set(GAMES.map(g => g.store))];
 // view state that render() must not lose when it is called again: the name box open or not, and its error
 let adding = false, bad = false;

@@ -1,27 +1,4 @@
-import { pentatonic } from '../../shared/audio.js';
-
-export const GRIDS = [3, 4, 5, 6], MINLEN = 2, MAXLEN = 5, LIVES = 3;
-// a sequence never lights the same tile twice
-export function makeSeq(cells, len, rand = Math.random) {
-  const pool = Array.from({ length: cells }, (_, i) => i), out = [];
-  while (out.length < len) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
-  return out;
-}
-export const begin = () => ({ lvl: 0, len: MINLEN, lives: LIVES, score: 0, up: false, won: false, over: false });
-// one round played: a miss costs a life and keeps the length; a hit grows the series, and after MAXLEN the grid gets finer
-export function step(s, ok) {
-  if (!ok) { const lives = s.lives - 1; return { ...s, lives, up: false, over: lives <= 0 }; }
-  const score = s.score + s.len * (s.lvl + 1) * 10;
-  if (s.len < MAXLEN) return { ...s, score, len: s.len + 1, up: false };
-  if (s.lvl === GRIDS.length - 1) return { ...s, score, up: false, won: true, over: true };
-  return { ...s, score, lvl: s.lvl + 1, len: MINLEN, up: true };
-}
-// colour and pitch follow the position: green and low at the bottom left, pink and high at the top right
-export const hueOf = (r, c, n) => Math.round(140 + (n - 1 - r + c) / (2 * (n - 1)) * 200);
-const scale = pentatonic(261.63);
-export const pitchOf = (r, c, n) => scale(n - 1 - r + c);
-
-// game 2: nine projects of ten levels. Map letters are tile colours (b blue, g green, p pink), a capital carries a star, a dot is water.
+// Nine projects of ten levels. Map letters are tile colours (b blue, g green, p pink), a capital carries a star, a dot is water.
 // start is [x, y, direction] with 0 up, 1 right, 2 down, 3 left. sol is a reference program, F1|F2, each order optionally
 // prefixed by its colour: it sizes the functions and feeds the hints.
 export const PROJECTS = [
@@ -426,8 +403,8 @@ export const EXAM_PASS = 5;
 // the seconds of a lightning round
 export const RAPID = 60;
 
-// What is saved is facts only: { best, so, lv[90], piscina, exams[4], fulls, rapid, ratxa }. best is the record of the game of lights,
-// which shares the page; lv is the best stars of each level, rapid the most right answers in a lightning round and ratxa the longest
+// What is saved is facts only: { best, so, lv[90], piscina, exams[4], fulls, rapid, ratxa }. best is the record the game of lights
+// made while it shared this save (it keeps its own now, and reads this one); lv is the best stars of each level, rapid the most right answers in a lightning round and ratxa the longest
 // run of right answers. Marks, XP, level and badges are worked out, never stored.
 const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
 const within = (x, hi) => Math.min(hi, Math.max(0, whole(x)));

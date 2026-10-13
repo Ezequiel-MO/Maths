@@ -1,5 +1,5 @@
 // Every game of the pond, in the order the home page shows them. A new game is a folder under games/, a page at the root
-// and an entry here. store is the id its progress is saved under (see progress.js): two games of one page share it.
+// and an entry here. store is the id its progress is saved under (see progress.js).
 // total is how much there is to win, and record(saved, total) the line under the card, empty until there is something to show.
 // scripts/check.mjs stops the build when a total no longer matches the game's own data.
 import { clean } from '../games/abac-xines/logic.js';
@@ -9,7 +9,7 @@ import { clean as times, noteOf as timesNote, VALID as TIMES_VALID } from '../ga
 import { clean as pads, noteOf as padNote, VALID as PAD_VALID } from '../games/nenufars-a-trossos/logic.js';
 import { clean as frog, noteOf as frogNote, VALID as FROG_VALID } from '../games/salts-de-granota/logic.js';
 import { clean as trip, noteOf as tripNote, VALID as TRIP_VALID } from '../games/volta-al-mon/logic.js';
-import { clean as code, noteOf as codeNote, VALID as CODE_VALID } from '../games/memoria-visual/logic.js';
+import { clean as code, noteOf as codeNote, VALID as CODE_VALID } from '../games/coet-programador/logic.js';
 import { clean as chess, noteOf as chessNote, VALID as CHESS_VALID } from '../games/escacs-de-l-estany/logic.js';
 import { clean as robot, noteOf as robotNote, VALID as ROBOT_VALID } from '../games/robot-dels-pronoms/logic.js';
 // the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
@@ -40,10 +40,10 @@ export const GAMES = [
   { id: 'salts-de-granota', href: 'salts-de-granota.html', store: 'salts-de-granota', tag: 'Càlcul mental', title: 'Salts de Granota',
     what: 'Trucs per sumar i restar de cap, amb números grans i per sota de zero.', total: 23, record: (s, total) => leaps(s, total),
     icon: `<svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>` },
-  { id: 'llums', href: 'memoria-visual.html', store: 'memoria-visual', tag: 'Memòria visual', title: 'Repeteix els llums',
+  { id: 'llums', href: 'repeteix-els-llums.html', store: 'repeteix-els-llums', tag: 'Memòria visual', title: 'Repeteix els llums',
     what: "Mira quins llums s'encenen i toca'ls en el mateix ordre.", record: s => s.best > 0 ? `Rècord: ${s.best | 0} punts` : '',
     icon: `<svg viewBox="0 0 68 68" aria-hidden="true"><g fill="#1B3F52"><rect x="4" y="4" width="18" height="18" rx="5"/><rect x="25" y="4" width="18" height="18" rx="5"/><rect x="46" y="4" width="18" height="18" rx="5"/><rect x="4" y="25" width="18" height="18" rx="5"/><rect x="46" y="25" width="18" height="18" rx="5"/><rect x="4" y="46" width="18" height="18" rx="5"/><rect x="25" y="46" width="18" height="18" rx="5"/></g><rect x="25" y="25" width="18" height="18" rx="5" fill="#6FE3FF"/><rect x="46" y="46" width="18" height="18" rx="5" fill="#FF8FD0"/><circle cx="34" cy="34" r="16" fill="none" stroke="#6FE3FF" stroke-width="1.5" opacity="0.6"/></svg>` },
-  { id: 'coet', href: 'memoria-visual.html#coet', store: 'memoria-visual', tag: 'Programació', title: 'El coet',
+  { id: 'coet', href: 'coet-programador.html', store: 'memoria-visual', tag: 'Programació', title: 'El coet',
     what: 'Escriu les ordres perquè el coet reculli totes les estrelles: girs, repeticions, colors, ajudants i recursivitat.', total: 9, record: (s, total) => programs(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 14l1.6 3.6 3.9.4-2.9 2.7.8 3.9L10 22.600l-3.400 2 .8-3.9-2.900-2.700 3.900-.4z" fill="#F7C64E"/><g transform="rotate(35 32 32)"><path d="M25 48 Q32 68 39 48Z" fill="#F7C64E"/><path d="M22 38 L11 52 L24 47Z M42 38 L53 52 L40 47Z" fill="#FF6B9A"/><path d="M32 3 C45 14 46 34 42 48 H22 C18 34 19 14 32 3Z" fill="#EAF8F4" stroke="#0A2A3A" stroke-width="2"/><circle cx="32" cy="24" r="6.5" fill="#6FE3FF" stroke="#0A2A3A" stroke-width="2"/></g></svg>` },
   { id: 'abac-xines', href: 'abac-xines.html', store: 'abac-xines', tag: 'Operacions', title: "L'àbac xinès",
