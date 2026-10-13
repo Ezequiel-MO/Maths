@@ -1,0 +1,196 @@
+/* Layout: the night pond of the other games, turned into the workshop of a robot. One centred column: the row of levels, the frog
+   in its commander's cap with its tip in a speech bubble, and a stage: the robot on the left, its screen with the order and the
+   things on the right, the bag the things fly to, and under it what answers (orders to choose, pieces, keys or drawers). Two fixed
+   canvases paint the sky behind and the sparks in front. Written for a phone held upright; it only grows on a wide screen. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --cyan: #6FE3FF; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 780px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .line, .console, .rule, .it, .bin, .pc { font-family: var(--display); }
+
+/* the rank and the XP live in the row at the top: always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
+.hud .link { flex: none; white-space: nowrap; }
+.stage { position: relative; width: 100%; min-height: 330px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.panel .line { font-size: 1.3rem; font-weight: 800; }
+.panel .line small { display: block; margin-top: 4px; font-size: 1rem; line-height: 1.25; color: var(--sun); }
+.panel .won { color: var(--sun); font-size: 2rem; letter-spacing: 0.12em; line-height: 1; }
+.panel .lead.go { color: var(--mint); }
+
+/* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
+.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; text-align: center; padding: 4px 8px; min-height: 56px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the exam of a circle: the last button of its band, slimmer than a project and gold when it can be taken */
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+/* around the bands: what to do now (above them), the sheet of mistakes and the badges, the earned ones lit */
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+#full { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+#full:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
+
+/* the Piscina, an exam and a sheet: a dot for each step over the frog, and the buttons that answer under the stage */
+.hud.mid { justify-content: center; }
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.tail .opts .btn { font-size: 1.2rem; min-width: 0; }
+.ask.claim { font-size: 1.2rem; }
+
+/* the frog and its speech bubble */
+.coach { width: 100%; max-width: 600px; display: flex; gap: 14px; align-items: center; }
+.frog { flex: none; width: 76px; height: 76px; overflow: visible; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); transform-origin: 50% 90%; }
+.coach.go .frog { animation: leap 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.coach.oops .frog { animation: shake 0.4s; }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+
+/* what every stage uses: the question, the answers and the keys */
+.ask { font-weight: 800; font-size: 1.35rem; line-height: 1.25; text-wrap: balance; max-width: 30ch; }
+.ask b { color: var(--sun); }
+.ask small { display: block; font: 800 0.8rem/1.4 var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+/* whether the order names the thing or not */
+.ask .mode { display: block; width: fit-content; margin: 4px auto 0; padding: 1px 12px; border-radius: 99px; border: 1px solid var(--edge); background: var(--glass); font: 800 0.9rem/1.5 var(--body); color: var(--ink); }
+.opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.opts .btn { font-size: 1.3rem; min-width: 88px; }
+.opts .btn:disabled, .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.shake { animation: shake 0.4s; }
+.pop { animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+
+/* the scene: the robot, and next to it its screen and the things */
+.scene { width: 100%; max-width: 560px; display: flex; gap: 12px; align-items: center; justify-content: center; }
+.botbox { flex: none; width: clamp(108px, 31vw, 180px); }
+.desk { flex: 1 1 0; min-width: 0; max-width: 330px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.bot { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.45)); animation: hover 3.2s ease-in-out infinite; }
+.bot .shell { fill: #DDF6FF; stroke: #0A2A3A; stroke-width: 2.5; }
+.bot .glass { fill: #06202B; stroke: var(--cyan); stroke-width: 1.5; }
+.bot .ear { fill: #4D7486; }
+.bot .ant { fill: var(--sun); animation: blink 1.6s ease-in-out infinite; }
+.bot .jet { fill: var(--cyan); opacity: 0.55; transform-box: fill-box; transform-origin: 50% 0; animation: jet 0.5s ease-in-out infinite alternate; }
+.bot .arm { transform-box: view-box; }
+.bot .arm path { fill: none; stroke: #9EC3C0; stroke-width: 8; stroke-linecap: round; }
+.bot .arm circle { fill: #DDF6FF; stroke: #0A2A3A; stroke-width: 2.5; }
+.bot .arm.l { transform-origin: 32px 108px; } .bot .arm.r { transform-origin: 128px 108px; }
+.bot .eyes circle { fill: var(--cyan); filter: drop-shadow(0 0 5px var(--cyan)); transform-box: fill-box; transform-origin: 50% 50%; animation: wink 4.5s infinite; }
+.bot .eyes-ok, .bot .eyes-err { fill: none; stroke-width: 4.5; stroke-linecap: round; opacity: 0; }
+.bot .eyes-ok { stroke: var(--mint); } .bot .eyes-err { stroke: var(--bad); }
+.bot .mouth { fill: none; stroke: #0A2A3A; stroke-width: 4; stroke-linecap: round; }
+.bot .led { fill: #4D7486; } .bot .led.a { fill: var(--bad); } .bot .led.b { fill: var(--sun); } .bot .led.c { fill: var(--mint); }
+.bot .led { animation: blink 1.2s ease-in-out infinite; } .bot .led.b { animation-delay: 0.4s; } .bot .led.c { animation-delay: 0.8s; }
+.bot #scr { fill: var(--cyan); font: 800 26px/1 var(--display); text-anchor: middle; }
+.bot.ok .eyes, .bot.err .eyes { opacity: 0; }
+.bot.ok .eyes-ok, .bot.err .eyes-err { opacity: 1; }
+.bot.ok #scr { fill: var(--mint); } .bot.err #scr { fill: var(--bad); }
+.bot.ok .arm.r { animation: give 0.8s ease-in-out; } .bot.ok .arm.l { animation: wave 0.8s ease-in-out; }
+.bot.err { animation: shake 0.4s; }
+
+/* the screen of the robot: the order, as it is written */
+.console { min-width: 7ch; max-width: 100%; padding: 6px 16px; border-radius: 16px; background: #06202B; border: 2px solid var(--cyan); box-shadow: 0 0 22px rgb(111 227 255 / 0.3), inset 0 0 18px rgb(111 227 255 / 0.12);
+  font-weight: 800; font-size: clamp(1.3rem, 6vw, 1.9rem); line-height: 1.25; color: #C9F7FF; text-shadow: 0 0 12px rgb(111 227 255 / 0.7); overflow-wrap: anywhere; }
+.console b { color: var(--sun); font-weight: 800; }
+.console .gap { color: var(--muted); font-style: normal; }
+.console .caret { display: inline-block; width: 3px; height: 1em; margin-inline: 2px; vertical-align: -0.12em; background: var(--sun); animation: blink 0.9s steps(2) infinite; }
+/* how the pronoun of the order is joined: the letter that falls leaves its apostrophe */
+.rule { min-height: 1.6em; font-weight: 800; font-size: 1.1rem; line-height: 1.4; color: var(--muted); }
+.rule span { display: inline-block; padding: 1px 14px; border-radius: 99px; border: 1px solid hsl(var(--h) 80% 65% / 0.7); background: hsl(var(--h) 70% 50% / 0.16); color: var(--ink); animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.rule b { color: hsl(var(--h) 90% 72%); }
+.rule .fall { display: inline-block; font-style: normal; color: var(--bad); animation: fall 1.1s 0.5s ease-in both; }
+
+/* the things: a drawing (three of them for a plural) and its name */
+.cards { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cards > :only-child { grid-column: 1 / -1; justify-self: center; min-width: 150px; }
+.stage > .cards { max-width: 220px; }
+.it { display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; margin: 0; padding: 8px 6px; min-height: 84px; border-radius: 18px; border: 2px solid var(--edge); background: var(--glass); color: var(--ink); font-size: 1.05rem; line-height: 1.15; touch-action: manipulation; }
+.it b { font-weight: 800; }
+button.it:not(:disabled):active { transform: scale(0.96); }
+button.it:not(:disabled):hover { border-color: var(--cyan); }
+button.it:disabled { opacity: 0.3; cursor: not-allowed; }
+.it.lit, button.it.lit:disabled { opacity: 1; border-color: hsl(var(--h) 85% 68%); box-shadow: 0 0 20px hsl(var(--h) 85% 60% / 0.5); }
+.pics { display: flex; justify-content: center; font-size: 2.3rem; line-height: 1.15; }
+.pics span + span { margin-left: -0.5em; }
+.ghost { position: fixed; z-index: 6; pointer-events: none; }
+
+/* the bag: a place for each thing the robot hands over, and what a mission builds out of them */
+.bag { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 4px 12px; border-radius: 99px; background: var(--glass); border: 1px solid var(--edge); font-size: 1.4rem; line-height: 1; }
+.bag b { font-weight: 800; }
+.bag i { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; border: 2px dashed rgb(160 230 220 / 0.3); font-style: normal; font-size: 1.3rem; }
+.bag i.in { border: 2px solid var(--sun); background: rgb(247 198 78 / 0.14); animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.bag .made { min-width: 44px; font-size: 2rem; color: var(--muted); }
+
+.ans { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; min-height: 60px; }
+/* the pieces of an order */
+.tray { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.pc { min-width: 62px; min-height: 50px; padding: 2px 14px; border-radius: 14px; border: 2px solid var(--cyan); background: #0E3445; box-shadow: 0 4px 0 #06202B; font-weight: 800; font-size: 1.5rem; line-height: 1; touch-action: manipulation; }
+.pc.noun { border-color: var(--sun); }
+.pc:active { transform: translateY(3px); box-shadow: 0 1px 0 #06202B; }
+/* the keys: the letters, the hyphen and the apostrophe in gold, and the two that rub out and send */
+.keys { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 440px; }
+.key { width: 50px; height: 50px; padding: 0; border-radius: 14px; border: 1px solid var(--edge); background: var(--glass); font-weight: 800; font-size: 1.6rem; line-height: 1; touch-action: manipulation; }
+.key:active { background: var(--sun); color: #2A1C00; }
+.key.mark { border: 2px solid var(--sun); color: var(--sun); font-size: 2rem; }
+.key.ok { width: 76px; background: var(--pad); color: var(--on-pad); border: 0; box-shadow: 0 4px 0 var(--pad-dark); }
+.key.del { width: 62px; }
+
+/* the drawers, each in the colour of its article, with what has been put in it */
+.bins { width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
+.bin { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 8px 4px 6px; min-height: 104px; border-radius: 18px 18px 10px 10px; border: 2px solid hsl(var(--h) 80% 65%); background: hsl(var(--h) 60% 40% / 0.28); box-shadow: 0 5px 0 hsl(var(--h) 60% 22%); touch-action: manipulation; }
+.bin:active { transform: translateY(3px); box-shadow: 0 2px 0 hsl(var(--h) 60% 22%); }
+.bin b { font-weight: 800; font-size: 1.7rem; line-height: 1; color: hsl(var(--h) 90% 78%); }
+.bin span { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.bin .in { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; margin-top: 4px; font-size: 1.2rem; line-height: 1.1; }
+.bin .in i { font-style: normal; animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+
+@keyframes hover { 50% { transform: translateY(-6px); } }
+@keyframes jet { to { transform: scaleY(0.55); opacity: 0.3; } }
+@keyframes blink { 50% { opacity: 0.25; } }
+@keyframes wink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes give { 40%, 70% { transform: rotate(-105deg); } }
+@keyframes wave { 40%, 70% { transform: rotate(35deg); } }
+@keyframes leap { 40% { transform: translateY(-14px) scale(1.06, 0.96); } }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes fall { to { transform: translateY(1.1em) rotate(50deg); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bot, .bot *, .console .caret, .rule .fall, .pop, .rule span, .bag i.in, .bin .in i { animation: none !important; }
+  .rule .fall { opacity: 0.35; text-decoration: line-through; }
+}
+/* with room, the robot and its screen grow */
+@media (min-width: 700px) {
+  .botbox { width: 200px; }
+  .console { font-size: 2.1rem; }
+  .pics { font-size: 2.8rem; }
+}
