@@ -562,8 +562,9 @@ function coet(sec, idx) {
       code[sel[0]][sel[1]] = { op: b.dataset.op, c: brush || null }; brush = ''; tone(784, 0, 0.08, 0.05);
       if (sel[1] + 1 < code[sel[0]].length) sel = [sel[0], sel[1] + 1];
     }
-    else if (b.id === 'clr') { code.forEach(fn => fn.fill(null)); sel = [0, 0]; }
-    // any change to the program clears the hint marks and ends a walk step by step; the board and its lights stay until the next flight
+    // an empty program starts the level again: the rocket back on its first tile, every star back and the tip of the level
+    else if (b.id === 'clr') { code.forEach(fn => fn.fill(null)); sel = [0, 0]; setup(); tip(lv.tip); }
+    // any other change to the program clears the hint marks and ends a walk step by step; the board and its lights stay until the next flight
     if (!('c' in b.dataset)) mark = reveal = null;
     if (b.dataset.op || b.id === 'clr') dbg = null;
     drawCode(); bar();
