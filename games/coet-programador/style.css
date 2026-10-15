@@ -89,7 +89,6 @@ h1, h2, .btn, .chip, .status { font-family: var(--display); }
 @keyframes draw { from { stroke-dashoffset: 1; } }
 @keyframes show { from { opacity: 0; } }
 @keyframes trail { 0%, 55%, 100% { opacity: 0; transform: scale(0.4); } 18% { opacity: 0.95; transform: scale(1); } }
-@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
 @keyframes wobble { 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
 @keyframes flame { to { transform: scaleY(0.6); } }
 
@@ -210,15 +209,11 @@ h1, h2, .btn, .chip, .status { font-family: var(--display); }
 .tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .opts .btn { font-size: 1.2rem; min-width: 88px; }
-@keyframes launch { 12% { transform: translateY(-40px); } to { transform: translateY(-140vh); } }
-@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
-@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @keyframes leap { 40% { transform: rotate(18deg) translateY(-16px) scale(1.05, 0.95); } }
 @media (max-width: 520px) { #coet .hud { flex-wrap: wrap; justify-content: space-around; } #coet .hud .chip:first-child { flex: 1 1 100%; text-align: center; } }
 @media (max-width: 420px) { .proj { grid-template-columns: 30px minmax(0, 1fr); column-gap: 6px; } .orb { width: 28px; height: 28px; } .proj.ok .orb::after { inset: 9px -6px; } .coach .pilot { width: 52px; height: 52px; } }
 
 @keyframes breathe { 50% { transform: scale(0.9); } }
-@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
 /* a tablet or a laptop: bigger type, and the rocket's board and program side by side */
 @media (min-width: 700px), (min-width: 560px) and (orientation: landscape) {
   .status.tip { font-size: 1.1rem; }

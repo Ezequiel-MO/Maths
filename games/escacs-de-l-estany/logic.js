@@ -1,3 +1,4 @@
+import { curs, whole, within, slots, at, int, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
 // Chess, moved by its coordinates: the child plays white and every move is typed as the name of a square, never dragged.
 // A square is its letter and its number ('e4'); inside, [file, rank] from 0. A position is { at, stars, rocks }: at holds the
 // pieces by square (capitals are white, K Q R B N P), stars the squares to collect and rocks the squares nothing can cross.
@@ -243,8 +244,6 @@ export function route(L, pos, left) {
 }
 // white's checks that do not lose the piece
 export const checks = pos => all(pos, true).filter(([a, b]) => { const n = move(pos, a, b); return inCheck(n, false) && !attackerOf(n, b, false); });
-// slips are wrong answers plus hints asked
-export const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
 
 /* ---------- quick questions: the Piscina, the exams and the lightning round ---------- */
 // Each is answered in one go. kind says what is asked:
@@ -254,12 +253,6 @@ export const starsFor = slips => slips === 0 ? 3 : slips <= 2 ? 2 : 1;
 //   'count'  how many squares the piece t can go to from s on an empty board, chosen among opts
 //   'tone'   whether s is light or dark, chosen        'val'    what the pieces ps are worth together, chosen
 // Chance enters only through rnd (a function like Math.random)
-const int = (rnd, lo, hi) => lo + Math.min(hi - lo, Math.floor(rnd() * (hi - lo + 1)));
-const at = (n, rnd) => int(rnd, 0, n - 1);
-function shuffle(a, rnd) {
-  for (let i = a.length - 1; i > 0; i--) { const j = at(i + 1, rnd); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-}
 const rsq = rnd => sq(at(8, rnd), at(8, rnd));
 const texts = a => [...new Set(a)].sort((x, y) => x - y).map(String);
 export const countOn = (t, s) => reach(lone(t, s), s).length;
@@ -309,47 +302,23 @@ export const CIRCLES = [
   { name: 'Passos i salts', projects: [4, 5, 6] },
   { name: 'La partida', projects: [7, 8] }
 ];
-export const circleOf = i => CIRCLES.findIndex(c => c.projects.includes(i));
+// the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in lv
+const cursus = curs({ PROJECTS, CIRCLES, field: 'lv', badges: p => badges(p), BADGES: () => BADGES });
+export const { circleOf, noteOf, reached, validated, xpOf, levelText, isOpen, examOpen, levelIn, poolIn, streakIn, rapidIn, examIn, sheetIn } = cursus;
+export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three questions of the Piscina, the first challenges
 export const POOL = [{ kind: 'name', want: 'c2' }, { kind: 'name', want: 'f5' }, { kind: 'step', from: 'b2', d: [2, 1] }];
-// the ten levels of a project are three exercises: ex00 (three levels), ex01 (three) and ex02 (four)
-export const exOf = idx => idx < 3 ? 0 : idx < 6 ? 1 : 2;
-// What a level gives to the mark of its project, by its stars: 10 with no slip, 8 with one or two, 5 with more. Ten levels make 100,
-// and a project is validated with 80
-export const POINTS = [0, 5, 8, 10];
-export const VALID = 80;
-export const EXAM_PASS = 5;
 // the seconds of a lightning round
 export const RAPID = 60;
 
 // What is saved is facts only: { so, lv[90], piscina, exams[4], fulls, rapid, ratxa }. lv is the best stars of each level, rapid the
 // most right answers in a lightning round and ratxa the longest run of right answers. Marks, XP, level and badges are worked out, never stored.
-const whole = x => typeof x === 'number' && Number.isFinite(x) ? Math.trunc(x) || 0 : 0;
-const within = (x, hi) => Math.min(hi, Math.max(0, whole(x)));
-const slots = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] : undefined);
 // A complete progress inside its limits from any value at all; a new object
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {}, lv = slots(o.lv, PROJECTS.length * 10).map(s => within(s, 3));
   return { so: o.so !== false, lv, piscina: o.piscina === true || lv.some(s => s > 0), exams: slots(o.exams, CIRCLES.length).map(e => e === true),
     fulls: Math.max(0, whole(o.fulls)), rapid: Math.max(0, whole(o.rapid)), ratxa: Math.max(0, whole(o.ratxa)) };
 }
-const copy = p => ({ ...p, lv: p.lv.slice(), exams: p.exams.slice() });
-// the functions below take a progress that is already clean
-export const noteOf = (p, i) => p.lv.slice(i * 10, i * 10 + 10).reduce((s, n) => s + POINTS[n], 0);
-// how many levels of a project are done from the first on: the one after them is the next to open
-export const reached = (p, i) => { const k = p.lv.slice(i * 10, i * 10 + 10).findIndex(n => n === 0); return k < 0 ? 10 : k; };
-export const validated = p => PROJECTS.flatMap((_, i) => noteOf(p, i) >= VALID ? [i] : []);
-// 50 for the Piscina, the mark of each validated project, 50 per exam passed, 10 per sheet up to 3 for each validated project: 1420 at most
-export function xpOf(p) {
-  const v = validated(p);
-  return (p.piscina ? 50 : 0) + v.reduce((s, i) => s + noteOf(p, i), 0) + 50 * p.exams.filter(Boolean).length + 10 * Math.min(p.fulls, 3 * v.length);
-}
-// the level is the XP over 150, with two decimals and a comma: from 0,00 to 9,47
-export const levelText = p => (xpOf(p) / 150).toFixed(2).replace('.', ',');
-// circle 0 opens with the Piscina and the others with the exam before them
-export const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length && isOpen(p, c - 1) && p.exams[c - 1] === true;
-// the exam of a circle opens when the circle is open and all its projects are validated
-export const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => noteOf(p, i) >= VALID);
 export const BADGES = [
   { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
   { name: 'Primera jugada', what: 'Valida un projecte.' },
@@ -363,23 +332,6 @@ export const BADGES = [
 ];
 export const badges = p => [p.piscina === true, validated(p).length > 0, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.ratxa >= 20,
   [1, 2, 3, 4, 5, 6].every(i => noteOf(p, i) >= VALID), p.fulls >= 1, p.fulls >= 10, p.rapid >= 15, p.exams.every(e => e === true)];
-const earned = (p, next) => { const had = badges(p), now = badges(next); return BADGES.filter((_, j) => now[j] && !had[j]).map(b => b.name); };
-
-// A level done, with its slips (a hint is a slip too). Returns { prog, n, note, gain, valid, exam, news }: prog is a NEW progress
-// that keeps the best stars of the level; n the stars of this time; note the mark of the project after it; gain the XP it adds;
-// valid whether the project is validated by this very level, and exam whether that opens the exam of its circle; news the badges it earns
-export function levelIn(p, i, idx, slips) {
-  const n = starsFor(slips), k = i * 10 + idx, next = copy(p), c = circleOf(i);
-  next.lv[k] = Math.max(next.lv[k], n);
-  return { prog: next, n, note: noteOf(next, i), gain: xpOf(next) - xpOf(p), valid: noteOf(p, i) < VALID && noteOf(next, i) >= VALID,
-    exam: !examOpen(p, c) && examOpen(next, c), news: earned(p, next) };
-}
-// the Piscina done. Returns { prog, news }
-export function poolIn(p) { const next = { ...copy(p), piscina: true }; return { prog: next, news: earned(p, next) }; }
-// a run of n right answers in a row, and the right answers of a lightning round: each keeps the best. Returns { prog, best, news }
-const keep = field => (p, n) => { const next = copy(p), best = whole(n) > p[field]; if (best) next[field] = whole(n); return { prog: next, best, news: earned(p, next) }; };
-export const streakIn = keep('ratxa');
-export const rapidIn = keep('rapid');
 
 /* ---------- the exam, the lightning round and «Caça l'errada» ---------- */
 // Six different questions of the projects of circle c, new every time, at least one of each project, in a random order; each has p,
@@ -388,14 +340,6 @@ export function exam(c, rnd) {
   const ps = (CIRCLES[c] || CIRCLES[0]).projects, seen = new Set(), list = [];
   while (list.length < 6) list.push(draw(list.length < ps.length ? ps[list.length] : ps[at(ps.length, rnd)], rnd, list.length, seen));
   return shuffle(list, rnd);
-}
-// The hand-in of a finished exam: qs its six questions and run one boolean per question. Returns { prog, good, score, gain, redo, news }:
-// prog is a NEW progress with exams[c] set when the exam passes (EXAM_PASS of 6, the exam open), never taken back; redo the projects of the questions missed
-export function examIn(p, c, qs, run) {
-  const score = run.filter(r => r === true).length, good = run.length === 6 && score >= EXAM_PASS && examOpen(p, c), next = copy(p);
-  if (good) next.exams[c] = true;
-  return { prog: next, good, score, gain: xpOf(next) - xpOf(p), news: earned(p, next),
-    redo: [...new Set(qs.flatMap((q, i) => run[i] !== true && Number.isInteger(q?.p) ? [q.p] : []))].sort((a, b) => a - b) };
 }
 // The n questions of a lightning round: the square of a star to name; never the same twice in a row
 export function sprint(rnd, n = 80) {
@@ -441,11 +385,4 @@ export const KINDS = Object.keys(CLAIM);
 export function sheet(rnd) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
   return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
-}
-// The hand-in of a finished sheet: run has one boolean per claim. Returns { prog, good, gain, missed, news }: prog is a NEW progress
-// with fulls + 1 only when all three are right; gain the XP that adds (0 once the cap of 3 per validated project is reached)
-export function sheetIn(p, run) {
-  const missed = [0, 1, 2].filter(i => run[i] !== true), good = !missed.length && run.length === 3, next = copy(p);
-  if (good) next.fulls = p.fulls + 1;
-  return { prog: next, good, gain: xpOf(next) - xpOf(p), missed, news: earned(p, next) };
 }

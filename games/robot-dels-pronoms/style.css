@@ -181,7 +181,6 @@ button.it:disabled { opacity: 0.3; cursor: not-allowed; }
 @keyframes give { 40%, 70% { transform: rotate(-105deg); } }
 @keyframes wave { 40%, 70% { transform: rotate(35deg); } }
 @keyframes leap { 40% { transform: translateY(-14px) scale(1.06, 0.96); } }
-@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
 @keyframes fall { to { transform: translateY(1.1em) rotate(50deg); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {

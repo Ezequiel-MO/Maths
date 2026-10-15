@@ -211,7 +211,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .read, .disp, .huge, .mname, .m
 
 @keyframes pop { from { transform: scale(0.4); } }
 @keyframes beacon { 50% { r: 10px; fill: #fff; } }
-@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
 @keyframes flame { to { transform: scale(0.88, 1.12) rotate(4deg); } }
 @media (max-width: 480px) { .frog { width: 62px; height: 58px; } .coach { gap: 12px; } .keys { grid-template-columns: repeat(6, 44px); } .keys .key { width: 44px; height: 44px; } .pgrid { gap: 2px; padding: 4px; } }
 /* a phone upright: the menu has no big title (the kicker and the bar stay) */

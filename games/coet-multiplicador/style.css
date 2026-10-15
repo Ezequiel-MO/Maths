@@ -221,13 +221,9 @@ svg.jp { display: block; width: 100%; max-width: 420px; height: auto; max-height
 .opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .opts .btn { font-size: 1.2rem; min-width: 88px; }
 
-@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
 @keyframes flame { to { transform: scaleY(0.6); } }
 @keyframes twinkle { from { opacity: 0.35; } to { opacity: 1; } }
-@keyframes launch { 12% { transform: translateY(-40px); } to { transform: translateY(-140vh); } }
-@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
 @keyframes stamp { from { transform: scale(0.85); } }
-@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @keyframes leap { 40% { transform: rotate(18deg) translateY(-16px) scale(1.05, 0.95); } }
 @keyframes drawin { to { stroke-dashoffset: 0; } }
 @keyframes popin { from { transform: scale(0); opacity: 0; } }

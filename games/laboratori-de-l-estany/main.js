@@ -5,6 +5,9 @@ import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, ELEMENTS, GROUPS, MOLS, INKS, POINTS, VALID, EXAM_PASS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, stateOf, blend, pctHow, starsFor,
   clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn } from './logic.js';
+import { cursusMap, badgeList } from '../../shared/mapa.js';
+import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow } from '../../shared/shell.js';
+import { frames, svgEl } from '../../shared/scene.js';
 
 const KEY = 'laboratori-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -16,16 +19,10 @@ const OPEN = OBERT;
 let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
 // The bar at the top of every screen: «Nivell 2,27», and the fill is the decimals, the part of the level that is done
-function paintXp() {
-  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
-  if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
-  const [n, bar] = box.children;
-  n.textContent = `Nivell ${lv}`; bar.setAttribute('aria-label', `${pct} % del nivell`); bar.firstChild.style.width = pct + '%';
-}
+const paintXp = () => xpBar(levelText(prog));
 
 // every new screen cancels the running one through this token
-let tok = { on: true };
-function fresh() { tok.on = false; tok = { on: true }; return tok; }
+const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so), { tone: click } = voice(() => prog.so, false);
 const FX = pond(tone);
@@ -82,9 +79,6 @@ const eqHtml = (left, right) => `<div class="eq" role="img" aria-label="La recep
 
 const HURRAY = ['Eureka!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin experiment!'];
 const HUES = [205, 140, 28, 175, 262, 350, 318];
-const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
-const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
-const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
 const cap = s => s[0].toUpperCase() + s.slice(1);
 const cops = k => `${k} ${k > 1 ? 'cops' : 'cop'}`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
@@ -93,20 +87,18 @@ const spark = (e, h = 48) => { if (e) { const p = mid(e); FX.burst(p.x, p.y, h, 
 const stepper = (k, label, v, lock = false) => `<div class="stepper" data-k="${k}"><span class="lbl">${label}</span>${lock ? '<span class="fix">fix</span>' : '<button class="key" data-d="-1" aria-label="Menys">−</button>'}<b class="val">${v}</b>${lock ? '' : '<button class="key" data-d="1" aria-label="Més">+</button>'}</div>`;
 
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
-const HUB = /laboratori-de-l-estany\.html$/.test(location.pathname);
+const HUB = ownPage('laboratori-de-l-estany');
 function show(kicker, playing, hue) {
-  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
+  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
   $('#game').onclick = null; keyFn = null; FX.mood(hue);
 }
-$('#toS').onclick = () => mapa();
-function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
-$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+$('#toM').onclick = () => mapa();
+const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 
 // a real keyboard: the level on screen says what its keys do
 let keyFn = null;
 addEventListener('keydown', e => { if (keyFn && !e.ctrlKey && !e.metaKey && !e.altKey) keyFn(e); });
 // a tap that comes less than SETTLE after a question came up was meant for the one before
-const SETTLE = 450;
 let openAt = 0;
 // each kind of level draws its stage and gives back its hint: a function that shows the help and returns what the tip says
 const KIND = { find, atom, mol, mix, dose, react, ask };
@@ -114,39 +106,16 @@ const KIND = { find, atom, mol, mix, dose, react, ask };
 /* ---------- the map: three bands, one button for each project and the exam of the circle at the end ---------- */
 const RING = [140, 195, 262];   // the colour of each circle
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${RING[c]} 60% 60%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
-const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
-const noteText = i => { const n = noteOf(prog, i), d = prog.stars.slice(i * 10, i * 10 + 10).filter(Boolean).length; return n >= VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
-const examBtn = c => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
-// one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
-function advice() {
-  for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
-    const i = CIRCLES[c].projects.find(i => noteOf(prog, i) < VALID);
-    if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
-    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
-  }
-  return '';
-}
+// the map of the cursus (shared/mapa.js): what it says of each project and exam, and the next thing to do
+const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'stars' });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('El mapa', false, 165);
-  const band = c => `<section class="ring r${c}${openC(c) ? '' : ' shut'}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
-      ${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
-      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${noteOf(prog, i) >= VALID ? ' ok' : ''}" data-p="${i}"${openC(c) ? '' : ' disabled'}><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span><span class="mk">${noteText(i)}</span></button>`).join('')}${examBtn(c)}</div></section>`;
-  const got = badges(prog), tip = advice();
-  $('#game').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
-    <div class="extra"><button class="btn soft" id="full"${OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
-      <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
-  $('#game').onclick = e => {
-    const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
-    if (b && !b.disabled) {
-      // the first level that still has something to win, as far as the project is open
-      const i = +b.dataset.p, k = prog.stars.slice(i * 10, i * 10 + 10).findIndex(n => n < 3);
-      level(i, k < 0 ? 0 : Math.min(k, OPEN ? 9 : reached(prog, i), 9));
-    }
-    else if (x && !x.disabled) examen(+x.dataset.x);
-    else if (e.target.closest('#full:not(:disabled)')) full();
-  };
-  ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
+  M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`,
+    foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
+      ${badgeList(BADGES, got)}</div>`,
+    open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full]] });
+  here = -1;
 }
 
 // the frame of the Piscina, of an exam and of a sheet: the dots of its steps, the frog with its tip, the stage and the room under it
@@ -161,7 +130,7 @@ function frame(n, label) {
 // Each one comes with its name and its symbol; a wrong square only shakes. The third one saves piscina and opens the map.
 // There is no «← Mapa» here: the map would have every circle shut, so the way out is the page of all games.
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 165); $('#toS').hidden = true; $('#toG').hidden = !HUB;
+  const t = fresh(); show('La Piscina', true, 165); $('#toM').hidden = true; $('#toG').hidden = !HUB;
   const { stage, dots, say } = frame(POOL.length, 'Tres reptes');
   let k = -1, busy = false;
   function arm() {
@@ -438,7 +407,7 @@ const flaskSvg = (label, badge, small = false) => `<svg class="rflask${small ? '
       <text class="lbl" id="rfl" x="150" y="${FL.y + 6}">${label}</text><g class="badge"><rect x="196" y="92" width="92" height="28" rx="14"/><text id="rfb" x="242" y="112">${badge}</text></g></svg>`;
 function flask(svg, t) {
   const layer = svg.querySelector('#things'), ps = [], G = 320;
-  let mode = 'atoms', seq = 0, raf = 0, last = 0;
+  let mode = 'atoms', seq = 0;
   const speed = () => mode === 'gas' ? 78 : mode === 'stir' ? 55 : 13;
   function step(dt) {
     for (const p of ps) {
@@ -462,17 +431,13 @@ function flask(svg, t) {
     }
   }
   const paint = () => { for (const p of ps) p.el.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.a.toFixed(1)})`); };
-  function frame(now) {
-    raf = 0; if (!t.on || !svg.isConnected) return;
-    const dt = Math.min(0.033, (now - last) / 1000 || 0.016); last = now;
-    step(dt / 2); step(dt / 2); paint();
-    if (ps.length) raf = requestAnimationFrame(frame);
-  }
+  // two half steps a frame; the loop rests when the flask is empty and wakes with the next thing added
+  const loop = frames(t, svg, dt => { step(dt / 2); step(dt / 2); paint(); return ps.length > 0; }, { max: 0.033, idle: 0.016 });
   // with reduced motion nothing drifts: things settle at once and stay
-  const kick = () => { if (RM) { for (let i = 0; i < 240; i++) step(0.016); paint(); } else if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  const kick = () => { if (RM) { for (let i = 0; i < 240; i++) step(0.016); paint(); } else loop.start(); };
   function add(html, r, cls, data = {}, at = null) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'g'), ang = rand(0, 6.283), v = speed();
-    el.setAttribute('class', cls); el.innerHTML = html; el.dataset.id = ++seq; layer.append(el);
+    const el = svgEl('g', { class: cls }), ang = rand(0, 6.283), v = speed();
+    el.innerHTML = html; el.dataset.id = ++seq; layer.append(el);
     const p = { el, id: seq, r, ...data, x: at ? at[0] : FL.x + rand(-40, 40), y: at ? at[1] : FL.y + rand(-50, 30), vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, a: cls === 'pa' ? 0 : rand(0, 360), w: cls === 'pa' ? 0 : rand(-60, 60) };
     ps.push(p); paint(); kick(); return p;
   }

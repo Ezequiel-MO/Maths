@@ -5,6 +5,8 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
+// the frame the games share (fresh, SETTLE, the XP bar, the page) lives in shared/shell.js: main.js is checked to use it, and it is checked here
+const shellFlat = () => readFileSync(new URL('../shared/shell.js', import.meta.url), 'utf8').replace(/\s+/g, ' ');
 import { inspect, isDeepStrictEqual } from 'node:util';
 
 let fails = 0, counted = 0;
@@ -930,11 +932,11 @@ function partD() {
     check(!/>\s*Pista\s*</.test(mainText), "D: a button of main.js says «Pista» alone: it is «Dona'm una pista»");
     check(!/data-hub/.test(htmlText || ''), 'D: abac-xines.html has data-hub');
     // the discipline of the screens: a token that every wait looks at, and a pause against the double tap
-    check(/function fresh\(\) \{ tok\.on = false; tok = \{ on: true \};[^}]*hn\?\.stop\(\);[^}]*bd\?\.stop\(\);/.test(flat), 'D: fresh() of main.js does not cancel the token and stop the hints and the board of the screen it leaves: a hint that plays would go on over the map');   // contract: plan Task 10, fresh() cancel·la la pantalla anterior; Task 9, play no s'atura sol quan es canvia de pantalla
+    check(/const fresh = tokens\(\(\) => \{[^}]*hn\?\.stop\(\);[^}]*bd\?\.stop\(\);/.test(flat) && /export function tokens\(stop\) \{ let t = \{ on: true \}; return \(\) => \{ t\.on = false; t = \{ on: true \}; if \(stop\) stop\(\); return t; \};/.test(shellFlat()), 'D: fresh() of main.js does not cancel the token and stop the hints and the board of the screen it leaves: a hint that plays would go on over the map');   // contract: plan Task 10, fresh() cancel·la la pantalla anterior; Task 9, play no s'atura sol quan es canvia de pantalla
     const sleeps = (flat.match(/await sleep\(/g) || []).length, guarded = (flat.match(/await sleep\([^)]*\); if \(!t\.on\) return;/g) || []).length, plays = (flat.match(/await hn\.play\(/g) || []).length, playsGuarded = (flat.match(/await hn\.play\([^;]*\); if \(!t\.on\) return;/g) || []).length;
     check(sleeps > 0 && sleeps === guarded && plays === playsGuarded && plays > 0, `D: main.js has ${sleeps} waits (sleep) of which ${guarded} look at the token after, and ${plays} plays of which ${playsGuarded} do: a screen left in the middle of a wait would go on to the next question`);   // contract: plan Task 10, cada espera comprova el testimoni
     check(/play\(pl\.goal, \(\) => t\.on\)/.test(flat), 'D: the play of main.js is not tied to the token of the screen (play(goal, () => t.on))');   // contract: plan Task 9, el callback de play s'enllaça al testimoni de la pantalla
-    check(/const SETTLE = 450;/.test(flat), 'D: main.js has no SETTLE = 450 (the guard against the double tap)');   // contract: plan Task 10, guarda de 450 ms contra el doble toc
+    check(/import \{[^}]*\bSETTLE\b[^}]*\} from '\.\.\/\.\.\/shared\/shell\.js'/.test(flat) && /export const SETTLE = 450;/.test(shellFlat()), 'D: main.js has no SETTLE = 450 from shared/shell.js (the guard against the double tap)');   // contract: plan Task 10, guarda de 450 ms contra el doble toc
     check(/addEventListener\('click', e => \{ if \(tight && !ready\(e\.timeStamp\)\) e\.stopPropagation\(\); \}, true\)/.test(flat) && /const ready = at => at >= openAt;/.test(flat) && /ready\(e\.timeStamp\)\) projecte/.test(flat) && !/\bready\(\)/.test(flat) && /openAt = performance\.now\(\) \+ SETTLE/.test(flat), 'D: main.js does not ignore taps (in the capture phase, and on the map) for SETTLE after a screen or a question comes up, measured with the time of the tap itself (event.timeStamp)');   // contract: plan Task 10, guarda de 450 ms
     check((flat.match(/(?:at|e\.timeStamp) < tryAt/g) || []).length >= 2 && (flat.match(/tryAt = (?:at|e\.timeStamp) \+ SETTLE/g) || []).length >= 2 && /check\(e\.timeStamp\)/.test(flat) && !/tryAt = performance\.now\(\)/.test(flat), 'D: main.js does not keep a second attempt away for SETTLE after a mistake, measured from the time of the tap itself (event.timeStamp), on «Comprova» and on the options: a double tap would count two mistakes when the first handler is slow');   // contract: plan Task 10, Review Focus 1, un doble toc a «Comprova» compta un sol intent, també si el primer toc triga més de 450 ms a processar-se
     // a question is kept once, and the project is handed in at once on the last one
@@ -960,7 +962,7 @@ function partD() {
     // the layout of the screens: head, stage and tail are the direct children of #joc.lvl, in that order, and nothing else
     check(/\$\('#joc'\)\.classList\.toggle\('lvl', inner\)/.test(flat) && /root\.innerHTML = `<div class="head">[\s\S]*?<\/div>\s*<div class="stage" id="stage"><\/div>\s*<div class="tail" id="tail"><\/div>`;/.test(code), 'D: the project screen of main.js is not `.head`, `.stage` and `.tail` as the direct children of #joc.lvl');   // contract: plan Task 10 i Task 8, un fill fora d'aquests tres cau en una fila que l'escenari no cobreix
     // the page
-    check(/const HUB = \/abac-xines\\\.html\$\/\.test\(location\.pathname\)/.test(flat), 'D: the HUB expression of main.js does not point to abac-xines.html');   // contract: plan Task 10, l'expressió HUB continua apuntant a abac-xines.html
+    check(/const HUB = ownPage\('abac-xines'\)/.test(flat) && /export const ownPage = id => location\.pathname\.endsWith\(id \+ '\.html'\);/.test(shellFlat()), 'D: the HUB expression of main.js does not point to abac-xines.html');   // contract: plan Task 10, l'expressió HUB continua apuntant a abac-xines.html
     if (htmlText === null) check(false, `D: abac-xines.html cannot be read: ${htmlError}`);
     else {
       check(!/data-hub/.test(htmlText), 'D: abac-xines.html has data-hub');   // contract: common.md, abac-xines.html no porta data-hub
@@ -974,8 +976,8 @@ function partD() {
   sectionD('the bar of XP and the exam buttons', () => {
     if (mainText === null) { check(false, `D: main.js cannot be read: ${mainError}`); return; }
     const code = mainText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1'), flat = code.replace(/\s+/g, ' ');
-    const paint = /function paintXp\(\) \{(.*?)\n?\}\s*(?:const|function|let|\/\/)/.exec(flat);
-    check(!!paint && /levelText\(prog\)/.test(paint[1]) && /pct = \+lv\.split\(','\)\[1\]/.test(paint[1]) && /style\.width = pct \+ '%'/.test(paint[1]) && /`Nivell \$\{lv\}`/.test(paint[1]), 'D: paintXp() of main.js does not write «Nivell» and the level of levelText(prog), nor fill the bar with the decimal part of the level (27 % for 2,27)');   // contract: spec «XP, nivell i insígnies», nivell = XP / 150 amb dos decimals; plan Task 11, text del nivell i barra plena segons la part decimal
+    const paint = /export function xpBar\(lv\) \{(.*?)\}\s*(?:export|\/\/)/.exec(shellFlat());
+    check(/const paintXp = \(\) => xpBar\(levelText\(prog\)\);/.test(flat) && !!paint && /pct = \+lv\.split\(','\)\[1\]/.test(paint[1]) && /style\.width = pct \+ '%'/.test(paint[1]) && /`Nivell \$\{lv\}`/.test(paint[1]), 'D: paintXp() of main.js does not write «Nivell» and the level of levelText(prog), nor fill the bar with the decimal part of the level (27 % for 2,27)');   // contract: spec «XP, nivell i insígnies», nivell = XP / 150 amb dos decimals; plan Task 11, text del nivell i barra plena segons la part decimal
     check(/soBtn\(\); paintXp\(\);/.test(flat), 'D: main.js does not paint the bar of XP when it starts: it would be empty until the first save');   // contract: spec «XP, nivell i insígnies», la barra és sempre visible
     check(/openX\(c\) \? '' : ' disabled'/.test(flat) && /openX = c => OPEN \|\| examOpen\(prog, c\)/.test(flat) && /data-x="\$\{c\}"/.test(flat), 'D: the exam button of a band of the map is not disabled unless examOpen(prog, c)');   // contract: spec «L\'examen», s'obre quan tots els projectes del cercle tenen 80 o més; plan Task 11, actiu quan examOpen
     // the Piscina: three numbers from POOL, a bare abacus, saved only by the third one, with no way back to a shut map

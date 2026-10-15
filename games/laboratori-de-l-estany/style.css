@@ -258,14 +258,12 @@ sub { font-size: 0.62em; line-height: 0; }
 .keys { display: grid; grid-template-columns: repeat(6, 48px); gap: 6px; }
 .key.ok { background: var(--pad); color: var(--on-pad); border-color: transparent; } .key.del { color: var(--muted); }
 
-@keyframes grow { from { transform: scale(0.2); } }
 @keyframes tide { to { transform: translateX(-50px); } }
 @keyframes pour { 40%, 70% { transform: rotate(38deg) translateY(8px); } }
 @keyframes pourl { 40%, 70% { transform: rotate(-38deg) translateY(8px); } }
 @keyframes bang { 15% { filter: brightness(3) drop-shadow(0 0 40px #fff); transform: scale(1.06); } }
 @keyframes pop { from { transform: scale(0.4); } }
 @keyframes beacon { 50% { box-shadow: 0 0 20px var(--sun); outline: 2px solid var(--sun); } }
-@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
 @keyframes bob { to { transform: translateY(-4px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes bub { 0% { transform: translateY(8px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-12px); opacity: 0; } }

@@ -224,7 +224,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .ropts .key { height: 72px; font-size: 2rem; }
 .rn { font-weight: 800; color: var(--muted); } .rn b { color: var(--sun); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 
-@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
 @keyframes land { from { transform: scale(0.4); } }
 @keyframes arrive { from { opacity: 0; transform: translateY(-10px); } }
 /* a tablet or a laptop: the material and the desk side by side */

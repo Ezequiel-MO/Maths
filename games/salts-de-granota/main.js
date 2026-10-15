@@ -4,6 +4,9 @@ import { pond } from '../../shared/fx.js';
 import { load, save as store } from '../../shared/progress.js';
 import { pick, bar, cub, num, make, sums, PROJECTS, PLAN, CIRCLES, NEG, VALID, EXAM_PASS, RAPID, pool, clean, noteOf, reached, validated, levelText, isOpen, examOpen,
   circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, fliesIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
+import { cursusMap, badgeList } from '../../shared/mapa.js';
+import { SETTLE, ownPage, xpBar, soundButton, list, news, combo, tokens } from '../../shared/shell.js';
+import { svgEl, tween } from '../../shared/scene.js';
 
 const KEY = 'salts-de-granota';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -16,16 +19,11 @@ const root = $('#joc');
 let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
 // The bar at the top of every screen: «Nivell 2,27», and the fill is the decimals, the part of the level that is done
-function paintXp() {
-  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
-  if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
-  const [n, fill] = box.children;
-  n.textContent = `Nivell ${lv}`; fill.setAttribute('aria-label', `${pct} % del nivell`); fill.firstChild.style.width = pct + '%';
-}
+const paintXp = () => xpBar(levelText(prog));
 
 // every screen change cancels running animations and the keypad through this token
-let tok = { on: true }, keyFn = null;
-function fresh() { tok.on = false; tok = { on: true }; keyFn = null; return tok; }
+let keyFn = null;
+const fresh = tokens(() => { keyFn = null; });
 
 const { tone, chime } = voice(() => prog.so);
 // the longer the streak, the higher the note
@@ -149,7 +147,7 @@ function lineViz(host, p) {
   const lo = min - m, hi = max + m, wide = hi - lo;
   // a long line has a tick every 5 or every 10, and fewer numbers under it
   const every = wide <= 46 ? 1 : wide <= 120 ? 5 : 10, named = wide <= 24 ? 5 : wide <= (tight ? 70 : 120) ? 10 : 20;
-  const X = n => 50 + (n - lo) / wide * (VW - 100), Y = 150, low = lo < 0, NS = 'http://www.w3.org/2000/svg';
+  const X = n => 50 + (n - lo) / wide * (VW - 100), Y = 150, low = lo < 0;
   let s = `<svg class="nl" viewBox="0 0 ${VW} ${low ? 236 : 212}" role="img" aria-label="Recta numèrica: ${num(lo)} a ${num(hi)}">
     <rect class="water" x="8" y="${Y - 9}" width="${VW - 16}" height="30" rx="15"/>`;
   if (low) s += `<rect class="deep" x="8" y="${Y - 9}" width="${X(0) - 8}" height="30" rx="15"/><text class="zl" x="${(8 + X(0)) / 2}" y="228">sota zero</text><line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${Y - 22}" y2="${Y + 30}"/>`;
@@ -159,7 +157,7 @@ function lineViz(host, p) {
   }
   host.innerHTML = s + `<g class="dyn"></g><g class="frog">${FROG}</g></svg>${p.gap ? '<p class="split"></p>' : ''}`;
   const dyn = $('.dyn', host), jumper = $('.frog', host), sp = $('.split', host), SC = tight ? 1.25 : 1.1;
-  const mk = (tag, at, txt) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; dyn.appendChild(e); return e; };
+  const mk = (tag, at, txt) => { const e = svgEl(tag, at, txt); dyn.appendChild(e); return e; };
   const sit = (x, y, sq = 0) => jumper.setAttribute('transform', `translate(${x} ${y - 4}) scale(${SC * (1 - 0.1 * sq)} ${SC * (1 + 0.18 * sq)})`);
   // hid writes the result where "?" is; pads remembers the number under each pad, to clear the ones that would be written over
   let hid = null, pads = [];
@@ -185,14 +183,11 @@ function lineViz(host, p) {
     const dur = RM ? 0 : Math.min(950, 380 + dx);
     const t0 = performance.now();
     tone(back ? 330 : 440, 0, 0.14, 0.06);
-    await new Promise(done => {
-      (function frame(now) {
-        const t = dur ? Math.min(1, (now - t0) / dur) : 1, q = 1 - t;
-        arc.setAttribute('stroke-dashoffset', q);
-        sit(q * q * x1 + 2 * q * t * mx + t * t * x2, Y - 4 * h * q * t, Math.sin(Math.PI * t));
-        t < 1 ? requestAnimationFrame(frame) : done();
-      })(t0);
-    });
+    await tween(dur, t => {
+      const q = 1 - t;
+      arc.setAttribute('stroke-dashoffset', q);
+      sit(q * q * x1 + 2 * q * t * mx + t * t * x2, Y - 4 * h * q * t, Math.sin(Math.PI * t));
+    }, t0);
     // a single hop that is the whole answer keeps its size secret
     const secret = mask && p.gap && p.jumps.length === 1, lab = mk('text', { class: 'jl' + back + (secret ? ' q' : ''), x: mx, y: Y - 10 - h - 12 }, secret ? '?' : p.jumps[i].lab);
     land(pts[i + 1], mask && !p.gap && pts[i + 1] === p.ans);
@@ -223,28 +218,21 @@ async function demo(p, v, capEl, t) {
 const BRAVO = ['Molt bé!', 'Perfecte!', 'Genial!', 'Així es fa!', 'Quin salt!', 'Nyam!'], HURRAY = ['Molt bé!', 'Quin salt!', 'Genial!', 'Nivell superat!'];
 // one hue per circle: the sky of its levels and the border of its band on the map
 const HUE = [165, 190, 48, 262, 318, 215];
-const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
-const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
 const flies = n => n === 1 ? '1 mosca' : `${n} mosques`;
 const hits = n => n === 1 ? '1 encert' : `${n} encerts`;
 
 /* ---------- the page around every screen ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
-const HUB = /salts-de-granota\.html$/.test(location.pathname);
+const HUB = ownPage('salts-de-granota');
 function show(kicker, playing, hue) {
-  $('#app').classList.toggle('in', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
+  $('#app').classList.toggle('in', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
   root.onclick = null; FX.mood(hue);
 }
-$('#toS').onclick = () => mapa();
-function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
-$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+$('#toM').onclick = () => mapa();
+const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 // the longest run goes in with whatever is being handed in: gives back the badges it earns
 function run() { const r = streakIn(prog, top); prog = r.prog; return r.news; }
-function drawCombo() {
-  const e = $('#cb'); if (!e) return;
-  e.hidden = streak < 3; e.textContent = `Ratxa ×${streak}`;
-  if (streak >= 3) { e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); }
-}
+const drawCombo = () => combo(streak);
 // a big frog leaps across the whole screen
 function leap() {
   if (RM) return;
@@ -264,46 +252,19 @@ function catchFly(from) {
 
 /* ---------- the map: a band for each circle, a lily pad for each project and the exam of the circle at the end ---------- */
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${HUE[c]} 60% 60%)" stroke-width="2.400" opacity="${3 - i <= c ? 1 : 0.25}"/>`).join('')}<circle r="2" fill="hsl(${HUE[c]} 80% 70%)"/></svg>`;
-const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
-const starsOf = i => prog.lv.slice(i * 10, i * 10 + 10);
-const noteText = i => { const n = noteOf(prog, i), d = starsOf(i).filter(Boolean).length; return n >= VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
-const examBtn = c => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis operacions' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
-// one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
-function advice() {
-  for (let c = 0; c < CIRCLES.length; c++) {
-    if (!isOpen(prog, c)) continue;
-    const i = CIRCLES[c].projects.find(i => noteOf(prog, i) < VALID);
-    if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
-    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
-  }
-  return '';
-}
+// the map of the cursus (shared/mapa.js): what it says of each project and exam, and the next thing to do. A circle opens by itself as
+// soon as one of its levels is done, so the next thing to do may come after a shut circle
+const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, what: 'Sis operacions', skipShut: true });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('Càlcul mental · el mapa', false, 165);
-  const band = c => `<section class="ring${openC(c) ? '' : ' shut'}" style="--rh:${HUE[c]}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
-      ${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
-      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${noteOf(prog, i) >= VALID ? ' ok' : ''}" data-p="${i}" style="--h:${HUE[c]}"${openC(c) ? '' : ' disabled'}>${ORB}<b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span>
-        <span class="pp" aria-hidden="true">${starsOf(i).map(s => `<i class="s${s}"></i>`).join('')}</span><span class="mk">${noteText(i)}</span></button>`).join('')}${examBtn(c)}</div></section>`;
-  const got = badges(prog), tip = advice(), any = OPEN || prog.lv.some(Boolean);
-  root.innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}
-    <p class="stats"><span>${FLY}<b>${prog.mosques}</b> ${prog.mosques === 1 ? 'mosca' : 'mosques'}</span><span>🔥 Ratxa més llarga: <b>${prog.ratxa}</b></span></p>
-    ${CIRCLES.map((_, c) => band(c)).join('')}
-    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
-      <button class="btn soft" id="full"${any ? '' : ' disabled title="Fes un nivell per obrir-lo"'}>🔍 Caça l'errada</button>
-      <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
-  root.onclick = e => {
-    const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
-    if (b && !b.disabled) {
-      // the first level that still has something to win, as far as the project is open
-      const i = +b.dataset.p, k = starsOf(i).findIndex(n => n < 3);
-      tone(523, 0, 0.2); nivell(i, k < 0 ? 0 : Math.min(k, OPEN ? 9 : reached(prog, i), 9));
-    }
-    else if (x && !x.disabled) examen(+x.dataset.x);
-    else if (e.target.closest('#full:not(:disabled)')) full();
-    else if (e.target.closest('#rapid')) llampec();
-  };
-  ($(`[data-p="${here}"]:not(:disabled)`, root) || $('button:not(:disabled)', root))?.focus({ preventScroll: true }); here = -1;
+  M.screen({ root, here, rings, ringAttr: c => ` style="--rh:${HUE[c]}"`, projAttr: (i, c) => ` style="--h:${HUE[c]}"`, icon: () => ORB, pp: true,
+    top: `\n    <p class="stats"><span>${FLY}<b>${prog.mosques}</b> ${prog.mosques === 1 ? 'mosca' : 'mosques'}</span><span>🔥 Ratxa més llarga: <b>${prog.ratxa}</b></span></p>\n    `,
+    foot: got => `\n    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
+      <button class="btn soft" id="full"${OPEN || prog.lv.some(Boolean) ? '' : ' disabled title="Fes un nivell per obrir-lo"'}>🔍 Caça l'errada</button>
+      ${badgeList(BADGES, got)}</div>`,
+    open: i => { tone(523, 0, 0.2); nivell(i, M.nextLevel(i)); }, exam: examen, on: [['#full:not(:disabled)', full], ['#rapid', llampec]] });
+  here = -1;
 }
 
 /* ---------- the board: operations one after another, each with its box for the answer and the keys that fill it ---------- */
@@ -507,7 +468,7 @@ function nivell(i, idx) {
 // The third one saves piscina and opens the map. There is no «← Mapa» here: the map would have every circle shut, so the way
 // out is the page of all games.
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 190); $('#toS').hidden = true; $('#toG').hidden = !HUB;
+  const t = fresh(); show('La Piscina', true, 190); $('#toM').hidden = true; $('#toG').hidden = !HUB;
   root.innerHTML = `${HUD("Tres salts per entrar a l'estany")}<div class="play" id="play"></div>`;
   play({ t, host: $('#play'), qs: pool(), pic: true, hints: true, chip, onEnd: st => {
     const r = poolIn(prog); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
@@ -558,7 +519,6 @@ function llampec() {
 /* ---------- «Caça l'errada»: three operations a sheet has answered, one after the other; from none to two of them are wrong ---------- */
 // «És correcte» of a wrong one, or «No és correcte» of a right one, is a miss; «No és correcte» of a wrong one asks for the answer that
 // makes it true, with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
-const SETTLE = 450;
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
   const cs = sheet(prog, OPEN), marks = [];
