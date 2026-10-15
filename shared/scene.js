@@ -42,6 +42,12 @@ export function frames(t, el, frame, { max = 0.05, idle = 0, still = false } = {
   };
 }
 
+// fn() once, when the screen of t goes or el leaves the page: what a picture must give back then (a WebGL context, a JSXGraph
+// board, a listener on the window). Looked at three times a second, which is soon enough for something nobody sees any more
+export function whenGone(t, el, fn) {
+  const iv = setInterval(() => { if (!t.on || !el.isConnected) { clearInterval(iv); fn(); } }, 300);
+}
+
 // A move of dur milliseconds: step(k) with k from 0 to 1, the first one at once (k is 1 at once when dur is 0). The promise
 // resolves after the step with k = 1
 export function tween(dur, step, t0 = performance.now()) {

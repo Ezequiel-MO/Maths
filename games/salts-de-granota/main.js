@@ -6,7 +6,7 @@ import { pick, bar, cub, num, make, sums, PROJECTS, PLAN, CIRCLES, NEG, VALID, E
   circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, fliesIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, xpBar, soundButton, list, news, combo, tokens } from '../../shared/shell.js';
-import { svgEl, tween } from '../../shared/scene.js';
+import { tween } from '../../shared/scene.js';
 
 const KEY = 'salts-de-granota';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -138,8 +138,13 @@ function twinViz(host, p) {
   reset();
   return { n: twin ? 1 : 2, jump, reset, reveal() { if (end) total(false); } };
 }
-// The frog on the number line: a strip of water with a lily pad wherever it lands. Below zero the water is deeper.
-// When the answer is the hops added up (p.gap), a line under the picture adds them.
+// The frog on the number line, drawn with JSXGraph (shared/jsx.js, loaded the first time a line comes on screen): a strip of water
+// with a lily pad wherever it lands. Below zero the water is deeper. When the answer is the hops added up (p.gap), a line under the
+// picture adds them. The picture keeps the units of the old drawing (VW wide, y downwards from the top); the board turns them round.
+// hand() lets the child make the hops: she drags the frog (or moves it with the arrows), it stays on whole numbers, and a hop that
+// lands where the next one of p.jumps goes is drawn like a hint draws it; one that lands anywhere else swims back.
+const jsx = () => import('../../shared/jsx.js');
+const FROG_SVG = `<svg class="frog-s" viewBox="-38 -50 76 58" aria-hidden="true">${FROG}</svg>`;
 function lineViz(host, p) {
   // a narrow screen gets a shorter line with less room at the ends, so the numbers stay readable
   const tight = host.clientWidth < 560, VW = tight ? 640 : 1000;
@@ -147,56 +152,145 @@ function lineViz(host, p) {
   const lo = min - m, hi = max + m, wide = hi - lo;
   // a long line has a tick every 5 or every 10, and fewer numbers under it
   const every = wide <= 46 ? 1 : wide <= 120 ? 5 : 10, named = wide <= 24 ? 5 : wide <= (tight ? 70 : 120) ? 10 : 20;
-  const X = n => 50 + (n - lo) / wide * (VW - 100), Y = 150, low = lo < 0;
-  let s = `<svg class="nl" viewBox="0 0 ${VW} ${low ? 236 : 212}" role="img" aria-label="Recta numèrica: ${num(lo)} a ${num(hi)}">
-    <rect class="water" x="8" y="${Y - 9}" width="${VW - 16}" height="30" rx="15"/>`;
-  if (low) s += `<rect class="deep" x="8" y="${Y - 9}" width="${X(0) - 8}" height="30" rx="15"/><text class="zl" x="${(8 + X(0)) / 2}" y="228">sota zero</text><line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${Y - 22}" y2="${Y + 30}"/>`;
-  for (let n = Math.ceil(lo / every) * every; n <= hi; n += every) {
-    s += `<line class="tick${n % 10 ? '' : ' ten'}" x1="${X(n)}" x2="${X(n)}" y1="${Y + 1}" y2="${Y + (n % 10 ? 13 : 19)}"/>`;
-    if (n % named === 0) s += `<text class="tl" data-n="${n}" x="${X(n)}" y="${Y + 52}">${num(n)}</text>`;
+  const X = n => 50 + (n - lo) / wide * (VW - 100), N = x => Math.round(lo + (x - 50) / (VW - 100) * wide), Y = 150, low = lo < 0, H = low ? 236 : 212;
+  host.innerHTML = `<div class="nlb" style="aspect-ratio:${VW} / ${H}" role="img" aria-label="Recta numèrica: ${num(lo)} a ${num(hi)}"></div>${p.gap ? '<p class="split"></p>' : ''}`;
+  const box = $('.nlb', host), sp = $('.split', host), SC = tight ? 1.25 : 1.1;
+  // what is drawn on the board as the hops go, to clear on reset: the arcs, their labels, the pads and the numbers on them
+  let B = null, s = 1, dyn = [], pads = [], tls = [], hid = null, frog = null, handle = null, fx = X(pts[0]), fy = Y, squash = 0, at = pts[0], drag = null;
+  const P = (x, y) => [x, -y];
+  const px = u => u * s;
+  // the colours of the old stylesheet: JSXGraph writes a text's colour on the text itself, so it is said here and not in style.css
+  const INK = { tl: '#9EC3C0', zl: '#B7A8FF', pl: '#EAF8F4', q: '#F7C64E', jl: '#6FE3FF', back: '#F7C64E' };
+  const txt = (x, y, html, cls, size, ink) => B.create('text', [x, -y, html], { display: 'html', anchorX: 'middle', anchorY: 'middle', fixed: true, highlight: false,
+    strokeColor: ink, highlightStrokeColor: ink, fontSize: px(size), fontUnit: 'px', cssClass: 'nlt ' + cls, highlightCssClass: 'nlt ' + cls });
+  // a rounded strip of water, as points
+  const strip = (x1, x2, r) => {
+    const out = [], y1 = Y - 9, y2 = Y + 21;
+    for (const [cx, cy, a0] of [[x2 - r, y1 + r, -90], [x2 - r, y2 - r, 0], [x1 + r, y2 - r, 90], [x1 + r, y1 + r, 180]])
+      for (let k = 0; k <= 6; k++) { const a = (a0 + k * 15) * Math.PI / 180; out.push(P(cx + r * Math.cos(a), cy + r * Math.sin(a))); }
+    return out;
+  };
+  const shape = (pts, attrs) => B.create('polygon', pts, { vertices: { visible: false }, borders: { strokeWidth: px(attrs.sw || 0), strokeColor: attrs.stroke || 'none', highlight: false },
+    fillColor: attrs.fill, fillOpacity: attrs.alpha ?? 1, fixed: true, highlight: false, hasInnerPoints: false });
+  // a lily pad seen from the side, with its notch: the ellipse of the old drawing (rx 28, ry 11) from 15° round to 345°
+  const padAt = x => {
+    const out = [P(x, Y), P(x + 27, Y - 3)];
+    for (let a = -15.4; a >= -344.6; a -= 12) { const r = a * Math.PI / 180; out.push(P(x + 28 * Math.cos(r), Y + 11 * Math.sin(r))); }
+    out.push(P(x + 27, Y + 3));
+    return shape(out, { fill: '#4FB562', stroke: '#2F7F40', sw: 2 });
+  };
+  function build({ board, C }) {
+    if (!box.isConnected) return;
+    B = board({ on: true }, box, [0, 0, VW, -H]); s = box.clientWidth / VW || 1;
+    B.suspendUpdate();
+    shape(strip(8, VW - 8, 15), { fill: 'rgb(111,227,255)', alpha: 0.22, stroke: 'rgba(111,227,255,0.45)', sw: 2 });
+    if (low) {
+      shape(strip(8, X(0), 15), { fill: 'rgb(88,70,200)', alpha: 0.5 });
+      txt((8 + X(0)) / 2, 222, 'sota zero', 'zl', 22, INK.zl);
+      B.create('segment', [P(X(0), Y - 22), P(X(0), Y + 30)], { strokeColor: C.sun, strokeWidth: px(4), dash: 1, lineCap: 'round', fixed: true, highlight: false });
+    }
+    for (let n = Math.ceil(lo / every) * every; n <= hi; n += every) {
+      const ten = n % 10 === 0;
+      B.create('segment', [P(X(n), Y + 1), P(X(n), Y + (ten ? 19 : 13))], { strokeColor: ten ? C.ink : 'rgba(234,248,244,0.55)', strokeWidth: px(ten ? 4 : 2), lineCap: 'round', fixed: true, highlight: false });
+      if (n % named === 0) tls.push({ x: X(n), t: txt(X(n), Y + 44, num(n), 'tl', 26, INK.tl) });
+    }
+    // the frog is HTML on the board, so its eyelids still blink; the handle under it is what a finger takes
+    frog = B.create('text', [() => fx, () => -(fy - 4), FROG_SVG], { display: 'html', anchorX: 'middle', anchorY: 'bottom', fixed: true, highlight: false,
+      cssClass: 'nlf', highlightCssClass: 'nlf', cssStyle: `width:${px(76 * SC)}px;height:${px(58 * SC)}px` });
+    handle = B.create('point', P(fx, Y - 30), { name: '', size: 26, fillOpacity: 0, strokeOpacity: 0, highlightFillOpacity: 0, highlightStrokeOpacity: 0, fixed: true, showInfobox: false });
+    B.unsuspendUpdate();
   }
-  host.innerHTML = s + `<g class="dyn"></g><g class="frog">${FROG}</g></svg>${p.gap ? '<p class="split"></p>' : ''}`;
-  const dyn = $('.dyn', host), jumper = $('.frog', host), sp = $('.split', host), SC = tight ? 1.25 : 1.1;
-  const mk = (tag, at, txt) => { const e = svgEl(tag, at, txt); dyn.appendChild(e); return e; };
-  const sit = (x, y, sq = 0) => jumper.setAttribute('transform', `translate(${x} ${y - 4}) scale(${SC * (1 - 0.1 * sq)} ${SC * (1 + 0.18 * sq)})`);
-  // hid writes the result where "?" is; pads remembers the number under each pad, to clear the ones that would be written over
-  let hid = null, pads = [];
+  const ready = jsx().then(build);
+  // every call waits for the board and for the call before it, in the order they were made
+  let queue = ready;
+  const later = f => (queue = queue.then(() => B && f()));
+  const paint = () => { if (!B) return; const el = frog.rendNode?.firstChild; if (el) el.style.transform = squash ? `scale(${1 - 0.1 * squash}, ${1 + 0.18 * squash})` : ''; B.update(); };
   function land(n, mask) {
     const x = X(n);
-    host.querySelectorAll('.tl').forEach(t => { if (Math.abs(+t.getAttribute("x") - x) < 66) t.setAttribute('visibility', 'hidden'); });
-    pads = pads.filter(q => Math.abs(q.x - x) >= 60 || (q.lab.remove(), false));
-    mk('path', { class: 'lp', d: PAD, transform: `translate(${x} ${Y})` });
-    const lab = mk('text', { class: mask ? 'pl q' : 'pl', x, y: Y + 54 }, mask ? '?' : num(n));
-    pads.push({ x, lab });
-    if (mask) hid = () => { lab.textContent = num(n); lab.setAttribute('class', 'pl'); };
+    tls.forEach(l => { if (Math.abs(l.x - x) < 66) l.t.setAttribute({ visible: false }); });
+    pads = pads.filter(q => Math.abs(q.x - x) >= 60 || (B.removeObject(q.lab), false));
+    dyn.push(padAt(x));
+    const lab = txt(x, Y + 42, mask ? '?' : num(n), 'pl', 36, mask ? INK.q : INK.pl);
+    dyn.push(lab); pads.push({ x, lab });
+    if (mask) hid = () => { lab.setText(num(n)); lab.setAttribute({ strokeColor: INK.pl, highlightStrokeColor: INK.pl }); };
   }
   const added = mask => { sp.innerHTML = `<b>${p.jumps.map(j => j.lab.slice(1)).join(' + ')}</b> = ${mask ? '<b class="q">?</b>' : p.ans}`; };
   function reveal() { if (hid) { hid(); hid = null; } }
   function reset() {
-    dyn.replaceChildren(); host.querySelectorAll('.tl').forEach(t => t.removeAttribute('visibility')); hid = null; pads = [];
+    dyn.forEach(o => B.removeObject(o)); dyn = []; pads = []; hid = null; tls.forEach(l => l.t.setAttribute({ visible: true }));
     if (sp) sp.innerHTML = '&nbsp;';
-    land(pts[0]); sit(X(pts[0]), Y);
+    at = pts[0]; fx = X(at); fy = Y; squash = 0; handle.moveTo(P(fx, Y - 30)); land(at); paint();
   }
+  // the hop from pts[i] to pts[i + 1]: its arc drawn as the frog flies along it, its label on top, a pad where it lands
   async function jump(i, mask) {
-    const x1 = X(pts[i]), x2 = X(pts[i + 1]), dx = Math.abs(x2 - x1), h = Math.min(100, 36 + dx * 0.15), mx = (x1 + x2) / 2, back = x2 < x1 ? ' back' : '', end = i === p.jumps.length - 1;
-    const arc = mk('path', { class: 'arc' + back, d: `M${x1} ${Y - 10} Q${mx} ${Y - 10 - 2 * h} ${x2} ${Y - 10}`, pathLength: 1, 'stroke-dasharray': 1, 'stroke-dashoffset': 1 });
+    const x1 = X(pts[i]), x2 = X(pts[i + 1]), dx = Math.abs(x2 - x1), h = Math.min(100, 36 + dx * 0.15), mx = (x1 + x2) / 2, back = x2 < x1, end = i === p.jumps.length - 1;
+    let k = 0;
+    const bx = t => (1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t * t * x2, by = t => (1 - t) ** 2 * (Y - 10) + 2 * (1 - t) * t * (Y - 10 - 2 * h) + t * t * (Y - 10);
+    dyn.push(B.create('curve', [t => bx(t), t => -by(t), 0, () => k], { strokeColor: back ? '#F7C64E' : '#6FE3FF', strokeWidth: px(5), lineCap: 'round', fixed: true, highlight: false }));
     const dur = RM ? 0 : Math.min(950, 380 + dx);
     const t0 = performance.now();
     tone(back ? 330 : 440, 0, 0.14, 0.06);
-    await tween(dur, t => {
-      const q = 1 - t;
-      arc.setAttribute('stroke-dashoffset', q);
-      sit(q * q * x1 + 2 * q * t * mx + t * t * x2, Y - 4 * h * q * t, Math.sin(Math.PI * t));
-    }, t0);
+    await tween(dur, t => { k = t; const q = 1 - t; fx = q * q * x1 + 2 * q * t * mx + t * t * x2; fy = Y - 4 * h * q * t; squash = Math.sin(Math.PI * t); paint(); }, t0);
     // a single hop that is the whole answer keeps its size secret
-    const secret = mask && p.gap && p.jumps.length === 1, lab = mk('text', { class: 'jl' + back + (secret ? ' q' : ''), x: mx, y: Y - 10 - h - 12 }, secret ? '?' : p.jumps[i].lab);
+    const secret = mask && p.gap && p.jumps.length === 1, ink = secret || back ? INK.back : INK.jl;
+    const lab = txt(mx, Y - 10 - h - 24, secret ? '?' : p.jumps[i].lab, 'jl', 34, ink); dyn.push(lab);
+    at = pts[i + 1]; fx = x2; fy = Y; squash = 0; handle.moveTo(P(fx, Y - 30));
     land(pts[i + 1], mask && !p.gap && pts[i + 1] === p.ans);
-    if (p.gap && end) { added(mask); if (mask) hid = () => { lab.textContent = p.jumps[i].lab; lab.setAttribute('class', 'jl' + back); added(false); }; }
+    if (p.gap && end) { added(mask); if (mask) hid = () => { const c = back ? INK.back : INK.jl; lab.setText(p.jumps[i].lab); lab.setAttribute({ strokeColor: c, highlightStrokeColor: c }); added(false); }; }
+    paint();
     // the frog lands on the pad with a splash
-    if (jumper.isConnected) { const c = mid(jumper), hue = back ? 45 : 190; FX.ring(c.x, c.bottom, hue, 4, c.w * 1.1); FX.burst(c.x, c.bottom, hue, 12, 110); tone(back ? 494 : 659, 0, 0.2, 0.07); }
+    const el = frog.rendNode;
+    if (el?.isConnected) { const c = mid(el), hue = back ? 45 : 190; FX.ring(c.x, c.bottom, hue, 4, c.w * 1.1); FX.burst(c.x, c.bottom, hue, 12, 110); tone(back ? 494 : 659, 0, 0.2, 0.07); }
   }
-  reset();
-  return { n: p.jumps.length, jump, reset, reveal };
+
+  // The child makes the hops. h says what the board may do and hears what she did:
+  //   can()     whether the frog may move now (not while a hint plays, not once the answer is in)
+  //   next()    the hop to make now (the moves on screen so far)
+  //   hopped()  a hop landed where it goes: it is drawn, and the next one is due
+  //   missed()  it landed somewhere else: the frog swims back to where it was
+  //   hold(on)  the hop or the swim back is being drawn: nothing else may start meanwhile
+  function hand(h) {
+    later(() => {
+      handle.setAttribute({ fixed: false });
+      box.tabIndex = 0; box.setAttribute('role', 'slider'); box.setAttribute('aria-valuemin', lo); box.setAttribute('aria-valuemax', hi);
+      box.setAttribute('aria-label', `La granota a la recta numèrica, de ${num(lo)} a ${num(hi)}. Arrossega-la o mou-la amb les fletxes per fer els salts.`);
+      box.classList.add('hand');
+      const show = n => { fx = X(n); fy = Y - 14; squash = 0; box.setAttribute('aria-valuenow', n); paint(); };
+      const home = () => { fx = X(at); fy = Y; handle.moveTo(P(fx, Y - 30)); box.setAttribute('aria-valuenow', at); paint(); };
+      // where the frog lands: the next hop is drawn, or it swims back gently
+      async function drop(n) {
+        drag = null;
+        const i = h.next();
+        if (n === at || !h.can() || i >= p.jumps.length) return home();
+        h.hold(true);
+        if (n === pts[i + 1]) {
+          // the hop drawn as a hint draws it, from where she took the frog: the last one keeps the result secret as a hint does
+          fx = X(at); fy = Y;
+          await jump(i, i === p.jumps.length - 1);
+          h.hold(false); return h.hopped();
+        }
+        tone(196, 0, 0.18, 0.05);
+        const x0 = X(n), x1 = X(at);
+        await tween(RM ? 0 : 320, t => { fx = x0 + (x1 - x0) * t; fy = Y - 14 * (1 - t); paint(); });
+        home(); h.hold(false); h.missed();
+      }
+      handle.on('down', () => { if (!h.can()) return; drag = at; });
+      handle.on('drag', () => { if (drag === null) return; show(Math.max(lo, Math.min(hi, N(handle.X())))); });
+      handle.on('up', () => { if (drag === null) return home(); drop(Math.max(lo, Math.min(hi, N(handle.X())))); });
+      // the arrows move the frog one by one (ten by ten with Shift); it hops when they stop for a moment
+      let kn = null, wait = 0;
+      box.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault(); e.stopPropagation();
+        if (!h.can()) return;
+        kn = Math.max(lo, Math.min(hi, (kn ?? at) + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+        show(kn); clearTimeout(wait);
+        wait = setTimeout(() => { const n = kn; kn = null; drop(n); }, 750);
+      });
+    });
+  }
+  later(reset);
+  return { n: p.jumps.length, jump: (i, mask) => later(() => jump(i, mask)), reset: () => later(reset), reveal: () => later(reveal), hand };
 }
 
 // narrate a trick: one caption per move, then any closing caption
@@ -341,8 +435,13 @@ function play(o) {
       ${o.hints ? '<div class="row"><button class="btn soft" id="hintb">Pista</button></div>' : ''}`;
     const hb = $('#hintb'), msg = $('#msg');
     const say = (txt, cls) => { msg.textContent = txt; msg.className = cls || ''; };
+    // On a number line the child can make the hops herself, dragging the frog. A hop she lands right is her own work, not a hint;
+    // one that lands anywhere else is a slip, as a wrong answer is (or she could find the result by trying every place)
+    const hand = () => v.hand?.({ can: () => alive() && !busy && !done, next: () => shown, hold: on => { busy = on; },
+      hopped: () => { shown++; if (alive()) kp.auto(); },
+      missed: () => { if (!alive()) return; clean = false; streak = 0; drawCombo(); say('Aquest salt no arriba on toca. Torna-ho a provar.', 'bad'); if (++miss >= 2) hb?.classList.add('glow'); } });
     if (o.pic) {
-      v = Viz($('#viz'), p);
+      v = Viz($('#viz'), p); hand();
       // an answer typed while the first leap is being drawn is checked when it lands
       if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { if (alive()) { busy = false; kp.auto(); } }); }
     }
@@ -351,7 +450,7 @@ function play(o) {
     if (hb) hb.onclick = async () => {
       if (busy || done) return;
       busy = true; clean = false; hb.classList.remove('glow'); say(''); hb.blur();
-      if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); }
+      if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); hand(); }
       if (shown < v.n) { await v.jump(shown, shown === v.n - 1); shown++; }
       else v.reveal();
       if (alive()) { busy = false; kp.auto(); }

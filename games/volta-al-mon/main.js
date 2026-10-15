@@ -133,15 +133,24 @@ function solidInner(id, yaw, pitch) {
   return `${S.round ? '' : faces.filter(F => F.z <= 0).map(F => `<polygon class="hid" points="${pts(F.f)}"/>`).join('')}${faces.filter(F => F.z > 0).map(paint).join('')}`;
 }
 const solidSvg = (id, w = 220, yaw = 0.6, pitch = 0.42) => `<svg class="solid" viewBox="-110 -110 220 220" style="width:${w}px" aria-hidden="true">${solidInner(id, yaw, pitch)}</svg>`;
-// the solid of a stage turns slowly by itself until it is touched; then it follows the finger
+// the solid of a stage turns slowly by itself until it is touched; then it follows the finger. It comes up as SVG at once, and the
+// 3D solid of solid3d.js (Three.js, loaded only now) takes its place when it is ready, turned as the SVG one was; with no WebGL the SVG stays
 function mountSolid(svg, id, t) {
-  let yaw = 0.6, pitch = 0.42, drag = null, spin = !RM;
-  const draw = () => { svg.innerHTML = solidInner(id, yaw, pitch); };
-  svg.onpointerdown = e => { drag = [e.clientX, e.clientY]; spin = false; svg.setPointerCapture(e.pointerId); };
-  svg.onpointermove = e => { if (!drag) return; yaw += (e.clientX - drag[0]) * 0.012; pitch = Math.min(1.35, Math.max(-1.35, pitch + (e.clientY - drag[1]) * 0.012)); drag = [e.clientX, e.clientY]; draw(); };
+  const view = { yaw: 0.6, pitch: 0.42, spin: !RM };
+  let drag = null;
+  const draw = () => { svg.innerHTML = solidInner(id, view.yaw, view.pitch); };
+  svg.onpointerdown = e => { drag = [e.clientX, e.clientY]; view.spin = false; svg.setPointerCapture(e.pointerId); };
+  svg.onpointermove = e => { if (!drag) return; view.yaw += (e.clientX - drag[0]) * 0.012; view.pitch = Math.min(1.35, Math.max(-1.35, view.pitch + (e.clientY - drag[1]) * 0.012)); drag = [e.clientX, e.clientY]; draw(); };
   svg.onpointerup = svg.onpointercancel = () => { drag = null; };
-  const turn = frames(t, svg, dt => { if (!spin) return false; yaw += dt * 0.5; draw(); }, { still: true });
-  if (spin) turn.start();
+  const turn = frames(t, svg, dt => { if (!view.spin) return false; view.yaw += dt * 0.5; draw(); }, { still: true });
+  if (view.spin) turn.start();
+  import('./solid3d.js').then(({ mount3d }) => {
+    if (!t.on || !svg.isConnected) return;
+    const cv = document.createElement('canvas');
+    cv.className = 'solid live s3d'; cv.id = 'sol'; cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', svg.getAttribute('aria-label'));
+    svg.replaceWith(cv);
+    if (!mount3d(cv, id, SOLIDS[id], view, t)) { cv.replaceWith(svg); draw(); if (view.spin) turn.start(); }
+  }).catch(() => {});
 }
 // A building of cubes seen from a corner, the front to the lower left and the right side to the lower right. Drawn from the back
 // to the front, so the cubes in front cover the ones behind

@@ -35,7 +35,7 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 .frog-s { display: block; width: 100%; height: 100%; overflow: visible; }
 .lid { opacity: 0; animation: wink 4.6s step-end infinite; }
 .pad { display: block; overflow: visible; }
-.pad .lp, .nl .lp { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; stroke-linejoin: round; }
+.pad .lp { fill: var(--pad); stroke: var(--pad-dark); stroke-width: 2; stroke-linejoin: round; }
 .pad .vein { fill: none; stroke: var(--pad-dark); stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
 .fl ellipse { fill: var(--flower); } .fl circle { fill: var(--sun); }
 .fly { width: 22px; height: 18px; flex: none; }
@@ -177,23 +177,6 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 
 /* pictures: the number line, the ten lily pads, the bars and cubes */
 #viz { width: 100%; }
-svg.nl { width: 100%; height: auto; display: block; }
-.nl .water { fill: rgb(111 227 255 / 0.22); stroke: rgb(111 227 255 / 0.45); stroke-width: 2; }
-/* below zero the water is deeper */
-.nl .deep { fill: rgb(88 70 200 / 0.5); }
-.nl .zero { stroke: var(--sun); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 8; }
-.nl .tick { stroke: rgb(234 248 244 / 0.55); stroke-width: 2; stroke-linecap: round; }
-.nl .tick.ten { stroke: var(--ink); stroke-width: 4; }
-.nl text { font-family: var(--display); text-anchor: middle; font-variant-numeric: tabular-nums; }
-.nl .tl { fill: var(--muted); font-size: 26px; font-weight: 600; }
-.nl .zl { fill: #B7A8FF; font-size: 22px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-.nl .pl { fill: var(--ink); font-size: 36px; font-weight: 800; }
-.nl .pl.q, .nl .jl.q { fill: var(--sun); }
-/* a jump forwards is blue, a jump backwards is yellow */
-.nl .arc { fill: none; stroke: var(--sky); stroke-width: 5; stroke-linecap: round; }
-.nl .jl { fill: var(--sky); font-size: 34px; font-weight: 800; }
-.nl .arc.back { stroke: var(--sun); }
-.nl .jl.back { fill: var(--sun); }
 /* two rows of flowers for a double */
 .twin { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px; border-radius: 20px; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); max-width: 440px; margin-inline: auto; }
 .trow { width: 100%; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 22px)); gap: 4px; justify-content: center; }
@@ -209,7 +192,7 @@ svg.nl { width: 100%; height: auto; display: block; }
 /* a hint asked twice counts the flowers */
 .frame b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 1.15rem/1 var(--display); color: #2A1C00; animation: grow 0.25s ease-out; }
 .split { font: 800 1.6rem/1.1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 12px; }
-.nl + .split { margin-top: 0; }
+.nlb + .split { margin-top: 0; }
 .split b { color: var(--sun); }
 .blocks { display: flex; gap: 26px; justify-content: center; align-items: flex-end; }
 .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -259,3 +242,15 @@ svg.nl { width: 100%; height: auto; display: block; }
   .btn.glow { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); }
   .key { transition: none; }
 }
+
+/* the number line on a JSXGraph board (lineViz): the same sizes as the old drawing; the colours are on each text */
+/* jsxgraph.css comes after base.css (it loads with the board) and paints the board white: on the pond it is water, not paper */
+#viz .nlb.jxgbox { width: 100%; height: auto; display: block; background: transparent; border: 0; }
+.nlb .nlt { font-family: var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; line-height: 1; }
+.nlb .tl { font-weight: 600; }
+.nlb .zl { font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.nlb .pl, .nlb .jl { font-weight: 800; }
+.nlb .nlf { pointer-events: none; }
+.nlb .nlf .frog-s { transform-origin: 50% 100%; }
+.nlb.hand { cursor: grab; border-radius: 18px; }
+.nlb.hand:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }

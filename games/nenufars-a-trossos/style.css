@@ -257,3 +257,10 @@ svg.nl { width: 100%; height: auto; overflow: visible; }
   .fg, .pt, .lp, .bug, .xp-bar i, #board .status.tip::before { transition: none; }
   .in.cur { box-shadow: 0 0 16px 5px var(--sun); }
 }
+
+/* the figures dragged with a finger (drag.js): the river as wide as the field, a round figure square */
+/* jsxgraph.css comes after base.css and paints its boards white: these are on the pond */
+.jx.jxgbox { background: transparent; border: 0; border-radius: 0; }
+.jx.jline { width: 100%; aspect-ratio: 320 / 150; cursor: pointer; }
+.jx.jround { width: min(72%, 260px); aspect-ratio: 1; cursor: pointer; filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.5)); }
+.jx.jround.pad { filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.5)) drop-shadow(0 0 16px rgb(79 181 98 / 0.3)); }
