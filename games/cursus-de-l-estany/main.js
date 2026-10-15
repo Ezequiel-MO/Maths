@@ -6,6 +6,7 @@ import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, badges, TEAMS, VALID, right, tipFor, explain, said, handIn, firstTry, sheet, judge, told, sheetIn, validated, exam, examIn, EXAM_PASS, roundIn, rapidIn, RACO_CAP } from './logic.js';
 import { problems, statements, fact, SVM, ROUND, ROUND_PASS } from './raco.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
+import { SETTLE, ownPage, tokens, soundButton } from '../../shared/shell.js';
 
 const KEY = 'cursus-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and the corner of thinking, to look at any of it; what is done there is judged and kept by the same rules as ever
@@ -17,13 +18,11 @@ let prog = clean(load(KEY));
 function save() { const { so, piscina, equip, notes, exams, fulls, probs, savi, rapid } = prog; store(KEY, { so, piscina, equip, notes, exams, fulls, probs, savi, rapid }); paintXp(); }
 
 // every new screen cancels the running one through this token
-let tok = { on: true };
-function fresh() { tok.on = false; tok = { on: true }; return tok; }
+const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so);
 const FX = pond(tone);
 
-const SETTLE = 450;   // after a screen comes up, touches on what advances are ignored for this long: a second tap must not press what is under the first
 let openAt = 0, keyFn = null, tight = false;
 const ready = () => performance.now() >= openAt;
 // A question screen (tight) ignores every tap for SETTLE after a new question, a choice, «Segueix» coming up or a panel: a second tap lands on what took the place of the first
@@ -33,7 +32,7 @@ const hsl = (h, l = 62) => `hsl(${h} 75% ${l}%)`;
 
 /* ---------- the shell: every screen starts with enter() and gets its token back ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
-const HUB = /cursus-de-l-estany\.html$/.test(location.pathname);
+const HUB = ownPage('cursus-de-l-estany');
 // inner screens show ← Mapa instead of ← Tots els jocs; the pond drifts to the colour of the team once there is one
 function enter(kicker, inner) {
   const t = fresh(); keyFn = null; tight = false; openAt = performance.now() + SETTLE;
@@ -42,8 +41,7 @@ function enter(kicker, inner) {
   return t;
 }
 $('#toM').onclick = () => mapa();
-function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
-$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 // The keys on the screen and a real keyboard both end up in keyFn (set by a screen that types; the arrows come as 'next' and 'prev'); keyFn says false when the
 // keys are not live, and then the key keeps its own job. This is the rule of the shell for every screen: while the keys are live Enter is ✓, unless the focus is on a
 // control that is not part of the figure (the hint, a «Segueix», the choices of a later screen) and nothing was typed since it took the focus: then Enter is that

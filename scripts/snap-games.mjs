@@ -1,6 +1,7 @@
 // What every game shows, written down to compare two versions of the code. Each game page opens in Chrome with a fixed save (or none),
 // a seeded Math.random and a fake clock, and the HTML of each screen it reaches is written to OUT/<game>/<screen>.html: the first screen,
-// a level, the map again, an exam, a sheet and the lightning round when the game has them. Run it before and after a change of the screens
+// a level, the map again, an exam, a sheet, the lightning round and the other buttons of the map when the game has them, and the
+// sound turned off and on; under each screen, what the game has saved by then. Run it before and after a change of the screens
 // and compare the two folders (diff -r): the same HTML means the children see the same games.
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 //   PLAYWRIGHT_CORE=<node_modules with playwright-core> BASE=http://localhost:5173 OUT=/some/dir node scripts/snap-games.mjs
@@ -47,7 +48,9 @@ for (const g of GAMES) {
       if (save) localStorage.setItem('xavi:' + store, JSON.stringify(save));
     }, [g.store || id, save]);
     const wait = ms => page.clock.runFor(ms);
-    const snap = async name => { await wait(1500); writeFileSync(`${dir}/${name}.html`, await html(page)); };
+    // the screen, and under it what the game has saved by then: the same save is the same progress for the child
+    const saved = () => page.evaluate(k => localStorage.getItem(k), 'xavi:' + (g.store || id));
+    const snap = async name => { await wait(1500); writeFileSync(`${dir}/${name}.html`, await html(page) + `\n<!-- saved: ${await saved()} -->\n`); };
     // chance starts again from the same seed right before every tap: the sky and the sparks draw from Math.random too, at their own pace
     const tap = async sel => { const e = await page.$(sel); if (!e) return false; await page.evaluate(() => window.__seed(777)); await e.click({ force: true }); return true; };
     const back = () => tap('#toM:not([hidden]), #toS:not([hidden])');
@@ -58,6 +61,9 @@ for (const g of GAMES) {
         if (await tap('.proj.exam:not(:disabled)')) { await snap('3-examen'); await back(); }
         if (await tap('#full:not(:disabled)')) { await snap('4-full'); await back(); }
         if (await tap('#rapid')) { await snap('5-llampec'); await back(); }
+        if (await tap('#free')) { await snap('6-lliure'); await back(); }
+        if (await tap('#trucs')) { await snap('7-trucs'); await back(); }
+        if (await tap('#so')) { await snap('8-so'); await tap('#so'); await snap('9-so'); }
       }
     } catch (e) { errors.push(String(e.message).split('\n')[0]); }
     if (errors.length) { fails++; console.error(`${id} ${tag}:`, errors.join(' | ')); }

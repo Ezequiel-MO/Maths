@@ -6,6 +6,8 @@ import { load, save as store } from '../../shared/progress.js';
 import { FILES, fr, dark, delta, white, VALUE, parse, reach, judge, all, mate, mates, gains, kingOf, attackerOf, inCheck, checks, route, done, goals, wantOf, starsFor,
   PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID, wantQ, rightQ, clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf,
   BADGES, badges, levelIn, poolIn, streakIn, rapidIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
+import { cursusMap, badgeList } from '../../shared/mapa.js';
+import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, curtain, combo } from '../../shared/shell.js';
 
 const KEY = 'escacs-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -16,16 +18,10 @@ const OPEN = OBERT;
 let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
 // The bar at the top of every screen: «Nivell 2,27», and the fill is the decimals, the part of the level that is done
-function paintXp() {
-  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
-  if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
-  const [n, bar] = box.children;
-  n.textContent = `Nivell ${lv}`; bar.setAttribute('aria-label', `${pct} % del nivell`); bar.firstChild.style.width = pct + '%';
-}
+const paintXp = () => xpBar(levelText(prog));
 
 // every new screen cancels the running one through this token
-let tok = { on: true };
-function fresh() { tok.on = false; tok = { on: true }; return tok; }
+const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so);
 const FX = pond(tone);
@@ -127,9 +123,6 @@ const sg = n => n > 0 ? '+' + n : n < 0 ? '−' + -n : '0';
 const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const pts = n => count(n, 'punt', 'punts');
 const walk = (df, dr) => [df && `${count(Math.abs(df), 'columna', 'columnes')} cap a ${df > 0 ? 'la dreta' : "l'esquerra"}`, dr && `${count(Math.abs(dr), 'fila', 'files')} ${dr > 0 ? 'amunt' : 'avall'}`].filter(Boolean).join(' i ');
-const starRow = n => '★'.repeat(n) + '☆'.repeat(3 - n);
-const list = a => a.join(', ').replace(/, ([^,]*)$/, ' i $1');
-const news = a => a.length ? `<p class="lead go">${a.length > 1 ? 'Insígnies noves' : 'Insígnia nova'}: ${list(a)}</p>` : '';
 // why a move cannot be played, from what judge() found
 function why(pos, j, f, s) {
   const t = pos.at[f].toUpperCase(), [a, b] = delta(f, s).map(Math.abs), ch = `De ${f} a ${s} la lletra canvia ${a} i el número ${b}. `;
@@ -147,17 +140,15 @@ function why(pos, j, f, s) {
   }
 }
 // after a new question comes up, touches are ignored for this long: a second tap on the button that was there must not answer it
-const SETTLE = 450;
 
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
-const HUB = /escacs-de-l-estany\.html$/.test(location.pathname);
+const HUB = ownPage('escacs-de-l-estany');
 function show(kicker, playing, hue) {
-  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
+  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
   $('#game').onclick = null; keyFn = null; FX.mood(hue);
 }
-$('#toS').onclick = () => mapa();
-function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
-$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+$('#toM').onclick = () => mapa();
+const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 
 // The keys on the screen and a real keyboard both end up here. Enter on a button that is not a key of the pad is left alone:
 // it presses that button, as Space does.
@@ -168,19 +159,10 @@ addEventListener('keydown', e => {
   const ch = e.key.toLowerCase(), k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : /^[a-h1-8]$/.test(ch) ? ch : null;
   if (k) { e.preventDefault(); keyFn(k); }
 });
-function drawCombo() {
-  const e = $('#cb'); if (!e) return;
-  e.hidden = streak < 3; e.textContent = `Ratxa ×${streak}`;
-  if (streak >= 3) { e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); }
-}
+const drawCombo = () => combo(streak);
 const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
 // which keys can come next: 'l' a letter, 'n' a number, 'x' none (the square is whole)
 const nextKey = (buf, len) => { const k = $('.keys'); if (k) k.dataset.next = buf.length >= len ? 'x' : buf.length % 2 ? 'n' : 'l'; };
-// the end of a level or of a board comes up over its two halves
-function curtain(html) {
-  panel($('#split'), html);
-  $('#split .panel').scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
-}
 // the longest run goes in with whatever is being handed in: gives back the badges it earns
 function run() { const r = streakIn(prog, top); prog = r.prog; return r.news; }
 // a crowned queen crosses the whole screen from the bottom, leaving sparks behind
@@ -198,43 +180,18 @@ const laneHtml = hue => `<div class="lane" id="lane" style="--p:0;--ph:${hue}" a
 /* ---------- the map: a band for each circle, a piece for each project and the exam of the circle at the end ---------- */
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${RING[c]} 60% 60%)" stroke-width="2.400" opacity="${3 - i <= c ? 1 : 0.25}"/>`).join('')}<circle r="2" fill="hsl(${RING[c]} 80% 70%)"/></svg>`;
 const ICON = [`<svg class="ico" viewBox="0 0 100 100" aria-hidden="true"><g class="star">${STAR}</g></svg>`, ...['R', 'B', 'Q', 'K', 'N', 'P', 'r', 'k'].map(ico)];
-const openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
-const starsOf = i => prog.lv.slice(i * 10, i * 10 + 10);
-const noteText = i => { const n = noteOf(prog, i), d = starsOf(i).filter(Boolean).length; return n >= VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
-const examBtn = c => `<button class="proj exam${prog.exams[c] ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${prog.exams[c] ? 'Superat ✓' : openX(c) ? 'Sis preguntes' : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
-// one line that says what to do now: the first project of an open circle that is not validated, or its exam; nothing when all is done
-function advice() {
-  for (let c = 0; c < CIRCLES.length && isOpen(prog, c); c++) {
-    const i = CIRCLES[c].projects.find(i => noteOf(prog, i) < VALID);
-    if (i !== undefined) return `Ara toca: ${PROJECTS[i].name}`;
-    if (!prog.exams[c]) return `Ara toca: l'examen del cercle ${c}`;
-  }
-  return '';
-}
+// the map of the cursus (shared/mapa.js): what it says of each project and exam, and the next thing to do
+const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('El mapa', false, 205);
-  const band = c => `<section class="ring${openC(c) ? '' : ' shut'}" style="--rh:${RING[c]}" aria-labelledby="rh${c}"><h2 id="rh${c}">${rings(c)}<span>Cercle ${c} · ${CIRCLES[c].name}</span></h2>
-      ${openC(c) ? '' : `<p class="why">Supera l'examen del cercle ${c - 1} per obrir-lo.</p>`}
-      <div class="projs">${CIRCLES[c].projects.map(i => `<button class="proj${noteOf(prog, i) >= VALID ? ' ok' : ''}" data-p="${i}" style="--h:${HUES[i]}"${openC(c) ? '' : ' disabled'}><i class="orb" aria-hidden="true">${ICON[i]}</i><b>${PROJECTS[i].name}</b><span>${PROJECTS[i].sub}</span>
-        <span class="pp" aria-hidden="true">${starsOf(i).map(s => `<i class="s${s}"></i>`).join('')}</span><span class="mk">${noteText(i)}</span></button>`).join('')}${examBtn(c)}</div></section>`;
-  const got = badges(prog), tip = advice(), any = OPEN || validated(prog).length > 0;
-  $('#game').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
-    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
-      <button class="btn soft" id="full"${any ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>🔍 Caça l'errada</button>
-      <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
-  $('#game').onclick = e => {
-    const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
-    if (b && !b.disabled) {
-      // the first level that still has something to win, as far as the project is open
-      const i = +b.dataset.p, k = starsOf(i).findIndex(n => n < 3);
-      mission(i, k < 0 ? 0 : Math.min(k, OPEN ? 9 : reached(prog, i), 9));
-    }
-    else if (x && !x.disabled) examen(+x.dataset.x);
-    else if (e.target.closest('#full:not(:disabled)')) full();
-    else if (e.target.closest('#rapid')) llampec();
-  };
-  ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
+  M.screen({ root: $('#game'), here, rings, ringAttr: c => ` style="--rh:${RING[c]}"`, projAttr: i => ` style="--h:${HUES[i]}"`,
+    icon: i => `<i class="orb" aria-hidden="true">${ICON[i]}</i>`, pp: true,
+    foot: got => `\n    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
+      <button class="btn soft" id="full"${OPEN || validated(prog).length > 0 ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>🔍 Caça l'errada</button>
+      ${badgeList(BADGES, got)}</div>`,
+    open: i => mission(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full], ['#rapid', llampec]] });
+  here = -1;
 }
 
 /* ---------- one level: a board and what to do on it, always by typing squares ---------- */
@@ -592,7 +549,7 @@ function board(o) {
 // The third one saves piscina and opens the map. There is no «← Mapa» here: the map would have every circle shut, so the way
 // out is the page of all games.
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 205); $('#toS').hidden = true; $('#toG').hidden = !HUB;
+  const t = fresh(); show('La Piscina', true, 205); $('#toM').hidden = true; $('#toG').hidden = !HUB;
   let got = [];
   $('#game').innerHTML = '<div class="hud mid"><span class="chip">Tres reptes per entrar al tauler</span></div><div id="board"></div>';
   board({ t, qs: POOL, how: 'pool', hue: 205,

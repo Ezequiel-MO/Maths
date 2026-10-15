@@ -6,6 +6,7 @@ import { load, save as store } from '../../shared/progress.js';
 import { valueOf, tidy, write, plan, nextMove, PROJECTS, CIRCLES, POOL, clean, handIn, exam, examIn, EXAM_PASS, sheet, sheetIn, BADGES, badges, firstTry, isOpen, examOpen, levelText, VALID } from './logic.js';
 import { board, HUES } from './board.js';
 import { hints } from './hints.js';
+import { SETTLE, ownPage, xpBar, soundButton, tokens } from '../../shared/shell.js';
 
 const KEY = 'abac-xines';
 
@@ -15,16 +16,11 @@ let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
 // The bar at the top of every screen, built once and then updated (so the fill slides): «Nivell 2,27», and the fill is the decimals (27 %), the part of the level
 // that is done. It is painted from prog, so it also shows the XP of a save of the old shape before anything is saved, and every save paints it again.
-function paintXp() {
-  const box = $('#xp'), lv = levelText(prog), pct = +lv.split(',')[1];
-  if (!box.firstChild) box.innerHTML = '<span class="xp-n"></span><span class="xp-bar" role="img"><i></i></span>';
-  const [n, bar] = box.children;
-  n.textContent = `Nivell ${lv}`; bar.setAttribute('aria-label', `${pct} % del nivell`); bar.firstChild.style.width = pct + '%';
-}
+const paintXp = () => xpBar(levelText(prog));
 
 // Every new screen cancels the running one through this token, and lets go of the abacus (and of the hints on it) that it had.
-let tok = { on: true }, bd = null, hn = null;
-function fresh() { tok.on = false; tok = { on: true }; hn?.stop(); bd?.stop(); bd = hn = null; return tok; }
+let bd = null, hn = null;
+const fresh = tokens(() => { hn?.stop(); bd?.stop(); bd = hn = null; });
 
 // each bead clicks with a note of its own (board.js plays it through this tone)
 const { tone, chime } = voice(() => prog.so, false);
@@ -33,7 +29,6 @@ const FX = pond(tone);
 // After a screen or a question comes up, every tap is ignored for SETTLE: a second tap of the same finger must not press what took the place of the first
 // button (a «Comprova» twice would count two attempts, and the answer of a question would be recorded twice). The capture phase stops it before any handler.
 // Like tryAt, the window is compared with the time of the tap itself (event.timeStamp): a screen that takes longer than SETTLE to build must not let the queued tap through.
-const SETTLE = 450;
 // A wrong attempt also keeps the next attempt away for SETTLE (tryAt): the second tap of a double tap on «Comprova» must not count as a second mistake. Beads are not held back.
 // tryAt is measured in the time of the taps themselves (event.timeStamp, when the finger touched), not in the clock after the handler's work: on a slow tablet the first handler
 // may take longer than SETTLE, and the second tap of the same double tap waits in the queue with a time that is still inside the window.
@@ -43,7 +38,7 @@ $('#joc').addEventListener('click', e => { if (tight && !ready(e.timeStamp)) e.s
 
 /* ---------- the shell: every screen starts with enter() and gets its token back ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
-const HUB = /abac-xines\.html$/.test(location.pathname);
+const HUB = ownPage('abac-xines');
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and «Caça l'errada», to look at any of it
 const OPEN = OBERT, openC = c => OPEN || isOpen(prog, c), openX = c => OPEN || examOpen(prog, c);
 // inner screens (a project) show ← Mapa instead of ← Tots els jocs; the sky takes the colour of the circle
@@ -54,8 +49,7 @@ function enter(kicker, inner, hue) {
   FX.mood(hue);
   return t;
 }
-function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
-$('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
+const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 $('#toM').onclick = () => mapa();
 
 /* ---------- the map: three bands, one button for each project ---------- */
