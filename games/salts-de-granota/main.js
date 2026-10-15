@@ -6,6 +6,7 @@ import { pick, bar, cub, num, make, sums, PROJECTS, PLAN, CIRCLES, NEG, VALID, E
   circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, fliesIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, xpBar, soundButton, list, news, combo, tokens } from '../../shared/shell.js';
+import { svgEl, tween } from '../../shared/scene.js';
 
 const KEY = 'salts-de-granota';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -146,7 +147,7 @@ function lineViz(host, p) {
   const lo = min - m, hi = max + m, wide = hi - lo;
   // a long line has a tick every 5 or every 10, and fewer numbers under it
   const every = wide <= 46 ? 1 : wide <= 120 ? 5 : 10, named = wide <= 24 ? 5 : wide <= (tight ? 70 : 120) ? 10 : 20;
-  const X = n => 50 + (n - lo) / wide * (VW - 100), Y = 150, low = lo < 0, NS = 'http://www.w3.org/2000/svg';
+  const X = n => 50 + (n - lo) / wide * (VW - 100), Y = 150, low = lo < 0;
   let s = `<svg class="nl" viewBox="0 0 ${VW} ${low ? 236 : 212}" role="img" aria-label="Recta numèrica: ${num(lo)} a ${num(hi)}">
     <rect class="water" x="8" y="${Y - 9}" width="${VW - 16}" height="30" rx="15"/>`;
   if (low) s += `<rect class="deep" x="8" y="${Y - 9}" width="${X(0) - 8}" height="30" rx="15"/><text class="zl" x="${(8 + X(0)) / 2}" y="228">sota zero</text><line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${Y - 22}" y2="${Y + 30}"/>`;
@@ -156,7 +157,7 @@ function lineViz(host, p) {
   }
   host.innerHTML = s + `<g class="dyn"></g><g class="frog">${FROG}</g></svg>${p.gap ? '<p class="split"></p>' : ''}`;
   const dyn = $('.dyn', host), jumper = $('.frog', host), sp = $('.split', host), SC = tight ? 1.25 : 1.1;
-  const mk = (tag, at, txt) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; dyn.appendChild(e); return e; };
+  const mk = (tag, at, txt) => { const e = svgEl(tag, at, txt); dyn.appendChild(e); return e; };
   const sit = (x, y, sq = 0) => jumper.setAttribute('transform', `translate(${x} ${y - 4}) scale(${SC * (1 - 0.1 * sq)} ${SC * (1 + 0.18 * sq)})`);
   // hid writes the result where "?" is; pads remembers the number under each pad, to clear the ones that would be written over
   let hid = null, pads = [];
@@ -182,14 +183,11 @@ function lineViz(host, p) {
     const dur = RM ? 0 : Math.min(950, 380 + dx);
     const t0 = performance.now();
     tone(back ? 330 : 440, 0, 0.14, 0.06);
-    await new Promise(done => {
-      (function frame(now) {
-        const t = dur ? Math.min(1, (now - t0) / dur) : 1, q = 1 - t;
-        arc.setAttribute('stroke-dashoffset', q);
-        sit(q * q * x1 + 2 * q * t * mx + t * t * x2, Y - 4 * h * q * t, Math.sin(Math.PI * t));
-        t < 1 ? requestAnimationFrame(frame) : done();
-      })(t0);
-    });
+    await tween(dur, t => {
+      const q = 1 - t;
+      arc.setAttribute('stroke-dashoffset', q);
+      sit(q * q * x1 + 2 * q * t * mx + t * t * x2, Y - 4 * h * q * t, Math.sin(Math.PI * t));
+    }, t0);
     // a single hop that is the whole answer keeps its size secret
     const secret = mask && p.gap && p.jumps.length === 1, lab = mk('text', { class: 'jl' + back + (secret ? ' q' : ''), x: mx, y: Y - 10 - h - 12 }, secret ? '?' : p.jumps[i].lab);
     land(pts[i + 1], mask && !p.gap && pts[i + 1] === p.ans);

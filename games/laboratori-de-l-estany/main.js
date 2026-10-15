@@ -7,6 +7,7 @@ import { PROJECTS, CIRCLES, POOL, ELEMENTS, GROUPS, MOLS, INKS, POINTS, VALID, E
   clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow } from '../../shared/shell.js';
+import { frames, svgEl } from '../../shared/scene.js';
 
 const KEY = 'laboratori-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -406,7 +407,7 @@ const flaskSvg = (label, badge, small = false) => `<svg class="rflask${small ? '
       <text class="lbl" id="rfl" x="150" y="${FL.y + 6}">${label}</text><g class="badge"><rect x="196" y="92" width="92" height="28" rx="14"/><text id="rfb" x="242" y="112">${badge}</text></g></svg>`;
 function flask(svg, t) {
   const layer = svg.querySelector('#things'), ps = [], G = 320;
-  let mode = 'atoms', seq = 0, raf = 0, last = 0;
+  let mode = 'atoms', seq = 0;
   const speed = () => mode === 'gas' ? 78 : mode === 'stir' ? 55 : 13;
   function step(dt) {
     for (const p of ps) {
@@ -430,17 +431,13 @@ function flask(svg, t) {
     }
   }
   const paint = () => { for (const p of ps) p.el.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.a.toFixed(1)})`); };
-  function frame(now) {
-    raf = 0; if (!t.on || !svg.isConnected) return;
-    const dt = Math.min(0.033, (now - last) / 1000 || 0.016); last = now;
-    step(dt / 2); step(dt / 2); paint();
-    if (ps.length) raf = requestAnimationFrame(frame);
-  }
+  // two half steps a frame; the loop rests when the flask is empty and wakes with the next thing added
+  const loop = frames(t, svg, dt => { step(dt / 2); step(dt / 2); paint(); return ps.length > 0; }, { max: 0.033, idle: 0.016 });
   // with reduced motion nothing drifts: things settle at once and stay
-  const kick = () => { if (RM) { for (let i = 0; i < 240; i++) step(0.016); paint(); } else if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  const kick = () => { if (RM) { for (let i = 0; i < 240; i++) step(0.016); paint(); } else loop.start(); };
   function add(html, r, cls, data = {}, at = null) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'g'), ang = rand(0, 6.283), v = speed();
-    el.setAttribute('class', cls); el.innerHTML = html; el.dataset.id = ++seq; layer.append(el);
+    const el = svgEl('g', { class: cls }), ang = rand(0, 6.283), v = speed();
+    el.innerHTML = html; el.dataset.id = ++seq; layer.append(el);
     const p = { el, id: seq, r, ...data, x: at ? at[0] : FL.x + rand(-40, 40), y: at ? at[1] : FL.y + rand(-50, 30), vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, a: cls === 'pa' ? 0 : rand(0, 360), w: cls === 'pa' ? 0 : rand(-60, 60) };
     ps.push(p); paint(); kick(); return p;
   }

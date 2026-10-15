@@ -7,6 +7,7 @@ import { PROJECTS, CIRCLES, POOL, SOLIDS, NETS, NAMES, PEGS, COLS, DIRS, TURN, P
   clean, noteOf, reached, validated, medals, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, poolIn, levelIn, rapidIn, exam, examIn, sheet, sheetIn, quick } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news } from '../../shared/shell.js';
+import { frames } from '../../shared/scene.js';
 
 const KEY = 'volta-al-mon';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -134,13 +135,13 @@ function solidInner(id, yaw, pitch) {
 const solidSvg = (id, w = 220, yaw = 0.6, pitch = 0.42) => `<svg class="solid" viewBox="-110 -110 220 220" style="width:${w}px" aria-hidden="true">${solidInner(id, yaw, pitch)}</svg>`;
 // the solid of a stage turns slowly by itself until it is touched; then it follows the finger
 function mountSolid(svg, id, t) {
-  let yaw = 0.6, pitch = 0.42, drag = null, spin = !RM, last = 0;
+  let yaw = 0.6, pitch = 0.42, drag = null, spin = !RM;
   const draw = () => { svg.innerHTML = solidInner(id, yaw, pitch); };
   svg.onpointerdown = e => { drag = [e.clientX, e.clientY]; spin = false; svg.setPointerCapture(e.pointerId); };
   svg.onpointermove = e => { if (!drag) return; yaw += (e.clientX - drag[0]) * 0.012; pitch = Math.min(1.35, Math.max(-1.35, pitch + (e.clientY - drag[1]) * 0.012)); drag = [e.clientX, e.clientY]; draw(); };
   svg.onpointerup = svg.onpointercancel = () => { drag = null; };
-  const loop = now => { if (!t.on || !svg.isConnected || !spin) return; yaw += Math.min(0.05, (now - last) / 1000) * 0.5; last = now; draw(); requestAnimationFrame(loop); };
-  if (spin) requestAnimationFrame(now => { last = now; loop(now); });
+  const turn = frames(t, svg, dt => { if (!spin) return false; yaw += dt * 0.5; draw(); }, { still: true });
+  if (spin) turn.start();
 }
 // A building of cubes seen from a corner, the front to the lower left and the right side to the lower right. Drawn from the back
 // to the front, so the cubes in front cover the ones behind

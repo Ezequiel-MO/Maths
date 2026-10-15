@@ -3,6 +3,9 @@
 // a level, the map again, an exam, a sheet, the lightning round and the other buttons of the map when the game has them, and the
 // sound turned off and on; under each screen, what the game has saved by then. Run it before and after a change of the screens
 // and compare the two folders (diff -r): the same HTML means the children see the same games.
+// The pictures that move (OUT/<game>/figura) are the exception: their middle moments differ between two runs of the same code, as the
+// animation frames do not follow the fake clock exactly. For them compare that the moments differ from each other (it moves), that the
+// last one is the same (where it ends), and after.txt: the frames asked for on the map, about 130 in 2 s for the sky alone.
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
 //   PLAYWRIGHT_CORE=<node_modules with playwright-core> BASE=http://localhost:5173 OUT=/some/dir node scripts/snap-games.mjs
 //   CHROME   a Chrome or Chromium binary (default /usr/bin/google-chrome);  ONLY=<game id> one game
@@ -24,12 +27,16 @@ const SAVE = { so: false, piscina: true, lv, stars: lv, secs: [10, 10, 6, 0, 3, 
 // the page as text, one tag a line, so a diff shows what moved; the back button had two names (#toS and #toM), it is read as one
 const html = page => page.evaluate(() => document.body.innerHTML.replace(/id="toS"/g, 'id="toM"').replace(/\?t=\d+"/g, '"').replace(/></g, '>\n<'));
 
+// the screens with a picture that moves: [project, level] of a level that shows it (the solid that turns, the flask, the frog that jumps)
+// and the buttons to tap there first (atoms into the flask)
+const FIGURE = { 'volta-al-mon': [8, 0, []], 'laboratori-de-l-estany': [1, 0, ['.atomb', '.atomb']], 'salts-de-granota': [5, 0, []] };
+
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 let fails = 0;
 for (const g of GAMES) {
   const id = g.href.replace(/\.html.*$/, '');
   if (process.env.ONLY && process.env.ONLY !== id) continue;
-  for (const [tag, save] of [['nou', null], ['mig', SAVE]]) {
+  for (const [tag, save] of [['nou', null], ['mig', SAVE], ...(FIGURE[id] ? [['figura', null]] : [])]) {
     const dir = `${OUT}/${id}/${tag}`; mkdirSync(dir, { recursive: true });
     const ctx = await browser.newContext({ viewport: { width: 1000, height: 900 } }), page = await ctx.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -41,7 +48,8 @@ for (const g of GAMES) {
       window.__seed = n => { game = gen(n); };
       Math.random = () => inFrame ? frames() : game();
       const raf = window.requestAnimationFrame.bind(window);
-      window.requestAnimationFrame = cb => raf(t => { inFrame++; try { cb(t); } finally { inFrame--; } });
+      window.__frames = 0;   // animation frames asked for, to tell whether a picture keeps moving after its screen is gone
+      window.requestAnimationFrame = cb => { window.__frames++; return raf(t => { inFrame++; try { cb(t); } finally { inFrame--; } }); };
       if (sessionStorage.getItem('snap')) return;   // the save is put once; what the game saves after stays
       sessionStorage.setItem('snap', '1');
       localStorage.setItem('perfils', JSON.stringify([{ id: 'xavi', name: 'Xavi' }])); localStorage.setItem('perfil', 'xavi');
@@ -55,7 +63,20 @@ for (const g of GAMES) {
     const tap = async sel => { const e = await page.$(sel); if (!e) return false; await page.evaluate(() => window.__seed(777)); await e.click({ force: true }); return true; };
     const back = () => tap('#toM:not([hidden]), #toS:not([hidden])');
     try {
-      await page.goto(`${BASE}/${id}.html`); await snap('0-inici');
+      if (tag === 'figura') {
+        // the picture that moves, with everything open: six moments of it, and how many frames are still asked for once the map is back
+        const [p, n, taps] = FIGURE[id];
+        await page.goto(`${BASE}/${id}.html?obert`); await wait(500);
+        await tap(`.proj[data-p="${p}"]`); await wait(500); await tap(`.levels [data-n="${n}"]`);
+        for (const sel of taps) { await wait(100); await tap(sel); }
+        let at = 0;
+        for (const ms of [300, 700, 1500, 500, 300, 1200]) { await wait(ms); at += ms; writeFileSync(`${dir}/at-${at}.html`, await html(page)); }
+        await back(); await wait(500);
+        const before = await page.evaluate(() => window.__frames); await wait(2000);
+        writeFileSync(`${dir}/after.txt`, `frames asked for in 2 s on the map: ${await page.evaluate(() => window.__frames) - before}\n`);
+      } else {
+        await page.goto(`${BASE}/${id}.html`); await snap('0-inici');
+      }
       if (save) {
         if (await tap('.proj:not(.exam):not(:disabled)')) { await snap('1-nivell'); await back(); await snap('2-mapa'); }
         if (await tap('.proj.exam:not(:disabled)')) { await snap('3-examen'); await back(); }
