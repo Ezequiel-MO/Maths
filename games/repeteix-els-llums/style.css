@@ -1,32 +1,104 @@
-/* Layout: a night pond. One centred column; the board is the stage, two fixed canvases paint the sky behind it and the sparks in front.
-   The rules are written for a phone held upright; the media queries at the end add what a wider or a sideways screen needs. */
+/* Layout: a night pond, laid out as the cursus of the other games. One centred column: on the map, four bands of projects; in a level,
+   the row of levels, the frog with its tip, and the board of lights, with the arrows, the dots and the buttons under it. Two fixed canvases
+   paint the sky behind and the sparks in front. Written for a phone held upright; it only grows on a wide screen. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
+:root { --mint: #7CF5B0; --cyan: #6FE3FF; --chrome: 400px; }
 #app { max-width: 620px; min-height: calc(100dvh - 38px); }
-h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .banner, .lid, .arrows, .wait { font-family: var(--display); }
 
-/* the links stay at the top; whatever height is left over is shared above and below the game */
-.top { margin-bottom: auto; }
+/* the rank and the XP live in the row at the top: always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.lives { flex: none; display: flex; gap: 8px; }
-.lives i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#fff 15%, var(--sun) 45%, rgb(247 198 78 / 0) 72%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: breathe 2.2s ease-in-out infinite; }
-.lives i:nth-child(2) { animation-delay: -0.7s; }
-.lives i:nth-child(3) { animation-delay: -1.4s; }
-.lives i.gone { background: rgb(160 230 220 / 0.16); box-shadow: none; animation: none; }
-.status { min-height: 1.25em; font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.25; font-weight: 800; text-wrap: balance; }
-.status.pop { animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.chip:empty { display: none; }
+#st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
+.hud .link { flex: none; white-space: nowrap; }
+.stage { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+.panel .won { color: var(--sun); font-size: 2rem; letter-spacing: 0.12em; line-height: 1; }
+.panel .lead.go { color: var(--mint); }
+.panel .score { font: 800 2.6rem/1 var(--display); color: var(--sun); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
+.panel .rec { color: var(--muted); font-weight: 700; font-size: 1rem; }
 
-/* the board keeps its size at every level; --n only changes how many tiles share it */
-.stage { position: relative; width: min(100%, 560px, max(260px, calc(100dvh - var(--chrome, 280px)))); aspect-ratio: 1; }
+/* the map: four bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 65% 58% / 0.55); background: var(--glass); }
+.ring.r0 { --rh: 165; width: 91%; } .ring.r1 { --rh: 30; width: 94%; } .ring.r2 { --rh: 195; width: 97%; } .ring.r3 { --rh: 48; }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; text-align: center; padding: 4px 8px; min-height: 56px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+/* the exam of a circle: the last button of its band, slimmer than a project and gold when it can be taken */
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }   /* alone in its row (an even number of projects before it): the whole width */
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+/* around the bands: what to do now (above them), the sheet of mistakes, the free game and the badges, the earned ones lit */
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+.extra .btn { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+#full:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
+
+/* the Piscina, an exam and a sheet: a dot for each step over the frog */
+.hud.mid { justify-content: center; }
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+
+/* the frog and its speech bubble */
+.coach { width: 100%; max-width: 560px; display: flex; gap: 14px; align-items: center; }
+.frog { flex: none; width: 64px; height: 58px; overflow: visible; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); transform-origin: 50% 90%; }
+.coach.go .frog { animation: leap 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.coach.oops .frog { animation: shake 0.4s; }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+.status.big { min-height: 1.25em; font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.25; font-weight: 800; text-wrap: balance; }
+
+/* the board keeps its size at every level; --n only changes how many tiles share it. It sits in a frame that shakes, and turns inside it */
+.bwrap { position: relative; width: min(100%, 460px, max(240px, calc(100dvh - var(--chrome)))); aspect-ratio: 1; transition: opacity 0.4s, filter 0.4s; }
+.bwrap.rest { opacity: 0.45; filter: saturate(0.4); }
 .board {
   position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr);
   gap: calc(22px - var(--n) * 2.5px); padding: 14px; border-radius: 30px;
   background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); border: 1px solid var(--edge);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  transition: transform 1.15s cubic-bezier(0.45, 0, 0.25, 1);
 }
+.board.still { transition: none; }
+/* the line of a mirror: down the middle, or across it like the water of the pond */
+.bwrap.axis-v::after, .bwrap.axis-h::after { content: ""; position: absolute; z-index: 3; pointer-events: none; background: var(--cyan); box-shadow: 0 0 14px 2px rgb(111 227 255 / 0.8); border-radius: 4px; }
+.bwrap.axis-v::after { left: calc(50% - 2px); top: 6px; bottom: 6px; width: 4px; }
+.bwrap.axis-h::after { top: calc(50% - 2px); left: 6px; right: 6px; height: 4px; }
+/* the lid that covers the board while it turns, with the way it turns */
+.lid { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 6px; border-radius: 30px; background: radial-gradient(circle at 50% 40%, #12465A, #06202B 75%); border: 2px solid var(--cyan); box-shadow: 0 0 40px rgb(111 227 255 / 0.3); }
+.lid b { font-size: clamp(4rem, 22vw, 7rem); line-height: 1; color: var(--sun); text-shadow: 0 0 30px rgb(247 198 78 / 0.6); }
+.lid span { font-size: 1.3rem; font-weight: 800; color: #C9F7FF; }
+
 .tile {
   --c: hsl(var(--h) 100% 62%); position: relative; min-width: 0; border: 0; padding: 0; border-radius: calc(34px - var(--n) * 4px); cursor: default; touch-action: manipulation;
+  display: grid; place-items: center;
   background: linear-gradient(160deg, hsl(var(--h) 46% 27%), hsl(var(--h) 52% 13%));
   box-shadow: inset 0 1px 0 hsl(var(--h) 80% 70% / 0.4), inset 0 -8px 14px hsl(var(--h) 60% 6% / 0.6), 0 5px 0 hsl(var(--h) 55% 8%), 0 10px 18px rgb(0 0 0 / 0.45);
   transition: transform 0.18s cubic-bezier(0.3, 1.7, 0.5, 1), filter 0.2s, box-shadow 0.18s;
@@ -36,12 +108,15 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
 .board.live .tile { cursor: pointer; }
 .board.live .tile:hover { filter: brightness(1.3); }
 .board.live .tile:active { transform: translateY(4px) scale(0.97); }
-.tile.on, .tile.bad {
+.tile.on, .tile.bad, .tile.got {
   z-index: 2; transform: scale(1.08);
   background: radial-gradient(circle at 50% 38%, #fff 0, hsl(var(--h) 100% 80%) 28%, hsl(var(--h) 98% 56%) 78%);
   box-shadow: 0 0 0 2px hsl(var(--h) 100% 88%), 0 0 26px 5px var(--c), 0 0 80px 18px hsl(var(--h) 100% 60% / 0.55);
 }
 .tile.on::after { animation: ring 0.55s ease-out; }
+.tile.got { transform: scale(1.02); box-shadow: 0 0 0 3px var(--mint), 0 0 22px 4px var(--c); }
+/* the lights of a mirror stay lit, but softer, with a dashed edge: the child answers on the other side */
+.tile.src { background: radial-gradient(circle at 50% 38%, hsl(var(--h) 100% 85%) 0, hsl(var(--h) 90% 55%) 70%); box-shadow: 0 0 0 2px #fff, 0 0 18px 3px var(--c); outline: 2px dashed rgb(255 255 255 / 0.8); outline-offset: -7px; }
 .tile.bad {
   animation: shake 0.35s; background: radial-gradient(circle at 50% 38%, #fff 0, #FF9A8A 28%, #F0432F 78%);
   box-shadow: 0 0 0 2px #FFC9C0, 0 0 26px 5px #FF5A45, 0 0 80px 18px rgb(255 80 60 / 0.55);
@@ -49,58 +124,68 @@ h1, h2, .btn, .chip, .status, .banner { font-family: var(--display); }
 .tile.hint { animation: hint 0.5s ease-in-out 3; }
 .tile.enter { animation: enter 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) backwards; animation-delay: calc(var(--d) * 1ms); }
 .tile.wave { animation: wave 0.6s ease-in-out; animation-delay: calc(var(--d) * 1ms); }
-.board.out .tile { animation: leave 0.4s ease-in forwards; animation-delay: calc(var(--d) * 0.5ms); }
-.board.shake { animation: shake 0.35s; }
+/* what hides under a tile: an animal of the pond, or the frog of a path */
+.pic { position: relative; z-index: 1; font-size: calc(min(460px, 100vw - 60px) / var(--n) * 0.42); line-height: 1; animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.pic.hide { animation: hide 0.4s ease-in forwards; }
+.pic.frog { filter: drop-shadow(0 0 10px var(--mint)); }
+.shake { animation: shake 0.4s; }
+.pop { animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
 
-.panel .score { font: 800 2.6rem/1 var(--display); color: var(--sun); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgb(247 198 78 / 0.5); }
-.panel .rec { color: var(--muted); font-weight: 700; font-size: 1rem; }
+/* under the board: the arrows of a path, the dots of the answer, the wait and the buttons */
+.tail { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; min-height: 26px; }
+.arrows { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.arrows:empty, .wait:empty, .opts:empty, .rn:empty { display: none; }
+.rn { font-weight: 800; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.arrows i { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: var(--glass); border: 2px solid var(--sun); color: var(--sun); font-style: normal; font-size: 1.8rem; font-weight: 800; line-height: 1; animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.dots { display: flex; gap: 10px; min-height: 18px; align-items: center; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: transform 0.2s cubic-bezier(0.3, 1.8, 0.5, 1), background 0.15s, box-shadow 0.15s; }
+.dots i.ok { background: var(--mint); box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); transform: scale(1.25); }
+.wait { font-size: 1.3rem; font-weight: 800; color: var(--cyan); }
+.opts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+/* «Caça l'errada»: the picture and its copy, side by side */
+.pair { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pair figure { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.pair figcaption { font: 800 1rem/1.2 var(--display); color: var(--muted); min-height: 2.4em; display: grid; place-items: end center; text-wrap: balance; }
+.mini { position: relative; width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 6px; padding: 8px; border-radius: 20px; background: linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); border: 1px solid var(--edge); transition: opacity 0.4s; }
+.mini.off { opacity: 0.35; }
+.mini.axis-v::after, .mini.axis-h::after { content: ""; position: absolute; pointer-events: none; background: var(--cyan); box-shadow: 0 0 10px rgb(111 227 255 / 0.8); border-radius: 3px; }
+.mini.axis-v::after { left: calc(50% - 1.5px); top: 4px; bottom: 4px; width: 3px; }
+.mini.axis-h::after { top: calc(50% - 1.5px); left: 4px; right: 4px; height: 3px; }
+.mt { min-width: 0; padding: 0; border: 0; border-radius: 10px; cursor: default; background: linear-gradient(160deg, hsl(var(--h) 46% 27%), hsl(var(--h) 52% 13%)); }
+.mt.on { background: radial-gradient(circle at 50% 38%, #fff 0, hsl(var(--h) 100% 80%) 28%, hsl(var(--h) 98% 56%) 78%); box-shadow: 0 0 14px 3px hsl(var(--h) 100% 62%); }
+.mt.bad { background: radial-gradient(circle at 50% 38%, #fff 0, #FF9A8A 28%, #F0432F 78%); box-shadow: 0 0 14px 3px #FF5A45; }
+.mt.hint { box-shadow: 0 0 0 3px #fff; animation: hint 0.5s ease-in-out 4; }
+.mini.live .mt { cursor: pointer; }
+.mini.live .mt:hover { filter: brightness(1.4); }
+
+/* the free game: three lives, the points, and a banner when the board gets finer */
+.lives { flex: none; display: flex; gap: 8px; }
+.lives i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#fff 15%, var(--sun) 45%, rgb(247 198 78 / 0) 72%); box-shadow: 0 0 14px 3px rgb(247 198 78 / 0.7); animation: breathe 2.2s ease-in-out infinite; }
+.lives i:nth-child(2) { animation-delay: -0.7s; }
+.lives i:nth-child(3) { animation-delay: -1.4s; }
+.lives i.gone { background: rgb(160 230 220 / 0.16); box-shadow: none; animation: none; }
 .banner { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; gap: 4px; pointer-events: none; animation: banner 1.9s ease-in-out both; text-shadow: 0 0 30px rgb(110 230 255 / 0.8), 0 4px 0 rgb(0 0 0 / 0.35); }
 .banner b { font-size: clamp(3rem, 14vw, 5.2rem); line-height: 1; font-weight: 800; }
 .banner span { font-size: clamp(1.2rem, 5vw, 1.7rem); font-weight: 800; color: #6FE3FF; }
 
-.dots { display: flex; gap: 10px; min-height: 18px; align-items: center; margin-bottom: auto; }
-.dots i { width: 16px; height: 16px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: transform 0.2s cubic-bezier(0.3, 1.8, 0.5, 1), background 0.15s, box-shadow 0.15s; }
-.dots i.ok { background: #7CF5B0; box-shadow: 0 0 12px 2px rgb(124 245 176 / 0.7); transform: scale(1.25); }
-
-/* home: one card per game */
-.game { width: 100%; display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 10px 14px 12px; border-radius: 18px; border: 1px solid var(--edge); background: rgb(79 181 98 / 0.16); }
-.game:hover { background: rgb(79 181 98 / 0.3); }
-.game b { font: 800 1.45rem/1.1 var(--display); color: #7CF5B0; }
-.game span { font-size: 0.95rem; line-height: 1.3; }
-.game .rec { font-size: 0.9rem; }
-
 @keyframes breathe { 50% { transform: scale(0.9); } }
 @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes hide { to { transform: scale(0.2) translateY(30%); opacity: 0; } }
 @keyframes ring { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.55); } }
 @keyframes hint { 50% { filter: brightness(2.6) saturate(1.4); transform: scale(1.1); box-shadow: 0 0 0 3px #fff, 0 0 30px 6px var(--c); } }
 @keyframes enter { from { transform: scale(0) rotate(-25deg); opacity: 0; } }
-@keyframes leave { to { transform: scale(0) rotate(30deg); opacity: 0; } }
 @keyframes wave { 50% { transform: translateY(-9px) scale(1.06); filter: brightness(2.1) saturate(1.5); } }
+@keyframes leap { 40% { transform: translateY(-14px) scale(1.06, 0.96); } }
 @keyframes banner { 0% { transform: scale(0.3); opacity: 0; } 18% { transform: scale(1.12); opacity: 1; } 28%, 78% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
 @media (min-width: 700px) {
-  :root { --chrome: 310px; }
   .chip { padding-inline: 14px; }
   .panel { width: min(88%, 400px); gap: 12px; padding: 20px 20px 22px; }
-  .game span { font-size: 0.98rem; line-height: inherit; }
-}
-@media (max-height: 700px) {
-  body { padding-bottom: 14px; }
-}
-/* a phone on its side: the board takes the whole height on the right, the rest stacks on the left */
-@media (orientation: landscape) and (max-height: 520px) {
-  h1 { font-size: 2rem; }
-  .status { font-size: 1.5rem; }
-  #app { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr repeat(4, auto) 1fr; gap: 10px 24px; justify-items: center; max-width: 900px; }
-  #app .top { grid-area: 1 / 1; margin: 0; }
-  #app header { grid-area: 3 / 1; }
-  #app .hud { grid-area: 4 / 1; }
-  #app .status { grid-area: 5 / 1; }
-  #app .dots { grid-area: 6 / 1; margin: 0; }
-  #app .stage { grid-area: 1 / 2 / -1 / 2; width: min(calc(100dvh - 38px), 50vw); }
 }
 @media (prefers-reduced-motion: reduce) {
-  h1, .lives i, .tile.enter, .tile.wave, .tile.bad, .board.shake, .board.out .tile, .panel, .status.pop, .tile.on::after { animation: none; }
-  .tile { transition: none; }
+  h1, .lives i, .tile.enter, .tile.wave, .tile.bad, .shake, .panel, .pop, .pic, .arrows i, .tile.on::after, .coach .frog { animation: none !important; }
+  .tile, .board { transition: none; }
   .banner { animation: bannerCalm 1.9s both; }
   @keyframes bannerCalm { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }
 }

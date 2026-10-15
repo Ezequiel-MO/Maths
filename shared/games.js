@@ -12,6 +12,7 @@ import { clean as trip, noteOf as tripNote, VALID as TRIP_VALID } from '../games
 import { clean as code, noteOf as codeNote, VALID as CODE_VALID } from '../games/coet-programador/logic.js';
 import { clean as chess, noteOf as chessNote, VALID as CHESS_VALID } from '../games/escacs-de-l-estany/logic.js';
 import { clean as robot, noteOf as robotNote, VALID as ROBOT_VALID } from '../games/robot-dels-pronoms/logic.js';
+import { clean as lamps, noteOf as lampNote, VALID as LAMP_VALID } from '../games/repeteix-els-llums/logic.js';
 // the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
 const programs = (s, total) => { const p = code(s), n = Array.from({ length: total }, (_, i) => codeNote(p, i)).filter(x => x >= CODE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
@@ -33,6 +34,8 @@ const leaps = (s, total) => { const p = frog(s), n = Array.from({ length: total 
 const stamps = (s, total) => { const p = trip(s), n = Array.from({ length: total }, (_, i) => tripNote(p, i)).filter(x => x >= TRIP_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the chess game works the same way
 const moves = (s, total) => { const p = chess(s), n = Array.from({ length: total }, (_, i) => chessNote(p, i)).filter(x => x >= CHESS_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
+// the lights of the pond work the same way; the record of the free game, the game it was before its cursus, goes after the projects
+const lights = (s, total) => { const p = lamps(s), n = Array.from({ length: total }, (_, i) => lampNote(p, i)).filter(x => x >= LAMP_VALID).length; return [n ? `${n} de ${total} projectes` : '', p.best ? `Rècord: ${p.best} punts` : ''].filter(Boolean).join(' · '); };
 // the robot of the weak pronouns works the same way
 const orders = (s, total) => { const p = robot(s), n = Array.from({ length: total }, (_, i) => robotNote(p, i)).filter(x => x >= ROBOT_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 
@@ -41,7 +44,7 @@ export const GAMES = [
     what: 'Trucs per sumar i restar de cap, amb números grans i per sota de zero.', total: 23, record: (s, total) => leaps(s, total),
     icon: `<svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>` },
   { id: 'llums', href: 'repeteix-els-llums.html', store: 'repeteix-els-llums', tag: 'Memòria visual', title: 'Repeteix els llums',
-    what: "Mira quins llums s'encenen i toca'ls en el mateix ordre.", record: s => s.best > 0 ? `Rècord: ${s.best | 0} punts` : '',
+    what: 'Sèries, fotos, amagatalls, miralls i girs: entrena la memòria dels ulls i el sentit de l\'espai.', total: 10, record: (s, total) => lights(s, total),
     icon: `<svg viewBox="0 0 68 68" aria-hidden="true"><g fill="#1B3F52"><rect x="4" y="4" width="18" height="18" rx="5"/><rect x="25" y="4" width="18" height="18" rx="5"/><rect x="46" y="4" width="18" height="18" rx="5"/><rect x="4" y="25" width="18" height="18" rx="5"/><rect x="46" y="25" width="18" height="18" rx="5"/><rect x="4" y="46" width="18" height="18" rx="5"/><rect x="25" y="46" width="18" height="18" rx="5"/></g><rect x="25" y="25" width="18" height="18" rx="5" fill="#6FE3FF"/><rect x="46" y="46" width="18" height="18" rx="5" fill="#FF8FD0"/><circle cx="34" cy="34" r="16" fill="none" stroke="#6FE3FF" stroke-width="1.5" opacity="0.6"/></svg>` },
   { id: 'coet', href: 'coet-programador.html', store: 'memoria-visual', tag: 'Programació', title: 'El coet',
     what: 'Escriu les ordres perquè el coet reculli totes les estrelles: girs, repeticions, colors, ajudants i recursivitat.', total: 9, record: (s, total) => programs(s, total),

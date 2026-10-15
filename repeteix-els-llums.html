@@ -3,19 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Llums de l'estany</title>
+<title>Repeteix els llums</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap">
 <link rel="stylesheet" href="./games/repeteix-els-llums/style.css">
 </head>
 <body>
 <canvas id="sky" aria-hidden="true"></canvas>
 <main id="app">
-  <div class="top"><a class="link" href="index.html">← Tots els jocs</a><button class="link" id="so"></button></div>
-  <header><p class="kicker" id="kick"></p><h1>Llums de l'estany</h1></header>
-  <div class="hud" id="hud" hidden><span class="chip" id="lvl"></span><span class="lives" id="lives" role="img"></span><span class="chip" id="pts"></span></div>
-  <p class="status" id="status" role="status" aria-live="polite"></p>
-  <div class="stage" id="stage"><div class="board" id="board" style="--n:3"></div></div>
-  <div class="dots" id="dots" aria-hidden="true"></div>
+  <div class="top"><span><a class="link" id="toG" href="index.html">← Tots els jocs</a><button class="link" id="toS" hidden>← Mapa</button></span><div class="xp" id="xp"></div><button class="link" id="so"></button></div>
+  <header><p class="kicker" id="kick"></p><h1>Repeteix els llums</h1></header>
+  <section id="game"></section>
 </main>
 <canvas id="fx" aria-hidden="true"></canvas>
 <script type="module" src="./games/repeteix-els-llums/main.js"></script>
