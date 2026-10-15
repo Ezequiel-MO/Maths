@@ -34,9 +34,9 @@ export function turn(i, n, deg) {
 // the four steps of a path, as an arrow and a change of row and column
 export const STEPS = { u: ['↑', -1, 0], d: ['↓', 1, 0], l: ['←', 0, -1], r: ['→', 0, 1] };
 const BACK = { u: 'd', d: 'u', l: 'r', r: 'l' };
-// the things hidden under the tiles of «L'amagatall»
-export const HIDE = ['🐸', '🐟', '🦆', '🐌', '🦋', '🐞', '🌸', '⭐', '🍄'];
-export const HIDE_NAME = { '🐸': 'la granota', '🐟': 'el peix', '🦆': "l'ànec", '🐌': 'el cargol', '🦋': 'la papallona', '🐞': 'la marieta', '🌸': 'la flor', '⭐': "l'estrella", '🍄': 'el bolet' };
+// the animals hidden under the tiles of «L'amagatall»: animals only, since that is what the frog asks for, and nine of them for the six of a level
+export const HIDE = ['🐸', '🐟', '🦆', '🐌', '🦋', '🐞', '🐢', '🐝', '🦉'];
+export const HIDE_NAME = { '🐸': 'la granota', '🐟': 'el peix', '🦆': "l'ànec", '🐌': 'el cargol', '🦋': 'la papallona', '🐞': 'la marieta', '🐢': 'la tortuga', '🐝': "l'abella", '🦉': 'el mussol' };
 
 /* ---------- the rounds: what a level shows, and what the child must touch after it ---------- */
 // Every round has n (the board), want (the tiles to touch) and ordered (whether they go in that order); the rest is what the
@@ -145,7 +145,7 @@ export const SECTIONS = [
     where('Tots tres', 3, 3, {}, 'Ara et preguntaré per tots tres, un darrere l\'altre.'),
     where('Al tauler gran', 4, 3, {}, 'Tauler més gran, i tots tres per trobar.'),
     where('Quatre amagats', 4, 4, { one: true }, 'Quatre animalons, i et preguntaré per un. No saps per quin!'),
-    where('Tots quatre', 4, 4, {}, 'Tots quatre, un darrere l\'altre. Inventa\'t una història: «l\'ànec visita la flor…».'),
+    where('Tots quatre', 4, 4, {}, 'Tots quatre, un darrere l\'altre. Inventa\'t una història: «l\'ànec visita la tortuga…».'),
     where('Cinc amagats', 4, 5, {}, 'Cinc animalons. Mira primer els dels racons.'),
     where('Cinc per cinc', 5, 5, {}, 'Tauler de cinc per cinc. On s\'ha amagat cadascun?'),
     where('Sis amagats', 5, 6, { rounds: 2 }, 'Sis animalons! Agrupa\'ls per files.'),
