@@ -87,10 +87,81 @@ const ROUND = {
 export const KINDS = Object.keys(ROUND);
 export const round = (L, rnd) => ({ n: L.n, ...ROUND[L.kind](L, rnd) });
 
+/* ---------- the tricks: ways of looking and remembering that the child learns, not only trains ---------- */
+// Every level has one trick. The first level of a project with a trick shows its card and, in its first round, the game does the trick in
+// front of the child (a worked example); the hint shows a round again with the trick done. icon, name, how (what to do) and why (why it works)
+export const TRUCS = {
+  nom: { icon: '🗣️', name: 'Posa-li nom', how: 'Mentre mires, digues en veu baixa on és cada llum: «dalt», «mig», «baix», «esquerra», «dreta».', why: 'El que veus i també dius es guarda de dues maneres, i es recorda millor.' },
+  forma: { icon: '✏️', name: 'Busca la forma', how: 'Uneix els llums amb una ratlla imaginària: surt una ela, una escala, un triangle… Recorda la forma, no cada llum.', why: 'Una forma és una sola cosa per recordar; set llums solts en són set.' },
+  trossos: { icon: '✂️', name: 'Fes trossos', how: 'Parteix la sèrie en trossos de dos o tres llums. Guarda el primer tros, després el segon.', why: 'El cap només aguanta poques coses alhora, però un tros sencer compta com una de sola.' },
+  files: { icon: '🔢', name: 'Fila per fila', how: 'Compta quants llums hi ha a cada fila, de dalt a baix: «dos, cap, un…». Et queda com un número de telèfon.', why: 'Uns quants números petits es guarden més bé que molts llums, i diuen de seguida a quina fila hi ha un canvi.' },
+  punt: { icon: '🎯', name: 'Ull ample', how: 'Abans de la foto, mira el punt del mig del tauler i no moguis els ulls: els llums dels costats també els veuràs.', why: 'Si els ulls salten de llum en llum, la foto s\'acaba abans d\'haver-la vist sencera.' },
+  coord: { icon: '🗺️', name: 'Fila i columna', how: 'Cada quadre té una adreça, com un carrer: la lletra de la columna i el número de la fila, per exemple B3. Digues l\'adreça de cada llum.', why: 'Una adreça és curta i exacta: no et pots confondre de quadre.' },
+  historia: { icon: '📖', name: 'Inventa una història', how: 'Uneix els animalons amb una història que passi pel tauler: «la granota de dalt visita el peix del mig…».', why: 'Una història s\'enganxa al cap molt més que una llista de coses soltes.' },
+  rebobina: { icon: '⏪', name: 'Rebobina', how: 'Primer guarda la sèrie tal com surt. Després, al cap, fes-la anar enrere com una pel·lícula rebobinada.', why: 'És més fàcil girar una cosa que ja tens guardada que guardar-la directament al revés.' },
+  repeteix: { icon: '🔁', name: 'Repeteix-ho al cap', how: 'Mentre esperes, torna a veure els llums al cap, una vegada i una altra. Si vols, tanca els ulls.', why: 'El que no repasses s\'esvaeix en pocs segons; repassar-ho ho manté viu.' },
+  ratlla: { icon: '📏', name: 'Compta fins a la ratlla', how: 'Compta quants quadres hi ha del llum fins a la ratlla. A l\'altre costat, compta el mateix número des de la ratlla.', why: 'Un mirall deixa cada cosa a la mateixa distància de la ratlla, però a l\'altra banda.' },
+  raco: { icon: '⭐', name: 'Segueix un racó', how: 'Fixa\'t en un racó del tauler, el de dalt a l\'esquerra, i segueix-lo mentre gira. Després posa els llums on toca al voltant del racó.', why: 'Seguir una sola cosa és fàcil, i tota la resta es mou igual que ella.' },
+  salts: { icon: '🐾', name: 'Ajunta les fletxes', how: 'Ajunta les fletxes iguals: ↑↑→ és «dos amunt, un a la dreta». Després salta amb el dit per l\'aire, tros per tros.', why: 'Menys passos per recordar, i el dit t\'ajuda a no perdre el lloc.' },
+  mida: { icon: '🔍', name: 'La mida no compta', how: 'Si el tauler creix o s\'encongeix, cada llum continua a la mateixa fila i a la mateixa columna. Guarda l\'adreça, no el lloc de la pantalla.', why: 'Un dibuix gran i el mateix dibuix petit tenen les coses al mateix lloc per dins.' }
+};
+// the size of the board while it is shown and while the child answers: creix is seen small and grows, encongeix is seen big and shrinks
+export const ZOOM = { creix: [0.62, 1], encongeix: [1, 0.74] };
+// the trick of each level, project by project (the order of SECTIONS below)
+const TRUC_OF = [
+  ['nom', 'nom', 'nom', 'forma', 'forma', 'trossos', 'trossos', 'trossos', 'coord', 'mida'],
+  ['nom', 'forma', 'forma', 'files', 'files', 'forma', 'punt', 'punt', 'files', 'mida'],
+  ['forma', 'forma', 'forma', 'files', 'files', 'files', 'files', 'punt', 'files', 'mida'],
+  ['nom', 'nom', 'historia', 'historia', 'historia', 'historia', 'coord', 'coord', 'mida', 'repeteix'],
+  ['rebobina', 'rebobina', 'rebobina', 'rebobina', 'rebobina', 'forma', 'trossos', 'rebobina', 'coord', 'mida'],
+  Array(10).fill('ratlla'),
+  Array(10).fill('raco'),
+  Array(10).fill('salts'),
+  ['repeteix', 'repeteix', 'repeteix', 'repeteix', 'repeteix', 'repeteix', 'repeteix', 'repeteix', 'mida', 'repeteix'],
+  ['trossos', 'mida', 'mida', 'historia', 'mida', 'ratlla', 'raco', 'salts', 'files', 'trossos']
+];
+// whether level idx of project sec is the first of its project with its trick: there the card comes out and the trick is shown done
+export const introOf = (sec, idx) => { const ls = SECTIONS[sec].levels; return ls.findIndex(l => l.truc === ls[idx].truc) === idx; };
+
+// what the shown tricks say: where a tile is in words (on a board of three) or by its address, a column letter and a row number
+export const address = (i, n) => { const { r, c } = rc(i, n); return 'ABCDEF'[c] + (r + 1); };
+const ROW3 = ['dalt', 'al mig', 'baix'], COL3 = ['a l\'esquerra', 'al mig', 'a la dreta'];
+export function placeName(i, n) {
+  if (n !== 3) return address(i, n);
+  const { r, c } = rc(i, n);
+  return r === 1 && c === 1 ? 'al mig' : r === 1 ? COL3[c] : c === 1 ? ROW3[r] + ' al mig' : `${ROW3[r]} ${COL3[c]}`;
+}
+// the pieces a series of len lights is cut in: never more than three, and never a piece of one
+export const chunks = len => len <= 3 ? [len] : len === 4 ? [2, 2] : len === 5 ? [3, 2] : len === 6 ? [3, 3] : [3, 2, 2];
+// how many of the cells are on each row, from the top
+export const rowCounts = (cells, n) => Array.from({ length: n }, (_, r) => cells.filter(i => rc(i, n).r === r).length);
+// how far tile i is from the mirror line: 1 is the tile next to it
+export const axisDist = (i, n, axis) => { const { r, c } = rc(i, n), x = axis === 'h' ? r : c, h = n / 2; return x < h ? h - x : x - h + 1; };
+// the arrows of a path with the equal ones next to each other put together: ['u','u','r'] gives [[2,'u'],[1,'r']]
+export const squash = path => path.reduce((a, d) => { const l = a[a.length - 1]; if (l && l[1] === d) l[0]++; else a.push([1, d]); return a; }, []);
+// a short story through the hidden animals, in the order they were hidden, each with its place
+const VERB = ['visita', 'saluda', 'busca', 'empaita', 'convida'];
+const cap = s => s[0].toUpperCase() + s.slice(1);
+// «La granota (dalt a l'esquerra) visita el peix (al mig). El peix saluda l'ànec (baix a la dreta).»
+export function story(R) {
+  const name = j => HIDE_NAME[R.things[j]], where = j => ` (${placeName(R.cells[j], R.n)})`;
+  if (R.cells.length < 2) return cap(name(0)) + where(0) + '.';
+  return R.cells.slice(1).map((_, j) => `${cap(name(j))}${j ? '' : where(0)} ${VERB[j % VERB.length]} ${name(j + 1)}${where(j + 1)}.`).join(' ');
+}
+// the lit tiles in an order that makes a short line through them, to draw their shape: from the first, always to the nearest one left
+export function chain(cells, n) {
+  if (cells.length < 2) return cells.slice();
+  const left = cells.slice(1), out = [cells[0]];
+  const d = (a, b) => { const p = rc(a, n), q = rc(b, n); return Math.hypot(p.r - q.r, p.c - q.c); };
+  while (left.length) { const last = out[out.length - 1]; left.sort((a, b) => d(last, a) - d(last, b)); out.push(left.shift()); }
+  return out;
+}
+
 /* ---------- the levels ---------- */
 // The settings of a level: n (the board is n × n), rounds (how many to do, three by default), plain (every tile the same colour),
 // wait (seconds of dark between seeing and answering, to keep it in the head) and say (what the frog says when the level starts).
 // seq: len, back, on (ms each light is on). set: k, ms (how long the photo stays). change: k, ch, ms. where: k, one, ms.
+// zoom (ZOOM: the board is smaller or bigger while it is shown than while the child answers), and truc (TRUCS: added below from TRUC_OF).
 // mirror: k, axis, keep, ms. turn: k, deg, see ('lit': the lights turn with the board, 'dark': the board turns dark, 'cover': it
 // turns covered). walk: steps, hide (the arrows go before answering), lose (the frog leaves the start before the arrows come)
 const lv = (kind, title, n, o, say) => ({ kind, title, n, rounds: 3, ...o, say });
@@ -113,7 +184,7 @@ export const SECTIONS = [
     seq('Més de pressa', 3, 5, { on: 360 }, 'Ara els llums van més de pressa. Concentra\'t des del primer.'),
     seq('Sis llums', 4, 6, {}, 'Sis llums. Si cal, tanca els ulls un moment i torna a veure el camí al cap.'),
     seq('Cinc per cinc', 5, 5, {}, 'Un tauler de cinc per cinc. Els quadres són més petits: mira on cau cada llum.'),
-    seq('El gran camí', 5, 6, {}, 'L\'últim: sis llums en un tauler gran. Endavant!')
+    seq('El gran camí', 5, 6, { zoom: 'encongeix' }, 'L\'últim: sis llums, i abans que toquis el tauler s\'encongirà. Guarda l\'adreça de cada llum!')
   ] },
   { name: 'La foto', sub: 'Uns quants llums s\'encenen alhora: fes-ne una foto amb els ulls.', levels: [
     set('Dos alhora', 3, 2, 1500, {}, 'Ara s\'encenen tots alhora, només un moment. Toca\'ls tots, en l\'ordre que vulguis.'),
@@ -125,7 +196,7 @@ export const SECTIONS = [
     set('Foto ràpida', 4, 4, 800, {}, 'Una foto molt ràpida! Mira el tauler sencer, no un sol quadre.'),
     set('Cinc per cinc', 5, 5, 1600, {}, 'Tauler de cinc per cinc: busca les formes que fan els llums.'),
     set('Sis alhora', 5, 6, 1800, {}, 'Sis llums alhora. Primer la forma de tot, després els detalls.'),
-    set('La foto gran', 5, 7, 2000, {}, 'L\'última foto: set llums. Respira i mira-la sencera.')
+    set('La foto gran', 5, 7, 2000, { zoom: 'encongeix' }, 'L\'última foto: set llums. Després el tauler s\'encongirà: el dibuix és el mateix, però més petit.')
   ] },
   { name: 'Què ha canviat?', sub: 'Una foto, un parpelleig i… alguna cosa ha canviat. Troba-la!', levels: [
     change('Un llum més', 3, 2, 'add', {}, 'Mira la foto. Parpellejarà i tornarà amb un llum de més: toca\'l.'),
@@ -137,7 +208,7 @@ export const SECTIONS = [
     change('Qualsevol canvi', 4, 5, 'mix', {}, 'Pot ser un llum de més, un de menys o un que s\'ha mogut. Llegeix què et demano!'),
     change('Cinc per cinc', 5, 5, 'mix', {}, 'Tauler de cinc per cinc i qualsevol canvi.'),
     change('Sis llums', 5, 6, 'mix', { ms: 2200 }, 'Sis llums a la foto. Mira-la per zones: a dalt, al mig, a baix.'),
-    change('Ull d\'àliga', 5, 7, 'mix', { ms: 2000 }, 'L\'últim: set llums i un canvi. Ull d\'àliga!')
+    change('Ull d\'àliga', 5, 7, 'mix', { ms: 2000, zoom: 'encongeix' }, 'L\'últim: set llums, i la segona foto surt més petita. Ull d\'àliga!')
   ] },
   { name: 'L\'amagatall', sub: 'Uns animalons s\'amaguen sota els quadres. On era cadascun?', levels: [
     where('Dos amagats', 3, 2, { one: true }, 'Mira on és cada animaló. Quan s\'amaguin, et preguntaré per un d\'ells.'),
@@ -148,7 +219,7 @@ export const SECTIONS = [
     where('Tots quatre', 4, 4, {}, 'Tots quatre, un darrere l\'altre. Inventa\'t una història: «l\'ànec visita la tortuga…».'),
     where('Cinc amagats', 4, 5, {}, 'Cinc animalons. Mira primer els dels racons.'),
     where('Cinc per cinc', 5, 5, {}, 'Tauler de cinc per cinc. On s\'ha amagat cadascun?'),
-    where('Sis amagats', 5, 6, { rounds: 2 }, 'Sis animalons! Agrupa\'ls per files.'),
+    where('Sis amagats', 5, 6, { rounds: 2, zoom: 'creix' }, 'Sis animalons en un tauler petit. Quan el tauler creixi, on era cadascun?'),
     where('L\'espera', 5, 5, { rounds: 2, wait: 3 }, 'L\'últim: s\'amagaran i hauràs d\'esperar una mica abans que et pregunti.')
   ] },
   { name: 'Al revés', sub: 'Mira la sèrie i toca-la del final al principi.', levels: [
@@ -161,7 +232,7 @@ export const SECTIONS = [
     seq('Cinc al revés', 4, 5, { back: true }, 'Cinc llums al revés. Ho fas molt bé!'),
     seq('Cinc per cinc', 5, 4, { back: true }, 'Tauler de cinc per cinc, quatre llums al revés.'),
     seq('Cinc al gran', 5, 5, { back: true }, 'Cinc llums al revés en un tauler gran.'),
-    seq('Rebobina', 5, 5, { back: true, on: 380, rounds: 2 }, 'L\'últim: cinc llums ràpids, al revés.')
+    seq('Rebobina', 5, 5, { back: true, on: 380, rounds: 2, zoom: 'creix' }, 'L\'últim: cinc llums ràpids en un tauler petit. Després creixerà: toca\'ls al revés!')
   ] },
   { name: 'El mirall', sub: 'L\'estany fa de mirall: toca on es veuen els llums a l\'altre costat.', levels: [
     mir('Un llum al mirall', 4, 1, 'v', true, {}, 'La ratlla del mig és un mirall. Toca on es veu el llum a l\'altre costat: a la mateixa fila i a la mateixa distància de la ratlla.'),
@@ -208,15 +279,15 @@ export const SECTIONS = [
     set('Cinc i espera', 4, 5, 1700, { wait: 4 }, 'Cinc llums i quatre segons. Busca una forma que es pugui recordar.'),
     seq('Cinc en sèrie', 4, 5, { wait: 4 }, 'Cinc llums en sèrie i quatre segons d\'espera.'),
     mir('Mirall i espera', 4, 3, 'v', false, { wait: 3 }, 'El mirall, però esperant una mica abans de tocar.'),
-    set('Foto gran', 5, 5, 1800, { wait: 5 }, 'Tauler gran i cinc segons d\'espera.'),
+    set('Foto gran', 5, 5, 1800, { wait: 5, zoom: 'encongeix' }, 'Tauler gran i cinc segons d\'espera. Mentre esperes, el tauler s\'encongirà.'),
     seq('La gran espera', 5, 5, { wait: 5, rounds: 2 }, 'L\'últim: cinc llums i cinc segons. Tu pots!')
   ] },
   { name: 'La gran nit', sub: 'Tot barrejat i taulers grans: la prova dels campions.', levels: [
     seq('Sèrie de sis', 5, 6, {}, 'La gran nit! Primer, una sèrie de sis llums.'),
-    set('Foto de set', 5, 7, 2000, {}, 'Una foto de set llums.'),
-    change('Ull d\'àliga', 5, 6, 'mix', { ms: 2000 }, 'Què ha canviat? Pot ser qualsevol cosa.'),
+    set('Foto de set', 5, 7, 2000, { zoom: 'creix' }, 'Una foto de set llums en un tauler petit. Després el tauler creixerà.'),
+    change('Ull d\'àliga', 5, 6, 'mix', { ms: 2000, zoom: 'encongeix' }, 'Què ha canviat? Pot ser qualsevol cosa, i la segona foto surt més petita.'),
     where('Sis amagats', 5, 6, { rounds: 2 }, 'Sis animalons amagats.'),
-    seq('Al revés', 5, 5, { back: true }, 'Cinc llums al revés.'),
+    seq('Al revés', 5, 5, { back: true, zoom: 'creix' }, 'Cinc llums al revés, en un tauler petit que després creix.'),
     mir('L\'estany gran', 6, 4, 'h', false, { rounds: 2 }, 'El mirall de l\'aigua, al tauler de sis per sis.'),
     trn('Gir tapat', 4, 3, -90, 'cover', { plain: true }, 'Un quart de volta a l\'esquerra, tapat.'),
     walk('Sis salts', 5, 6, { hide: true, lose: true }, 'Sis salts amb la granota amagada.'),
@@ -224,6 +295,7 @@ export const SECTIONS = [
     seq('La sèrie dels campions', 6, 7, { rounds: 2 }, 'L\'última de totes: set llums al tauler més gran. Campió!')
   ] }
 ];
+SECTIONS.forEach((s, i) => s.levels.forEach((l, k) => { l.truc = TRUC_OF[i][k]; }));
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
 // what the frog says while the child answers, by kind; a mirror and a level backwards say more
 export function asks(L, R) {

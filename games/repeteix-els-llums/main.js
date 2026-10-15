@@ -4,7 +4,8 @@ import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, HIDE_NAME, STEPS, TURN, hueOf, pitchOf, rc, round, asks, starsFor, clean, noteOf, reached,
-  levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, freeIn, exam, examIn, sheet, sheetIn, wrong, misses, GRIDS, LIVES, makeSeq, begin, step } from './logic.js';
+  levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, freeIn, exam, examIn, sheet, sheetIn, wrong, misses, GRIDS, LIVES, makeSeq, begin, step,
+  TRUCS, ZOOM, introOf, address, placeName, chunks, rowCounts, axisDist, squash, story, chain } from './logic.js';
 
 const KEY = 'repeteix-els-llums';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -57,30 +58,65 @@ const again = e => { e.classList.remove('shake', 'pop'); void e.getBoundingClien
 const HUB = /repeteix-els-llums\.html$/.test(location.pathname);
 function show(kicker, playing, hue) {
   $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toS').hidden = !playing; $('#kick').textContent = kicker;
-  $('#game').onclick = null; FX.mood(hue);
+  $('#game').onclick = null; $('#game').className = ''; FX.mood(hue);
 }
 $('#toS').onclick = () => mapa();
 function soBtn() { $('#so').textContent = `So: ${prog.so ? 'sí' : 'no'}`; }
 $('#so').onclick = () => { prog.so = !prog.so; save(); soBtn(); if (prog.so) tone(660, 0, 0.2); };
 
 /* ---------- the board: n × n tiles in a frame that can turn, with a lid that covers it while it turns ---------- */
-const BOARD = '<div class="bwrap" id="bwrap"><div class="board" id="board"></div><div class="lid" id="lid" hidden></div></div>';
+// over the tiles: the layer where a trick is drawn (lines, counts, the centre point) and the column letters and row numbers of an address
+const BOARD = '<div class="bwrap" id="bwrap"><div class="board" id="board"></div><div class="ov" id="ov"></div><div class="marks" id="marks"></div><div class="lid" id="lid" hidden></div></div>';
 const TAIL = '<div class="tail"><div class="arrows" id="arrows" aria-live="polite"></div><div class="dots" id="dots" aria-hidden="true"></div><p class="rn" id="rn"></p><p class="wait" id="wait"></p><div class="opts" id="btns"></div></div>';
-let N = 3, flat = false, tiles = [], bd = null;
+let N = 3, flat = false, tiles = [], bd = null, marked = false;
 const ON = 520, GAP = 190;
 const hueAt = i => { const { r, c } = rc(i, N); return flat ? 195 : hueOf(r, c, N); };
-// draws the tiles of an n × n board; plain gives all of them the same colour, so the colour does not say where a tile was
-async function build(n, t, plain = false) {
-  bd = $('#board'); N = n; flat = plain; bd.style.setProperty('--n', n);
+// draws the tiles of an n × n board; plain gives all of them the same colour, so the colour does not say where a tile was, and marks
+// writes the letter of each column and the number of each row around it
+async function build(n, t, plain = false, marks = false) {
+  bd = $('#board'); N = n; flat = plain; marked = marks; bd.style.setProperty('--n', n);
+  $('#bwrap').classList.toggle('marked', marks); $('#bwrap').style.scale = '';
   const m = (n - 1) / 2;
   bd.innerHTML = Array.from({ length: n * n }, (_, i) => {
     const { r, c } = rc(i, n);
     return `<button class="tile enter" data-i="${i}" tabindex="-1" aria-label="Fila ${r + 1}, columna ${c + 1}" style="--h:${hueAt(i)};--d:${Math.round(Math.hypot(r - m, c - m) * 70)}"></button>`;
   }).join('');
-  tiles = [...bd.children];
+  tiles = [...bd.children]; paintMarks();
   bd.onclick = e => { const b = e.target.closest('.tile'); if (b && pickFn) pickFn(+b.dataset.i); };
   await sleep(RM ? 0 : 650);
   if (t.on) tiles.forEach(e => e.classList.remove('enter'));
+}
+// where the centre of tile i is, in % of the board, which is the size of its frame: what the layer of a trick draws on. Layout
+// sizes, so a board that is turned or zoomed gives the same
+function spot(i) { const e = tiles[i], W = bd.offsetWidth; return { x: (e.offsetLeft + e.offsetWidth / 2) / W * 100, y: (e.offsetTop + e.offsetHeight / 2) / W * 100 }; }
+function paintMarks() {
+  const m = $('#marks'); if (!m) return;
+  m.innerHTML = !marked ? '' : Array.from({ length: N }, (_, k) => `<i style="left:${spot(k).x}%">${'ABCDEF'[k]}</i><i style="top:${spot(k * N).y}%">${k + 1}</i>`).join('');
+}
+addEventListener('resize', () => { if (tiles.length && bd?.isConnected) paintMarks(); });
+const ov = () => $('#ov');
+// the shape of some tiles: a line through them in this order
+function lines(cells) {
+  ov().querySelector('svg')?.remove();
+  if (cells.length < 2) return;
+  ov().insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${cells.map(i => { const p = spot(i); return `${p.x},${p.y}`; }).join(' ')}"/></svg>`);
+}
+// how many lights there are on each row, on the right edge of the board
+function rowMarks(cells) {
+  ov().querySelectorAll('.cnt').forEach(e => e.remove());
+  ov().insertAdjacentHTML('beforeend', rowCounts(cells, N).map((k, r) => `<b class="cnt${k ? '' : ' zero'}" style="top:${spot(r * N).y}%">${k}</b>`).join(''));
+}
+// the point in the middle of the board, to look at before a photo
+async function centrePoint(t) { ov().insertAdjacentHTML('beforeend', '<i class="dot"></i>'); await sleep(RM ? 300 : 900); return t.on; }
+// a soft glow on a tile for ms, with no sound: the trick shows again what was seen
+function ghost(i, ms = 420) { const e = tiles[i]; e.classList.add('ghost'); setTimeout(() => e.classList.remove('ghost'), ms); }
+// the board grows or shrinks to scale s, in a second
+async function zoom(s, t) {
+  const w = $('#bwrap'), now = +(w.style.scale || 1);
+  if (now === s) return t.on;
+  w.style.scale = s === 1 ? '' : s; tone(s > now ? 392 : 523, 0, 0.6, 0.05, 'triangle'); tone(s > now ? 523 : 392, 0.3, 0.6, 0.05, 'triangle');
+  await sleep(RM ? 300 : 1000);
+  return t.on;
 }
 function centre(i) { const r = tiles[i].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; }
 const note = (i, at = 0, dur = 0.34, vol = 0.15) => { const { r, c } = rc(i, N); tone(pitchOf(r, c, N), at, dur, vol); };
@@ -98,7 +134,8 @@ function light(cells, cls = 'on') {
 const pic = (i, s, cls = '') => { tiles[i].innerHTML = `<span class="pic${cls}">${s}</span>`; };
 // the board as it is before a round: dark, unturned, uncovered, with no mirror line and nothing on it
 function reset() {
-  tiles.forEach(e => { e.classList.remove('on', 'src', 'got', 'bad', 'hint'); e.textContent = ''; });
+  tiles.forEach(e => { e.classList.remove('on', 'src', 'got', 'bad', 'hint', 'ghost'); e.textContent = ''; });
+  ov().innerHTML = '';
   $('#bwrap').classList.remove('axis-v', 'axis-h', 'rest'); $('#lid').hidden = true;
   bd.classList.add('still'); bd.style.transform = ''; void bd.offsetWidth; bd.classList.remove('still');
   $('#arrows').innerHTML = ''; $('#wait').textContent = '';
@@ -127,38 +164,77 @@ const LOOK = {
   turn: (L, R) => `Mira els llums. El tauler farà ${TURN[R.deg][1]} ${TURN[R.deg][0]}`,
   walk: L => L.lose ? 'Mira d\'on surt la granota: s\'amagarà!' : 'Mira d\'on surt la granota i segueix les fletxes…'
 };
+// Each one gets g: g.on when the round is shown with its trick done in front of the child (the first round of the level that brings the
+// trick in, and a round seen again with a hint), and g.say to talk. A trick shown done gives the eyes more time
+const SAYS = new Set(['nom', 'coord', 'mida']);
+const slow = (L, g) => g.on ? L.ms + 2600 : L.ms;
+// a photo with its trick done: its shape, its counts row by row, or the place of every light said
+function still(cells, L, g) {
+  if (!g.on) return;
+  if (L.truc === 'forma') { lines(chain(cells, N)); g.say('Mira la forma que fan: recorda el dibuix, no cada llum.'); }
+  else if (L.truc === 'files') { rowMarks(cells); g.say(`Fila per fila, de dalt a baix: ${rowCounts(cells, N).join(', ')}.`); }
+  else if (L.truc === 'punt') g.say('Mira el punt del mig, sense moure els ulls: els llums entren tots alhora.');
+  else if (SAYS.has(L.truc)) g.say((N === 3 ? 'On són: ' : 'Les adreces: ') + cells.slice().sort((x, y) => x - y).map(i => placeName(i, N)).join(', ') + '.');
+}
 const SHOW = {
-  async seq(R, L, t) {
-    for (const i of R.seq) { await flash(i, L.on || ON); if (!t.on) return; await sleep(L.on ? GAP * 0.7 : GAP); if (!t.on) return; }
+  async seq(R, L, t, g) {
+    const parts = g.on && L.truc === 'trossos' ? chunks(R.seq.length) : null, ends = new Set(parts?.map((_, j) => parts.slice(0, j + 1).reduce((a, b) => a + b) - 1));
+    const said = [];
+    for (const [k, i] of R.seq.entries()) {
+      if (g.on && SAYS.has(L.truc)) { said.push(placeName(i, N)); g.say((N === 3 ? 'Ho dic en veu baixa: ' : 'Les adreces: ') + said.join(' → ')); }
+      if (g.on && L.truc === 'forma') lines(R.seq.slice(0, k + 1));
+      if (parts && (k === 0 || ends.has(k - 1))) g.say(`Tros ${[...ends].filter(e => e < k).length + 1} de ${parts.length}…`);
+      await flash(i, L.on || ON); if (!t.on) return;
+      await sleep(ends.has(k) && k < R.seq.length - 1 ? 750 : L.on ? GAP * 0.7 : GAP); if (!t.on) return;
+    }
+    if (g.on && L.truc === 'forma') { await sleep(900); if (!t.on) return; lines([]); }
+    if (g.on && L.truc === 'rebobina') {
+      g.say('Ara la rebobino al cap ⏪, de l\'últim al primer…'); await sleep(700); if (!t.on) return;
+      for (const i of R.seq.slice().reverse()) { ghost(i, 380); await sleep(520); if (!t.on) return; }
+    }
   },
-  async set(R, L, t) { light(R.cells); await sleep(L.ms); if (t.on) reset(); },
-  async change(R, L, t) {
-    light(R.a); await sleep(L.ms); if (!t.on) return;
+  async set(R, L, t, g) {
+    if (L.truc === 'punt' && !await centrePoint(t)) return;
+    light(R.cells); still(R.cells, L, g); await sleep(slow(L, g)); if (t.on) reset();
+  },
+  async change(R, L, t, g) {
+    if (L.truc === 'punt' && !await centrePoint(t)) return;
+    light(R.a); still(R.a, L, g); await sleep(slow(L, g)); if (!t.on) return;
     reset(); await sleep(RM ? 500 : 650); if (!t.on) return;
-    light(R.b);
+    if (L.zoom && !await zoom(ZOOM[L.zoom][1], t)) return;
+    light(R.b); still(R.b, L, g);
   },
-  async where(R, L, t) {
+  async where(R, L, t, g) {
     R.cells.forEach((i, j) => { pic(i, R.things[j]); note(i, j * 0.12, 0.3, 0.08); });
-    await sleep(L.ms); if (!t.on) return;
+    if (g.on && L.truc === 'historia') g.say(story(R));
+    else if (g.on) g.say(R.cells.map((i, j) => `${HIDE_NAME[R.things[j]]}: ${placeName(i, N)}`).join(' · '));
+    await sleep(g.on ? L.ms + 3500 : L.ms); if (!t.on) return;
     // they hide one after the other
     for (const i of R.cells) { pic(i, R.things[R.cells.indexOf(i)], ' hide'); }
     await sleep(RM ? 0 : 420); if (t.on) R.cells.forEach(i => { tiles[i].textContent = ''; });
   },
-  async mirror(R, L, t) {
+  async mirror(R, L, t, g) {
     $('#bwrap').classList.add(R.axis === 'h' ? 'axis-h' : 'axis-v');
     light(R.cells, 'src');
+    // the trick done: every light says how far from the line it is, and its mirror says the same number, softly
+    if (g.on) {
+      R.cells.forEach((i, j) => { const d = axisDist(i, N, R.axis); tiles[i].innerHTML = `<span class="num">${d}</span>`; tiles[R.want[j]].innerHTML = `<span class="num soft">${d}</span>`; });
+      g.say('Compta fins a la ratlla: l\'1 és el quadre enganxat. A l\'altre costat, el mateix número i la mateixa fila.');
+    }
     if (L.keep) return;
-    await sleep(L.ms); if (t.on) R.cells.forEach(i => tiles[i].classList.remove('src'));
+    await sleep(slow(L, g)); if (t.on) R.cells.forEach(i => { tiles[i].classList.remove('src'); tiles[i].textContent = ''; });
   },
-  async turn(R, L, t) {
-    light(R.cells); await sleep(L.ms); if (!t.on) return;
+  async turn(R, L, t, g) {
+    // the trick done: a star on the corner at the top left, that turns with the board
+    if (g.on) { pic(0, '⭐', ' star'); g.say('Segueix l\'estrella del racó mentre gira. Els llums es queden igual de lluny de l\'estrella.'); }
+    light(R.cells); await sleep(slow(L, g)); if (!t.on) return;
     if (L.see !== 'lit') { R.cells.forEach(i => tiles[i].classList.remove('on')); await sleep(400); if (!t.on) return; }
     if (L.see === 'cover') { const lid = $('#lid'); lid.innerHTML = `<b>${TURN[R.deg][0]}</b><span>${TURN[R.deg][1]}</span>`; lid.hidden = false; again(lid).add('pop'); await sleep(900); if (!t.on) return; }
     if (!await spin(R.deg, t)) return;
     if (L.see === 'cover') { await sleep(500); if (!t.on) return; $('#lid').hidden = true; }
     if (L.see === 'lit') { await sleep(500); if (t.on) R.cells.forEach(i => tiles[i].classList.remove('on')); }
   },
-  async walk(R, L, t) {
+  async walk(R, L, t, g) {
     pic(R.start, '🐸', ' frog'); note(R.start);
     await sleep(1300); if (!t.on) return;
     if (L.lose) { tiles[R.start].textContent = ''; await sleep(400); if (!t.on) return; }
@@ -166,6 +242,18 @@ const SHOW = {
     for (const [k, d] of R.path.entries()) {
       strip.insertAdjacentHTML('beforeend', `<i>${STEPS[d][0]}</i>`); tone(523 + k * 70, 0, 0.18, 0.08);
       await sleep(L.hide ? 850 : 650); if (!t.on) return;
+    }
+    // the trick done: the equal arrows put together, and a soft frog that jumps them
+    if (g.on) {
+      const sum = squash(R.path).map(([k, d]) => `${k} ${STEPS[d][0]}`).join(' · ');
+      strip.insertAdjacentHTML('beforeend', `<b class="sum">${sum}</b>`); g.say(`Ajunta-les: ${sum}. I ara salta amb el dit…`);
+      let { r, c } = rc(R.start, N);
+      for (const d of R.path) {
+        await sleep(520); if (!t.on) return;
+        tiles[r * N + c].textContent = ''; r += STEPS[d][1]; c += STEPS[d][2]; pic(r * N + c, '🐸', ' frog soft');
+      }
+      await sleep(900); if (!t.on) return;
+      tiles[r * N + c].textContent = ''; if (!L.lose) pic(R.start, '🐸', ' frog');
     }
     if (L.hide) { await sleep(500); if (t.on) strip.innerHTML = ''; }
   }
@@ -202,24 +290,46 @@ function listen(R, good) {
   });
 }
 
+// the tiles a trick shows again while the child waits: a series in its order, the rest all at once
+function rehearse(R, L) {
+  if (R.seq) R.seq.forEach((i, k) => setTimeout(() => ghost(i, 260), k * 170));
+  else (R.cells || R.b || []).forEach(i => ghost(i, 600));
+}
 // Plays the rounds of level L on the board on screen, each a new draw. Every wrong tile and every hint is a slip, and the round is shown
-// again from the start. In an exam the first wrong tile ends the level: it gives false. It gives true when every round is done
-async function play(L, { t, tip, slip = () => {}, exam: strict = false }) {
-  const rounds = L.rounds || 1;
+// again from the start, with its trick done when it was a hint. intro shows the first round with the trick done. In an exam the first wrong
+// tile ends the level: it gives false. It gives true when every round is done
+async function play(L, { t, tip, slip = () => {}, exam: strict = false, intro = false }) {
+  const rounds = L.rounds || 1, T = TRUCS[L.truc];
+  let guide = intro && !strict && !!T;
   for (let r = 0; r < rounds; r++) {
     const R = round(L, Math.random);
     $('#rn').textContent = rounds > 1 ? `Ronda ${r + 1} de ${rounds}` : '';
     let first = r === 0;
     for (;;) {
-      reset(); $('#dots').innerHTML = '<i></i>'.repeat(R.want.length);
-      // the first time the level says what it is about; after that, only what to look at
-      if (!first) tip(LOOK[L.kind](L, R));
+      const g = { on: guide, say: tip }; guide = false;
+      reset();
+      // a series cut in pieces has its dots cut the same way
+      const cuts = L.kind === 'seq' && L.truc === 'trossos' ? chunks(R.want.length).slice(0, -1).map((_, j, a) => a.slice(0, j + 1).reduce((x, y) => x + y)) : [];
+      $('#dots').innerHTML = R.want.map((_, k) => `<i${cuts.includes(k) ? ' class="cut"' : ''}></i>`).join('');
+      // the first time the level says what it is about; after that, only what to look at. A round with its trick done says so
+      if (g.on) tip(`${T.icon} Mira com ho faig jo, amb el truc «${T.name}».`);
+      else if (!first) tip(LOOK[L.kind](L, R));
       first = false;
-      await sleep(700); if (!t.on) return false;
-      await SHOW[L.kind](R, L, t); if (!t.on) return false;
+      if (L.zoom) await zoom(ZOOM[L.zoom][0], t);
+      await sleep(g.on ? 1400 : 700); if (!t.on) return false;
+      await SHOW[L.kind](R, L, t, g); if (!t.on) return false;
+      // the board changes its size before the answer (a photo that changes does it in its blink)
+      if (L.zoom && L.kind !== 'change') {
+        tip(ZOOM[L.zoom][1] < 1 ? 'El tauler s\'encongeix… Cada llum continua a la seva fila i columna.' : 'El tauler creix… Cada llum continua a la seva fila i columna.');
+        if (!await zoom(ZOOM[L.zoom][1], t)) return false;
+      }
       if (L.wait) {
         $('#bwrap').classList.add('rest');
-        for (let s = L.wait; s > 0; s--) { $('#wait').textContent = `Guarda-ho al cap… ${s}`; click(392, 0, 0.1, 0.04); await sleep(1000); if (!t.on) return false; }
+        for (let s = L.wait; s > 0; s--) {
+          $('#wait').textContent = `${L.truc === 'repeteix' ? 'Repeteix-ho al cap' : 'Guarda-ho al cap'}… ${s}`; click(392, 0, 0.1, 0.04);
+          if (g.on && L.truc === 'repeteix') { if (s === L.wait) tip('Mentre espero, els torno a veure al cap, una vegada i una altra…'); rehearse(R, L); }
+          await sleep(1000); if (!t.on) return false;
+        }
         $('#wait').textContent = ''; $('#bwrap').classList.remove('rest');
       }
       tip(asks(L, R)); live(true);
@@ -233,10 +343,10 @@ async function play(L, { t, tip, slip = () => {}, exam: strict = false }) {
       live(false); if (!t.on) return false;
       if (res.ok) break;
       slip();
-      if (res.hint) { tip('Mira-ho una altra vegada.'); continue; }
+      if (res.hint) { tip(T ? `Mira-ho una altra vegada, amb el truc ${T.icon} «${T.name}».` : 'Mira-ho una altra vegada.'); guide = !!T && !strict; await sleep(900); if (!t.on) return false; continue; }
       const bad = tiles[res.got];
       bad.classList.add('bad'); again($('#bwrap')).add('shake'); buzz();
-      tip(oops(L, R, k), 'oops');
+      tip(oops(L, R, k) + (T && !strict ? ` ${T.icon} Truc: ${T.name}.` : ''), 'oops');
       await sleep(450); if (!t.on) return false;
       bad.classList.remove('bad'); res.want.forEach(i => tiles[i].classList.add('hint'));
       await sleep(strict ? 1300 : 1800); if (!t.on) return false;
@@ -280,7 +390,7 @@ function mapa() {
   const got = badges(prog), tip = advice();
   $('#game').innerHTML = `<div class="map">${tip ? `<p class="next">${tip}</p>` : ''}${CIRCLES.map((_, c) => band(c)).join('')}
     <div class="extra"><button class="btn soft" id="full"${OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
-      <button class="btn soft" id="free">Partida lliure${prog.best ? ` · rècord ${prog.best}` : ''}</button>
+      <button class="btn soft" id="free">Partida lliure${prog.best ? ` · rècord ${prog.best}` : ''}</button><button class="btn soft" id="trucs">💡 Els trucs</button>
       <ul class="badges" aria-label="Insígnies">${BADGES.map((b, j) => `<li class="${got[j] ? 'on' : ''}" title="${b.what}">${got[j] ? '★' : '☆'} ${b.name}</li>`).join('')}</ul></div></div>`;
   $('#game').onclick = e => {
     const b = e.target.closest('.proj:not(.exam)'), x = e.target.closest('.proj.exam');
@@ -292,12 +402,14 @@ function mapa() {
     else if (x && !x.disabled) examen(+x.dataset.x);
     else if (e.target.closest('#full:not(:disabled)')) full();
     else if (e.target.closest('#free')) lliure();
+    else if (e.target.closest('#trucs')) trucs();
   };
   ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
 
 // the frame of the Piscina, of an exam and of a sheet: the dots of its steps, the frog with its tip, the stage and the room under it
 function frame(n, label, stage = BOARD) {
+  $('#game').className = stage === BOARD ? 'duo' : '';
   $('#game').innerHTML = `<div class="hud mid"><span class="steps" id="steps" role="img" aria-label="${label}">${'<i></i>'.repeat(n)}</span><span class="chip" id="qn" hidden></span></div>
     <div class="coach" id="coach">${FROG}<p class="status tip" id="tip" role="status" aria-live="polite"></p></div><div class="stage" id="stage">${stage}</div>${TAIL}`;
   return { stage: $('#stage'), dots: [...$('#steps').children], say: coachSay };
@@ -325,14 +437,33 @@ async function piscina() {
   await sleep(2400); if (t.on) mapa();
 }
 
+/* ---------- the tricks: the card of one, and a page with all of them ---------- */
+const card = (id, kicker) => { const T = TRUCS[id]; return `<p class="tk">${kicker}</p><h3><span aria-hidden="true">${T.icon}</span> ${T.name}</h3><p>${T.how}</p><p class="why"><b>Per què funciona?</b> ${T.why}</p>`; };
+function trucs() {
+  fresh(); show('Els trucs', false, 48);
+  // where each trick is met: the projects that have it
+  const where = id => list(PROJECTS.filter(p => p.levels.some(l => l.truc === id)).map(p => p.name));
+  $('#game').innerHTML = `<p class="lead">Els trucs per veure i recordar millor. Cada nivell en fa servir un: el 💡 te'l recorda.</p>
+    <div class="cards">${Object.keys(TRUCS).map(id => `<div class="card">${card(id, `Surt a: ${where(id)}`)}</div>`).join('')}</div>
+    <button class="btn" id="bk">Torna al mapa</button>`;
+  $('#bk').onclick = () => mapa(); $('#bk').focus({ preventScroll: true });
+}
+
 /* ---------- one level of a project ---------- */
 function level(sec, idx) {
   const c = circleOf(sec), t = fresh(); show(`Cercle ${c} · ${PROJECTS[sec].name}`, true, HUES[sec]); here = sec;
-  const root = $('#game'), L = PROJECTS[sec].levels[idx];
+  const root = $('#game'), L = PROJECTS[sec].levels[idx], T = TRUCS[L.truc], intro = introOf(sec, idx);
   let slips = 0;
+  root.className = 'duo';
   root.innerHTML = `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
-    <div class="coach" id="coach">${FROG}<p class="status tip" id="tip" role="status" aria-live="polite"></p></div><div class="stage" id="stage">${BOARD}</div>${TAIL}`;
+    <div class="coach" id="coach">${FROG}<p class="status tip" id="tip" role="status" aria-live="polite"></p>
+      <button class="trucb" id="trucb" aria-expanded="${intro}" aria-controls="card" title="El truc d'aquest nivell">💡<span>Truc</span></button></div>
+    <div class="card" id="card"${intro ? '' : ' hidden'}>${card(L.truc, intro ? 'Truc nou' : 'El truc d\'aquest nivell')}<button class="link" id="ok">Entesos!</button></div>
+    <div class="stage" id="stage">${BOARD}</div>${TAIL}`;
+  // the card of the trick: open by itself where the trick comes in, and the bulb opens and shuts it at any moment
+  const shut = v => { $('#card').hidden = v; $('#trucb').setAttribute('aria-expanded', !v); };
+  $('#trucb').onclick = () => shut(!$('#card').hidden); $('#ok').onclick = () => { shut(true); $('#go')?.focus({ preventScroll: true }); };
   // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.stars[sec * 10 + i] > 0));
   wireLevels(root, i => level(sec, i));
@@ -360,9 +491,10 @@ function level(sec, idx) {
 
   stars(); coachSay(L.say);
   (async () => {
-    await build(L.n, t, L.plain); if (!t.on) return;
+    await build(L.n, t, L.plain, L.truc === 'coord' || L.truc === 'mida'); if (!t.on) return;
     if (!await ready(t)) return;
-    if (await play(L, { t, tip: coachSay, slip }) && t.on) win();
+    shut(true);
+    if (await play(L, { t, tip: coachSay, slip, intro }) && t.on) win();
   })();
 }
 
@@ -457,6 +589,7 @@ async function full() {
 async function lliure() {
   const t = fresh(); show('Partida lliure', true, 165);
   let s = begin();
+  $('#game').className = 'duo';
   $('#game').innerHTML = `<div class="hud"><span class="chip" id="lvl"></span><span class="lives" id="lives" role="img"></span><span class="chip" id="pts"></span></div>
     <p class="status big" id="status" role="status" aria-live="polite"></p><div class="stage" id="stage">${BOARD}</div>${TAIL}`;
   const statusEl = $('#status');
