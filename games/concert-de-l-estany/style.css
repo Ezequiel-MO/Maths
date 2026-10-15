@@ -102,7 +102,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .nt { transition: opacity 0.25s; }
 .nt.hue { color: hsl(var(--h) 85% 38%); }
 .nt.done { opacity: 0.3; }
-.nt.now { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px #FF9A1F); animation: hop 0.7s ease-in-out infinite alternate; }
+.nt.now { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px #FF9A1F); }
 .nm { fill: currentColor; font: 800 11px/1 var(--display); text-anchor: middle; }
 .gapbox { fill: rgb(247 198 78 / 0.3); stroke: #B5740C; stroke-width: 1.6; stroke-dasharray: 5 4; }
 .q { fill: #B5740C; font: 800 22px/1 var(--display); text-anchor: middle; }
@@ -234,7 +234,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .card.won { border-color: var(--mint); box-shadow: 0 0 26px rgb(124 245 176 / 0.5); }
 .panel .line small { display: block; margin-top: 4px; font-size: 1.05rem; color: var(--sun); }
 
-@keyframes hop { to { transform: translateY(-3px); } }
 @keyframes ring { 30% { transform: scale(1.08, 1.03); filter: brightness(1.5); } }
 @keyframes hit { 40% { transform: scale(1.08); } }
 @keyframes stick { 40% { transform: translateY(8px); } }
@@ -246,4 +245,4 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @media (max-width: 480px) { .frog { width: 56px; height: 52px; } .coach { gap: 12px; } }
 /* a phone upright: the map has no big title (the exam buttons need that height; the kicker and the bar stay) */
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
-@media (prefers-reduced-motion: reduce) { .nt.now, .blk.gap, .tube.hint, .frog .baton, .snip svg { animation: none; } .xp-bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .blk.gap, .tube.hint, .frog .baton, .snip svg { animation: none; } .xp-bar i { transition: none; } }
