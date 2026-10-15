@@ -118,7 +118,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .display, .claimbox { font-fami
 .chart .base { stroke: var(--ink); stroke-width: 2; }
 .chart .pad { fill: transparent; }
 .chart .bar { filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.35)); }
-.chart .ln { fill: none; stroke: var(--sun); stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 6px rgb(247 198 78 / 0.5)); }
+.chart .ln { pointer-events: none; fill: none; stroke: var(--sun); stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 6px rgb(247 198 78 / 0.5)); }
 .chart .dot { fill: var(--sun); stroke: #04131C; stroke-width: 2; }
 .chart .dot.big { stroke-width: 1.5; }
 .chart .in { font-size: 14px; font-weight: 800; text-anchor: middle; fill: #04131C; }

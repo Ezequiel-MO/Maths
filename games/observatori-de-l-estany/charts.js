@@ -74,9 +74,10 @@ function bars(el, ch) {
   const S = SETS[ch.set], c = ch.c || 0, C = S.cols[c], rows = ch.rows || ALL(S.rows.length), hor = ch.type === 'hbars';
   const vals = rows.map(i => S.rows[i].v[c]), from = ch.from || 0, top = topOf(from, Math.max(...vals));
   const w = 360, h = hor ? 34 + rows.length * 30 : (ch.small ? 220 : 240);
-  const m = hor ? { l: 124, r: 30, t: 6, b: 24 } : { l: 46, r: 8, t: 14, b: 50 };
-  const svg = figure(el, ch.small ? '' : S.title, w, h, ch.small ? 'small' : '');
-  const y = scaleLinear().domain([from, top]).range(hor ? [m.l, w - m.r] : [h - m.b, m.t]);
+  const tilt = !hor && rows.length > 6, m = hor ? { l: 124, r: 30, t: 6, b: 24 } : { l: 46, r: 8, t: 14, b: tilt ? 70 : 50 };
+  const svg = figure(el, ch.small ? '' : S.title, w, tilt ? h + 20 : h, ch.small ? 'small' : '');
+  const H = tilt ? h + 20 : h;
+  const y = scaleLinear().domain([from, top]).range(hor ? [m.l, w - m.r] : [H - m.b, m.t]);
   const x = scaleBand().domain(rows).range(hor ? [m.t, h - m.b] : [m.l, w - m.r]).padding(0.28);
   axis(svg, y, hor, hor ? [m.t, h - m.b] : [m.l, w - m.r], from, top);
   rows.forEach((i, n) => {
@@ -90,15 +91,16 @@ function bars(el, ch) {
       g.append('text').attr('class', 'lab').attr('x', m.l - 6).attr('y', x(i) + x.bandwidth() / 2 + 4).attr('text-anchor', 'end').text(`${r.i} ${r.n}`);
       if (ch.labels) g.append('text').attr('class', 'val').attr('x', end + 4).attr('y', x(i) + x.bandwidth() / 2 + 4).text(num(v));
     } else {
-      g.append('rect').attr('class', 'pad').attr('x', x(i) - 4).attr('y', 0).attr('width', x.bandwidth() + 8).attr('height', h);
+      g.append('rect').attr('class', 'pad').attr('x', x(i) - 4).attr('y', 0).attr('width', x.bandwidth() + 8).attr('height', H);
       const b = g.append('rect').attr('class', 'bar').attr('x', x(i)).attr('width', x.bandwidth()).attr('rx', 4).attr('fill', hueOf(C)).attr('y', base).attr('height', 0);
       b.transition().delay(ms(n * 70)).duration(ms(600)).ease(easeCubicOut).attr('y', end).attr('height', base - end);
-      g.append('text').attr('class', 'ic').attr('x', x(i) + x.bandwidth() / 2).attr('y', h - m.b + 18).text(r.i);
-      lines(g, r.n, x(i) + x.bandwidth() / 2, h - m.b + 32, rows.length > 7 ? 8.5 : 10);
+      g.append('text').attr('class', 'ic').attr('x', x(i) + x.bandwidth() / 2).attr('y', H - m.b + 18).text(r.i);
+      if (tilt) g.append('text').attr('class', 'lab').attr('font-size', 10).attr('text-anchor', 'end').attr('transform', `translate(${x(i) + x.bandwidth() / 2 + 3},${H - m.b + 28}) rotate(-38)`).text(r.n);
+      else lines(g, r.n, x(i) + x.bandwidth() / 2, H - m.b + 32, 10);
       if (ch.labels) g.append('text').attr('class', 'val').attr('x', x(i) + x.bandwidth() / 2).attr('y', end - 4).text(num(v));
     }
   });
-  svg.append('line').attr('class', 'base').call(l => hor ? l.attr('x1', m.l).attr('x2', m.l).attr('y1', m.t).attr('y2', h - m.b) : l.attr('x1', m.l).attr('x2', w - m.r).attr('y1', h - m.b).attr('y2', h - m.b));
+  svg.append('line').attr('class', 'base').call(l => hor ? l.attr('x1', m.l).attr('x2', m.l).attr('y1', m.t).attr('y2', h - m.b) : l.attr('x1', m.l).attr('x2', w - m.r).attr('y1', H - m.b).attr('y2', H - m.b));
 }
 
 function pieChart(el, ch) {
@@ -138,7 +140,7 @@ function lineChart(el, ch) {
   rows.forEach((i, n) => {
     const r = S.rows[i], g = svg.append('g');
     hit(g, i, `${r.n}: ${num(r.v[c])}`);
-    g.append('circle').attr('class', 'pad').attr('cx', x(i)).attr('cy', y(r.v[c])).attr('r', 15);
+    g.append('rect').attr('class', 'pad').attr('x', x(i) - x.step() / 2).attr('y', 0).attr('width', x.step()).attr('height', h);
     g.append('circle').attr('class', 'dot').attr('cx', x(i)).attr('cy', y(r.v[c])).attr('r', 0).transition().delay(ms(120 + n * 120)).duration(ms(300)).ease(easeBackOut).attr('r', 5.5);
     if (r.i) g.append('text').attr('class', 'ic').attr('x', x(i)).attr('y', h - m.b + 16).text(r.i);
     lines(g, r.n, x(i), h - m.b + (r.i ? 29 : 16), rows.length > 8 ? 9.5 : 9);
@@ -221,7 +223,7 @@ function dots(el, ch) {
   for (let v = D.lo; v <= D.hi; v++) { svg.append('line').attr('class', 'tick').attr('x1', x(v)).attr('x2', x(v)).attr('y1', h - m.b).attr('y2', h - m.b + 6); svg.append('text').attr('class', 'num').attr('x', x(v)).attr('y', h - m.b + 20).attr('text-anchor', 'middle').text(v); }
   const pile = {};
   D.vals.forEach((v, n) => { const k = pile[v] = (pile[v] || 0) + 1;
-    svg.append('circle').attr('class', 'dot big').attr('cx', x(v)).attr('cy', -10).attr('r', 9).attr('fill', PAL[n % PAL.length])
+    svg.append('circle').attr('class', 'dot big').attr('cx', x(v)).attr('cy', -10).attr('r', 9).style('fill', PAL[n % PAL.length])
       .transition().delay(ms(n * 110)).duration(ms(500)).ease(easeBackOut).attr('cy', h - m.b - 12 - (k - 1) * 20); });
   svg.append('text').attr('class', 'unit').attr('x', w - m.r + 8).attr('y', h - 4).attr('text-anchor', 'end').text(D.unit);
 }
@@ -400,7 +402,7 @@ export function buildGantt(el, { days, tasks }, onMove) {
 // The seesaw of the mean: every number is a dot on a beam, and the beam tips towards the heavy side of its pivot. The child drags the
 // pivot until the beam lies flat: there, the dots on each side pull the same, and that is the mean
 export function buildBalance(el, { stats }, onMove) {
-  const D = STATS[stats], w = 360, h = 230, m = { l: 26, r: 26 }, beamY = 150;
+  const D = STATS[stats], w = 360, h = 250, m = { l: 30, r: 30 }, beamY = 150;
   const svg = figure(el, `${D.title}: busca l'equilibri`, w, h, 'build balance');
   const x = scaleLinear().domain([D.lo, D.hi]).range([m.l, w - m.r]);
   let p = D.lo;
@@ -408,7 +410,7 @@ export function buildBalance(el, { stats }, onMove) {
   beam.append('rect').attr('x', x(D.lo) - 14).attr('y', beamY - 4).attr('width', x(D.hi) - x(D.lo) + 28).attr('height', 8).attr('rx', 4).attr('class', 'plank');
   for (let v = D.lo; v <= D.hi; v++) { beam.append('line').attr('class', 'tick').attr('x1', x(v)).attr('x2', x(v)).attr('y1', beamY + 4).attr('y2', beamY + 10); beam.append('text').attr('class', 'num').attr('x', x(v)).attr('y', beamY + 22).attr('text-anchor', 'middle').text(v); }
   const pile = {};
-  D.vals.forEach((v, n) => { const k = pile[v] = (pile[v] || 0) + 1; beam.append('circle').attr('class', 'dot big').attr('cx', x(v)).attr('cy', beamY - 13 - (k - 1) * 19).attr('r', 9).attr('fill', PAL[n % PAL.length]); });
+  D.vals.forEach((v, n) => { const k = pile[v] = (pile[v] || 0) + 1; beam.append('circle').attr('class', 'dot big').attr('cx', x(v)).attr('cy', beamY - 13 - (k - 1) * 19).attr('r', 9).style('fill', PAL[n % PAL.length]); });
   const piv = svg.append('g').attr('class', 'pivot').attr('tabindex', 0).attr('role', 'slider').attr('aria-label', 'El punt de recolzament: arrossega\'l').attr('aria-valuemin', D.lo).attr('aria-valuemax', D.hi);
   piv.append('rect').attr('class', 'pad').attr('x', -26).attr('y', beamY - 6).attr('width', 52).attr('height', 80);
   piv.append('path').attr('d', `M0 ${beamY + 5}L-17 ${beamY + 46}H17Z`).attr('class', 'tri');
@@ -419,7 +421,7 @@ export function buildBalance(el, { stats }, onMove) {
   svg.on('click', e => { if (!e.target.closest('.pivot')) set(x.invert(pointer(e, svg.node())[0])); });
   piv.on('keydown', e => { const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key]; if (d) { e.preventDefault(); set(p + d); } });
   function paint() {
-    const pull = D.vals.reduce((s, v) => s + (v - p), 0), deg = clamp(pull * 2.2, -16, 16);
+    const pull = D.vals.reduce((s, v) => s + (v - p), 0), deg = clamp(pull * 1.5, -9, 9);
     piv.attr('transform', `translate(${x(p)},0)`).attr('aria-valuenow', p); pl.text(p);
     beam.transition().duration(ms(350)).ease(easeCubicOut).attrTween('transform', function () {
       const from = this.getAttribute('data-deg') || 0, i = interpolate(+from, deg); this.setAttribute('data-deg', deg);
