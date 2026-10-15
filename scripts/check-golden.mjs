@@ -61,7 +61,6 @@ async function game(id) {
   for (const [k, v] of Object.entries(L)) if (typeof v !== 'function') add('=' + k, text(v));
   const nP = L.PROJECTS?.length || 1, nC = L.CIRCLES?.length || 1;
   SAVES.forEach((raw, s) => {
-    const r = seeded(7 * s + 1), int = n => Math.floor(r() * (n + 1));
     const call = (name, args) => {
       Math.random = seeded(31 * s + name.length);
       try { add(name, text([args.map(text), L[name](...args)])); } catch (e) { add(name, 'ERR ' + e.message); } finally { Math.random = RANDOM; }
@@ -70,7 +69,8 @@ async function game(id) {
     try { p = L.clean(raw === undefined ? undefined : structuredClone(raw)); add('clean', text(p)); } catch (e) { add('clean', 'ERR ' + e.message); return; }
     for (const name of PROGRESS) {
       if (name === 'clean' || typeof L[name] !== 'function') continue;
-      const names = params(L[name]);
+      // each function draws its arguments from its own seed, so a function gone or new never moves the arguments of the others
+      const names = params(L[name]), r = seeded(7 * s + [...name].reduce((h, ch) => h * 31 + ch.charCodeAt(0) >>> 0, 1)), int = n => Math.floor(r() * (n + 1));
       // three calls each, with arguments drawn for the names the function gives them
       for (let k = 0; k < 3; k++) {
         const c = int(nC), i = int(nP - 1), rnd = seeded(97 * s + k);

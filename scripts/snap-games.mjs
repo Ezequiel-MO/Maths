@@ -21,7 +21,7 @@ const SAVE = { so: false, piscina: true, lv, stars: lv, secs: [10, 10, 6, 0, 3, 
   exams: [true], fulls: 2, rapid: 7, ratxa: 4, mosques: 120, best: 260, probs: 3, savi: 1, equip: -1 };
 
 // the page as text, one tag a line, so a diff shows what moved; the back button had two names (#toS and #toM), it is read as one
-const html = page => page.evaluate(() => document.body.innerHTML.replace(/id="toS"/g, 'id="toM"').replace(/></g, '>\n<'));
+const html = page => page.evaluate(() => document.body.innerHTML.replace(/id="toS"/g, 'id="toM"').replace(/\?t=\d+"/g, '"').replace(/></g, '>\n<'));
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 let fails = 0;
