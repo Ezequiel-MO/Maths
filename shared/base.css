@@ -53,6 +53,6 @@ h1 {
 @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
 @keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 
-/* a JSXGraph board (shared/jsx.js): on the pond, not on white */
-.jxgbox { position: relative; overflow: hidden; background: transparent; border: 0; border-radius: 0; touch-action: none; }
+/* a JSXGraph board (shared/jsx.js); its transparent background is set on the element, as jsxgraph.css comes later */
+.jxgbox { position: relative; overflow: hidden; border-radius: 0; touch-action: none; }
 .jxgbox .JXGtext { font-family: var(--body); color: var(--ink); }

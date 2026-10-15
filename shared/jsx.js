@@ -12,16 +12,21 @@ export const C = { ink: '#EAF8F4', muted: '#9EC3C0', pad: '#4FB562', padDark: '#
 
 let seq = 0;
 // box is [left, top, right, bottom] in the board's own units. The board has no grid, no axes, no zoom and no pan: the game draws what
-// it needs, and a finger on it only moves what the game lets move. el gets an id if it has none (JSXGraph asks for one)
-export function board(t, el, box, attrs = {}) {
+// it needs, and a finger on it only moves what the game lets move. el gets an id if it has none (JSXGraph asks for one).
+// attrs.label is what a screen reader says of the board. t may be null for a board that lives outside a screen: it goes with el.
+// JSXGraph sends its 'up' events only for a press that began on one of its elements: a tap on an empty place is a native click on el.
+export function board(t, el, box, { label = '', ...attrs } = {}) {
   if (!el.id) el.id = 'jxg' + ++seq;
   el.classList.add('jxgbox');
+  // on the pond, not on white: jsxgraph.css comes after base.css, so the style goes on the element itself
+  el.style.background = 'transparent'; el.style.border = '0';
   const b = JXG.JSXGraph.initBoard(el.id, {
     boundingbox: box, keepaspectratio: false, axis: false, grid: false,
     showCopyright: false, showNavigation: false, showInfobox: false,
     pan: { enabled: false }, zoom: { enabled: false }, browserPan: true,
     defaultAxes: {}, ...attrs
   });
-  whenGone(t, el, () => JXG.JSXGraph.freeBoard(b));
+  if (label) el.setAttribute('aria-label', label);
+  whenGone(t || { on: true }, el, () => JXG.JSXGraph.freeBoard(b));
   return b;
 }
