@@ -1,0 +1,228 @@
+/* Layout: the night pond of the other games, turned into an observatory of data. One centred column: the row of levels, the frog
+   with its magnifying glass and its tip in a speech bubble, the question, the chart (drawn by D3 in charts.js) and under it what
+   answers: a note to tap the chart, the keys of a number or the choices. A chart to build carries its table over it and «Comprova»
+   under it. Two fixed canvases paint the sky behind and the sparks in front. Written for a phone held upright; it grows on a wide screen. */
+@import "../../shared/base.css";
+@import "../../shared/sections.css";
+
+:root { --mint: #7CF5B0; --cyan: #6FE3FF; }
+#app { max-width: 620px; min-height: calc(100dvh - 38px); }
+#app.wide { max-width: 760px; }
+#app.wide h1 { display: none; }
+h1, h2, .btn, .chip, .status, .key, .ask, .line, .display, .claimbox { font-family: var(--display); }
+
+/* the rank and the XP live in the row at the top */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+.top { flex-wrap: nowrap; }
+.top > span { flex: none; }
+
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+.hud { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
+.hud .link { flex: none; white-space: nowrap; }
+.stage { position: relative; width: 100%; min-height: 330px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.panel .line { font-size: 1.3rem; font-weight: 800; }
+.panel .line small { display: block; margin-top: 4px; font-size: 1rem; line-height: 1.25; color: var(--sun); }
+.panel .won { color: var(--sun); font-size: 2rem; letter-spacing: 0.12em; line-height: 1; }
+.panel .lead.go { color: var(--mint); }
+
+/* the map: three bands that grow outwards like rings */
+.map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
+.ring.r0 { --rh: 195; width: 93%; } .ring.r1 { --rh: 320; width: 96%; } .ring.r2 { --rh: 45; }
+.ring.shut { border-style: dashed; }
+.ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
+.ring h2 svg { flex: none; width: 26px; height: 26px; }
+.ring .why { font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.projs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.proj { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; text-align: center; padding: 4px 8px; min-height: 56px; border-radius: 18px; border: 2px solid #4D7486; background: #2A4B5C; color: #fff; box-shadow: 0 4px 0 #10242F; touch-action: manipulation; }
+.proj:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #10242F; }
+.proj b { font: 800 1.05rem/1.15 var(--display); }
+.proj span { font-size: 0.78rem; line-height: 1.15; color: var(--muted); }
+.proj .pi { font-size: 1.3rem; line-height: 1.1; }
+.proj .mk { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.proj.ok { border-color: var(--mint); } .proj.ok .mk { color: var(--mint); }
+.proj.exam { min-height: 40px; border-color: var(--sun); flex-direction: row; gap: 8px; }
+.proj.exam:nth-child(odd) { grid-column: 1 / -1; }
+.proj.exam.ok { border-color: var(--mint); }
+.proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
+.proj:disabled b, .proj:disabled .mk { color: var(--muted); }
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+.extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
+#full { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
+#full:disabled { opacity: 0.4; cursor: not-allowed; }
+.badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.badges li.on { border: 1px solid var(--sun); color: var(--sun); }
+
+/* the Piscina, an exam and a sheet */
+.hud.mid { justify-content: center; }
+.steps { display: flex; gap: 6px; }
+.steps i { width: 12px; height: 12px; border-radius: 50%; background: rgb(160 230 220 / 0.2); transition: background 0.3s, box-shadow 0.3s; }
+.steps i.cur { box-shadow: 0 0 0 2px var(--ink); }
+.steps i.ok { background: var(--sun); box-shadow: 0 0 8px rgb(247 198 78 / 0.7); }
+.steps i.late { background: #4D7486; }
+.tail { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.tail .opts .btn { font-size: 1.15rem; min-width: 0; }
+.ask.claim { font-size: 1.05rem; color: var(--muted); }
+.claimbox { margin: 0; max-width: 34ch; padding: 10px 18px; border-radius: 18px; background: #06202B; border: 2px solid var(--sun); font-weight: 800; font-size: 1.2rem; line-height: 1.3; }
+
+/* the frog and its speech bubble */
+.coach { width: 100%; max-width: 600px; display: flex; gap: 14px; align-items: center; }
+.frog { flex: none; width: 80px; height: 72px; overflow: visible; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); transform-origin: 50% 90%; }
+.coach.go .frog { animation: leap 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.coach.oops .frog { animation: shake 0.4s; }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+
+/* the question and what answers it */
+.ask { margin: 0; font-weight: 800; font-size: 1.3rem; line-height: 1.25; text-wrap: balance; max-width: 32ch; }
+.ask small { display: block; font: 800 0.8rem/1.4 var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.ans { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; min-height: 48px; }
+.how { margin: 0; font-weight: 800; color: var(--muted); }
+.opts { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.opts.col { flex-direction: column; align-items: stretch; width: 100%; max-width: 420px; }
+.opts .btn { font-size: 1.15rem; min-width: 88px; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.shake { animation: shake 0.4s; }
+.pop { animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
+/* the number typed, and its keys */
+.display { margin: 0; min-width: 6ch; padding: 4px 18px; border-radius: 14px; background: #06202B; border: 2px solid var(--cyan); font-weight: 800; font-size: 1.8rem; line-height: 1.2; font-variant-numeric: tabular-nums; color: #C9F7FF; }
+.display.ok { border-color: var(--mint); color: var(--mint); }
+.display .caret { display: inline-block; width: 3px; height: 1em; vertical-align: -0.12em; background: var(--sun); animation: blink 0.9s steps(2) infinite; }
+.keys { display: grid; grid-template-columns: repeat(3, 64px); gap: 8px; justify-content: center; }
+.key { height: 50px; padding: 0; border-radius: 14px; border: 1px solid var(--edge); background: var(--glass); font-weight: 800; font-size: 1.6rem; line-height: 1; touch-action: manipulation; }
+.key:active { background: var(--sun); color: #2A1C00; }
+.key.ok { background: var(--pad); color: var(--on-pad); border: 0; box-shadow: 0 4px 0 var(--pad-dark); }
+
+/* the charts: a glass card with the title over the drawing */
+.board { width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; }
+.board.src { max-width: 460px; }
+.board.right .chart { border-color: var(--mint); box-shadow: 0 0 24px rgb(124 245 176 / 0.35); }
+.chart { width: 100%; margin: 0; padding: 8px 8px 6px; border-radius: 22px; background: var(--glass); border: 1px solid var(--edge); transition: border-color 0.3s, box-shadow 0.3s; }
+.chart figcaption { font: 800 0.95rem/1.25 var(--display); color: var(--ink); text-align: center; padding: 2px 6px 4px; text-wrap: balance; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--body); user-select: none; -webkit-user-select: none; }
+.chart text { fill: var(--ink); }
+.chart .num { fill: var(--muted); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart .lab { font-size: 10.5px; font-weight: 800; text-anchor: middle; }
+.chart .ic { font-size: 16px; text-anchor: middle; }
+.chart .val { font-size: 12px; font-weight: 800; text-anchor: middle; fill: var(--sun); }
+.chart .hbars .val, .chart text.val[x] { paint-order: stroke; stroke: #04131C; stroke-width: 3px; }
+.chart .grid line { stroke: rgb(160 230 220 / 0.22); stroke-width: 1; }
+.chart .grid line.minor { stroke: rgb(160 230 220 / 0.07); }
+.chart .grid .zig { fill: none; stroke: var(--bad); stroke-width: 2; }
+.chart .base { stroke: var(--ink); stroke-width: 2; }
+.chart .pad { fill: transparent; }
+.chart .bar { filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.35)); }
+.chart .ln { fill: none; stroke: var(--sun); stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 6px rgb(247 198 78 / 0.5)); }
+.chart .dot { fill: var(--sun); stroke: #04131C; stroke-width: 2; }
+.chart .dot.big { stroke-width: 1.5; }
+.chart .in { font-size: 14px; font-weight: 800; text-anchor: middle; fill: #04131C; }
+.chart .leg { font-size: 12px; font-weight: 800; }
+.chart .unit { fill: var(--muted); font-size: 11px; font-weight: 700; }
+.chart .tick { stroke: var(--muted); stroke-width: 2; }
+.chart .slice { transition: transform 0.25s; }
+/* what can be tapped: lit when the finger is on it, green when right, red when wrong */
+.chart .hit { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.chart .hit:hover .bar, .chart .hit:focus-visible .bar, .chart .hit:hover .slice, .chart .hit:focus-visible .slice { filter: brightness(1.25) drop-shadow(0 0 8px rgb(255 255 255 / 0.4)); }
+.chart .hit:focus-visible .pad { fill: rgb(111 227 255 / 0.12); }
+.chart .hit.ok .bar, .chart .hit.ok .slice, .chart .hit.ok .tk { stroke: var(--mint); stroke-width: 4; }
+.chart .hit.ok .dot { fill: var(--mint); r: 8; }
+.chart .hit.ok .pad { fill: rgb(124 245 176 / 0.14); }
+.chart .hit.no .pad { fill: rgb(255 107 94 / 0.16); }
+.chart .seq circle { fill: var(--sun); }
+.chart .seq text { fill: #2A1C00; font-size: 12px; font-weight: 800; text-anchor: middle; }
+/* the table */
+.chart.tbl .scroll { overflow-x: auto; }
+.chart table { width: 100%; border-collapse: separate; border-spacing: 0 3px; font-variant-numeric: tabular-nums; }
+.chart th, .chart td { padding: 5px 8px; text-align: right; font-weight: 800; white-space: nowrap; }
+.chart thead th { font-size: 0.8rem; color: hsl(var(--h, 180) 85% 72%); border-bottom: 2px solid var(--edge); }
+.chart thead th:first-child { text-align: left; color: var(--muted); }
+.chart thead small { font-size: 0.7rem; color: var(--muted); }
+.chart tbody th { text-align: left; font-size: 0.95rem; }
+.chart tbody tr { background: rgb(160 230 220 / 0.06); animation: rise 0.4s var(--d) both ease-out; }
+.chart tbody tr td:last-child, .chart tbody tr th { border-radius: 0; }
+.chart tbody tr > :first-child { border-radius: 10px 0 0 10px; } .chart tbody tr > :last-child { border-radius: 0 10px 10px 0; }
+.chart .ic { margin-right: 6px; }
+.chart tr.hit:hover, .chart tr.hit:focus-visible { background: rgb(111 227 255 / 0.18); }
+.chart tr.ok { background: rgb(124 245 176 / 0.25); }
+.chart tr.no { background: rgb(255 107 94 / 0.22); }
+.chart b.seq { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: var(--sun); color: #2A1C00; font-size: 0.75rem; }
+.chart.small table { font-size: 0.85rem; }
+/* the Gantt chart: a column for each day */
+.chart.gantt .col { fill: rgb(160 230 220 / 0.04); }
+.chart.gantt .col.alt { fill: rgb(160 230 220 / 0.09); }
+.chart.gantt .lab { text-anchor: start; font-size: 11px; }
+/* the Venn diagram: the box of everything, the circles, and the things as round tokens */
+.chart.venn .universe { fill: rgb(4 19 28 / 0.35); stroke: var(--edge); stroke-width: 1.5; }
+.chart.venn .set { fill-opacity: 0.13; stroke-width: 2.5; }
+.chart.venn .gname { font: 800 12.5px var(--display); }
+.chart .tk { fill: #0B2A38; stroke: var(--ink); stroke-width: 1.5; }
+.chart .tki { font-size: 15px; text-anchor: middle; }
+.chart .tkn { font-size: 9.5px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #04131C; stroke-width: 3px; }
+.chart .traytext { fill: var(--muted); font-size: 11px; font-weight: 700; }
+.chart .tok { cursor: grab; touch-action: none; outline: none; }
+.chart .tok.lift { cursor: grabbing; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.6)); }
+.chart .tok.lift .tk, .chart .tok.chosen .tk, .chart .tok:focus-visible .tk { stroke: var(--sun); stroke-width: 3; }
+.chart .tok.ok .tk { stroke: var(--mint); stroke-width: 3; }
+.chart .tok.no .tk { stroke: var(--bad); stroke-width: 3.5; }
+/* the pair of charts of the detective */
+.pair { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair .half { border-radius: 22px; outline: none; cursor: pointer; transition: box-shadow 0.25s; }
+.pair .half .chart { padding: 4px; }
+.pair .half:hover, .pair .half:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
+.pair .half.ok { box-shadow: 0 0 0 3px var(--mint); }
+.pair .half.no { box-shadow: 0 0 0 3px var(--bad); }
+.pair .tag { margin: 0 0 4px; font: 800 1rem/1.2 var(--display); color: var(--sun); }
+/* the builders: what a finger drags */
+.chart.build .col { cursor: ns-resize; touch-action: none; outline: none; }
+.chart.build .col:focus-visible .bar, .chart.build .col:focus-visible .handle { stroke: var(--sun); stroke-width: 3; }
+.chart.build .grip { fill: var(--ink); opacity: 0.8; }
+.chart.build .handle { fill: var(--sun); stroke: #04131C; stroke-width: 2.5; }
+.chart.build .col.ok .bar, .chart.build .col.ok .handle { stroke: var(--mint); stroke-width: 3; }
+.chart.build .col.no .bar, .chart.build .col.no .handle { stroke: var(--bad); stroke-width: 3.5; }
+.chart.build .col.no .val { fill: var(--bad); }
+.chart.build .rim { fill: none; stroke: var(--edge); stroke-width: 2; stroke-dasharray: 4 5; }
+.chart.build .handle-sun { cursor: grab; touch-action: none; outline: none; }
+.chart.build .handle-sun .sun { fill: var(--sun); stroke: #FFF3B8; stroke-width: 3; filter: drop-shadow(0 0 8px rgb(247 198 78 / 0.8)); }
+.chart.build .handle-sun:focus-visible .sun { stroke: #fff; stroke-width: 4; }
+.chart.build .leg.ok { fill: var(--mint); } .chart.build .leg.no { fill: var(--bad); }
+.chart.build .gbar { cursor: grab; touch-action: none; outline: none; }
+.chart.build .gbar.lift .bar, .chart.build .gbar:focus-visible .bar { stroke: var(--sun); stroke-width: 3; }
+.chart.build .gbar.no .bar { stroke: var(--bad); stroke-width: 3.5; }
+.chart.build .grip-t { fill: #04131C; font-size: 13px; font-weight: 800; text-anchor: middle; pointer-events: none; }
+.chart.build .lane { cursor: pointer; }
+.chart.balance .plank { fill: #C07A48; stroke: #6B321C; stroke-width: 1.5; }
+.chart.balance .beam.flat .plank { fill: var(--mint); stroke: #2F7F40; }
+.chart.balance .pivot { cursor: ew-resize; touch-action: none; outline: none; }
+.chart.balance .tri { fill: var(--sun); stroke: #FFF3B8; stroke-width: 2; }
+.chart.balance .pivot:focus-visible .tri { stroke: #fff; stroke-width: 3.5; }
+.chart.balance .pval { fill: var(--sun); font: 800 15px var(--display); }
+.chart.balance .ground { stroke: var(--edge); stroke-width: 2; }
+/* the rules of a plan, lit after «Comprova» */
+.rules { width: 100%; max-width: 460px; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.rules li { padding: 6px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--edge); font-weight: 800; font-size: 0.95rem; text-align: left; }
+.rules li::before { content: "• "; color: var(--sun); }
+.rules li.head { background: none; border: 0; padding: 0 4px; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.rules li.head::before { content: ""; }
+.rules li.ok { border-color: var(--mint); } .rules li.ok::before { content: "✓ "; color: var(--mint); }
+.rules li.no { border-color: var(--bad); color: #FFC9C2; } .rules li.no::before { content: "✗ "; color: var(--bad); }
+
+@keyframes leap { 40% { transform: translateY(-14px) scale(1.06, 0.96); } }
+@keyframes blink { 50% { opacity: 0.25; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .display .caret, .chart tbody tr, .pop { animation: none !important; }
+}
+@media (max-width: 420px) {
+  .pair { grid-template-columns: 1fr; }
+  .ask { font-size: 1.15rem; }
+}
+@media (min-width: 700px) {
+  .ask { font-size: 1.45rem; }
+}
