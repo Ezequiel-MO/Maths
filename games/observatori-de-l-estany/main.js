@@ -286,6 +286,8 @@ function read({ t, L, stage, tip, slip, win, step }) {
     }
     if (d === 'del') buf = buf.slice(0, -1); else if (buf.length < 6) buf = (buf + d).replace(/^0+(?=\d)/, ''); else return;
     blip(); paint();
+    // the right number is taken as soon as it is written, with no ✓; a wrong one waits for ✓ (12 may still become 120)
+    if (d !== 'del' && +buf === R.q.ans) right(null);
   }
   ans.onclick = e => {
     const b = e.target.closest('button'); if (!b || b.disabled || busy || !t.on || e.timeStamp < openAt) return;
