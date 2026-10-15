@@ -7,6 +7,7 @@ import { PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID, ROOM, want, r
   clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, streakIn, rapidIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, curtain } from '../../shared/shell.js';
+import { lineBoard, roundBoard, loadJsx } from './drag.js';
 
 const KEY = 'nenufars-a-trossos';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -124,6 +125,8 @@ function lineSvg(d, pos, o = {}) {
   if (o.tap) for (let i = 0; i <= N; i++) s += `<rect class="hit" data-i="${i}" x="${(X(i) - w / 2).toFixed(1)}" y="0" width="${w.toFixed(1)}" height="112"/>`;
   return s + '</svg>';
 }
+// the round figures whose slices are chosen by dragging a handle round (drag.js), and the first n parts as a set
+const ROUND = new Set(['pizza', 'pad', 'clock']), upTo = n => new Set(Array.from({ length: n }, (_, j) => j));
 const TOOMANY = '<p class="think">Massa parts per dibuixar-les: pensa-hi amb la regla!</p>', HIDDEN = '<p class="think">Sense dibuix! Pensa-hi de cap.</p>';
 // two walkways one under the other, each with its fraction; too many planks cannot be drawn
 const pair = (a, b, c, d, la, lc) => b > 24 || d > 24 ? TOOMANY
@@ -201,8 +204,10 @@ let keyFn = null;
 addEventListener('keydown', e => {
   if (!keyFn || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Enter' && e.target.closest?.('button:not([data-k]), a')) return;
-  const k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : /^\d$/.test(e.key) ? e.key : null;
-  if (k) { e.preventDefault(); keyFn(k); }
+  // the arrows move the frog or the handle of a figure that is dragged; elsewhere they scroll the page as ever (keyFn gives false)
+  const k = e.key === 'Enter' ? 'ok' : e.key === 'Backspace' ? 'del' : /^\d$/.test(e.key) ? e.key
+    : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? 'down' : null;
+  if (k && keyFn(k) !== false) e.preventDefault();
 });
 
 /* ---------- the map: a band for each circle, a button for each project and the exam of the circle at the end ---------- */
@@ -230,8 +235,11 @@ function board(o) {
   const { t, qs, how } = o, once = how === 'exam' || how === 'rapid', host = $('#board'), st = { slips: 0, hits: 0, marks: [], missed: [] };
   // the state of the question being asked: what is typed (buf, and the slot being typed in), what is chosen, where the frog is and where it
   // comes from, the fraction a cut or joined figure shows now (and how many parts it had just before), and what the hints have uncovered
-  let k = 0, q, help = 0, busy = false, over = false, openAt = 0, buf, slot, lit, pos, from, cur, was, shown, lab;
+  let live = null, k = 0, q, help = 0, busy = false, over = false, openAt = 0, buf, slot, lit, pos, from, cur, was, shown, lab;
+  // the figure being dragged (drag.js) while a question waits for its answer: live.set(v) moves it; null with the drawing of before
   host.style.setProperty('--n', qs.length); host.style.setProperty('--k', 0);
+  // JSXGraph starts loading as soon as a board has a figure to drag, so it is there when that question comes up
+  if (qs.some(q => q.mode === 'line' && q.ask === 'put' || q.mode === 'paint' && ROUND.has(q.shape))) loadJsx();
   host.innerHTML = `${o.secs ? '<div class="fuse" role="img" aria-label="El temps que queda"><i id="fuse"></i></div>'
     : `<div class="lane" id="lane" aria-hidden="true">${qs.map(() => '<i class="lp"></i>').join('')}<span class="fg" id="fg"><svg viewBox="-34 -40 68 58">${FROG}</svg></span></div>`}
     <p class="status tip${o.secs ? ' flat' : ''}" id="tip" role="status" aria-live="polite"></p>
@@ -268,7 +276,28 @@ function board(o) {
           + (busy ? '' : `<div class="tools">${[2, 3, 5].map(x => `<button class="tool" data-t="${x}">${cut ? `✂ en ${x}` : `De ${x} en ${x}`}</button>`).join('')}<button class="tool" data-t="0" aria-label="Torna a començar">↺</button></div>`);
       }
     }
-    field.innerHTML = h;
+    field.innerHTML = h; live = null;
+    // where the answer is dragged, the drawing above gives its place to a board a finger moves (drag.js) once JSXGraph is there
+    if (busy) return;
+    if (q.mode === 'line' && q.ask === 'put') upgrade(lineBoard, 'jline', { d: q.d, max: q.max, pos, lab }, i => { from = pos; pos = i; tone(500 + 40 * i, 0, 0.1, 0.06); });
+    else if (q.mode === 'paint' && ROUND.has(q.shape)) upgrade(roundBoard, 'jround ' + q.shape, { shape: q.shape, d: q.d, k: lit.size }, n => { const up = n > lit.size; lit = upTo(n); tone(up ? 740 : 440, 0, 0.1, 0.06); });
+  }
+  // The board takes the place of the drawing; if JSXGraph cannot be loaded the drawing comes back and is tapped as before. A board for
+  // a question that is no longer on screen (answered, or redrawn meanwhile) is left out
+  async function upgrade(make, cls, opts, onMove) {
+    const old = field.firstElementChild, me = q, el = document.createElement('div');
+    el.className = 'jx ' + cls;
+    if (q.mode === 'paint') lit = upTo(lit.size);   // dragged, the slices chosen are always the first ones
+    old.replaceWith(el);
+    const got = await make(t, el, opts, onMove);
+    if (!el.isConnected || q !== me || busy) return;
+    if (got) live = got; else el.replaceWith(old);
+  }
+  // one more or one less: the frog one pad on, or one slice more chosen
+  function nudge(s) {
+    if (q.mode === 'line') { from = pos; pos = Math.max(0, Math.min(q.d * q.max, pos + s)); tone(500 + 40 * pos, 0, 0.1, 0.06); if (live) return live.set(pos); }
+    else { lit = upTo(Math.max(0, Math.min(q.d, lit.size + s))); tone(s > 0 ? 740 : 440, 0, 0.1, 0.06); if (live) return live.set(lit.size); }
+    drawField();
   }
   function drawAsk() {
     const box = i => `<output class="in${slot === i && !busy ? ' cur' : ''}" data-slot="${i}" aria-label="${kindOf(q) === 'num' ? 'Resposta' : q.mode === 'mix' ? (i ? 'Parts' : 'Sencers') : i ? 'Denominador' : 'Numerador'}">${buf[i]}</output>`;
@@ -361,8 +390,9 @@ function board(o) {
 
   keyFn = key => {
     if (over) return;
-    if (busy) { if (key === 'ok') $('#go')?.click(); return; }
+    if (busy) { if (key === 'ok') $('#go')?.click(); return key === 'up' || key === 'down' ? false : undefined; }
     const kind = kindOf(q);
+    if (key === 'up' || key === 'down') { if (kind !== 'check' || busy) return false; return nudge(key === 'up' ? 1 : -1); }
     if (kind === 'check') { if (key === 'ok') $('#chk').click(); return; }
     if (kind === 'pick') return;
     if (key === 'ok') {
