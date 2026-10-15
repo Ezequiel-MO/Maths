@@ -21,21 +21,6 @@
 .panel h2 { margin: 0; font-size: 1.7rem; line-height: 1.1; font-weight: 800; text-wrap: balance; }
 .panel .lead { font-size: 1.05rem; text-wrap: pretty; }
 
-/* the vertical menu of sections */
-.secs { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; }
-.sec { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 12px 16px; border-radius: 20px; border: 1px solid var(--edge); background: var(--glass); }
-.sec:not(:disabled):hover { background: rgb(79 181 98 / 0.22); border-color: #7CF5B0; }
-.sec:disabled { opacity: 0.5; cursor: not-allowed; }
-.sec-n { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--pad); color: var(--on-pad); font: 800 1.5rem/1 var(--display); }
-.sec.all .sec-n { background: var(--sun); color: #2A1C00; }
-.sec-t { display: flex; flex-direction: column; min-width: 0; }
-.sec-t b { font: 800 1.35rem/1.15 var(--display); }
-.sec-t span { font-size: 0.95rem; color: var(--muted); }
-.sec-p { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-weight: 800; font-size: 0.9rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pips { display: flex; gap: 3px; }
-.pips i { width: 7px; height: 7px; border-radius: 50%; background: rgb(160 230 220 / 0.2); }
-.pips i.ok { background: var(--sun); }
-
 @keyframes panel { from { transform: translate(-50%, -50%) scale(0.7); opacity: 0; } }
 /* with a mouse the level buttons can be smaller */
 @media (min-width: 700px) and (pointer: fine) {

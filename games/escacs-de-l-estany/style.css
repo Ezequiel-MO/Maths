@@ -203,9 +203,6 @@ svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: 
 .opts .btn { font-size: 1.2rem; min-width: 88px; }
 
 @keyframes beacon { 50% { box-shadow: 0 4px 0 var(--pad-dark), 0 0 18px 6px var(--sun); } }
-@keyframes launch { 12% { transform: translateY(-40px); } to { transform: translateY(-140vh); } }
-@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
-@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @keyframes hop { 40% { transform: translateY(-14px) scale(1.08, 0.94); } }
 @keyframes popin { from { transform: scale(0); opacity: 0; } }
 @keyframes march { to { stroke-dashoffset: -27; } }

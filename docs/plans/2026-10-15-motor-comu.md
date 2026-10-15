@@ -61,3 +61,20 @@ ni la forma dels camps (`lv`, `stars`, `notes`, `secs`, `exams`, `piscina`, `ful
 - `@keyframes` idèntics a `base.css` només si són byte a byte iguals (no es toca cap disposició).
 
 Cada fase és un commit. No es fa push a `main`: la branca es puja i Oliver decideix quan es fusiona.
+
+## Estat (2026-10-15)
+
+Fet, una fase per commit, a la branca `worktree-motor-comu`.
+
+- Fase 0: `check-golden` (a `npm run check`) i `snap-games`. Les empremtes es van fer sobre el codi d'abans.
+- Fase 1: `shared/curs.js`; els dotze `logic.js` hi passen amb els mateixos exports. 875 línies menys.
+- Fase 2: `shared/shell.js` i `shared/mapa.js`; deu jocs dibuixen el mapa amb el kit. `#toS` passa a `#toM`.
+  L'àbac i el cursus conserven el seu mapa (piscina dins del mapa, equips, el racó de pensar), i les pantalles d'examen, full
+  i llampec es queden a cada joc: el que hi canvia és la pregunta de cada joc, i el marc comú ja és a shell.js.
+- Fase 3: `shared/scene.js`; el sòlid de la volta, el matràs del laboratori i els salts de la granota hi passen. Els moments
+  d'una figura que es mou no surten iguals ni amb el mateix codi (els fotogrames no segueixen el rellotge fals), així que es
+  comprova que es mou, on acaba i que al mapa no queda cap bucle viu.
+- Fase 4: fora `sectionMenu` i el seu CSS; set `@keyframes` idèntics a `base.css`; README al dia.
+
+Prova de cada fase: `npm run check` i `npm run build` verds; `snap-games` dona el mateix HTML i el mateix desat a les 99
+pantalles que el codi d'abans.

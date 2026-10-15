@@ -229,9 +229,7 @@ svg.nl { width: 100%; height: auto; display: block; }
 @keyframes across { to { transform: translateX(calc(100vw + 280px)); } }
 @keyframes arch { to { transform: translateY(-46vh) rotate(-8deg); } }
 @keyframes combo { from { transform: scale(0.4); } }
-@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @keyframes pop { from { transform: scale(0.7); opacity: 0; } }
-@keyframes grow { from { transform: scale(0.2); } }
 @keyframes wilt { to { transform: scale(0); opacity: 0; } }
 @keyframes blink { 50% { opacity: 0.25; } }
 @keyframes beacon { 50% { box-shadow: 0 4px 0 #10242F, 0 0 16px 5px var(--sun); } }

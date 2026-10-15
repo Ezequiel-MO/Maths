@@ -42,3 +42,12 @@ h1 {
 
 @keyframes slide { to { background-position: -200% 0; } }
 @keyframes shake { 20% { transform: translateX(-9px); } 50% { transform: translateX(8px); } 80% { transform: translateX(-5px); } }
+
+/* animations several games use the same way; a game that needs another one of the same name defines it in its own sheet, which comes after this one */
+@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
+@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
+@keyframes grow { from { transform: scale(0.2); } }
+@keyframes launch { 12% { transform: translateY(-40px); } to { transform: translateY(-140vh); } }
+@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes star { from { transform: scale(0) rotate(-90deg); opacity: 0; } }

@@ -241,7 +241,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @keyframes beacon { 50% { box-shadow: 0 0 22px var(--sun); } }
 @keyframes pop { from { transform: scale(0.4); } }
 @keyframes wave { 0% { opacity: 1; stroke-width: 4; } 100% { opacity: 0.18; } }
-@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
 @keyframes baton { from { transform: rotate(-14deg); } to { transform: rotate(18deg); } }
 @keyframes snip { to { transform: rotate(180deg) translateY(-4px); } }
 @media (max-width: 480px) { .frog { width: 56px; height: 52px; } .coach { gap: 12px; } }

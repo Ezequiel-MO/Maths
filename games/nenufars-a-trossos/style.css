@@ -233,11 +233,7 @@ svg.nl { width: 100%; height: auto; overflow: visible; }
 .opts .btn { font-size: 1.2rem; min-width: 88px; }
 .opts .btn .fr { font-size: 0.9em; }
 
-@keyframes beacon { 50% { box-shadow: 0 0 16px 5px var(--sun); } }
 @keyframes hop { 50% { transform: translateY(-16px); } }
-@keyframes leap { 40% { transform: translateY(-16px) scale(1.05, 0.95); } }
-@keyframes grow { from { transform: scale(0.2); } }
-@keyframes combo { from { transform: translateX(-50%) scale(0.4); } }
 @keyframes glide { from { transform: translate(var(--x0), 54px); } 50% { transform: translate(calc((var(--x0) + var(--x)) / 2), 34px); } }
 @keyframes cutin { from { opacity: 0; stroke: #fff; stroke-width: 7px; } }
 @keyframes cutout { from { stroke: #fff; } to { opacity: 0; } }
