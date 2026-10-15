@@ -51,10 +51,10 @@ export const SETS = {
     rows: [row('Àsia', '🐼', [44, 4800, 48], "l'Àsia"), row('Àfrica', '🦁', [30, 1500, 54], "l'Àfrica"), row('Amèrica del Nord', '🦅', [25, 600, 23], "l'Amèrica del Nord"),
       row('Amèrica del Sud', '🦜', [18, 440, 12], "l'Amèrica del Sud"), row('Antàrtida', '🐧', [14, 0, 0], "l'Antàrtida"), row('Europa', '🏰', [10, 740, 44]),
       row('Oceania', '🦘', [9, 45, 14])] },
-  mundials: { title: 'Mundials de futbol guanyats (fins al 2022)', who: 'selecció', whoPl: 'seleccions', fem: true,
+  mundials: { title: 'Mundials de futbol guanyats (fins al 2026)', who: 'selecció', whoPl: 'seleccions', fem: true,
     cols: [col('Mundials', 'Mundials', 45, { ask: 'Quants Mundials {ha} guanyat {x}?', tell: '{X} {ha} guanyat {v} Mundials.', count: true })],
     rows: [row('Brasil', '🇧🇷', [5], 'el Brasil'), row('Alemanya', '🇩🇪', [4]), row('Itàlia', '🇮🇹', [4]), row('Argentina', '🇦🇷', [3], "l'Argentina"),
-      row('França', '🇫🇷', [2]), row('Uruguai', '🇺🇾', [2], "l'Uruguai"), row('Anglaterra', '⚽', [1]), row('Espanya', '🇪🇸', [1])] },
+      row('França', '🇫🇷', [2]), row('Uruguai', '🇺🇾', [2], "l'Uruguai"), row('Espanya', '🇪🇸', [2]), row('Anglaterra', '⚽', [1])] },
   champions: { title: "Copes d'Europa guanyades (fins al 2024)", who: 'equip', whoPl: 'equips',
     cols: [col('Copes', "Copes d'Europa", 200, { ask: "Quantes Copes d'Europa {ha} guanyat {x}?", tell: "{X} {ha} guanyat {v} Copes d'Europa.", count: true })],
     rows: [row('R. Madrid', '⚪', [15], 'el Reial Madrid'), row('Milan', '🔴', [7], 'el Milan'), row('Bayern', '🍺', [6], 'el Bayern'),
@@ -133,7 +133,7 @@ export const VENNS = {
     items: [thing('Itàlia', '🇮🇹', [1, 0, 1]), thing('Turquia', '🇹🇷', [1, 1, 1]), thing('Rússia', '🇷🇺', [1, 1, 0]), thing('Alemanya', '🇩🇪', [1, 0, 0]), thing('Portugal', '🇵🇹', [1, 0, 0]),
       thing('Japó', '🇯🇵', [0, 1, 0]), thing('Xina', '🇨🇳', [0, 1, 0]), thing('Marroc', '🇲🇦', [0, 0, 1]), thing('Grècia', '🇬🇷', [1, 0, 1]), thing('Brasil', '🇧🇷', [0, 0, 0])] },
   copes: { title: 'Futbol i Jocs Olímpics', who: 'país', whoPl: 'països',
-    groups: [group('Mundial (fins al 2022)', 'han guanyat un Mundial de futbol', 'no han guanyat cap Mundial', 'ha guanyat un Mundial de futbol', 'no ha guanyat cap Mundial'),
+    groups: [group('Mundial (fins al 2026)', 'han guanyat un Mundial de futbol', 'no han guanyat cap Mundial', 'ha guanyat un Mundial de futbol', 'no ha guanyat cap Mundial'),
       group("Jocs d'estiu (fins al 2024)", "han organitzat uns Jocs Olímpics d'estiu", "no n'han organitzat mai", "ha organitzat uns Jocs Olímpics d'estiu", "no n'ha organitzat mai")],
     items: [thing('Brasil', '🇧🇷', [1, 1]), thing('Espanya', '🇪🇸', [1, 1]), thing('França', '🇫🇷', [1, 1]), thing('Alemanya', '🇩🇪', [1, 1]), thing('Itàlia', '🇮🇹', [1, 1]),
       thing('Argentina', '🇦🇷', [1, 0]), thing('Uruguai', '🇺🇾', [1, 0]), thing('Japó', '🇯🇵', [0, 1]), thing('Xina', '🇨🇳', [0, 1]), thing('EUA', '🇺🇸', [0, 1]),
@@ -382,13 +382,13 @@ export const SECTIONS = [
     read(T('paris'), [q.calc("Quants països tenen més de 15 medalles d'or?", 5, "Baixa per la columna «Or» i compta els números més grans que 15. El 15 no compta!", 'Cinc: els EUA, la Xina, el Japó, Austràlia i França.'), q.sum(6), q.most(2)], 'Detectiu de taules', 'La taula sencera, amb onze països. Llegeix-la amb calma.')
   ] },
   { name: 'Barres', sub: 'Llegeix l\'escala, compara i construeix gràfics de barres.', levels: [
-    read(B('mundials'), [q.most(), q.val(3), q.val(7)], 'La barra més alta', 'Cada barra és una selecció. Com més alta, més Mundials ha guanyat.'),
+    read(B('mundials'), [q.most(), q.val(3), q.val(6)], 'La barra més alta', 'Cada barra és una selecció. Com més alta, més Mundials ha guanyat.'),
     read(B('champions'), [q.val(0), q.val(5), q.diff(0, 1)], "Llegir l'escala", "Els números de l'esquerra són l'escala. Si la barra acaba entre dues ratlles, compta les caselles."),
     read(B('recomp'), [q.most(), q.val(5), q.val(0)], 'Recompenses', 'Les recompenses dels Barret de Palla, en milions de berries. Fixa\'t que l\'escala va de 500 en 500.'),
     read(H('cont'), [q.most(), q.val(1), q.least()], 'Barres ajagudes', 'Les barres també poden anar de costat. Ara, els números són a sota.'),
     read(B('recomp', { rows: [0, 4, 5, 8], labels: true }), [q.times(0, 5), q.diff(0, 5), q.diff(4, 8)], 'Quantes vegades?', '«Quantes vegades més» és una divisió. «Quant més» és una resta.'),
     read(H('cont'), [q.order()], 'Ordena', 'Toca els continents per ordre, del més gran al més petit.'),
-    build('bars', { set: 'mundials', rows: [0, 3, 4, 7], hi: 6, step: 1 }, 'Construeix: Mundials', 'Ara el gràfic el fas tu! Arrossega cada barra amunt o avall fins al seu número de la taula.'),
+    build('bars', { set: 'mundials', rows: [0, 3, 4, 6], hi: 6, step: 1 }, 'Construeix: Mundials', 'Ara el gràfic el fas tu! Arrossega cada barra amunt o avall fins al seu número de la taula.'),
     build('bars', { set: 'champions', rows: [0, 1, 2, 4], hi: 16, step: 1 }, "Construeix: Copes d'Europa", "Arrossega cada barra fins al número de Copes d'Europa de la taula."),
     build('bars', { set: 'cont', c: 2, rows: [1, 0, 5, 3], hi: 60, step: 2 }, 'Construeix: països', 'Ara l\'escala va de 2 en 2. Arrossega cada barra fins als països del seu continent.'),
     build('bars', { set: 'paris', rows: [1, 2, 3, 10], hi: 45, step: 1 }, 'Construeix: ors de París', "L'últim: les medalles d'or de quatre països. Molt de compte amb l'escala!")
@@ -472,8 +472,8 @@ export const SECTIONS = [
         q.calc('Quant sumen les llesques del pastís B?', 120, 'Suma els quatre percentatges del B.', '50 + 30 + 25 + 15 = 120 %. Un tot sempre és el 100 %!'),
         q.pick('Per què no pot ser?', ['Un pastís sencer sempre és el 100 %', 'Té massa colors', 'El futbol hauria de ser més petit'], 'Totes les llesques juntes fan el pastís sencer.', 'Exacte: totes les llesques juntes han de fer el 100 %.')], 'El pastís impossible', 'Dos pastissos de la mateixa enquesta. Un té trampa.'),
     read(Pair(B('mundials', { rows: [0, 4, 7] }), B('mundials', { rows: [0, 4, 7], from: 1 })),
-      [q.tap('A quin gràfic sembla que Espanya no ha guanyat cap Mundial?', ['b'], 'Busca la barra d\'Espanya als dos gràfics.', 'Al B, la barra d\'Espanya no es veu: l\'escala comença a l\'1!'),
-        q.calc('Quants Mundials té Espanya de veritat?', 1, "Mira el gràfic A, o fixa't on comença l'escala del B.", 'En té 1: el del 2010.'),
+      [q.tap('A quin gràfic sembla que Anglaterra no ha guanyat cap Mundial?', ['b'], 'Busca la barra d\'Anglaterra als dos gràfics.', 'Al B, la barra d\'Anglaterra no es veu: l\'escala comença a l\'1!'),
+        q.calc('Quants Mundials té Anglaterra de veritat?', 1, "Mira el gràfic A, o fixa't on comença l'escala del B.", 'En té 1: el del 1966.'),
         q.times(0, 7)], 'La barra invisible', 'Si l\'escala no comença al zero, una barra pot desaparèixer!'),
     read(T('paris', { rows: [0, 2, 3, 6] }), [q.pick("Quin país té més medalles en total, el Japó o Austràlia?", ['Austràlia', 'El Japó', 'Tenen les mateixes'], 'Suma la fila de cada un: or + plata + bronze.', "Austràlia: 53. El Japó: 45. El Japó té més ors, però Austràlia té més medalles!"),
       q.tap('Quin país té més medalles en total, sumant-les totes?', [0], 'Suma la fila de cada país.', 'Els EUA: 126 medalles.'), q.sum(6)], 'Depèn de què miris', 'Qui va millor, qui té més ors o qui té més medalles? Depèn de la pregunta!'),
@@ -576,7 +576,7 @@ export function exam(c, rnd) {
 // true one (the sentence is wrong when they differ) and opts the three to choose from when fixing it. The mistakes are the ones a
 // reader makes: a number read from the wrong row or column, the second biggest taken for the biggest, a difference badly worked out
 const SOURCES = [['paris', [0, 2, 3, 4, 6, 10], [0, 1, 2]], ['lliga', [0, 1, 2, 3, 4, 5], [0, 1, 2, 5]], ['cont', [0, 1, 2, 3, 5, 6], [0, 2]],
-  ['mundials', [0, 3, 4, 7], [0]], ['champions', [0, 1, 2, 4, 5], [0]], ['recomp', [0, 1, 5, 4, 8], [0]], ['palla', [0, 1, 2, 5, 7, 9], [0, 1]]];
+  ['mundials', [0, 3, 4, 6], [0]], ['champions', [0, 1, 2, 4, 5], [0]], ['recomp', [0, 1, 5, 4, 8], [0]], ['palla', [0, 1, 2, 5, 7, 9], [0, 1]]];
 const pickOf = (a, rnd) => a[at(a.length, rnd)];
 const art = S => /^[aeiouàèéíòóú]/i.test(S.who) ? "L'" : S.fem ? 'La ' : 'El ';
 const sayMost = (S, C, r) => `${art(S)}${S.who} amb ${C.most || 'més ' + C.of} ${r.pl ? 'són' : 'és'} ${r.the}.`;
