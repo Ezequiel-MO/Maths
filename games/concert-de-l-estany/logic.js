@@ -1,8 +1,9 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the concert, with no page in it. Eleven projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Fourteen projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
 // (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
-// their colours little by little (twice: easy tunes by steps first, then Star Wars). They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// their colours little by little (three times: easy tunes by steps, Star Wars, and tunes played over while they fade), the drum kit, and the
+// proportions of the notes of a chord. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of three circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -40,6 +41,8 @@ const play = (title, notes, help, say) => ({ kind: 'play', title, tune: tune(not
 const fade = (title, notes, dark, say) => ({ ...play(title, notes, 1, say), dark });
 // the same, but a note only loses its colour next to a note in colour that is the same one or one step away
 const near = (title, notes, dark, say) => ({ ...fade(title, notes, dark, say), near: true });
+// a score in colour played once for each of rounds, and before each round the share rounds[r] of its notes has gone dark: more and more
+const fades = (title, notes, rounds, say) => ({ ...play(title, notes, 1, say), rounds });
 const cut = note => ({ kind: 'cut', title: `Fes un ${NOTES[note].name}`, note });
 const cm = (note, base, opts) => ({ kind: 'cm', title: `${NOTES[note].name} en cm`, note, base, opts });
 // '?' is the figure to find; pal is what the player can choose from
@@ -60,6 +63,36 @@ const pair = (sets, good, why, say, q = 'Quin grup sona més rodó?') => ({ kind
 const spot = (title, set, n, say) => ({ kind: 'spot', title, set, n, say });
 const place = (title, set, n, say) => ({ kind: 'place', title, set, n, say });
 const ALL = [0, 1, 2, 3, 4, 5, 6, 7];
+
+// The drum kit: a bar cut into 4 beats or into 8 boxes (two to a beat), a row for each drum. A row is [drum, pattern, how], 'x' a hit:
+// how is 'given' (drawn already), 'say' (to fill from the words over the grid) or 'ear' (to fill by listening). With live the whole bar
+// is drawn and the player plays it on the pads, in time; goal puts words of its own over the grid instead of the ones made from the rows
+export const KIT = { bombo: { name: 'Bombo', el: 'el bombo' }, caixa: { name: 'Caixa', el: 'la caixa' }, charles: { name: 'Charles', el: 'el charles' },
+  tom1: { name: 'Timbal agut', el: 'el timbal agut' }, tom2: { name: 'Timbal greu', el: 'el timbal greu' } };
+const kit = (title, rows, say, more = {}) => ({ kind: 'kit', title, steps: rows[0][1].length, rows: rows.map(([drum, pat, how = 'say']) => ({ drum, hits: [...pat].map(c => c === 'x'), how })), say, ...more });
+
+// Proportions between notes that sound together. A question is one of three: x, the notes of steps vibrating k times their smallest
+// numbers (ratio), with the one at ask to find; len, the length of the tube of step when the Do tube measures cm; name, the interval of two notes
+const x = (steps, k, ask) => ({ t: 'x', steps, k, ask });
+const len = (step, cm) => ({ t: 'len', step, cm });
+const nm = (lo, hi) => ({ t: 'name', steps: [lo, hi] });
+const prop = (title, qs, say) => ({ kind: 'prop', title, qs, say });
+// The answer of a question and the values to choose from, smallest first. The wrong ones are the mistakes that teach: adding what
+// the other note gained instead of multiplying, and, for a tube, the fraction turned over (the tube of a higher note is shorter)
+export function propQ(q) {
+  if (q.t === 'name') return { want: q.steps[1] - q.steps[0] + 1, opts: [8, 5, 4, 3] };
+  let want, wrong;
+  if (q.t === 'len') {
+    const N = NOTES[q.step]; want = q.cm * N.n / N.d;
+    wrong = [q.cm * N.d / N.n, q.cm / N.d, want + q.cm / N.d];
+  } else {
+    const r = ratio(q.steps), v = r.map(n => n * q.k), ref = q.ask === 0 ? 1 : 0;
+    want = v[q.ask];
+    wrong = [v[ref] + r[q.ask] - r[ref], want + r[q.ask], want * 2, want + Math.abs(r[q.ask] - r[ref])];
+  }
+  const opts = [want, ...new Set(wrong.filter(w => Number.isInteger(w) && w > 0 && w !== want))].slice(0, 3);
+  return { want, opts: opts.sort((a, b) => a - b) };
+}
 
 export const SECTIONS = [
   { name: 'Llegeix i toca', sub: 'Llegeix la partitura i toca-la amb els tubs.', levels: [
@@ -137,7 +170,7 @@ export const SECTIONS = [
     pair([[0, 3, 5], [0, 3, 6]], 0, 'Do, Fa i La fan 3, 4 i 5. Canviant només el La pel Si surten 24, 32 i 45: un sol tub ho espatlla tot.', 'Els dos grups només canvien en una nota.'),
     pair([[2, 4, 6], [0, 2, 4]], 1, 'Tots dos sonen bé. El de 4, 5 i 6 és un acord major, alegre; el de 10, 12 i 15 és menor, més fosc i trist.', 'Els dos són acords de debò. Escolta\'n el caràcter.', 'Quin acord sona més alegre?')
   ] },
-  // These four came after the others and stay at the end, whatever circle they are in: a save keeps its stars by the place of the project
+  // These came after the others and stay at the end, whatever circle they are in: a save keeps its stars by the place of the project
   { name: 'Més notes de colors', sub: 'Més partitures amb les notes pintades com els tubs.', levels: [
     play('Do, Re, Mi', '0n 1n 2n 1n | 0n 2n 0b', 1, 'Cada nota té el color del seu tub. Mira el color, mira on és la nota i toca.'),
     play('Mi, Fa, Sol', '2n 3n 4n 3n | 2n 4n 2b', 1, 'Tres notes més amunt: Mi, Fa i Sol. Com més amunt és la nota, més curt és el tub.'),
@@ -189,6 +222,47 @@ export const SECTIONS = [
     near('A la llum de la lluna', '0n 0n 0n 1n | 2b 1b | 0n 2n 1n 1n | 0r', 6, 'Una cançó francesa molt tranquil·la. Ara, de cada dues notes, una no té color.'),
     near('Jingle Bells', '2n 2n 2b | 2n 2n 2b | 2n 4n 0n 1n | 2r', 6, 'Gairebé tot són Mi. Les poques notes de color et diuen on ets: compta els graons des d\'allà.'),
     near('Tota l\'escala', '0n 1n 2n 3n | 4n 5n 6n 7n | 7n 6n 5n 4n | 3n 2n 1n 0n', 10, 'L\'última! Tota l\'escala amunt i avall, amb menys colors que mai. Ja saps llegir una nota mirant la del costat.')
+  ] },
+  // Each tune three times, and before each time more of its notes go dark: the colours of the first round help to read the last one.
+  // The tunes are set on the eight tubes: Tetris on Re, Bella ciao on Mi, Old MacDonald and La cucaracha on Do
+  { name: 'Els colors s\'apaguen', sub: 'Toca cada cançó tres cops. A cada volta, més notes es tornen negres.', levels: [
+    fades('Sol, Mi i La', '4n 4n 2n 5n | 4n 2n 4b', [0, 0.34, 0.67], 'Toca-la tres cops. Abans de cada volta, algunes notes perdran el color: recorda on eren!'),
+    fades('Super Mario', '2c 2c sc 2c sc 0c 2n | 4b sb', [0, 0.5, 0.84], 'La música d\'en Mario! Mi, Mi, Mi, Do, Mi, Sol. A la tercera volta gairebé no quedaran colors.'),
+    fades('Per molts anys', '0c 0c 1n 0n 3n | 2b 0c 0c 1n | 0n 4n 3b', [0, 0.5, 1], 'La cançó dels aniversaris. A l\'última volta totes les notes seran negres: fixa\'t bé a la primera!'),
+    fades('La cucaracha', 'sc 0c 0c 0c 3n 5n | sc 0c 0c 0c 3n 5n | 3c 3c 2c 2c 1c 1c 0n', [0, 0.5, 1], 'Tres Do ràpids i un salt amunt, dues vegades. Després baixa de dos en dos fins al Do.'),
+    fades('Old MacDonald', '3n 3n 3n 0n | 1n 1n 0b | 5n 5n 4n 4n | 3r', [0.25, 0.6, 1], 'La cançó de la granja. Ara ja comença amb algunes notes negres.'),
+    fades('Rema, rema', '0n 0n 0c 1c 2n | 2n 1c 2c 3n 4n | 7c 7c 4c 4c 2c 2c 0c 0c | 4c 3c 2c 1c 0b', [0.25, 0.6, 1], 'Puja a poc a poc, fa un salt fins al Do agut i baixa de pressa. Les ratlles i els espais et diuen on ets.'),
+    fades('Bella ciao', '2c 5c 6c 7c 5b | 2c 5c 6c 7c 5b', [0.3, 0.7, 1], 'Dues vegades el mateix tros: Mi, La, Si, Do agut i La. El que llegeixes al primer et serveix per al segon.'),
+    fades('Tetris', '5n 2c 3c 4n 3c 2c | 1n 1c 3c 5n 4c 3c | 2n 2c 3c 4n 5n | 3n 1n 1b', [0.3, 0.7, 1], 'La música del Tetris! Va per graons, amunt i avall, i acaba amb dos Re.'),
+    fades('Jingle Bells, sencera', '2n 2n 2b | 2n 2n 2b | 2n 4n 0n 1n | 2r | 3n 3n 3n 3n | 3n 2n 2n 2c 2c | 2n 1n 1n 2n | 1b 4b', [0.5, 0.8, 1], 'La meitat de les notes ja comencen negres. Molts Mi i molts Fa seguits: compta\'ls bé.'),
+    fades('Oda a l\'alegria, sencera', '2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 2b 1b | 2n 2n 3n 4n | 4n 3n 2n 1n | 0n 0n 1n 2n | 1b 0b', [0.6, 0.9, 1], 'L\'última! Comença amb pocs colors i acaba sense cap. Llegeix-la com els músics de debò.')
+  ] },
+  // The drum kit: the bar on a grid, filled from words, by ear or with fractions, and at the end played on the pads
+  { name: 'Bombo i caixa', sub: 'Fes ritmes de bateria amb el bombo, la caixa, el charles i els timbals.', levels: [
+    kit('El bombo', [['bombo', 'xxxx']], 'El bombo és el tambor gros que es toca amb el peu. Posa un cop de bombo a cada temps del compàs.'),
+    kit('Bombo i caixa', [['bombo', 'x.x.'], ['caixa', '.x.x']], 'La caixa és el tambor petit que fa «pam!». El bombo als temps 1 i 3, la caixa als temps 2 i 4: és el ritme del rock!'),
+    kit('We will rock you', [['bombo', 'xx..xx..'], ['caixa', '..x...x.']], 'Ara cada temps es parteix en dues caselles: 4 temps fan 8 caselles. Bum, bum, PAM! Bum, bum, PAM!'),
+    kit('El charles', [['charles', 'xxxxxxxx'], ['bombo', 'x...x...', 'given'], ['caixa', '..x...x.', 'given']], 'El charles són dos platets que es toquen amb el pal. Aquí toca a totes les caselles: dos cops a cada temps, ti-ti, ti-ti.'),
+    kit('Escolta la caixa', [['bombo', 'x.x.', 'given'], ['caixa', '.x.x', 'ear']], 'Ara no et dic on va la caixa. Prem «Escolta el ritme» i posa-la on la sentis.'),
+    kit('Els timbals', [['tom1', 'xxxx....'], ['tom2', '....xxxx']], 'Un redoble! El timbal greu és més gran i sona més baix. Quatre cops al timbal agut i, després, quatre al greu.'),
+    kit('La meitat i el quart', [['charles', 'x.x.x.x.'], ['bombo', 'x...x...'], ['caixa', '..x...x.', 'given']], 'Amb fraccions: quantes caselles són la meitat de 8? I un quart de 8?',
+      { goal: 'El <b>charles</b> toca a <b>1/2</b> de les caselles: una sí i una no, començant per la 1.<br>El <b>bombo</b> toca a <b>1/4</b> de les caselles: la 1 i la del mig del compàs.' }),
+    kit('Escolta el bombo', [['charles', 'x.x.x.x.', 'given'], ['caixa', '..x...x.', 'given'], ['bombo', 'x....x..', 'ear']], 'El bombo s\'ha amagat. Escolta el ritme i troba a quines caselles toca: una no és on t\'esperes!'),
+    kit('Toca el rock', [['bombo', 'x.x.'], ['caixa', '.x.x']], 'Ara toques tu! Bombo als temps 1 i 3, caixa als temps 2 i 4.', { live: true, ms: 650 }),
+    kit('We will rock you, en directe', [['bombo', 'xx..xx..'], ['caixa', '..x...x.']], 'L\'últim! Bum, bum, PAM! amb els teus dits. Picar a temps és el que fa un bon bateria.', { live: true, ms: 340 })
+  ] },
+  // Why some notes sound well together, in numbers: while Do vibrates 2 times Sol vibrates 3, and if Do vibrates more Sol keeps the proportion
+  { name: 'Proporcions dels acords', sub: 'Les notes que sonen bé juntes vibren en proporcions de números petits.', levels: [
+    prop('L\'octava, el doble', [x([0, 7], 2, 1), x([0, 7], 3, 1), x([0, 7], 5, 1)], 'Mentre el Do vibra 1 cop, el Do agut en vibra 2: sempre el doble. Si el Do vibra més cops, el Do agut també.'),
+    prop('La quinta, 2 i 3', [x([0, 4], 2, 1), x([0, 4], 3, 1), x([0, 4], 5, 1)], 'Per cada 2 vibracions del Do, el Sol en fa 3. Si el Do en fa el doble, el Sol també en fa el doble.'),
+    prop('La quarta, 3 i 4', [x([0, 3], 2, 1), x([0, 3], 3, 1), x([0, 3], 4, 1)], 'Per cada 3 vibracions del Do, el Fa en fa 4. Mira per quant s\'ha multiplicat el Do.'),
+    prop('La tercera, 4 i 5', [x([0, 2], 2, 1), x([0, 2], 3, 1), x([0, 2], 5, 1)], 'Per cada 4 vibracions del Do, el Mi en fa 5. Els números són més grans, però el truc és el mateix.'),
+    prop('Al revés', [x([0, 4], 3, 0), x([0, 7], 7, 0), x([0, 2], 3, 0), x([0, 3], 5, 0)], 'Ara saps la nota de dalt i busques el Do. Per quant s\'ha multiplicat la nota que saps?'),
+    prop('L\'acord de Do, 4 : 5 : 6', [x([0, 2, 4], 2, 2), x([0, 2, 4], 3, 1), x([0, 2, 4], 5, 0)], 'Do, Mi i Sol vibren 4, 5 i 6 cops alhora. Si els multipliques tots pel mateix número, l\'acord continua sonant igual de bé.'),
+    prop('L\'escala del 24', [x([0, 4], 12, 1), x([0, 3], 8, 1), x([0, 5], 8, 1), x([0, 1], 3, 1)], 'Si el Do vibra 24 cops, totes les notes de l\'escala fan números sencers. Busca per quant s\'ha multiplicat el Do.'),
+    prop('Tubs i vibracions', [len(4, 60), len(7, 60), len(3, 60), len(2, 60)], 'Al revés que les vibracions: el Sol vibra 3/2 del Do, però el seu tub fa 2/3 del de Do. Com més curt és el tub, més vibra.'),
+    prop('Quin interval és?', [nm(0, 4), nm(0, 7), nm(0, 3), nm(3, 7), nm(0, 2)], 'Mira els números de les vibracions: 1 i 2 és l\'octava, 2 i 3 la quinta, 3 i 4 la quarta, 4 i 5 la tercera.'),
+    prop('L\'acord de Fa', [x([3, 5, 7], 8, 1), x([0, 2, 4], 6, 2), x([3, 5, 7], 8, 2), nm(4, 7), len(5, 60)], 'L\'últim! L\'acord de Fa també fa 4 : 5 : 6, com el de Do. Barreja de tot el que has après.')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -197,9 +271,9 @@ export const LEVELS = SECTIONS.flatMap(s => s.levels);
 // a project is one of the sections above, with its ten levels; the circles keep them in the order they were written in
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
-  { name: 'Notes i tubs', projects: [0, 7, 8, 10, 9, 1] },
-  { name: 'Ritme i salts', projects: [2, 3, 4] },
-  { name: 'El gran concert', projects: [5, 6] }
+  { name: 'Notes i tubs', projects: [0, 7, 8, 10, 9, 11, 1] },
+  { name: 'Ritme i salts', projects: [2, 12, 3, 4] },
+  { name: 'El gran concert', projects: [5, 6, 13] }
 ];
 // the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['secs'], onLevel: (next, i, idx) => { next.secs[i] = Math.max(next.secs[i], idx + 1); }, badges: p => badges(p), BADGES: () => BADGES });
@@ -208,7 +282,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three notes of the Piscina, the first challenges: Do, Mi and Sol
 export const POOL = [0, 2, 4];
 
-// What is saved is facts only: { so, secs[11], stars[110], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[14], stars[140], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 // A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises:
@@ -254,7 +328,7 @@ export function darks(tune, n, rnd, near) {
 }
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
-// is cut to four: in an exam there is one try and no help. A circle that does not exist gives the first.
+// is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A circle that does not exist gives the first.
 export function exam(c, rnd) {
   const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
   const draw = p => {
@@ -262,7 +336,8 @@ export function exam(c, rnd) {
     for (let n = 0; n < 10 && used.has(p * 10 + idx); n++) idx = (idx + 1) % 10;   // walk on from a random place, so it ends even if rnd never varies
     used.add(p * 10 + idx);
     const L = PROJECTS[p].levels[idx];
-    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0 }), ...((L.kind === 'spot' || L.kind === 'place') && { n: Math.min(L.n, 4) }), p, idx };
+    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0, rounds: null }), ...((L.kind === 'spot' || L.kind === 'place') && { n: Math.min(L.n, 4) }),
+      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), p, idx };
   };
   const list = ps.map(draw);
   while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));
