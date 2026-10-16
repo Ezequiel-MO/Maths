@@ -17,9 +17,9 @@ const many = ch => COLORS[ch].many;
 export const cap = s => s[0].toUpperCase() + s.slice(1);
 
 /* ---------- grids: a list of rows from the top, one letter per pixel ---------- */
-// A pixel's address is (x, y): x the column, from 1 at the left, and y the row, from 1 at the bottom, as on a graph
+// A pixel's address is (f, c), as in a matrix: f the row, from 1 at the top, and then c the column, from 1 at the left
 export const W = g => g[0].length, H = g => g.length;
-export const cellAt = (g, x, y) => g[H(g) - y]?.[x - 1];
+export const cellAt = (g, f, c) => g[f - 1]?.[c - 1];
 export const count = (g, ch) => g.join('').split(ch).length - 1;
 export const painted = g => g.join('').replace(/\./g, '').length;
 export const colorsOf = g => [...new Set(g.join('').replace(/\./g, ''))];
@@ -27,14 +27,14 @@ export const blank = (w, h) => Array.from({ length: h }, () => '.'.repeat(w));
 export const flip = r => [...r].reverse().join('');
 export const symV = g => g.every(r => r === flip(r));
 export const symH = g => g.every((r, i) => r === g[H(g) - 1 - i]);
-// g with the pixel (x, y) set to ch
-export const put = (g, x, y, ch) => g.map((r, i) => i === H(g) - y ? r.slice(0, x - 1) + ch + r.slice(x) : r);
-// a w × h grid with the pixels of dots ([x, y, ch]) painted
-export const dots = (w, h, list) => list.reduce((g, [x, y, ch]) => put(g, x, y, ch), blank(w, h));
-// sprite s inside a w × h grid, its bottom left pixel at (x0, y0)
-export const place = (s, w, h, x0, y0) => blank(w, h).map((r, i) => {
-  const k = i - (h - y0 - H(s) + 1);
-  return k < 0 || k >= H(s) ? r : r.slice(0, x0 - 1) + s[k] + r.slice(x0 - 1 + W(s));
+// g with the pixel (f, c) set to ch
+export const put = (g, f, c, ch) => g.map((r, i) => i === f - 1 ? r.slice(0, c - 1) + ch + r.slice(c) : r);
+// a w × h grid with the pixels of dots ([f, c, ch]) painted
+export const dots = (w, h, list) => list.reduce((g, [f, c, ch]) => put(g, f, c, ch), blank(w, h));
+// sprite s inside a w × h grid, its top left pixel at (f0, c0)
+export const place = (s, w, h, f0, c0) => blank(w, h).map((r, i) => {
+  const k = i - (f0 - 1);
+  return k < 0 || k >= H(s) ? r : r.slice(0, c0 - 1) + s[k] + r.slice(c0 - 1 + W(s));
 });
 // two grids of the same size laid one over the other: the pixels of b go over those of a
 export const over = (a, b) => a.map((r, i) => [...r].map((c, j) => b[i][j] === '.' ? c : b[i][j]).join(''));
@@ -69,7 +69,7 @@ export const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
 export const simp = (n, d) => { const k = gcd(n, d) || 1; return [n / k, d / k]; };
 // a fraction as it is written on paper, one number over the other
 export const F = (n, d) => `<span class="fr"><i>${n}</i><i>${d}</i></span>`;
-export const pt = (x, y) => `(${x}, ${y})`;
+export const pt = (f, c) => `(${f}, ${c})`;
 
 /* ---------- the sprites ---------- */
 const S = (name, the, g) => ({ name, the, g });
@@ -96,35 +96,35 @@ const G = id => SPRITES[id].g;
 export const pic = (g, o = {}) => ({ g, ...o });
 // A question: text, and how it is answered: type 'num' (a number typed: ans), 'frac' (a fraction typed: ans [n, d]; simple: only the
 // simplest one is taken), 'pick' (one of opts; ans the right one) or 'tap' (a pixel of the picture: ans the keys 'x,y' that are right).
-// hint is what the frog says when asked, and say what it says when the answer is right
+// hint is what the frog says when asked, and say what it says when the answer is right. A pixel is the key 'f,c'
 const Q = (type, text, ans, hint, say, o = {}) => ({ type, text, ans, hint, say, ...o });
-const keysOf = (g, ch) => g.flatMap((r, i) => [...r].flatMap((c, j) => c === ch ? [`${j + 1},${H(g) - i}`] : []));
-const WAY = "Primer el passadís, després l'escala: compta cap a la dreta i després puja.";
+const keysOf = (g, ch) => g.flatMap((r, i) => [...r].flatMap((c, j) => c === ch ? [`${i + 1},${j + 1}`] : []));
+const WAY = 'Primer la fila, després la columna: baixa fins a la fila i després ves cap a la dreta fins a la columna.';
 export const q = {
   calc: (text, ans, hint, say) => Q('num', text, ans, hint, say),
   pick: (text, opts, hint, say) => Q('pick', text, opts[0], hint, say, { opts }),
   tap: (text, keys, hint, say) => Q('tap', text, keys, hint, say),
   fr: (text, ans, hint, say, simple = false) => Q('frac', text, ans, hint, say, { simple }),
-  // the pixel (x, y), on a picture with its numbers
-  tapAt: (x, y) => Q('tap', `Toca el píxel ${pt(x, y)}.`, [`${x},${y}`], `${WAY} ${x} columnes cap a la dreta i ${y} files amunt.`, `Aquest és el ${pt(x, y)}: columna ${x}, fila ${y}.`),
+  // the pixel (f, c), on a picture with its numbers
+  tapAt: (f, c) => Q('tap', `Toca el píxel ${pt(f, c)}.`, [`${f},${c}`], `${WAY} Fila ${f}, columna ${c}.`, `Aquest és el ${pt(f, c)}: fila ${f}, columna ${c}.`),
   // the address of the only pixel of colour ch; the wrong ones are the numbers turned round and a step off
   whereIs: (g, ch) => {
-    const [x, y] = keysOf(g, ch)[0].split(',').map(Number), opts = [pt(x, y)];
-    for (const [a, b] of [[y, x], [x, y + 1], [x + 1, y], [x - 1, y]]) if (opts.length < 3 && a >= 1 && b >= 1 && !opts.includes(pt(a, b))) opts.push(pt(a, b));
-    return Q('pick', `Quina és l'adreça del píxel ${one(ch)}?`, opts[0], 'Baixa des del píxel fins als números de sota: és la columna, i va primer. Després ves cap a l\'esquerra: és la fila.', `El píxel ${one(ch)} és a la columna ${x} i a la fila ${y}: ${pt(x, y)}.`, { opts });
+    const [f, c] = keysOf(g, ch)[0].split(',').map(Number), opts = [pt(f, c)];
+    for (const [a, b] of [[c, f], [f + 1, c], [f, c + 1], [f, c - 1]]) if (opts.length < 3 && a >= 1 && b >= 1 && !opts.includes(pt(a, b))) opts.push(pt(a, b));
+    return Q('pick', `Quina és l'adreça del píxel ${one(ch)}?`, opts[0], 'Ves des del píxel cap als números de l\'esquerra: és la fila, i va primer. Després puja fins als números de dalt: és la columna.', `El píxel ${one(ch)} és a la fila ${f} i a la columna ${c}: ${pt(f, c)}.`, { opts });
   },
-  // the colour of the pixel (x, y)
-  colorAt: (g, x, y) => {
-    const c = cellAt(g, x, y), opts = [one(c), ...new Set([cellAt(g, y, x), ...colorsOf(g), '.'].filter(d => d && d !== c).map(one))].slice(0, 3);
-    return Q('pick', `De quin color és el píxel ${pt(x, y)}?`, opts[0], `${WAY} ${x} cap a la dreta i ${y} amunt.`, `El ${pt(x, y)} és ${one(c)}.`, { opts });
+  // the colour of the pixel (f, c); one of the wrong ones is the colour of (c, f), the numbers turned round
+  colorAt: (g, f, c) => {
+    const k = cellAt(g, f, c), opts = [one(k), ...new Set([cellAt(g, c, f), ...colorsOf(g), '.'].filter(d => d && d !== k).map(one))].slice(0, 3);
+    return Q('pick', `De quin color és el píxel ${pt(f, c)}?`, opts[0], `${WAY} Fila ${f}, columna ${c}.`, `El ${pt(f, c)} és ${one(k)}.`, { opts });
   },
-  // how many pixels of colour ch, in the whole picture or in the row y
+  // how many pixels of colour ch, in the whole picture or in the row f
   count: (g, ch, the) => Q('num', `Quants píxels ${many(ch)} té ${the}?`, count(g, ch), 'Compta fila per fila, de dalt a baix, i suma.',
     `${g.map(r => count([r], ch)).filter(Boolean).join(' + ')} = ${count(g, ch)}.`),
-  rowCount: (g, ch, y) => Q('num', `Quants píxels ${many(ch)} hi ha a la fila ${y}?`, count([g[H(g) - y]], ch), `Puja ${y} files des de baix, i compta només aquella fila.`, `A la fila ${y} n'hi ha ${count([g[H(g) - y]], ch)}.`),
-  // a move from (x, y): dx to the right (left when it is less than 0) and dy up (down)
-  move: (x, y, dx, dy) => Q('tap', `Ets al ${pt(x, y)}. Ves ${Math.abs(dx)} ${dx < 0 ? "cap a l'esquerra" : 'cap a la dreta'} i ${Math.abs(dy)} ${dy < 0 ? 'avall' : 'amunt'}. On arribes? Toca'l.`,
-    [`${x + dx},${y + dy}`], `La columna fa ${x} ${dx < 0 ? '−' : '+'} ${Math.abs(dx)} i la fila, ${y} ${dy < 0 ? '−' : '+'} ${Math.abs(dy)}.`, `Arribes al ${pt(x + dx, y + dy)}.`),
+  rowCount: (g, ch, f) => Q('num', `Quants píxels ${many(ch)} hi ha a la fila ${f}?`, count([g[f - 1]], ch), `Baixa fins a la fila ${f}, i compta només aquella fila.`, `A la fila ${f} n'hi ha ${count([g[f - 1]], ch)}.`),
+  // a move from (f, c): df rows down (up when it is less than 0) and dc columns to the right (left)
+  move: (f, c, df, dc) => Q('tap', `Ets al ${pt(f, c)}. Ves ${Math.abs(df)} ${df < 0 ? 'amunt' : 'avall'} i ${Math.abs(dc)} ${dc < 0 ? "cap a l'esquerra" : 'cap a la dreta'}. On arribes? Toca'l.`,
+    [`${f + df},${c + dc}`], `La fila fa ${f} ${df < 0 ? '−' : '+'} ${Math.abs(df)} i la columna, ${c} ${dc < 0 ? '−' : '+'} ${Math.abs(dc)}.`, `Arribes al ${pt(f + df, c + dc)}.`),
   // the pixels of a full rectangle of w × h
   area: (w, h, text = 'Quants píxels té el rectangle?') => Q('num', text, w * h, `Una fila té ${w} píxels, i hi ha ${h} files: ${h} × ${w}.`, `${h} × ${w} = ${w * h} píxels.`),
   // the fraction of the whole grid that has colour ch
@@ -137,7 +137,7 @@ export const q = {
   // is it the same at both sides of the mirror
   sym: (g, yes, why) => Q('pick', 'És simètric? Mira les dues bandes de la línia groga.', yes ? 'Sí' : 'No', 'Mira cada píxel i el seu bessó a l\'altra banda del mirall: han de ser del mateix color.', why, { opts: ['Sí', 'No'] }),
   // the pixel that breaks the symmetry, and its twin: either is right
-  odd: (g, x, y) => Q('tap', 'Hi ha un píxel que trenca la simetria. Toca\'l!', [`${x},${y}`, `${W(g) + 1 - x},${y}`], 'Compara la banda esquerra amb la dreta, fila per fila.', 'Aquí! Al mirall no hi ha el mateix color.')
+  odd: (g, f, c) => Q('tap', 'Hi ha un píxel que trenca la simetria. Toca\'l!', [`${f},${c}`, `${f},${W(g) + 1 - c}`], 'Compara la banda esquerra amb la dreta, fila per fila.', 'Aquí! Al mirall no hi ha el mateix color.')
 };
 const MIRRORS = ['Només el vertical', "Només l'horitzontal", 'Tots dos', 'Cap'];
 const mirrors = (k, why) => q.pick('Quins miralls el deixen igual? La línia vertical, l\'horitzontal, totes dues o cap?', [MIRRORS[k], ...MIRRORS.filter((_, j) => j !== k)], 'Prova un mirall i després l\'altre: les dues bandes han de ser iguals.', why);
@@ -177,16 +177,16 @@ export function ruleWhy([kind, a, b, c], g) {
 }
 // the rules a grid breaks, by their place in the list
 export const brokenRules = (L, g) => L.rules.flatMap((r, k) => RULES[r[0]](g, ...r.slice(1)) ? [] : [k]);
-// the pixels of a copy that are not the ones of the goal, as keys 'x,y'
-export const wrongCells = (L, g) => L.goal.flatMap((r, i) => [...r].flatMap((c, j) => g[i][j] === c ? [] : [`${j + 1},${H(g) - i}`]));
+// the pixels of a copy that are not the ones of the goal, as keys 'f,c'
+export const wrongCells = (L, g) => L.goal.flatMap((r, i) => [...r].flatMap((c, j) => g[i][j] === c ? [] : [`${i + 1},${j + 1}`]));
 
 // The steps of a drawing by coordinates: a line for each colour with its pixels (coords), or a line for each piece of a row of one
-// colour, from the top (runs): «de (2, 5) a (6, 5)»
+// colour, from the top (runs): «de (5, 2) a (5, 6)»
 export function stepsOf(g, how) {
   if (how === 'coords') return colorsOf(g).map(ch => ({ ch, text: keysOf(g, ch).map(k => pt(...k.split(','))).join(' ') }));
   const out = [];
-  g.forEach((r, i) => { const y = H(g) - i; for (let j = 0; j < r.length;) { let e = j; while (e + 1 < r.length && r[e + 1] === r[j]) e++;
-    if (r[j] !== '.') out.push({ ch: r[j], text: j === e ? pt(j + 1, y) : `de ${pt(j + 1, y)} a ${pt(e + 1, y)}` }); j = e + 1; } });
+  g.forEach((r, i) => { const f = i + 1; for (let j = 0; j < r.length;) { let e = j; while (e + 1 < r.length && r[e + 1] === r[j]) e++;
+    if (r[j] !== '.') out.push({ ch: r[j], text: j === e ? pt(f, j + 1) : `de ${pt(f, j + 1)} a ${pt(f, e + 1)}` }); j = e + 1; } });
   return out;
 }
 
@@ -201,28 +201,28 @@ const same = (p, ...qs) => qs.map(qq => [p, qq]);
 const ax = (g, o) => pic(g, { axes: true, ...o });
 
 const B = G('bolet'), C = G('cor'), MO = G('moneda'), GR = G('granota'), FA = G('fantasma'), IN = G('invasor');
-const ODD_B = put(B, 7, 5, 'r'), ODD_G = put(GR, 2, 3, 'p'), ODD_I = put(IN, 9, 5, '.');
+const ODD_B = put(B, 3, 7, 'r'), ODD_G = put(GR, 5, 2, 'p'), ODD_I = put(IN, 4, 9, '.');
 const QUART = ['bbbb', 'bbbb', 'bbyy', 'bbyy'], FRANCE = box(2, 4, 'b').map((r, i) => r + 'ww' + 'rr'), SENYERA = Array.from({ length: 9 }, (_, i) => (i % 2 ? 'r' : 'y').repeat(6));
 const MIX = scatter(6, 4, [['r', 8], ['b', 6], ['y', 10]], 3);
 const BRICK = ['ooom', 'omoo'];
 
 export const SECTIONS = [
-  { name: 'Coordenades', sub: 'Cada píxel té la seva adreça: (columna, fila).', levels: [
-    read("El passadís i l'escala", "Cada píxel té una adreça de dos números: (columna, fila). Primer compta cap a la dreta, pel passadís. Després puja, per l'escala.",
-      same(ax(blank(6, 5)), q.tapAt(2, 3), q.tapAt(5, 1), q.tapAt(4, 4))),
-    read("Quina és l'adreça?", 'Ara el píxel ja és pintat: tu dius on és. El número de la columna sempre va primer.',
-      same(ax(dots(6, 5, [[4, 2, 'r'], [2, 5, 'b'], [6, 3, 'y']])), q.whereIs(dots(6, 5, [[4, 2, 'r']]), 'r'), q.whereIs(dots(6, 5, [[2, 5, 'b']]), 'b'), q.whereIs(dots(6, 5, [[6, 3, 'y']]), 'y'))),
+  { name: 'Coordenades', sub: 'Cada píxel té la seva adreça: (fila, columna).', levels: [
+    read('Fila i columna', 'Cada píxel té una adreça de dos números, com a les matrius: (fila, columna). Primer baixa fins a la fila, i després ves cap a la dreta fins a la columna.',
+      same(ax(blank(6, 5)), q.tapAt(3, 2), q.tapAt(1, 5), q.tapAt(5, 4))),
+    read("Quina és l'adreça?", 'Ara el píxel ja és pintat: tu dius on és. El número de la fila sempre va primer.',
+      same(ax(dots(6, 5, [[4, 2, 'r'], [2, 5, 'b'], [3, 6, 'y']])), q.whereIs(dots(6, 5, [[4, 2, 'r']]), 'r'), q.whereIs(dots(6, 5, [[2, 5, 'b']]), 'b'), q.whereIs(dots(6, 5, [[3, 6, 'y']]), 'y'))),
     read("Compte amb l'ordre!", '(2, 5) i (5, 2) tenen els mateixos números, però no són el mateix píxel!',
       same(ax(dots(6, 6, [[2, 5, 'r'], [5, 2, 'b'], [3, 3, 'y']])), q.tapAt(2, 5), q.tapAt(5, 2), q.colorAt(dots(6, 6, [[2, 5, 'r'], [5, 2, 'b'], [3, 3, 'y']]), 5, 2))),
     paint('Pinta per coordenades', "Pinta de vermell cada píxel de la llista. Quan acabis, sortirà un dibuix!", { goal: place(G('corPetit'), 7, 6, 2, 2), how: 'coords', colors: ['r'], axes: true }),
-    paint('Una espasa', 'Ara amb tres colors. Tria el color i pinta els píxels de cada línia.', { goal: place(G('espasa'), 7, 8, 2, 1), how: 'coords', colors: ['n', 'y', 'm'], axes: true }),
+    paint('Una espasa', 'Ara amb tres colors. Tria el color i pinta els píxels de cada línia.', { goal: place(G('espasa'), 7, 8, 2, 2), how: 'coords', colors: ['n', 'y', 'm'], axes: true }),
     read('Llegir un sprite', 'El bolet té números a les vores. Fes-los servir per trobar cada píxel.',
-      same(ax(B), q.colorAt(B, 3, 2), q.rowCount(B, 'w', 3), q.tap("Toca un ull del bolet.", keysOf(B, 'k'), 'Els ulls són els dos píxels negres.', `Els ulls són al ${pt(3, 2)} i al ${pt(6, 2)}.`))),
+      same(ax(B), q.colorAt(B, 6, 3), q.rowCount(B, 'w', 5), q.tap("Toca un ull del bolet.", keysOf(B, 'k'), 'Els ulls són els dos píxels negres.', `Els ulls són al ${pt(6, 3)} i al ${pt(6, 6)}.`))),
     paint('Fila a fila', 'Quan molts píxels seguits són del mateix color, la llista diu «de … a …». Pinta tota la tira!', { goal: MO, how: 'runs', colors: ['y', 'o'], axes: true }),
-    read('Moviments', 'Moure\'s és sumar o restar: a la dreta i amunt, sumes; a l\'esquerra i avall, restes.',
-      [[ax(dots(8, 6, [[2, 2, 'g']])), q.move(2, 2, 3, 2)], [ax(dots(8, 6, [[5, 4, 'g']])), q.move(5, 4, 2, -3)], [ax(dots(8, 6, [[7, 1, 'g']])), q.move(7, 1, -5, 4)]]),
-    paint('Mou el dibuix', 'Copia el cor 6 columnes més a la dreta: el píxel (x, y) va a parar a (x + 6, y). La fila no canvia!',
-      { given: place(G('corPetit'), 12, 6, 1, 2), goal: over(place(G('corPetit'), 12, 6, 1, 2), place(G('corPetit'), 12, 6, 7, 2)), colors: ['r'], axes: true }),
+    read('Moviments', 'Moure\'s és sumar o restar: avall i a la dreta, sumes; amunt i a l\'esquerra, restes.',
+      [[ax(dots(8, 6, [[5, 2, 'g']])), q.move(5, 2, -2, 3)], [ax(dots(8, 6, [[2, 5, 'g']])), q.move(2, 5, 3, 2)], [ax(dots(8, 6, [[1, 7, 'g']])), q.move(1, 7, 4, -5)]]),
+    paint('Mou el dibuix', 'Copia el cor 6 columnes més a la dreta: el píxel (f, c) va a parar a (f, c + 6). La fila no canvia!',
+      { given: place(G('corPetit'), 12, 6, 2, 1), goal: over(place(G('corPetit'), 12, 6, 2, 1), place(G('corPetit'), 12, 6, 2, 7)), colors: ['r'], axes: true }),
     paint('El fantasma', "L'últim: un fantasma de tres colors. Ves fila per fila.", { goal: FA, how: 'runs', colors: ['l', 'w', 'k'], axes: true })
   ] },
   { name: 'Àrea', sub: 'Files per columnes: comptar píxels multiplicant.', levels: [
@@ -249,7 +249,7 @@ export const SECTIONS = [
         [pic(['gggggggg', 'g....ggg', 'g....ggg', 'gggggggg', 'gggggggg', 'gggggggg']), q.calc('Quants píxels verds hi ha?', 40, 'Sencer: 8 × 6. El forat: 4 × 2.', '48 − 8 = 40.')]]),
     paint('Endevina les columnes', 'Un rectangle ple de 3 files i 18 píxels. Quantes columnes ha de tenir?', { w: 8, h: 6, rules: [['rect', 0, 3, 18]], colors: ['r'], done: '3 × 6 = 18: sis columnes!' }),
     read('La pantalla', 'La granota surt en una pantalla petita de 10 × 8 píxels.',
-      same(pic(place(GR, 10, 8, 2, 1)), q.calc('Quants píxels té la pantalla?', 80, '10 columnes i 8 files.', '10 × 8 = 80.'),
+      same(pic(place(GR, 10, 8, 2, 2)), q.calc('Quants píxels té la pantalla?', 80, '10 columnes i 8 files.', '10 × 8 = 80.'),
         q.calc('La granota té 44 píxels pintats. Quants en queden de buits?', 36, 'Tots els de la pantalla menys els pintats.', '80 − 44 = 36.'),
         q.calc('Una pantalla més gran fa 20 × 16 píxels. Quants píxels té?', 320, '20 × 16 = 20 × 10 + 20 × 6.', '200 + 120 = 320.')))
   ] },
@@ -287,22 +287,22 @@ export const SECTIONS = [
       [[pic(C, { axis: 'v' }), q.sym(C, true, 'Sí: les dues bandes del cor són iguals.')], [pic(FA, { axis: 'v' }), q.sym(FA, false, 'No: els ulls miren cap a l\'esquerra, i a l\'altra banda no és igual.')],
         [pic(IN, { axis: 'v' }), q.sym(IN, true, "Sí: l'invasor és igual a les dues bandes.")]]),
     read("L'intrús", 'Algú ha canviat un píxel i el dibuix ja no és simètric. Troba\'l!',
-      [[pic(ODD_B, { axis: 'v' }), q.odd(ODD_B, 7, 5)], [pic(ODD_G, { axis: 'v' }), q.odd(ODD_G, 2, 3)], [pic(ODD_I, { axis: 'v' }), q.odd(ODD_I, 9, 5)]]),
+      [[pic(ODD_B, { axis: 'v' }), q.odd(ODD_B, 3, 7)], [pic(ODD_G, { axis: 'v' }), q.odd(ODD_G, 5, 2)], [pic(ODD_I, { axis: 'v' }), q.odd(ODD_I, 4, 9)]]),
     paint('Completa el bolet', "Tens la meitat esquerra. Pinta la dreta com si fos un mirall: el que és a prop de la línia, a prop; el que és lluny, lluny.", { given: half(B, 'v'), goal: B, colors: ['r', 'w', 'k'], axis: 'v' }),
     paint('Completa la granota', 'La meitat de la granota. Completa-la!', { given: half(GR, 'v'), goal: GR, colors: ['g', 'w', 'k', 'p'], axis: 'v' }),
     read('Comptar amb el mirall', 'Amb un mirall, cada píxel té un bessó a l\'altra banda.',
       [[pic(half(B, 'v'), { axis: 'v' }), q.calc('Aquesta meitat té 22 píxels pintats. Quants en tindrà el bolet sencer?', 44, 'L\'altra meitat és igual.', '22 × 2 = 44.')],
-        [ax(dots(8, 5, [[2, 4, 'r']]), { axis: 'v' }), q.pick('El píxel vermell (2, 4) es reflecteix al mirall. On va a parar?', [pt(7, 4), pt(6, 4), pt(2, 5)], 'Compta quantes columnes hi ha del píxel al mirall, i compta les mateixes a l\'altra banda. La fila no canvia.', 'Al (7, 4): és a 3 columnes del mirall, com el (2, 4).')],
-        [ax(dots(8, 5, [[3, 2, 'b']]), { axis: 'v' }), q.tap('Toca on va a parar el reflex del píxel blau (3, 2).', ['6,2'], 'El (3, 2) és a 2 columnes del mirall.', 'Al (6, 2).')]]),
+        [ax(dots(8, 5, [[4, 2, 'r']]), { axis: 'v' }), q.pick('El píxel vermell (4, 2) es reflecteix al mirall. On va a parar?', [pt(4, 7), pt(4, 6), pt(5, 2)], 'Compta quantes columnes hi ha del píxel al mirall, i compta les mateixes a l\'altra banda. La fila no canvia.', 'Al (4, 7): és a 3 columnes del mirall, com el (4, 2).')],
+        [ax(dots(8, 5, [[2, 3, 'b']]), { axis: 'v' }), q.tap('Toca on va a parar el reflex del píxel blau (2, 3).', ['2,6'], 'El (2, 3) és a 2 columnes del mirall.', 'Al (2, 6).')]]),
     paint('Mirall de través', 'Ara el mirall està ajagut: la meitat de baix és la de dalt al revés.', { given: half(G('joia'), 'h'), goal: G('joia'), colors: ['c', 'b', 'w'], axis: 'h' }),
     paint('Dos miralls', 'Dos miralls! Tens un quart de la rosassa: completa els altres tres quarts.', { given: half(G('rosassa'), 'vh'), goal: G('rosassa'), colors: ['r', 'b', 'y', 'w'], axis: 'vh' }),
     read('Quins miralls?', 'Un dibuix pot tenir un mirall, dos, o cap.',
       [[pic(C, { axis: 'vh' }), mirrors(0, 'Només el vertical: el cor no és igual de cap per avall.')], [pic(G('joia'), { axis: 'vh' }), mirrors(1, "Només l'horitzontal: el blanc és a l'esquerra.")],
         [pic(FA, { axis: 'vh' }), mirrors(3, 'Cap: els ulls i les potes trenquen els dos miralls.')]]),
     read('Reflexos amb números', 'Un quadre de 10 columnes amb el mirall al mig. Fixa\'t: un píxel i el seu bessó sempre sumen 11!',
-      [[ax(dots(10, 4, [[3, 4, 'r']]), { axis: 'v' }), q.calc('El píxel (3, 4) es reflecteix. A quina columna va a parar?', 8, 'Les dues columnes sumen 11: 3 + ? = 11.', '3 + 8 = 11: a la columna 8.')],
-        [ax(dots(10, 4, [[1, 2, 'b']]), { axis: 'v' }), q.calc('I el (1, 2)?', 10, '1 + ? = 11.', 'A la columna 10, la de l\'altra punta.')],
-        [ax(dots(10, 4, [[5, 1, 'g']]), { axis: 'v' }), q.calc('I el (5, 1)?', 6, '5 + ? = 11.', 'A la 6: just a l\'altra banda del mirall.')]]),
+      [[ax(dots(10, 4, [[4, 3, 'r']]), { axis: 'v' }), q.calc('El píxel (4, 3) es reflecteix. A quina columna va a parar?', 8, 'Les dues columnes sumen 11: 3 + ? = 11.', '3 + 8 = 11: a la columna 8.')],
+        [ax(dots(10, 4, [[2, 1, 'b']]), { axis: 'v' }), q.calc('I el (2, 1)?', 10, '1 + ? = 11.', 'A la columna 10, la de l\'altra punta.')],
+        [ax(dots(10, 4, [[1, 5, 'g']]), { axis: 'v' }), q.calc('I el (1, 5)?', 6, '5 + ? = 11.', 'A la 6: just a l\'altra banda del mirall.')]]),
     paint('Inventa un sprite simètric', 'Inventa un dibuix simètric de 10 píxels en total: 4 grocs i els altres del color que vulguis.', { w: 6, h: 5, rules: [['sym', 'v'], ['total', 10], ['count', 'y', 4]], colors: ['y', 'r', 'b', 'g'], axis: 'v' })
   ] },
   { name: 'Mosaics', sub: 'Rajoles i sèries que es repeteixen.', levels: [
@@ -318,7 +318,7 @@ export const SECTIONS = [
     read('Rajoles', 'Un mosaic de rajoles iguals: compta una rajola i multiplica.',
       same(pic(tile(['bw', 'wb'], 4, 3), { tiles: [2, 2] }), q.calc('Quantes rajoles de 2 × 2 hi ha?', 12, '4 rajoles a cada fila, i 3 files de rajoles.', '4 × 3 = 12.'),
         q.calc('Quants píxels blaus hi ha en total?', 24, 'Cada rajola té 2 blaus.', '12 × 2 = 24.'), q.frac(tile(['bw', 'wb'], 4, 3), 'b'))),
-    paint('Enrajola', 'La rajola de dalt a l\'esquerra es repeteix cap a la dreta i cap avall. Acaba el terra!', { given: place(['gyg', 'yby'], 6, 4, 1, 3), goal: tile(['gyg', 'yby'], 2, 2), colors: ['g', 'y', 'b'], tiles: [3, 2] }),
+    paint('Enrajola', 'La rajola de dalt a l\'esquerra es repeteix cap a la dreta i cap avall. Acaba el terra!', { given: place(['gyg', 'yby'], 6, 4, 1, 1), goal: tile(['gyg', 'yby'], 2, 2), colors: ['g', 'y', 'b'], tiles: [3, 2] }),
     read('El mur de maons', 'Un mur fet amb una rajola de 4 × 2 que es repeteix.',
       same(pic(tile(BRICK, 3, 3), { tiles: [4, 2] }), q.calc('Quants píxels taronja té una rajola?', 6, 'Una rajola fa 4 × 2 = 8 píxels, i 2 són marrons.', '8 − 2 = 6.'),
         q.calc('Quantes rajoles té el mur?', 9, '3 a cada fila, i 3 files.', '3 × 3 = 9.'), q.calc('Quants píxels taronja té tot el mur?', 54, '9 rajoles, i 6 taronja a cada una.', '9 × 6 = 54.'))),
@@ -427,9 +427,9 @@ const CLAIM = {
   },
   coord(bad, rnd) {
     for (let k = 0; ; k++) {
-      const s = SPRITES[pickOf(SHEET, rnd)], g = s.g, x = 1 + at(W(g), rnd), y = 1 + at(H(g), rnd), c = cellAt(g, x, y), d = cellAt(g, y, x);
-      if (k < 200 && (c === '.' || x === y || !d || d === c)) continue;
-      const third = [...colorsOf(g), '.', ...Object.keys(COLORS)].find(e => e !== c && e !== d), say = e => `El píxel ${pt(x, y)} és ${one(e)}.`;
+      const s = SPRITES[pickOf(SHEET, rnd)], g = s.g, f = 1 + at(H(g), rnd), cc = 1 + at(W(g), rnd), c = cellAt(g, f, cc), d = cellAt(g, cc, f);
+      if (k < 200 && (c === '.' || f === cc || !d || d === c)) continue;
+      const third = [...colorsOf(g), '.', ...Object.keys(COLORS)].find(e => e !== c && e !== d), say = e => `El píxel ${pt(f, cc)} és ${one(e)}.`;
       return { pic: ax(g), real: say(c), says: say(bad ? d : c), opts: shuffle([c, d, third].map(say), rnd) };
     }
   },

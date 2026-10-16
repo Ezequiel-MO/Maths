@@ -339,7 +339,7 @@ function paint({ t, L, stage, tip, slip, win }) {
   function verdict() {
     const g = B.grid();
     if (L.goal) { const bad = wrongCells(L, g);
-      return [bad, bad.length ? `${bad.length === 1 ? 'Hi ha 1 píxel que no toca' : `Hi ha ${bad.length} píxels que no toquen`}: els he encerclat.${L.steps ? ' Recorda: primer la columna, després la fila.' : L.axis ? ' Cada píxel té el seu bessó a la mateixa distància del mirall.' : ''}` : ''] }
+      return [bad, bad.length ? `${bad.length === 1 ? 'Hi ha 1 píxel que no toca' : `Hi ha ${bad.length} píxels que no toquen`}: els he encerclat.${L.steps ? ' Recorda: primer la fila, després la columna.' : L.axis ? ' Cada píxel té el seu bessó a la mateixa distància del mirall.' : ''}` : ''] }
     const bad = brokenRules(L, g);
     $('#rules').querySelectorAll('li:not(.head)').forEach((li, k) => { li.classList.toggle('no', bad.includes(k)); li.classList.toggle('ok', !bad.includes(k)); });
     return [bad, bad.length ? `No es compleix: ${ruleText(L.rules[bad[0]]).replace(/<b class="sw"[^>]*><\/b>\s*/, '')}. ${ruleWhy(L.rules[bad[0]], g)}` : ''];
