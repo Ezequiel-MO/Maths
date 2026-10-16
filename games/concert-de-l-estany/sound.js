@@ -52,5 +52,29 @@ export function band(on) {
       noise(a, t, t + 0.12).connect(hp).connect(ng).connect(out);
     } catch (e) {}
   }
-  return { pipe, drum };
+  // The drum kit, by name: the bombo is a deep thump, the caixa a short tone under a burst of noise (its wires), the charles a tick
+  // of high noise, and the two timbals a thump in the middle, the agut higher than the greu
+  function kit(name, vol = 0.8) {
+    if (!on()) return;
+    try {
+      const a = ctx(), t = a.currentTime;
+      const tone = (f0, f1, len, v, type = 'sine') => {
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len * 0.6);
+        g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(g).connect(out); o.start(t); o.stop(t + len + 0.02);
+      };
+      const hiss = (type, f, q, len, v) => {
+        const fl = a.createBiquadFilter(), g = a.createGain();
+        fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+        g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        noise(a, t, t + len + 0.02).connect(fl).connect(g).connect(out);
+      };
+      if (name === 'bombo') { tone(140, 42, 0.42, vol * 1.2); hiss('lowpass', 900, 0.7, 0.03, vol * 0.4); }
+      else if (name === 'caixa') { tone(230, 160, 0.12, vol * 0.5, 'triangle'); hiss('bandpass', 2600, 0.7, 0.2, vol * 0.9); }
+      else if (name === 'charles') hiss('highpass', 7500, 0.8, 0.06, vol * 0.55);
+      else { const f = name === 'tom1' ? 240 : 130; tone(f * 1.4, f, 0.38, vol); hiss('bandpass', 1200, 0.8, 0.05, vol * 0.3); }
+    } catch (e) {}
+  }
+  return { pipe, drum, kit };
 }
