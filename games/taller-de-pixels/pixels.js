@@ -11,22 +11,23 @@ export const hexOf = ch => COLORS[ch]?.hex;
 let lib = null;
 const pixi = () => (lib ??= import('./lienzo.js').catch(() => null));
 
-// Where everything goes, in CSS pixels: the cell, the margin for the numbers on the left (ox) and under the grid, the whole size
+// Where everything goes, in CSS pixels: the cell, the margins (the numbers of the rows on the left, ox, and of the columns on top,
+// oy, as in a matrix; the marks of a grid with no lines on the left and under it), the whole size
 export function layout(g, p, maxW) {
-  const w = W(g), h = H(g), side = p.axes ? 24 : p.lines === false ? 10 : 3;
-  const cell = Math.max(12, Math.min(44, Math.floor((maxW - side - 6) / w)));
-  return { w, h, cell, ox: side, oy: 3, bw: side + w * cell + 3, bh: 3 + h * cell + side };
+  const w = W(g), h = H(g), left = p.axes ? 24 : p.lines === false ? 10 : 3, top = p.axes ? 24 : 3, bottom = p.lines === false ? 10 : 3;
+  const cell = Math.max(12, Math.min(44, Math.floor((maxW - left - 6) / w)));
+  return { w, h, cell, ox: left, oy: top, bw: left + w * cell + 3, bh: top + h * cell + bottom };
 }
-// the middle of the pixel (x, y) and the pixel under a point, both in the layout's pixels
-export const centre = (Lt, x, y) => [Lt.ox + (x - 0.5) * Lt.cell, Lt.oy + (Lt.h - y + 0.5) * Lt.cell];
-const cellAtPoint = (Lt, px, py) => { const x = Math.floor((px - Lt.ox) / Lt.cell) + 1, y = Lt.h - Math.floor((py - Lt.oy) / Lt.cell);
-  return x >= 1 && x <= Lt.w && y >= 1 && y <= Lt.h ? [x, y] : null; };
+// the middle of the pixel (f, c) and the pixel under a point, both in the layout's pixels
+export const centre = (Lt, f, c) => [Lt.ox + (c - 0.5) * Lt.cell, Lt.oy + (f - 0.5) * Lt.cell];
+const cellAtPoint = (Lt, px, py) => { const c = Math.floor((px - Lt.ox) / Lt.cell) + 1, f = Math.floor((py - Lt.oy) / Lt.cell) + 1;
+  return c >= 1 && c <= Lt.w && f >= 1 && f <= Lt.h ? [f, c] : null; };
 
 /* ---------- the SVG ---------- */
 function svgOf(st) {
   const { Lt, g, p, marks, locked } = st, { cell, ox, oy, w, h } = Lt, out = [];
   g.forEach((r, i) => [...r].forEach((c, j) => {
-    const x = ox + j * cell, y = oy + i * cell, k = `${j + 1},${h - i}`;
+    const x = ox + j * cell, y = oy + i * cell, k = `${i + 1},${j + 1}`;
     out.push(`<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${c === '.' ? EMPTY[(i + j) % 2] : hexOf(c)}"/>`);
     if (locked.has(k) && c !== '.') out.push(`<circle cx="${x + cell / 2}" cy="${y + cell / 2}" r="${Math.max(1.5, cell / 12)}" fill="rgb(0 0 0 / 0.3)"/>`);
   }));
@@ -43,11 +44,11 @@ function svgOf(st) {
   if (p.axis?.includes('v')) out.push(`<path class="mir" d="M${ox + w * cell / 2} ${oy - 2}v${h * cell + 4}"/>`);
   if (p.axis?.includes('h')) out.push(`<path class="mir" d="M${ox - 2} ${oy + h * cell / 2}h${w * cell + 4}"/>`);
   if (p.axes) {
-    for (let j = 1; j <= w; j++) out.push(`<text class="an" x="${ox + (j - 0.5) * cell}" y="${oy + h * cell + 16}">${j}</text>`);
-    for (let y = 1; y <= h; y++) out.push(`<text class="an" x="${ox - 12}" y="${oy + (h - y + 0.5) * cell + 4}">${y}</text>`);
+    for (let c = 1; c <= w; c++) out.push(`<text class="an" x="${ox + (c - 0.5) * cell}" y="${oy - 8}">${c}</text>`);
+    for (let f = 1; f <= h; f++) out.push(`<text class="an" x="${ox - 12}" y="${oy + (f - 0.5) * cell + 4}">${f}</text>`);
   }
-  for (const [k, m] of marks) { const [x, y] = k.split(',').map(Number);
-    out.push(`<rect class="mk ${m}" x="${ox + (x - 1) * cell + 1.5}" y="${oy + (h - y) * cell + 1.5}" width="${cell - 3}" height="${cell - 3}" rx="3"/>`); }
+  for (const [k, m] of marks) { const [f, c] = k.split(',').map(Number);
+    out.push(`<rect class="mk ${m}" x="${ox + (c - 1) * cell + 1.5}" y="${oy + (f - 1) * cell + 1.5}" width="${cell - 3}" height="${cell - 3}" rx="3"/>`); }
   return out.join('');
 }
 
@@ -63,7 +64,7 @@ export function makeBoard(host, t, o = {}) {
   cur.className = 'cur'; cur.hidden = true;
   wrap.append(svg, cur); host.append(wrap);
   const st = { Lt: null, g: null, p: null, marks: new Map(), locked: new Set() };
-  let R = null, want = null, kx = 1, ky = 1;
+  let R = null, want = null, kf = 1, kc = 1;
 
   function redraw() {
     svg.setAttribute('viewBox', `0 0 ${st.Lt.bw} ${st.Lt.bh}`); svg.innerHTML = svgOf(st);
@@ -75,7 +76,7 @@ export function makeBoard(host, t, o = {}) {
     redraw();
     if (R) R.draw(st, { reveal: reveal && !RM }); else want = reveal;
   }
-  if (o.paint) { const gv = o.paint.given; gv.forEach((r, i) => [...r].forEach((c, j) => { if (c !== '.') st.locked.add(`${j + 1},${gv.length - i}`); })); }
+  if (o.paint) o.paint.given.forEach((r, i) => [...r].forEach((c, j) => { if (c !== '.') st.locked.add(`${i + 1},${j + 1}`); }));
 
   // the canvas, when PixiJS and WebGL are there; the SVG stays until then
   pixi().then(m => m && m.mount(st, { hexOf, EMPTY, centre }).then(r => {
@@ -93,20 +94,20 @@ export function makeBoard(host, t, o = {}) {
     const b = wrap.getBoundingClientRect(), k = b.width / st.Lt.bw, [cx, cy] = centre(st.Lt, ...c), s = st.Lt.cell * k;
     cur.hidden = false; cur.style.cssText = `left:${cx * k - s / 2}px;top:${cy * k - s / 2}px;width:${s}px;height:${s}px`;
   }
-  // paints the pixel (x, y) with ch; gives whether it changed
-  function set(x, y, ch) {
-    const k = `${x},${y}`, i = st.Lt.h - y;
-    if (st.locked.has(k) || st.g[i][x - 1] === ch) return false;
-    st.g[i] = st.g[i].slice(0, x - 1) + ch + st.g[i].slice(x);
-    st.marks.delete(k); redraw(); R?.cell(st, x, y);
-    o.paint.onChange?.(x, y, ch);
+  // paints the pixel (f, c) with ch; gives whether it changed
+  function set(f, c, ch) {
+    const k = `${f},${c}`, i = f - 1;
+    if (st.locked.has(k) || st.g[i][c - 1] === ch) return false;
+    st.g[i] = st.g[i].slice(0, c - 1) + ch + st.g[i].slice(c);
+    st.marks.delete(k); redraw(); R?.cell(st, f, c);
+    o.paint.onChange?.(f, c, ch);
     return true;
   }
   let drag = null;
   wrap.addEventListener('pointerdown', e => {
     const c = at(e); if (!c || !o.paint) return;
     e.preventDefault(); wrap.setPointerCapture?.(e.pointerId);
-    const b = o.paint.brush(), now = st.g[st.Lt.h - c[1]][c[0] - 1];
+    const b = o.paint.brush(), now = st.g[c[0] - 1][c[1] - 1];
     drag = { ch: now === b ? '.' : b, last: '' };   // a pixel already of the colour in the finger is rubbed out, and so is the rest of the stroke
     move(c);
   });
@@ -117,14 +118,14 @@ export function makeBoard(host, t, o = {}) {
   wrap.addEventListener('pointerleave', () => { if (!drag) cursor(null); });
   wrap.addEventListener('click', e => { if (!o.onTap) return; const c = at(e); if (c) o.onTap(c.join(','), c); });
   wrap.addEventListener('keydown', e => {
-    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
-    if (d) { e.preventDefault(); e.stopPropagation(); kx = Math.min(st.Lt.w, Math.max(1, kx + d[0])); ky = Math.min(st.Lt.h, Math.max(1, ky + d[1])); cursor([kx, ky]); return; }
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (d) { e.preventDefault(); e.stopPropagation(); kf = Math.min(st.Lt.h, Math.max(1, kf + d[0])); kc = Math.min(st.Lt.w, Math.max(1, kc + d[1])); cursor([kf, kc]); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault(); e.stopPropagation();
-    if (o.onTap) o.onTap(`${kx},${ky}`, [kx, ky]);
-    else if (o.paint) { const b = o.paint.brush(), now = st.g[st.Lt.h - ky][kx - 1]; set(kx, ky, now === b ? '.' : b); }
+    if (o.onTap) o.onTap(`${kf},${kc}`, [kf, kc]);
+    else if (o.paint) { const b = o.paint.brush(), now = st.g[kf - 1][kc - 1]; set(kf, kc, now === b ? '.' : b); }
   });
-  wrap.addEventListener('focus', () => { if (!wrap.matches(':focus-visible')) return; cursor([kx, ky]); });
+  wrap.addEventListener('focus', () => { if (!wrap.matches(':focus-visible')) return; cursor([kf, kc]); });
   wrap.addEventListener('blur', () => cursor(null));
 
   return {

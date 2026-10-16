@@ -50,11 +50,12 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
     }
     if (p.axes) {
       const style = { fontFamily: 'Nunito, system-ui, sans-serif', fontSize: 12, fontWeight: '800', fill: MUTED };
-      for (let j = 1; j <= w; j++) { const t = new Text({ text: String(j), style }); t.anchor.set(0.5); t.position.set(ox + (j - 0.5) * cell, oy + h * cell + 12); back.addChild(t); }
-      for (let y = 1; y <= h; y++) { const t = new Text({ text: String(y), style }); t.anchor.set(0.5); t.position.set(ox - 12, oy + (h - y + 0.5) * cell); back.addChild(t); }
+      // as in a matrix: the columns numbered on top, the rows on the left from the top down
+      for (let c = 1; c <= w; c++) { const t = new Text({ text: String(c), style }); t.anchor.set(0.5); t.position.set(ox + (c - 0.5) * cell, oy - 12); back.addChild(t); }
+      for (let f = 1; f <= h; f++) { const t = new Text({ text: String(f), style }); t.anchor.set(0.5); t.position.set(ox - 12, oy + (f - 0.5) * cell); back.addChild(t); }
     }
     // the pixels that come painted and cannot change carry a dot
-    for (const k of st.locked) { const [x, y] = k.split(',').map(Number), [cx, cy] = centre(Lt, x, y); front.circle(cx, cy, Math.max(1.5, cell / 12)).fill({ color: 0x000000, alpha: 0.3 }); }
+    for (const k of st.locked) { const [cx, cy] = centre(Lt, ...k.split(',').map(Number)); front.circle(cx, cy, Math.max(1.5, cell / 12)).fill({ color: 0x000000, alpha: 0.3 }); }
   }
 
   function draw(st, { reveal }) {
@@ -65,19 +66,19 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
     sprites = [];
     const k = size(st);
     st.g.forEach((r, i) => [...r].forEach((c, j) => {
-      const s = new Sprite(Texture.WHITE), [cx, cy] = centre(Lt, j + 1, Lt.h - i);
+      const s = new Sprite(Texture.WHITE), [cx, cy] = centre(Lt, i + 1, j + 1);
       s.anchor.set(0.5); s.position.set(cx, cy); s.scale.set(k); s.tint = tint(c, i, j); s.home = cy; s.hx = cx;
       pix.addChild(s); sprites.push(s);
       if (reveal && c !== '.') gsap.from(s.scale, { x: 0, y: 0, duration: 0.35, delay: Math.min(0.9, (i + j) * 0.035), ease: 'back.out(2.2)' });
     }));
     frame(st); marks(st);
   }
-  const at = (st, x, y) => sprites[(st.Lt.h - y) * st.Lt.w + x - 1];
+  const at = (st, f, c) => sprites[(f - 1) * st.Lt.w + c - 1];
   // a pixel just painted: its new colour and a bounce
-  function cell(st, x, y) {
-    const s = at(st, x, y), k = size(st), i = st.Lt.h - y, c = st.g[i][x - 1];
+  function cell(st, f, col) {
+    const s = at(st, f, col), k = size(st), i = f - 1, c = st.g[i][col - 1];
     if (!s) return;
-    s.tint = tint(c, i, x - 1);
+    s.tint = tint(c, i, col - 1);
     gsap.fromTo(s.scale, { x: k * (c === '.' ? 0.6 : 1.35), y: k * (c === '.' ? 0.6 : 1.35) }, { x: k, y: k, duration: 0.3, ease: 'back.out(3)', overwrite: true });
     marks(st);
   }
@@ -85,7 +86,7 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
   function marks(st) {
     const { Lt } = st;
     rings.clear();
-    for (const [key, m] of st.marks) { const [x, y] = key.split(',').map(Number), [cx, cy] = centre(Lt, x, y), r = Lt.cell / 2 - 1.5;
+    for (const [key, m] of st.marks) { const [cx, cy] = centre(Lt, ...key.split(',').map(Number)), r = Lt.cell / 2 - 1.5;
       rings.roundRect(cx - r, cy - r, 2 * r, 2 * r, 3).stroke({ width: 3, color: m === 'ok' ? MINT : BAD }); }
     gsap.killTweensOf(rings);
     rings.alpha = 1;
