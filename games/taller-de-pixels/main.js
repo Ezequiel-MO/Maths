@@ -5,8 +5,9 @@ import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, COLORS, POINTS, VALID, EXAM_PASS, shuffle, starsFor, F, simp, ruleText, ruleWhy,
   clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn,
-  brokenRules, wrongCells, one } from './logic.js';
-import { makeBoard } from './pixels.js';
+  brokenRules, wrongCells, one, SPRITES } from './logic.js';
+import { makeBoard, spriteSvg } from './pixels.js';
+import { studio } from './lliure.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow } from '../../shared/shell.js';
 
@@ -36,7 +37,9 @@ const FROG = `<svg class="frog" viewBox="-40 -64 92 86" aria-hidden="true"><elli
   <path d="M-24 -38q4-16 26-16q20 1 22 13q-22 9-48 3Z" fill="#E8443A" stroke="#9E2A22" stroke-width="2" stroke-linejoin="round"/><circle cx="3" cy="-56" r="3.5" fill="#E8443A" stroke="#9E2A22" stroke-width="1.5"/>
   <path d="M27 10L41 -14" stroke="#C07A48" stroke-width="4.5" stroke-linecap="round"/><path d="M39 -12l4 -7 5 3 -3 7Z" fill="#EAF8F4"/><rect x="42" y="-26" width="8" height="8" fill="#3C7DF0" transform="rotate(30 46 -22)"/></svg>`;
 const HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Píxel perfecte!', 'Bon ull!'];
-const HUES = [195, 28, 320, 262, 45, 140];
+const HUES = [195, 28, 320, 262, 45, 140, 15, 200, 300, 170];
+// the crab of the workshop walks along the top of the panel of a level done, with its legs open and closed
+const WALKER = `<div class="walkway" aria-hidden="true"><div class="walker">${spriteSvg(SPRITES.cranc.g, 'fa')}${spriteSvg(SPRITES.crancB.g, 'fb')}</div></div>`;
 const again = e => { e.classList.remove('shake', 'pop'); void e.getBoundingClientRect(); return e.classList; };
 const spark = (e, h = 48) => { if (e) { const p = mid(e); FX.burst(p.x, p.y, h, 14, 120); } };
 const plain = s => s.replace(/<span class="fr"><i>(\d+)<\/i><i>(\d+)<\/i><\/span>/g, '$1/$2').replace(/<[^>]+>/g, '');
@@ -57,17 +60,18 @@ let openAt = 0;
 const KIND = { read, paint };
 
 /* ---------- the map ---------- */
-const RING = [195, 320, 45];
+const RING = [195, 320, 45, 15, 280];
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<rect x="${-r}" y="${-r}" width="${2 * r}" height="${2 * r}" fill="none" stroke="hsl(${RING[c]} 70% 62%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
-const ICONS = ['📍', '🟦', '🎨', '🦋', '🧱', '🛍️'];
+const ICONS = ['📍', '🟦', '🎨', '🦋', '🧱', '🛍️', '🦀', '🖥️', '🎞️', '🪄'];
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'stars' });
 let here = -1;
 function mapa() {
   fresh(); show('El mapa del taller', false, 195);
   M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${ICONS[i]}</span>`,
-    foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
-      ${badgeList(BADGES, got)}</div>`,
-    open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full]] });
+    foot: got => { const shut = OPEN || PROJECTS.some((_, i) => noteOf(prog, i) >= VALID) ? '' : ' disabled title="Valida un projecte per obrir-lo"';
+      return `\n    <div class="extra"><button class="btn soft" id="full"${shut}>Caça l'errada</button><button class="btn soft" id="free"${shut}>🎨 Taller lliure</button>
+      ${badgeList(BADGES, got)}</div>`; },
+    open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full], ['#free:not(:disabled)', lliure]] });
   here = -1;
 }
 
@@ -114,7 +118,7 @@ function level(sec, idx) {
     over = true; keyFn = null; prog = r.prog; save();
     chime([523, 659, 784, 1047, 1319]); FX.celebrate(end || r.valid ? 16 : 8);
     await sleep(900); if (!t.on) return;
-    panel(stage, `<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
+    panel(stage, `${RM ? '' : WALKER}<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
       <p class="line">${line}</p><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
       <p class="lead${r.valid ? ' go' : ''}">Nota del projecte: ${r.note} de 100${r.valid ? ' · validat ✓' : ''}${r.gain ? ` · +${r.gain} XP` : ''}</p>
       ${r.exam ? `<p class="lead go">S'ha obert l'examen del cercle ${c}.</p>` : ''}${news(r.news)}
@@ -174,6 +178,12 @@ function examen(c) {
   arm();
 }
 
+/* ---------- the free workshop: lliure.js ---------- */
+function lliure() {
+  const t = fresh(); show('El taller lliure', true, 280);
+  studio({ t, root: $('#game'), blip, chime, frog: FROG, celebrate: () => FX.celebrate(8) });
+}
+
 /* ---------- «Caça l'errada»: three sentences written about a drawing; from none to two of them are wrong ---------- */
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
@@ -228,7 +238,7 @@ function read({ t, L, stage, tip, slip, win, step }) {
   const n = L.rounds.length;
   let k = -1, R = null, busy = false, buf = '', fr = null, shown = null, opts = [];
   stage.innerHTML = `<p class="ask" id="q"></p><div class="board" id="board"></div><div class="ans" id="ans"></div>`;
-  const B = makeBoard($('#board'), t, { onTap: touch }), ans = $('#ans');
+  const B = makeBoard($('#board'), t, { onTap: touch, screen: L.screen }), ans = $('#ans');
   const KEYS = d => `<button class="key" data-d="${d}">${d}</button>`;
   function arm() {
     k++; R = L.rounds[k]; busy = false; buf = ''; fr = { n: '', d: '', on: 'n' }; openAt = performance.now() + SETTLE; step?.(k);
@@ -253,9 +263,13 @@ function read({ t, L, stage, tip, slip, win, step }) {
   async function right(el) {
     busy = true;
     if (el) { el.classList.add('ok'); spark(el, 140); }
-    blip(880); tip(`${pick(HURRAY)} ${R.q.say}`, 'go'); B.cheer();
+    blip(880); tip(`${pick(HURRAY)} ${R.q.say}`, 'go');
     if (R.q.type === 'num' || R.q.type === 'frac') { $('#disp')?.classList.add('ok'); ans.querySelectorAll('button').forEach(b => b.disabled = true); }
-    await sleep(k === n - 1 ? 1500 : 1900); if (!t.on) return;
+    // the answer shown on the drawing: its pixels fly to their new places, or turn over to their new colours
+    const S = R.q.show;
+    if (S) { await sleep(350); if (!t.on) return; S.src ? B.morph(S.pic, S.src) : B.filter(S.pic); shown = JSON.stringify(S.pic); }
+    else B.cheer();
+    await sleep((k === n - 1 ? 1500 : 1900) + (S && !RM ? 1200 : 0)); if (!t.on) return;
     if (k === n - 1) { keyFn = null; win(`${n === 1 ? 'Una pregunta resolta' : `${n} preguntes resoltes`}<br><small>${L.title || ''}</small>`); } else arm();
   }
   function wrong(el) {
@@ -328,7 +342,7 @@ function paint({ t, L, stage, tip, slip, win }) {
     <div class="board" id="board"></div><div class="palette" id="pal" role="radiogroup" aria-label="Colors">${[...L.colors, '.'].map(ch => `<button class="pc${ch === '.' ? ' rub' : ''}" data-c="${ch}" role="radio" aria-label="${ch === '.' ? 'Goma' : one(ch)}" style="--c:${ch === '.' ? 'transparent' : COLORS[ch].hex}">${ch === '.' ? 'Goma' : ''}</button>`).join('')}</div>
     <div class="ans"><button class="btn" id="check">Comprova</button></div>`;
   if (L.model) makeBoard($('#model'), t, { max: 260 }).show(L.model);
-  const B = makeBoard($('#board'), t, { paint: { given: L.given, brush: () => brush, onChange: () => { if (!busy) { B.unmark(); $('#board').classList.remove('wrong'); } } } });
+  const B = makeBoard($('#board'), t, { screen: L.screen, paint: { given: L.given, brush: () => brush, onChange: () => { if (!busy) { B.unmark(); $('#board').classList.remove('wrong'); } } } });
   B.show({ g: L.given, axes: !!L.axes, axis: L.axis, tiles: L.tiles });
   const pal = $('#pal'), pickC = ch => { brush = ch; pal.querySelectorAll('.pc').forEach(b => b.setAttribute('aria-checked', b.dataset.c === ch)); };
   pal.onclick = e => { const b = e.target.closest('.pc'); if (b) { pickC(b.dataset.c); blip(520); } };
@@ -351,9 +365,19 @@ function paint({ t, L, stage, tip, slip, win }) {
       if (L.goal) { B.mark(bad, 'no'); B.shake(bad); }
       slip(); again($('#board')).add('shake'); $('#board').classList.add('wrong'); return tip(`Ui! ${why}`, 'oops');
     }
-    busy = true; $('#check').disabled = true; pal.inert = true; $('#board').classList.add('right'); spark($('#board'), 140); B.cheer();
+    busy = true; $('#check').disabled = true; pal.inert = true; $('#board').inert = true; $('#board').classList.add('right'); spark($('#board'), 140);
     tip(`${pick(HURRAY)} ${L.done || 'El dibuix és perfecte.'}`, 'go');
-    await sleep(1700); if (!t.on) return;
+    // the reward: the pixels painted fly in from their twins, the drawing is made again before the eyes, or it comes alive
+    let more = 0;
+    if (RM) B.cheer();
+    else if (L.fly) { B.fly(L.fly); more = 900; }
+    else if (L.after) {
+      const a = L.after(B.grid());
+      B.unlock();
+      if (a.from) { await sleep(500); if (!t.on) return; B.show(a.from, { reveal: false }); await sleep(450); if (!t.on) return; B.morph(a.pic, a.src); more = 900; }
+      else { B.show(a.pic, { reveal: false }); more = 2400; }
+    } else B.cheer();
+    await sleep(1700 + more); if (!t.on) return;
     win(`${L.title}<br><small>Dibuix acabat</small>`);
   };
   keyFn = e => { const k = +e.key; if (k >= 1 && k <= L.colors.length + 1 && !e.target.closest?.('input')) pickC([...L.colors, '.'][k - 1]); };

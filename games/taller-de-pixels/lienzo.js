@@ -1,15 +1,18 @@
 // The canvas of a pixel board, with PixiJS (WebGL) and GSAP. Every pixel is a sprite of its own, so GSAP can move it: a new picture
 // comes in pixel by pixel from the top left corner, a pixel just painted bounces, the pixels of a wrong answer shake and a finished
-// drawing jumps like a wave. It is loaded only when the first board of the page comes up; pixels.js keeps its SVG on screen until
-// mount() has given a board, and for good when it gives null (no WebGL).
+// drawing jumps like a wave. When the picture changes, its pixels can fly from their old places to the new ones (a turn, a mirror, a
+// drawing made bigger), turn over to a new colour one column after the other (a filter) or change colour at once (the next frame of
+// an animation). It is loaded only when the first board of the page comes up; pixels.js keeps its SVG on screen until mount() has
+// given a board, and for good when it gives null (no WebGL).
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { gsap } from 'gsap';
 
 const MUTED = 0x9EC3C0, SUN = 0xF7C64E, MINT = 0x7CF5B0, BAD = 0xFF6B5E;
 const num = hex => parseInt(hex.slice(1), 16);
 
-// A canvas for the board whose state is st. Gives { canvas, draw, cell, marks, cheer, shake, destroy }, or null when there is no WebGL
-export async function mount(st, { hexOf, EMPTY, centre }) {
+// A canvas for the board whose state is st. Gives { canvas, draw, cell, retint, morph, flip, marks, cheer, shake, destroy }, or null
+// when there is no WebGL
+export async function mount(st, { hexOf, centre }) {
   const app = new Application();
   try {
     await app.init({ width: 10, height: 10, backgroundAlpha: 0, antialias: true, preference: 'webgl', autoDensity: true,
@@ -17,21 +20,24 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
   } catch (e) { return null; }
   const back = new Container(), pix = new Container(), front = new Graphics(), rings = new Graphics();
   app.stage.addChild(back, pix, front, rings);
-  let sprites = [], gone = false;
-  const tint = (c, i, j) => num(c === '.' ? EMPTY[(i + j) % 2] : hexOf(c));
+  let sprites = [], gone = false, dot = null, tls = [];
+  const tint = (c, i, j, s = st) => num(c === '.' ? s.look.empty[(i + j) % 2] : hexOf(c));
+  // a square for every pixel, or a round one for the lights of a sign and the beads of a board
+  const tex = s => s.look.round ? (dot ??= app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xFFFFFF))) : Texture.WHITE;
   // with the grid on, a hair of the dark board shows between the pixels; with it off (only the marks of the edge), they touch
-  const size = st => (st.Lt.cell - (st.Lt.cell > 20 && st.p.lines !== false ? 1 : 0)) / Texture.WHITE.width;
+  const size = s => (s.Lt.cell - (s.look.round ? Math.max(2, s.Lt.cell * 0.12) : s.Lt.cell > 20 && s.p.lines !== false ? 1 : 0)) / tex(s).width;
+  const ij = (s, n) => [Math.floor(n / s.Lt.w), n % s.Lt.w];
 
   // everything but the pixels: lines, mirrors, tiles, the numbers
   function frame(st) {
     const { Lt, p } = st, { cell, ox, oy, w, h } = Lt;
     back.removeChildren().forEach(c => c.destroy());
     front.clear();
-    if (p.lines !== false) {
+    if (p.lines !== false && !st.look.round) {
       for (let j = 0; j <= w; j++) front.moveTo(ox + j * cell, oy).lineTo(ox + j * cell, oy + h * cell);
       for (let i = 0; i <= h; i++) front.moveTo(ox, oy + i * cell).lineTo(ox + w * cell, oy + i * cell);
       front.stroke({ width: 1, color: 0x04131C, alpha: 0.55 });
-    } else {
+    } else if (p.lines === false) {
       front.rect(ox, oy, w * cell, h * cell).stroke({ width: 2, color: 0xEAF8F4, alpha: 0.7 });
       for (let j = 0; j <= w; j++) front.moveTo(ox + j * cell, oy + h * cell).lineTo(ox + j * cell, oy + h * cell + 6);
       for (let i = 0; i <= h; i++) front.moveTo(ox, oy + i * cell).lineTo(ox - 6, oy + i * cell);
@@ -61,12 +67,12 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
   function draw(st, { reveal }) {
     const { Lt } = st;
     app.renderer.resize(Lt.bw, Lt.bh);
-    gsap.killTweensOf(sprites.flatMap(s => [s, s.scale]));
+    gsap.killTweensOf(sprites.flatMap(s => [s, s.scale])); tls.forEach(tl => tl.kill()); tls = [];
     pix.removeChildren().forEach(c => c.destroy());
     sprites = [];
     const k = size(st);
     st.g.forEach((r, i) => [...r].forEach((c, j) => {
-      const s = new Sprite(Texture.WHITE), [cx, cy] = centre(Lt, i + 1, j + 1);
+      const s = new Sprite(tex(st)), [cx, cy] = centre(Lt, i + 1, j + 1);
       s.anchor.set(0.5); s.position.set(cx, cy); s.scale.set(k); s.tint = tint(c, i, j); s.home = cy; s.hx = cx;
       pix.addChild(s); sprites.push(s);
       if (reveal && c !== '.') gsap.from(s.scale, { x: 0, y: 0, duration: 0.35, delay: Math.min(0.9, (i + j) * 0.035), ease: 'back.out(2.2)' });
@@ -81,6 +87,33 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
     s.tint = tint(c, i, col - 1);
     gsap.fromTo(s.scale, { x: k * (c === '.' ? 0.6 : 1.35), y: k * (c === '.' ? 0.6 : 1.35) }, { x: k, y: k, duration: 0.3, ease: 'back.out(3)', overwrite: true });
     marks(st);
+  }
+  // the next frame of an animation: every pixel takes its colour at once
+  function retint(st) { sprites.forEach((s, n) => { const [i, j] = ij(st, n); s.tint = tint(st.g[i]?.[j] ?? '.', i, j, st); }); }
+  // a new picture whose pixels fly in: each painted one from the pixel src(f, c) of the old picture (old: its state), growing or
+  // shrinking from the old size of a pixel
+  function morph(st, old, src) {
+    draw(st, { reveal: false });
+    const k = size(st), k0 = old.Lt ? size(old) : k;
+    sprites.forEach((s, n) => {
+      const [i, j] = ij(st, n); if (st.g[i][j] === '.') return;
+      const fc = src(i + 1, j + 1); if (!fc || !old.Lt) return;
+      const [x, y] = centre(old.Lt, fc[0], fc[1]), delay = Math.min(0.45, (i + j) * 0.02);
+      gsap.from(s, { x, y, duration: 0.85, delay, ease: 'power3.inOut' });
+      if (k0 !== k) gsap.from(s.scale, { x: k0, y: k0, duration: 0.85, delay, ease: 'power3.inOut' });
+    });
+  }
+  // a filter: the pixels whose colour changes turn over, one column after the other, and come back with the new colour
+  function flip(st) {
+    if (sprites.length !== st.Lt.w * st.Lt.h) return draw(st, { reveal: false });
+    const k = size(st);
+    frame(st); marks(st);
+    sprites.forEach((s, n) => {
+      const [i, j] = ij(st, n), to = tint(st.g[i][j], i, j, st);
+      if (s.tint === to) return;
+      tls.push(gsap.timeline({ delay: j * 0.06 + i * 0.015 }).to(s.scale, { x: 0, duration: 0.14, ease: 'power1.in' })
+        .call(() => { s.tint = to; }).to(s.scale, { x: k, duration: 0.24, ease: 'back.out(2)' }));
+    });
   }
   // the rings of the pixels that are right or wrong
   function marks(st) {
@@ -104,10 +137,11 @@ export async function mount(st, { hexOf, EMPTY, centre }) {
   }
   function destroy() {
     if (gone) return;
-    gone = true;
+    gone = true; tls.forEach(tl => tl.kill());
     gsap.killTweensOf([rings, ...sprites.flatMap(s => [s, s.scale])]);
+    dot?.destroy(true);
     app.destroy({ removeView: true }, { children: true });
   }
   app.canvas.classList.add('pxc');
-  return { canvas: app.canvas, draw, cell, marks, cheer, shake, destroy };
+  return { canvas: app.canvas, draw, cell, retint, morph, flip, marks, cheer, shake, destroy };
 }

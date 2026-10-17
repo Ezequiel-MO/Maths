@@ -10,7 +10,11 @@ export const COLORS = {
   r: col('#E8443A', 'vermell', 'vermells'), w: col('#F4F1E8', 'blanc', 'blancs'), k: col('#1B1B24', 'negre', 'negres'),
   y: col('#F7C64E', 'groc', 'grocs'), o: col('#F28C28', 'taronja', 'taronja'), m: col('#8A5A2B', 'marró', 'marrons'),
   g: col('#3DBE5A', 'verd', 'verds'), b: col('#3C7DF0', 'blau', 'blaus'), c: col('#6FE3FF', 'blau cel', 'blau cel'),
-  p: col('#FF8FD0', 'rosa', 'rosa'), l: col('#9B6BFF', 'lila', 'lila'), n: col('#9AA5AE', 'gris', 'grisos')
+  p: col('#FF8FD0', 'rosa', 'rosa'), l: col('#9B6BFF', 'lila', 'lila'), n: col('#9AA5AE', 'gris', 'grisos'),
+  // the crab, the greys of a black and white photo and the four greens of an old portable console
+  t: col('#D97757', 'terracota', 'terracota'), q: col('#D0D5DA', 'gris clar', 'gris clar'), x: col('#555D66', 'gris fosc', 'gris fosc'),
+  D: col('#0F380F', 'verd molt fosc', 'verd molt fosc'), E: col('#306230', 'verd fosc', 'verd fosc'), H: col('#8BAC0F', 'verd clar', 'verd clar'),
+  I: col('#C6E07A', 'verd pàl·lid', 'verd pàl·lid')
 };
 export const one = ch => ch === '.' ? 'buit' : COLORS[ch].one;
 const many = ch => COLORS[ch].many;
@@ -63,6 +67,65 @@ export function rectOf(g) {
   const w = x1 - x0 + 1, h = y1 - y0 + 1;
   return painted(g) === w * h ? { w, h } : null;
 }
+// sprite s over g with its top left pixel at (f0, c0): what falls out of g is cut, and the empty pixels of s let g show
+export const stamp = (g, s, f0, c0) => g.map((r, i) => { const k = i - (f0 - 1);
+  return k < 0 || k >= H(s) ? r : [...r].map((c, j) => { const ch = s[k][j - (c0 - 1)]; return ch && ch !== '.' ? ch : c; }).join(''); });
+// the pixels of a that are not in b: what is left to paint over what comes painted
+export const minus = (a, b) => a.map((r, i) => [...r].map((c, j) => b[i][j] === '.' ? c : '.').join(''));
+// two drawings side by side, with two empty columns between them
+export function duo(a, b) {
+  const h = Math.max(H(a), H(b)), row = (g, i) => g[i] || '.'.repeat(W(g));
+  return Array.from({ length: h }, (_, i) => row(a, i) + '..' + row(b, i));
+}
+
+/* ---------- moving a drawing: turns, mirrors, sizes ---------- */
+// A quarter turn goes as the hands of a clock: the pixel (f, c) of a grid of h rows goes to (c, h + 1 − f)
+export const rot90 = g => Array.from({ length: W(g) }, (_, i) => Array.from({ length: H(g) }, (_, j) => g[H(g) - 1 - j][i]).join(''));
+export const rot180 = g => g.slice().reverse().map(flip);
+export const flipV = g => g.map(flip);
+export const flipH = g => g.slice().reverse();
+export const turn = (g, k) => k % 4 === 0 ? g.slice() : turn(rot90(g), k - 1);
+// Where each pixel of the new drawing comes from: from.x(...)(f, c) is the pixel of the old one that went to (f, c). The board uses it
+// to make every pixel fly from its old place to the new one
+export const from = {
+  rot90: g => (f, c) => [H(g) + 1 - c, f],
+  rot180: g => (f, c) => [H(g) + 1 - f, W(g) + 1 - c],
+  rot270: g => (f, c) => [c, W(g) + 1 - f],
+  flipV: g => (f, c) => [f, W(g) + 1 - c],
+  flipH: g => (f, c) => [H(g) + 1 - f, c],
+  turn: (g, k) => [(f, c) => [f, c], from.rot90(g), from.rot180(g), from.rot270(g)][k % 4],
+  scale: k => (f, c) => [Math.ceil(f / k), Math.ceil(c / k)],
+  shift: (df, dc) => (f, c) => [f - df, c - dc],
+  // a pixel made of k × k: each new pixel comes from the middle of its block
+  merge: k => (f, c) => [k * f - (k >> 1), k * c - (k >> 1)]
+};
+// every block of k × k made one pixel, of the colour that is most in it (an empty pixel counts as a colour)
+export function pixelate(g, k) {
+  return Array.from({ length: Math.ceil(H(g) / k) }, (_, I) => Array.from({ length: Math.ceil(W(g) / k) }, (_, J) => {
+    const n = {}; let best = null;
+    for (let i = I * k; i < Math.min(H(g), I * k + k); i++) for (let j = J * k; j < Math.min(W(g), J * k + k); j++) {
+      const ch = g[i][j]; n[ch] = (n[ch] || 0) + 1; if (!best || n[ch] > n[best]) best = ch; }
+    return best;
+  }).join(''));
+}
+
+/* ---------- filters: they change the colours, never how many pixels there are ---------- */
+export const recolor = (g, map) => g.map(r => [...r].map(c => map[c] ?? c).join(''));
+// the negative: every colour to its opposite
+export const NEG = { w: 'k', k: 'w', r: 'c', c: 'r', y: 'b', b: 'y', g: 'p', p: 'g', o: 'l', l: 'o' };
+// black and white: the light colours to light grey, the dark ones to dark grey
+export const GRAY = { w: 'w', y: 'q', c: 'q', p: 'q', o: 'n', g: 'n', r: 'n', l: 'n', t: 'n', b: 'x', m: 'x', k: 'k' };
+// the four greens of an old portable console
+export const GB = { w: 'I', y: 'I', c: 'H', p: 'H', o: 'H', l: 'H', q: 'H', g: 'E', r: 'E', b: 'E', n: 'E', t: 'E', x: 'E', m: 'D', k: 'D' };
+// the edge: the painted pixels that touch an empty one or the side of the grid
+export const outline = g => g.map((r, i) => [...r].map((c, j) => c !== '.' && [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]
+  .some(([a, b]) => (g[a]?.[b] ?? '.') === '.') ? c : '.').join(''));
+// a row kept in pieces: [[colour, how many], ...]
+export const rle = r => [...r].reduce((out, c) => { const last = out[out.length - 1]; if (last && last[0] === c) last[1]++; else out.push([c, 1]); return out; }, []);
+// what a screen is made of: every pixel, three lights (red, green, blue) side by side, three rows tall
+export const LIGHTS = { w: 'rgb', y: 'rg', c: 'gb', p: 'rb', r: 'r', g: 'g', b: 'b' };
+export const subpix = g => g.flatMap(r => { const row = [...r].map(c => ['r', 'g', 'b'].map(l => (LIGHTS[c] || '').includes(l) ? l : 'k').join('')).join(''); return [row, row, row]; });
+export const lit = g => (painted(g) - count(g, 'k')) / 3;
 
 /* ---------- fractions ---------- */
 export const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
@@ -86,9 +149,38 @@ export const SPRITES = {
   joia: S('Joia', 'la joia', ['..cc..', '.cbbc.', 'cbwbbc', 'cbwbbc', '.cbbc.', '..cc..']),
   rosassa: S('Rosassa', 'la rosassa', ['r..bb..r', '.r.bb.r.', '..yyyy..', 'bbywwybb', 'bbywwybb', '..yyyy..', '.r.bb.r.', 'r..bb..r']),
   corPetit: S('Cor petit', 'el cor petit', ['.r.r.', 'rrrrr', '.rrr.', '..r..']),
-  espasa: S('Espasa', "l'espasa", ['..n..', '..n..', '..n..', '..n..', '.yyy.', '..m..', '..m..'])
+  espasa: S('Espasa', "l'espasa", ['..n..', '..n..', '..n..', '..n..', '.yyy.', '..m..', '..m..']),
+  // the crab of the workshop: two pictures of it, with the legs open and closed, make it walk
+  cranc: S('Cranc', 'el cranc', ['.tttttt.', '.tkttkt.', 'tttttttt', '.tttttt.', '.t.tt.t.']),
+  crancB: S('Cranc', 'el cranc', ['.tttttt.', '.tkttkt.', 'tttttttt', '.tttttt.', 't.t..t.t']),
+  boletPetit: S('Bolet petit', 'el bolet petit', ['.rr.', 'rrrr', '.ww.'])
 };
 const G = id => SPRITES[id].g;
+// a coin that turns: from the front, from the side and edge on
+const COIN = [G('moneda'), ['..yy..', '.yooy.', '.yooy.', '.yooy.', '.yooy.', '..yy..'], ['..oo..', '..oo..', '..oo..', '..oo..', '..oo..', '..oo..']];
+
+/* ---------- letters and numbers made of pixels ---------- */
+const FONT = { H: ['k.k', 'k.k', 'kkk', 'k.k', 'k.k'], O: ['kkk', 'k.k', 'k.k', 'k.k', 'kkk'], L: ['k..', 'k..', 'k..', 'k..', 'kkk'], A: ['kkk', 'k.k', 'kkk', 'k.k', 'k.k'] };
+// a word in letters of 3 × 5, one empty column between them, of colour ch
+export const word = (s, ch) => Array.from({ length: 5 }, (_, i) => [...s].map(l => FONT[l][i]).join('.').replaceAll('k', ch));
+// The numbers of a digital clock: seven bars (a on top, b and c on the right, d at the bottom, e and f on the left, g in the middle), two
+// pixels each, in a box of 4 × 7
+export const SEGS = { 0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg', 5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg' };
+const SEG_AT = { a: [[0, 1], [0, 2]], b: [[1, 3], [2, 3]], c: [[4, 3], [5, 3]], d: [[6, 1], [6, 2]], e: [[4, 0], [5, 0]], f: [[1, 0], [2, 0]], g: [[3, 1], [3, 2]] };
+const digit = (n, ch) => [...SEGS[n]].flatMap(s => SEG_AT[s]).reduce((g, [i, j]) => put(g, i + 1, j + 1, ch), blank(4, 7));
+// a time as «20:26»: the numbers one empty column apart, and the two dots
+export const clock = (s, ch) => { const parts = [...s].map(d => d === ':' ? ['.', '.', ch, '.', ch, '.', '.'] : digit(d, ch));
+  return Array.from({ length: 7 }, (_, i) => parts.map(p => p[i]).join('.')); };
+// how many bars a time lights up
+export const bars = s => [...s].reduce((n, d) => n + (SEGS[d]?.length || 0), 0);
+
+/* ---------- moving pictures ---------- */
+// An animated picture shows its frames one after the other, fps of them a second, over and over
+export const anim = (frames, o = {}) => ({ g: frames[0], frames, fps: 4, ...o });
+// the frames of sprites (taken in turn) walking step columns to the right at each frame, from (f0, c0), in a w × h screen
+export const walk = (sprites, w, h, f0, c0, step, n) => Array.from({ length: n }, (_, k) => stamp(blank(w, h), sprites[k % sprites.length], f0, c0 + k * step));
+// the column of a ball that goes from column 1 to column w and back, one column a frame, after k frames
+export const bounce = (w, k) => { const m = k % (2 * (w - 1)); return m < w ? 1 + m : 2 * w - 1 - m; };
 
 /* ---------- the pictures and the questions ---------- */
 // A picture: { g, axes (the numbers of the columns and rows), lines (false: only the marks on the edge), axis ('v', 'h', 'vh': the
@@ -183,6 +275,8 @@ export const wrongCells = (L, g) => L.goal.flatMap((r, i) => [...r].flatMap((c, 
 // The steps of a drawing by coordinates: a line for each colour with its pixels (coords), or a line for each piece of a row of one
 // colour, from the top (runs): «de (5, 2) a (5, 6)»
 export function stepsOf(g, how) {
+  // a drawing kept in pieces, as a picture is saved: a line for each row, with its pieces from the left
+  if (how === 'rle') return g.map((r, i) => ({ ch: null, text: `Fila ${i + 1}: ${rle(r).map(([c, n]) => c === '.' ? `${n} ${n === 1 ? 'buit' : 'buits'}` : `${sw(c)}${n} ${n === 1 ? one(c) : many(c)}`).join(', ')}` }));
   if (how === 'coords') return colorsOf(g).map(ch => ({ ch, text: keysOf(g, ch).map(k => pt(...k.split(','))).join(' ') }));
   const out = [];
   g.forEach((r, i) => { const f = i + 1; for (let j = 0; j < r.length;) { let e = j; while (e + 1 < r.length && r[e + 1] === r[j]) e++;
@@ -196,7 +290,11 @@ export function stepsOf(g, how) {
 // goal, the drawing it must be (then steps, the coordinates to follow, or model, the picture to copy) or rules, what it must keep
 const read = (title, say, rounds) => ({ kind: 'read', title, say, rounds: rounds.map(([p, qq]) => ({ pic: p, q: qq })) });
 const paint = (title, say, o) => { const g = o.goal || o.given || blank(o.w, o.h);
-  return { kind: 'paint', title, say, w: W(g), h: H(g), given: o.given || blank(W(g), H(g)), ...o, ...(o.how ? { steps: stepsOf(o.goal, o.how) } : {}) }; };
+  const given = o.given || blank(W(g), H(g));
+  return { kind: 'paint', title, say, w: W(g), h: H(g), given, ...o, ...(o.how ? { steps: stepsOf(o.how === 'rle' ? o.goal : minus(o.goal, given), o.how) } : {}) }; };
+// After a right answer the picture can change before the eyes: show = { pic, src } makes every pixel fly from the pixel src(f, c) of the
+// old picture to its place in the new one; show = { pic, filter: true } turns every pixel over to its new colour, column by column
+const morph = (qq, pic, src) => ({ ...qq, show: src ? { pic, src } : { pic, filter: true } });
 const same = (p, ...qs) => qs.map(qq => [p, qq]);
 const ax = (g, o) => pic(g, { axes: true, ...o });
 
@@ -206,8 +304,62 @@ const QUART = ['bbbb', 'bbbb', 'bbyy', 'bbyy'], FRANCE = box(2, 4, 'b').map((r, 
 const MIX = scatter(6, 4, [['r', 8], ['b', 6], ['y', 10]], 3);
 const BRICK = ['ooom', 'omoo'];
 
+// the pictures of the circles of screens, of moving pictures and of filters
+const CR = G('cranc'), CRB = G('crancB'), BP = G('boletPetit');
+const crabAt = (w, h, f0, c0) => stamp(blank(w, h), CR, f0, c0);
+// the crab moved df rows and dc columns: its left eye, the pixel (2, 3) of the sprite, says where; then the whole crab flies there
+function eyeMove(w, h, f0, c0, df, dc) {
+  const f = f0 + 1, c = c0 + 2, up = df < 0, left = dc < 0;
+  return [ax(crabAt(w, h, f0, c0)), morph(Q('tap', `L'ull esquerre del cranc és al ${pt(f, c)}. Mou el cranc ${Math.abs(df)} ${up ? 'amunt' : 'avall'} i ${Math.abs(dc)} ${left ? "cap a l'esquerra" : 'cap a la dreta'}. On va a parar l'ull? Toca'l.`,
+    [`${f + df},${c + dc}`], `La fila fa ${f} ${up ? '−' : '+'} ${Math.abs(df)} i la columna, ${c} ${left ? '−' : '+'} ${Math.abs(dc)}.`, `L'ull va a parar al ${pt(f + df, c + dc)}. Tot el cranc es mou igual!`),
+    ax(crabAt(w, h, f0 + df, c0 + dc)), from.shift(df, dc))];
+}
+// a red pixel at (f, c) of a w × h grid, and the grid turned k quarters: where does it go?
+function turnDot(w, h, f, c, k) {
+  const g = dots(w, h, [[f, c, 'r']]), to = turn(g, k), [nf, nc] = keysOf(to, 'r')[0].split(',').map(Number), half = k === 2;
+  const text = half ? `Fem mitja volta al quadre, com si el posessis cap per avall. On va a parar el píxel vermell ${pt(f, c)}? Toca'l.` : `Fem un quart de volta al quadre, com les agulles del rellotge. On va a parar el píxel vermell ${pt(f, c)}? Toca'l.`;
+  const hint = half ? `Compta des de l'altra punta: el ${pt(f, c)} és a la fila ${f} comptant des de dalt, i anirà a la fila ${f} comptant des de baix. Amb la columna, igual: la ${c} des de l'esquerra anirà a la ${c} des de la dreta.`
+    : `En un quart de volta, la columna es torna la fila: el ${pt(f, c)} anirà a la fila ${c}. I la fila 1, la de dalt, es torna la columna de la dreta.`;
+  const say = half ? `Al ${pt(nf, nc)}: fila ${h} + 1 − ${f} = ${nf}, i columna ${w} + 1 − ${c} = ${nc}.` : `Al ${pt(nf, nc)}: la columna ${c} es torna la fila ${nf}, i la fila ${f} es torna la columna ${nc}.`;
+  return [ax(g), morph(Q('tap', text, [`${nf},${nc}`], hint, say), ax(to), from.turn(g, k))];
+}
+// a shape that is the same neither in a mirror nor turned: what was done to it?
+const FP = ['.gg', 'gg.', '.g.'], WHAT = ['Un mirall', 'Mitja volta', 'Un quart de volta'];
+const which = (g2, k, why) => [pic(duo(FP, g2)), q.pick("La forma de l'esquerra s'ha convertit en la de la dreta. Què li han fet?", [WHAT[k], ...WHAT.filter((_, j) => j !== k)],
+  'Gira-la amb el cap: un quart de volta la deixa ajaguda, mitja volta la posa cap per avall i un mirall canvia l\'esquerra per la dreta.', why)];
+// Tetris: the piece falls on top, and the hole in the floor is the piece turned k quarters. Once answered, the piece turns and falls in
+const TURNS = ['Cap gir', 'Un quart de volta', 'Mitja volta', 'Tres quarts de volta'];
+function fit(piece, k) {
+  const R = turn(piece, k), w = 6, h = 7, f0 = h + 1 - H(R);
+  const floor = blank(w, h).map((r, i) => i + 1 < f0 ? r : [...r].map((_, j) => (R[i + 1 - f0][j - 1] ?? '.') !== '.' ? '.' : 'n').join(''));
+  const src = (f, c) => { const a = f - f0 + 1, b = c - 1, ch = R[a - 1]?.[b - 1];
+    if (!ch || ch === '.') return [f, c]; const [pf, pc] = from.turn(piece, k)(a, b); return [pf, pc + 2]; };
+  return [pic(stamp(floor, piece, 1, 3)), morph(q.pick('Com has de girar la peça perquè encaixi al forat? Els girs van com les agulles del rellotge.', [TURNS[k], ...TURNS.filter((_, j) => j !== k)],
+    'Mira la forma del forat de baix i gira la peça amb el cap, un quart de volta cada vegada.', `${TURNS[k]}, i cau just al forat!`), pic(stamp(floor, R, f0, 2)), src)];
+}
+// four pixels to look at with a magnifying glass, and two by two pixels of colour ch seen as their lights
+const LENS = ['wy', 'rc'];
+const mix = (ch, opts, why) => [pic(subpix(box(2, 2, ch))), morph(q.pick('Si mires aquestes llums de lluny, de quin color es veuen?', opts, 'Mira quines llums estan enceses: la vermella, la verda o la blava.', why), pic(box(2, 2, ch)), from.merge(3))];
+// the screen of an old portable console, a tile in each square: the sky, the ground, a cloud and the crab in four greens
+const POCKET = [[box(20, 3, 'H'), 16, 1], [box(20, 1, 'E'), 16, 1], [recolor(CR, GB), 11, 6], [['.HH.', 'HHHH'], 3, 14]].reduce((g, [s, f, c]) => stamp(g, s, f, c), box(20, 18, 'I'));
+// photos to make smaller: a drawing of 4 × 4 made twice as big, with one pixel of each block of 2 × 2 changed, so a colour always wins
+const noisy = (base, list) => list.reduce((g, [f, c, ch]) => put(g, f, c, ch), scale(base, 2));
+const NOISY = noisy(['bbyy', 'brry', 'grrw', 'ggww'], [[1, 2, 'y'], [3, 3, 'b'], [4, 6, 'g'], [6, 1, 'r'], [7, 8, 'r'], [5, 5, 'w'], [2, 7, 'r'], [8, 4, 'g']]);
+const NOISY2 = noisy(['.rr.', 'rwwr', 'rrrr', '.mm.'], [[1, 1, 'r'], [2, 4, 'w'], [3, 6, 'r'], [4, 8, 'r'], [6, 2, 'w'], [5, 5, 'w'], [7, 1, 'm'], [8, 6, '.'], [7, 4, 'r']]);
+// a bar of n pixels with k full
+const bar = (n, k) => ['g'.repeat(k) + 'x'.repeat(n - k)];
+// a sign of lights w columns wide with text going through it from the right
+const scroll = (text, w) => Array.from({ length: W(text) + w }, (_, k) => stamp(blank(w, H(text)), text, 1, w + 1 - k));
+// a world of 40 columns, hills and sky, for the screen to run over
+const HILL = [1, 1, 2, 3, 3, 2, 1, 1, 2, 2];
+const WORLD = Array.from({ length: 6 }, (_, i) => Array.from({ length: 40 }, (_, j) => i === 5 ? 'm' : 5 - i <= HILL[j % 10] ? 'g' : 'c').join(''));
+// the ball of frame k: one row down and two columns right at each frame
+const ballAt = k => stamp(blank(8, 6), box(2, 2, 'r'), k, 2 * k - 1);
+// a hundred pixels, 25 of them blue
+const HUNDRED = Array.from({ length: 10 }, (_, i) => i < 2 ? 'b'.repeat(10) : i === 2 ? 'bbbbb.....' : '.'.repeat(10));
+
 export const SECTIONS = [
-  { name: 'Coordenades', sub: 'Cada píxel té la seva adreça: (fila, columna).', levels: [
+  { name: 'Coordenades', sub: 'Cada píxel té la seva adreça: (fila, columna).', screen: 'gameboy', levels: [
     read('Fila i columna', 'Cada píxel té una adreça de dos números, com a les matrius: (fila, columna). Primer baixa fins a la fila, i després ves cap a la dreta fins a la columna.',
       same(ax(blank(6, 5)), q.tapAt(3, 2), q.tapAt(1, 5), q.tapAt(5, 4))),
     read("Quina és l'adreça?", 'Ara el píxel ja és pintat: tu dius on és. El número de la fila sempre va primer.',
@@ -222,10 +374,10 @@ export const SECTIONS = [
     read('Moviments', 'Moure\'s és sumar o restar: avall i a la dreta, sumes; amunt i a l\'esquerra, restes.',
       [[ax(dots(8, 6, [[5, 2, 'g']])), q.move(5, 2, -2, 3)], [ax(dots(8, 6, [[2, 5, 'g']])), q.move(2, 5, 3, 2)], [ax(dots(8, 6, [[1, 7, 'g']])), q.move(1, 7, 4, -5)]]),
     paint('Mou el dibuix', 'Copia el cor 6 columnes més a la dreta: el píxel (f, c) va a parar a (f, c + 6). La fila no canvia!',
-      { given: place(G('corPetit'), 12, 6, 2, 1), goal: over(place(G('corPetit'), 12, 6, 2, 1), place(G('corPetit'), 12, 6, 2, 7)), colors: ['r'], axes: true }),
+      { given: place(G('corPetit'), 12, 6, 2, 1), goal: over(place(G('corPetit'), 12, 6, 2, 1), place(G('corPetit'), 12, 6, 2, 7)), colors: ['r'], axes: true, fly: from.shift(0, 6) }),
     paint('El fantasma', "L'últim: un fantasma de tres colors. Ves fila per fila.", { goal: FA, how: 'runs', colors: ['l', 'w', 'k'], axes: true })
   ] },
-  { name: 'Àrea', sub: 'Files per columnes: comptar píxels multiplicant.', levels: [
+  { name: 'Àrea', sub: 'Files per columnes: comptar píxels multiplicant.', screen: 'monitor', levels: [
     read('Files per columnes', 'Per saber quants píxels té un rectangle no cal comptar-los un a un: multiplica les files per les columnes.',
       [[pic(box(4, 3)), q.area(4, 3)], [pic(box(5, 2, 'g')), q.area(5, 2)], [pic(box(6, 3, 'r')), q.area(6, 3)]]),
     read('Sense quadrícula', "Ara no es veuen tots els píxels: només les marques de les vores. Compta un costat, l'altre, i multiplica.",
@@ -253,7 +405,7 @@ export const SECTIONS = [
         q.calc('La granota té 44 píxels pintats. Quants en queden de buits?', 36, 'Tots els de la pantalla menys els pintats.', '80 − 44 = 36.'),
         q.calc('Una pantalla més gran fa 20 × 16 píxels. Quants píxels té?', 320, '20 × 16 = 20 × 10 + 20 × 6.', '200 + 120 = 320.')))
   ] },
-  { name: 'Fraccions de colors', sub: 'Quina part del dibuix és de cada color.', levels: [
+  { name: 'Fraccions de colors', sub: 'Quina part del dibuix és de cada color.', screen: 'mobil', levels: [
     read('Meitats i quarts', 'Una fracció diu quina part del quadre és d\'un color: a dalt, els píxels del color; a baix, tots els píxels. Escriu el de dalt, prem /, i el de baix.',
       [[pic(['rrbb', 'rrbb']), q.frac(['rrbb', 'rrbb'], 'r')], [pic(QUART), q.frac(QUART, 'y')], [pic(QUART), q.frac(QUART, 'b')]]),
     read('La trampa', 'Compte! A baix hi van TOTS els píxels, no només els de l\'altre color.',
@@ -282,20 +434,20 @@ export const SECTIONS = [
       same(pic(MIX), q.tap('Quin color ocupa més part del quadre? Toca un píxel d\'aquest color.', keysOf(MIX, 'y'), 'Compta els píxels de cada color.', 'El groc: 10 de 24.'),
         q.frac(MIX, 'y'), q.pick('Què és més gran?', [`${F(1, 3)} (el vermell)`, `${F(1, 4)} (el blau)`, 'Són iguals'], 'Compta els vermells i els blaus.', 'Un terç són 8 píxels i un quart, 6. Com més parts, més petites!')))
   ] },
-  { name: 'Simetria', sub: 'Miralls: el que hi ha a una banda, a l\'altra.', levels: [
+  { name: 'Simetria', sub: 'Miralls: el que hi ha a una banda, a l\'altra.', screen: 'arcade', levels: [
     read('Mirall o no?', 'Un dibuix és simètric si la línia groga és com un mirall: a cada banda hi ha el mateix.',
       [[pic(C, { axis: 'v' }), q.sym(C, true, 'Sí: les dues bandes del cor són iguals.')], [pic(FA, { axis: 'v' }), q.sym(FA, false, 'No: els ulls miren cap a l\'esquerra, i a l\'altra banda no és igual.')],
         [pic(IN, { axis: 'v' }), q.sym(IN, true, "Sí: l'invasor és igual a les dues bandes.")]]),
     read("L'intrús", 'Algú ha canviat un píxel i el dibuix ja no és simètric. Troba\'l!',
       [[pic(ODD_B, { axis: 'v' }), q.odd(ODD_B, 3, 7)], [pic(ODD_G, { axis: 'v' }), q.odd(ODD_G, 5, 2)], [pic(ODD_I, { axis: 'v' }), q.odd(ODD_I, 4, 9)]]),
-    paint('Completa el bolet', "Tens la meitat esquerra. Pinta la dreta com si fos un mirall: el que és a prop de la línia, a prop; el que és lluny, lluny.", { given: half(B, 'v'), goal: B, colors: ['r', 'w', 'k'], axis: 'v' }),
-    paint('Completa la granota', 'La meitat de la granota. Completa-la!', { given: half(GR, 'v'), goal: GR, colors: ['g', 'w', 'k', 'p'], axis: 'v' }),
+    paint('Completa el bolet', "Tens la meitat esquerra. Pinta la dreta com si fos un mirall: el que és a prop de la línia, a prop; el que és lluny, lluny.", { given: half(B, 'v'), goal: B, colors: ['r', 'w', 'k'], axis: 'v', fly: from.flipV(B) }),
+    paint('Completa la granota', 'La meitat de la granota. Completa-la!', { given: half(GR, 'v'), goal: GR, colors: ['g', 'w', 'k', 'p'], axis: 'v', fly: from.flipV(GR) }),
     read('Comptar amb el mirall', 'Amb un mirall, cada píxel té un bessó a l\'altra banda.',
       [[pic(half(B, 'v'), { axis: 'v' }), q.calc('Aquesta meitat té 22 píxels pintats. Quants en tindrà el bolet sencer?', 44, 'L\'altra meitat és igual.', '22 × 2 = 44.')],
         [ax(dots(8, 5, [[4, 2, 'r']]), { axis: 'v' }), q.pick('El píxel vermell (4, 2) es reflecteix al mirall. On va a parar?', [pt(4, 7), pt(4, 6), pt(5, 2)], 'Compta quantes columnes hi ha del píxel al mirall, i compta les mateixes a l\'altra banda. La fila no canvia.', 'Al (4, 7): és a 3 columnes del mirall, com el (4, 2).')],
         [ax(dots(8, 5, [[2, 3, 'b']]), { axis: 'v' }), q.tap('Toca on va a parar el reflex del píxel blau (2, 3).', ['2,6'], 'El (2, 3) és a 2 columnes del mirall.', 'Al (2, 6).')]]),
-    paint('Mirall de través', 'Ara el mirall està ajagut: la meitat de baix és la de dalt al revés.', { given: half(G('joia'), 'h'), goal: G('joia'), colors: ['c', 'b', 'w'], axis: 'h' }),
-    paint('Dos miralls', 'Dos miralls! Tens un quart de la rosassa: completa els altres tres quarts.', { given: half(G('rosassa'), 'vh'), goal: G('rosassa'), colors: ['r', 'b', 'y', 'w'], axis: 'vh' }),
+    paint('Mirall de través', 'Ara el mirall està ajagut: la meitat de baix és la de dalt al revés.', { given: half(G('joia'), 'h'), goal: G('joia'), colors: ['c', 'b', 'w'], axis: 'h', fly: from.flipH(G('joia')) }),
+    paint('Dos miralls', 'Dos miralls! Tens un quart de la rosassa: completa els altres tres quarts.', { given: half(G('rosassa'), 'vh'), goal: G('rosassa'), colors: ['r', 'b', 'y', 'w'], axis: 'vh', fly: (f, c) => [f > 4 ? 9 - f : f, c > 4 ? 9 - c : c] }),
     read('Quins miralls?', 'Un dibuix pot tenir un mirall, dos, o cap.',
       [[pic(C, { axis: 'vh' }), mirrors(0, 'Només el vertical: el cor no és igual de cap per avall.')], [pic(G('joia'), { axis: 'vh' }), mirrors(1, "Només l'horitzontal: el blanc és a l'esquerra.")],
         [pic(FA, { axis: 'vh' }), mirrors(3, 'Cap: els ulls i les potes trenquen els dos miralls.')]]),
@@ -305,7 +457,7 @@ export const SECTIONS = [
         [ax(dots(10, 4, [[1, 5, 'g']]), { axis: 'v' }), q.calc('I el (1, 5)?', 6, '5 + ? = 11.', 'A la 6: just a l\'altra banda del mirall.')]]),
     paint('Inventa un sprite simètric', 'Inventa un dibuix simètric de 10 píxels en total: 4 grocs i els altres del color que vulguis.', { w: 6, h: 5, rules: [['sym', 'v'], ['total', 10], ['count', 'y', 4]], colors: ['y', 'r', 'b', 'g'], axis: 'v' })
   ] },
-  { name: 'Mosaics', sub: 'Rajoles i sèries que es repeteixen.', levels: [
+  { name: 'Mosaics', sub: 'Rajoles i sèries que es repeteixen.', screen: 'tele', levels: [
     read('Sèries', 'Una sèrie repeteix sempre el mateix tros. Aquí: vermell, blau, blau.',
       same(pic(['rbbrbbrbbrbb']), q.pick('Si la sèrie continua, de quin color és el píxel 13?', ['vermell', 'blau'], 'Després de cada blau, blau ve un vermell.', 'El 13 torna a començar el tros: vermell.'),
         q.calc('Quants blaus hi ha en aquests 12 píxels?', 8, 'Cada tros de 3 té 2 blaus, i hi ha 4 trossos.', '4 × 2 = 8.'),
@@ -333,7 +485,7 @@ export const SECTIONS = [
         q.calc('I quants grocs tindria un terra de 20 × 10 rajoles?', 400, '20 × 10 = 200 rajoles.', '200 × 2 = 400.'))),
     paint('Inventa una rajola', 'Inventa una rajola de 2 × 2 i repeteix-la per tot el quadre. Fes servir dos colors o més.', { w: 6, h: 4, rules: [['tiled', 2, 2], ['full'], ['colors', 2]], colors: ['r', 'y', 'b', 'g', 'w'], tiles: [2, 2] })
   ] },
-  { name: 'La botiga de boletes', sub: 'Quantes boletes de cada color calen per fer un sprite.', levels: [
+  { name: 'La botiga de boletes', sub: 'Quantes boletes de cada color calen per fer un sprite.', screen: 'boletes', levels: [
     read('Comptar boletes', 'Les boletes de planxar són píxels de veritat: cada píxel del dibuix és una boleta.',
       same(pic(B), q.count(B, 'r', 'el bolet'), q.count(B, 'w', 'el bolet'), q.calc('Quantes boletes calen en total per fer el bolet?', 44, 'Suma les vermelles, les blanques i les negres.', '20 + 22 + 2 = 44.'))),
     read('Molts cors', 'Per fer molts dibuixos iguals, multiplica.',
@@ -358,8 +510,162 @@ export const SECTIONS = [
         [pic(G('poma')), q.calc('El cor té 27 boletes vermelles. Compta les de la poma i digues quantes calen per fer tots dos.', 57, 'La poma en té 30: compta fila per fila.', '27 + 30 = 57.')],
         [pic(G('estrella')), q.calc("L'estrella té 23 boletes grogues i la moneda, 24. Quantes grogues per fer-ne dues de cada?", 94, '(23 + 24) × 2.', '47 × 2 = 94.')]]),
     paint("Copia l'invasor", "L'últim: copia l'invasor del model.", { goal: IN, model: pic(IN), colors: ['g'] })
+  ] },
+  { name: 'Girs i moviments', sub: 'Moure, girar i fer gran un sprite.', screen: 'arcade', levels: [
+    read('El cranc camina', 'Els sprites dels videojocs caminen fotograma a fotograma: a cada fotograma, el cranc avança 2 columnes.',
+      same(anim(walk([CR, CRB], 20, 6, 2, 1, 2, 7), { fps: 3 }),
+        q.calc('A cada fotograma el cranc avança 2 columnes. Quantes columnes avança en 4 fotogrames?', 8, '2 columnes, 4 vegades: 4 × 2.', '4 × 2 = 8 columnes.'),
+        q.calc('Comença amb la pinça a la columna 1. A quina columna és la pinça després de 6 fotogrames?', 13, 'En 6 fotogrames avança 6 × 2 = 12 columnes. Suma-les a la columna 1.', '1 + 12 = 13.'),
+        q.calc('Una pantalla fa 30 columnes. Quants fotogrames calen per avançar 30 columnes?', 15, 'Quantes vegades 2 fan 30? 30 : 2.', '30 : 2 = 15 fotogrames.'))),
+    read('Mou el cranc', 'Moure un sprite és sumar o restar a les files i a les columnes. Tots els píxels es mouen igual!',
+      [eyeMove(14, 10, 1, 1, 4, 5), eyeMove(14, 10, 5, 6, -3, 1), eyeMove(14, 10, 2, 7, 3, -6)]),
+    paint('Copia el cranc més avall', 'Copia el cranc 5 files més avall: el píxel (f, c) va a parar a (f + 5, c). La columna no canvia!',
+      { given: crabAt(8, 10, 1, 1), goal: over(crabAt(8, 10, 1, 1), crabAt(8, 10, 6, 1)), colors: ['t', 'k'], axes: true, fly: from.shift(5, 0) }),
+    read('Mitja volta', 'Fer mitja volta és posar el dibuix de cap per avall: el de dalt va a baix, i el de l\'esquerra, a la dreta.',
+      [turnDot(5, 4, 1, 2, 2), turnDot(5, 4, 2, 5, 2), turnDot(5, 4, 3, 3, 2)]),
+    read('Quart de volta', 'Un quart de volta és girar com les agulles del rellotge: la fila de dalt es torna la columna de la dreta.',
+      [turnDot(5, 5, 1, 2, 1), turnDot(5, 5, 4, 1, 1), turnDot(5, 5, 5, 3, 1)]),
+    read('Gir o mirall?', 'Un mirall canvia l\'esquerra per la dreta. Un gir fa voltar tot el dibuix.',
+      [which(flipV(FP), 0, "Un mirall: l'esquerra i la dreta s'han canviat, però el de dalt continua a dalt."), which(rot180(FP), 1, "Mitja volta: el de dalt ha anat a baix i el de l'esquerra, a la dreta."),
+        which(rot90(FP), 2, 'Un quart de volta, com les agulles del rellotge: ara la forma està ajaguda.')]),
+    read('Tetris', 'Al Tetris, les peces cauen i les has de girar perquè encaixin al forat.',
+      [fit(['b.', 'b.', 'bb'], 1), fit(['lll', '.l.'], 2),
+        [pic(['....bb....', 'nnn.nnnn..']), q.calc('Una fila plena desapareix. Quants píxels falten per omplir la fila de baix?', 3, 'La fila té 10 píxels. Compta els grisos i resta.', '10 − 7 = 3. Amb 3 més, la fila desapareix!')]]),
+    paint("Gira l'espasa", "Gira l'espasa un quart de volta, com les agulles del rellotge. La punta, que mirava amunt, mirarà a la dreta.",
+      { goal: rot90(G('espasa')), model: pic(G('espasa')), colors: ['n', 'y', 'm'], after: () => ({ from: pic(G('espasa')), pic: pic(rot90(G('espasa'))), src: from.rot90(G('espasa')) }) }),
+    read('El doble de gran', 'Per fer un sprite el doble de gran, cada píxel es torna un quadrat de 2 × 2.',
+      [[pic(G('corPetit')), q.count(G('corPetit'), 'r', 'el cor petit')],
+        [pic(G('corPetit')), morph(q.calc('Si el fem el doble d\'ample i el doble d\'alt, quants píxels tindrà?', 44, 'Cada píxel es torna 2 × 2 = 4 píxels: 11 × 4.', '11 × 4 = 44. No és el doble: és 4 vegades més!'), pic(scale(G('corPetit'), 2)), from.scale(2))],
+        [pic(G('corPetit')), morph(q.calc('I si el cor petit el fem el triple d\'ample i el triple d\'alt?', 99, 'Cada píxel es torna 3 × 3 = 9 píxels: 11 × 9.', '11 × 9 = 99.'), pic(scale(G('corPetit'), 3)), from.scale(3))]]),
+    paint('Fes-lo el doble', 'Fes el bolet petit el doble de gran: cada píxel del model es torna un quadrat de 2 × 2.',
+      { goal: scale(BP, 2), model: pic(BP), colors: ['r', 'w'], done: '11 píxels × 4 = 44 píxels!', after: () => ({ from: pic(BP), pic: pic(scale(BP, 2)), src: from.scale(2) }) })
+  ] },
+  { name: 'La pantalla per dins', sub: 'Com funcionen les pantalles de veritat.', screen: 'monitor', levels: [
+    read('La lupa', 'Si mires una pantalla amb una lupa, veuràs que cada píxel són 3 llums petites: una vermella, una verda i una blava.',
+      [[pic(LENS), morph(q.calc('Cada píxel són 3 llums. Quantes llums hi ha en aquests 4 píxels?', 12, '4 píxels, 3 llums a cada un: 4 × 3.', '4 × 3 = 12 llums. Mira-les!'), pic(subpix(LENS)), from.scale(3))],
+        [pic(subpix(LENS)), q.calc('Quantes llums estan enceses? Una llum és una tira de color de dalt a baix.', lit(subpix(LENS)), 'Compta les tires de color: el blanc les té totes tres enceses.', `El blanc 3, el groc 2, el vermell 1 i el blau cel 2: ${lit(subpix(LENS))}.`)],
+        [pic(subpix(LENS)), q.calc('Una pantalla petita fa 10 × 8 píxels. Quantes llums té?', 240, '10 × 8 = 80 píxels, i cada un té 3 llums.', '80 × 3 = 240 llums.')]]),
+    read('Barreja de llum', 'Amb llum, els colors es barregen diferent que amb pintura: vermell i verd fan groc!',
+      [mix('y', ['groc', 'blanc', 'verd'], 'Vermell i verd encesos fan groc.'), mix('c', ['blau cel', 'blau', 'verd'], 'Verd i blau encesos fan blau cel.'),
+        mix('w', ['blanc', 'groc', 'gris'], 'Totes tres enceses fan blanc!')]),
+    read('La consola de butxaca', 'Les consoles antigues de butxaca tenien una pantalla de 160 × 144 píxels, feta de rajoles de 8 × 8. Aquí cada quadret és una rajola.',
+      same(pic(POCKET, { screen: 'gameboy' }),
+        q.calc('La pantalla fa 160 píxels d\'ample. Quantes rajoles de 8 píxels hi caben en una fila?', 20, 'Quantes vegades 8 fan 160? Pensa: 8 × 2 = 16, i 16 × 10 = 160.', '160 : 8 = 20 rajoles.'),
+        q.calc('I d\'alt fa 144 píxels. Quantes files de rajoles hi ha?', 18, '8 × 18 = ? Prova: 8 × 10 = 80 i 8 × 8 = 64.', '144 : 8 = 18 files.'),
+        q.calc('Quantes rajoles té tota la pantalla?', 360, '20 rajoles a cada fila, i 18 files: 20 × 18 = 20 × 10 + 20 × 8.', '200 + 160 = 360 rajoles.'))),
+    read('Pixela', 'Per fer una foto més petita, cada bloc de 2 × 2 píxels es torna un sol píxel, del color que hi ha més.',
+      same(pic(NOISY, { tiles: [2, 2] }),
+        q.pick('De quin color serà el bloc de dalt a l\'esquerra?', ['blau', 'groc', 'vermell'], 'Mira el bloc de 2 × 2 de dalt a l\'esquerra: quin color hi ha més?', 'Hi ha 3 blaus i 1 groc: guanya el blau.'),
+        q.calc('El dibuix fa 8 × 8. Si cada bloc de 2 × 2 es torna un píxel, quants píxels tindrà el dibuix nou?', 16, 'Quants blocs hi ha a cada fila? 8 : 2. I quantes files de blocs?', '4 × 4 = 16 píxels.'),
+        morph(q.calc('De 64 píxels a 16. Quantes vegades menys píxels té?', 4, '64 : 16.', '64 : 16 = 4. Mira com queda!'), pic(scale(pixelate(NOISY, 2), 2), { tiles: [2, 2] })))),
+    paint('Pixela tu', 'Cada bloc de 2 × 2 del model es torna un sol píxel, del color que hi ha més. Si hi ha més buits, el píxel queda buit!',
+      { goal: pixelate(NOISY2, 2), model: pic(NOISY2, { tiles: [2, 2] }), colors: ['r', 'w', 'm'] }),
+    read('La barra de càrrega', 'Quan un joc carrega, una barra es va omplint. Quina part està plena?',
+      [[pic(bar(20, 15)), q.fr('Quina fracció de la barra està plena?', [15, 20], 'A dalt, els píxels verds. A baix, tots els de la barra: 20.', '15 de 20 = 3/4.')],
+        [pic(bar(20, 15)), q.calc('Quants píxels falten perquè s\'acabi de carregar?', 5, 'Tots els de la barra menys els verds.', '20 − 15 = 5.')],
+        [pic(bar(12, 0)), morph(q.calc(`Aquesta barra fa 12 píxels. Quants n'hauries de pintar per omplir-ne ${F(2, 3)}?`, 8, '12 en 3 parts iguals: cada terç són 4. Dos terços: 2 × 4.', '12 : 3 = 4, i 2 × 4 = 8.'), pic(bar(12, 8)))]]),
+    paint('La barra de vida', 'La barra de vida d\'un videojoc: pinta 3/4 de verd (la vida que et queda) i la resta de vermell.',
+      { w: 8, h: 2, rules: [['frac', 'g', 3, 4], ['frac', 'r', 1, 4], ['full']], colors: ['g', 'r'] }),
+    read('El rètol de llums', 'Els rètols de les botigues i de les estacions són pantalles de llums rodones. Les lletres fan 3 × 5 llums.',
+      [[pic(word('HOLA', 'r'), { screen: 'led' }), q.calc('Cada lletra fa 3 columnes, i entre lletra i lletra hi ha 1 columna buida. Quantes columnes ocupa «HOLA»?', 15, '4 lletres de 3 columnes, i 3 forats entre elles.', '4 × 3 + 3 = 15 columnes.')],
+        [pic(word('HOLA', 'r'), { screen: 'led' }), q.calc('Quantes llums s\'encenen per escriure «HOLA»?', count(word('HOLA', 'r'), 'r'), 'Compta lletra per lletra: la H en té 11.', `11 + 12 + 7 + 12 = ${count(word('HOLA', 'r'), 'r')} llums.`)],
+        [anim(scroll(word('HOLA', 'r'), 15), { fps: 5, screen: 'led' }), q.calc('El text avança 1 columna a cada fotograma, i el rètol en fa 5 per segon. Quants segons triga a avançar les 15 columnes de «HOLA»?', 3, '15 columnes, 5 a cada segon: 15 : 5.', '15 : 5 = 3 segons.')]]),
+    read('El rellotge digital', 'Els números d\'un rellotge digital es fan amb 7 barretes. El 8 les encén totes.',
+      [[pic(clock('20:26', 'c'), { screen: 'rellotge', lines: false }), q.calc('Quantes barretes s\'encenen per escriure 20:26?', bars('2026'), 'Compta les de cada número: el 2 en té 5, el 0 en té 6...', `5 + 6 + 5 + 6 = ${bars('2026')}.`)],
+        [pic(clock('11:11', 'c'), { screen: 'rellotge', lines: false }), q.calc('I per escriure 11:11?', bars('1111'), 'Cada 1 té 2 barretes.', `4 × 2 = ${bars('1111')}.`)],
+        [pic(clock('08:08', 'c'), { screen: 'rellotge', lines: false }), q.pick('Quina hora encén més barretes?', ['08:08', '10:10', '11:11'], 'El 8 en té 7, el 0 en té 6 i l\'1 en té 2.', `08:08 en fa ${bars('0808')}: 6 + 7 + 6 + 7.`)]]),
+    read('Mides i percentatges', 'Ara, coses de pantalles de veritat: fer icones més grans, el % de les bateries i la forma de les teles.',
+      [[pic(G('creeper')), morph(q.calc('Una icona de 8 × 8 la fem de 16 × 16. Quantes vegades més píxels té?', 4, '8 × 8 = 64 i 16 × 16 = 256. O pensa: el doble d\'ample i el doble d\'alt.', '256 : 64 = 4 vegades.'), pic(scale(G('creeper'), 2)), from.scale(2))],
+        [pic(bar(10, 7)), q.calc('Aquesta barra té 10 píxels, i cada píxel és el 10 %. Quin percentatge està ple? (Escriu només el número.)', 70, 'Compta els verds: cada un val 10.', '7 × 10 = 70 %. El 100 % és la barra sencera.')],
+        [pic(blank(16, 9)), q.calc('Les teles són 16:9: per cada 16 columnes, 9 files, com aquesta. Si una pantalla fa 32 columnes, quantes files té?', 18, '32 són 2 vegades 16. Les files també es fan el doble.', '9 × 2 = 18 files. Una tele de veritat fa 1920 × 1080!')]])
+  ] },
+  { name: 'Fotogrames', sub: 'Dibuixos que es mouen, fotograma a fotograma.', screen: 'tele', levels: [
+    read('El llibre animat', 'Una animació són dibuixos que es mostren molt de pressa, un darrere l\'altre. Aquest cranc en té 2: el 1 amb les potes juntes i el 2 amb les potes obertes.',
+      same(anim([stamp(blank(10, 7), CR, 2, 2), stamp(blank(10, 7), CRB, 2, 2)]),
+        q.calc('L\'animació en mostra 4 cada segon. Quants fotogrames es mostren en 5 segons?', 20, '4 a cada segon, durant 5 segons: 5 × 4.', '5 × 4 = 20 fotogrames.'),
+        q.calc('Els fotogrames van 1, 2, 1, 2... Dels 20, quants són el fotograma 1, el de les potes juntes?', 10, 'Cada dos fotogrames, un és el 1: 20 : 2.', '20 : 2 = 10.'),
+        q.calc('Quants segons calen per mostrar 60 fotogrames?', 15, '4 cada segon: quantes vegades 4 fan 60?', '60 : 4 = 15 segons.'))),
+    read('Cine i videojocs', 'El cine mostra 24 fotogrames cada segon. Un videojoc, 60. Com més fotogrames, més suau es veu el moviment!',
+      same(anim(walk([CR, CRB], 20, 6, 2, 1, 2, 7), { fps: 6 }),
+        q.calc('El cine fa 24 fotogrames per segon. Quants en fa en 3 segons?', 72, '24 × 3 = 20 × 3 + 4 × 3.', '60 + 12 = 72.'),
+        q.calc('Un videojoc fa 60 fotogrames per segon. Quants en fa en 2 segons?', 120, '60 × 2.', '60 × 2 = 120.'),
+        q.calc('En un segon, quants fotogrames més fa el videojoc que el cine?', 36, '60 − 24.', '60 − 24 = 36.'))),
+    read('El bucle', 'Aquesta moneda gira amb 3 fotogrames que es repeteixen: 1 de cara, 2 de costat, 3 de cantell, i torna a començar.',
+      same(anim(COIN, { fps: 3 }),
+        q.pick('Quin fotograma es veu el número 10?', ['El 1', 'El 2', 'El 3'], 'Cada 3 fotogrames torna a començar. 9 = 3 × 3: el 9 acaba una volta.', 'El 9 és un 3, i el 10 torna a ser el 1.'),
+        q.pick('I el número 20?', ['El 2', 'El 1', 'El 3'], '18 = 3 × 6: el 18 acaba una volta. Després, el 19 i el 20.', 'El 19 és el 1 i el 20, el 2.'),
+        q.calc('En els primers 30 fotogrames, quantes vegades surt el 3?', 10, 'Un 3 a cada volta de 3 fotogrames.', '30 : 3 = 10.'))),
+    paint('El segon fotograma', 'El cranc del model té les potes juntes: és el fotograma 1. Pinta les potes obertes del fotograma 2, a les caselles de la llista, i el veuràs caminar!',
+      { given: CRB.map((r, i) => i === 4 ? '........' : r), goal: CRB, how: 'coords', model: pic(CR), colors: ['t'], axes: true,
+        after: () => ({ pic: anim(walk([CR, CRB], 20, 6, 2, 1, 2, 7), { fps: 4 }) }) }),
+    read('Quant es mou?', 'Ara el cranc avança 3 columnes a cada fotograma.',
+      same(anim(walk([CR, CRB], 20, 6, 2, 1, 3, 5), { fps: 3 }),
+        q.calc('Quantes columnes avança en 4 fotogrames?', 12, '4 × 3.', '4 × 3 = 12.'),
+        q.calc('L\'animació va a 6 fotogrames per segon. Quantes columnes avança en un segon?', 18, '6 fotogrames de 3 columnes: 6 × 3.', '6 × 3 = 18 columnes.'),
+        q.calc('Quants segons triga a avançar 54 columnes?', 3, '18 columnes a cada segon: quantes vegades 18 fan 54?', '18 × 3 = 54: 3 segons.'))),
+    read('El rebot', 'La pilota va de la columna 1 a la 8 i torna, 1 columna a cada fotograma, com al Pong.',
+      same(anim(Array.from({ length: 14 }, (_, k) => dots(8, 3, [[2, bounce(8, k), 'y']])), { fps: 5, axes: true }),
+        q.calc('Quants fotogrames triga a anar de la columna 1 a la 8 i tornar a la 1?', 14, 'Per anar de l\'1 al 8 fa 7 passos. I per tornar, 7 més.', '7 + 7 = 14.'),
+        q.calc('Comença a la columna 1. A quina columna és després de 10 fotogrames?', bounce(8, 10), 'Després de 7 fotogrames és a la 8, i llavors torna enrere.', `Després de 7 és a la 8; 3 més enrere: 8 − 3 = ${bounce(8, 10)}.`),
+        q.calc('I després de 28 fotogrames?', 1, 'Cada 14 fotogrames torna a la columna 1. 28 = 14 × 2.', '28 són 2 voltes senceres: torna a l\'1.'))),
+    read('El fons que corre', 'Als videojocs de plataformes, el fons corre cap a l\'esquerra i sembla que el personatge camina. La pantalla en mostra un tros de 8 columnes.',
+      same(anim(Array.from({ length: 17 }, (_, k) => WORLD.map(r => r.slice(2 * k, 2 * k + 8))), { fps: 4 }),
+        q.calc('El món fa 40 columnes i la pantalla en mostra 8. Quantes pantalles seguides fa el món?', 5, 'Quantes vegades 8 fan 40?', '40 : 8 = 5 pantalles.'),
+        q.calc('El fons corre 2 columnes a cada fotograma. Quants fotogrames calen per passar una pantalla de 8 columnes?', 4, '8 : 2.', '8 : 2 = 4 fotogrames.'),
+        q.calc('I per passar tot el món de 40 columnes?', 20, '40 : 2. O bé: 5 pantalles de 4 fotogrames.', '40 : 2 = 20 fotogrames.'))),
+    paint('El fotograma següent', 'Al model, la pilota baixa 1 fila i va 2 columnes a la dreta a cada fotograma. Pinta-la on serà al fotograma 3!',
+      { goal: ballAt(3), model: anim([ballAt(1), ballAt(2)], { fps: 2, axes: true }), colors: ['r'], axes: true,
+        after: () => ({ pic: anim([ballAt(1), ballAt(2), ballAt(3), ballAt(4)], { fps: 3, axes: true }) }) }),
+    read('La cursa', 'Dos quadrats fan una cursa: el vermell avança 2 columnes a cada fotograma i el blau, 3. El camí fa 24 columnes.',
+      same(anim(Array.from({ length: 8 }, (_, k) => stamp(stamp(blank(24, 6), box(2, 2, 'r'), 1, 1 + 2 * k), box(2, 2, 'b'), 4, 1 + 3 * k)), { fps: 3 }),
+        q.calc('Després de 6 fotogrames, quantes columnes més ha fet el blau que el vermell?', 6, 'El vermell, 6 × 2. El blau, 6 × 3.', '18 − 12 = 6 columnes.'),
+        q.fr('Quina fracció del camí de 24 columnes ha fet el vermell després de 6 fotogrames?', [12, 24], 'Ha fet 6 × 2 = 12 columnes, de 24.', '12 de 24 = 1/2: la meitat!'),
+        q.fr('I el blau?', [18, 24], 'Ha fet 6 × 3 = 18 columnes, de 24.', '18 de 24 = 3/4.'))),
+    paint('Anima el teu sprite', 'Inventa un sprite de 10 píxels exactes, amb 2 colors o més. Quan el comprovis, el veuràs saltar per la pantalla!',
+      { w: 6, h: 5, rules: [['total', 10], ['colors', 2]], colors: ['t', 'r', 'y', 'g', 'b', 'w', 'k'],
+        after: g => ({ pic: anim(Array.from({ length: 8 }, (_, k) => stamp(blank(20, 7), g, 1 + (k % 2 ? 0 : 2), 1 + 2 * k)), { fps: 4 }) }) })
+  ] },
+  { name: 'Filtres', sub: 'Canviar els colors sense canviar els píxels.', screen: 'mobil', levels: [
+    read('El negatiu', 'El filtre negatiu canvia cada color pel seu contrari: el blanc es torna negre, i el vermell, blau cel.',
+      [[pic(B), q.pick('I el negre, de quin color es tornarà?', ['blanc', 'negre', 'gris'], 'El negre és el contrari del blanc.', 'Blanc: el negre i el blanc es canvien.')],
+        [pic(B), morph(q.calc('El bolet té 22 píxels blancs. Després del filtre, quants de negres tindrà?', 22, 'Cada blanc es torna negre.', '22 blancs → 22 negres. Mira!'), pic(recolor(B, NEG)))],
+        [pic(recolor(B, NEG)), q.calc('Quants píxels pintats té el bolet ara? Abans en tenia 44.', 44, 'El filtre canvia els colors, no els píxels.', '44, els mateixos: el filtre no n\'afegeix ni en treu cap.')]]),
+    read('Blanc i negre', 'El filtre de blanc i negre torna grisos tots els colors: els clars, gris clar; els foscos, gris fosc.',
+      [[pic(MO), morph(q.frac(MO, 'o'), pic(recolor(MO, GRAY)))],
+        [pic(recolor(MO, GRAY)), q.fr('Ara, quina fracció del quadre és gris (la part que abans era taronja)?', [2, 9], 'Els píxels són els mateixos: abans eren taronja i ara són grisos.', '8 de 36 = 2/9, igual que abans!')],
+        [pic(recolor(MO, GRAY)), q.pick('Quants píxels pintats té ara la moneda?', ['Els mateixos', 'Més', 'Menys'], 'Un filtre canvia els colors...', 'Els mateixos: 32. Només han canviat els colors.')]]),
+    read('Quatre verds', 'Les consoles de butxaca antigues només tenien 4 colors, tots verds. El filtre torna cada color un d\'aquests 4 verds.',
+      [[pic(FA, { screen: 'gameboy' }), morph(q.calc('El fantasma té 3 colors: lila, blanc i negre. Cada color es torna un verd diferent. Quants verds tindrà?', 3, 'Un verd per a cada color.', '3 colors → 3 verds. Mira\'l!'), pic(recolor(FA, GB), { screen: 'gameboy' }))],
+        [pic(recolor(FA, GB), { screen: 'gameboy' }), q.calc('Per guardar un dels 4 verds, cada píxel feia servir 2 interruptors. Quants interruptors calen per a un sprite de 8 × 8?', 128, '8 × 8 = 64 píxels, 2 interruptors a cada un.', '64 × 2 = 128 interruptors.')],
+        [pic(recolor(FA, GB), { screen: 'gameboy' }), q.calc('I per a un sprite de 16 × 16?', 512, '16 × 16 = 256 píxels. I 2 interruptors a cada un.', '256 × 2 = 512.')]]),
+    read('Canvi de paleta', 'Als videojocs, el mateix sprite surt amb colors diferents canviant la paleta: un color per un altre.',
+      [[pic(C), q.count(C, 'r', 'el cor')],
+        [pic(C), morph(q.calc('Canviem el vermell per verd. Quants píxels verds tindrà el cor?', 27, 'Cada vermell es torna verd.', '27 vermells → 27 verds.'), pic(recolor(C, { r: 'g' })))],
+        [pic(recolor(C, { r: 'g' })), q.fr('El quadre fa 7 × 6 = 42 píxels. Quina fracció del quadre és verda?', [27, 42], 'A dalt els verds, 27. A baix, tots els del quadre.', '27 de 42 = 9/14: la mateixa que tenia el vermell!')]]),
+    paint('Fes el canvi de paleta', 'Copia el bolet, però amb el vermell canviat per blau. Els blancs i els negres no canvien.',
+      { goal: recolor(B, { r: 'b' }), model: pic(B), colors: ['b', 'w', 'k'] }),
+    read('El perímetre', 'El contorn d\'una forma es mesura en costats de píxel: camina per la vora i compta els costats.',
+      [[pic(box(4, 3)), q.calc('Quant fa el contorn d\'aquest rectangle de 4 × 3?', 14, 'Dalt 4 i baix 4. Als costats, 3 i 3.', '4 + 4 + 3 + 3 = 14 costats.')],
+        [pic(box(6, 2, 'g')), q.calc('I el d\'aquest de 6 × 2?', 16, 'Dalt 6 i baix 6. Als costats, 2 i 2.', '6 + 6 + 2 + 2 = 16.')],
+        [pic(box(5, 5, 'r')), q.calc('I el d\'un quadrat de 5 × 5?', 20, 'Té 4 costats iguals de 5.', '4 × 5 = 20.')]]),
+    read('El filtre contorn', 'El filtre contorn esborra els píxels de dins i deixa només els de la vora.',
+      [[pic(box(6, 4, 'b')), morph(q.calc('Quants píxels quedaran després del filtre?', 16, 'Dalt 6 i baix 6. Als costats en queden 2 i 2: no comptis els racons dues vegades!', '6 + 6 + 2 + 2 = 16.'), pic(outline(box(6, 4, 'b'))))],
+        [pic(outline(box(6, 4, 'b'))), q.calc('Quants píxels ha esborrat el filtre?', 8, 'Abans n\'hi havia 6 × 4 = 24.', '24 − 16 = 8. Els del mig: 4 × 2!')],
+        [pic(outline(box(6, 4, 'b'))), q.fr('Quina fracció del quadre queda pintada?', [16, 24], '16 pintats de 24.', '16 de 24 = 2/3.')]]),
+    read('Comprimir', 'Les fotos es guarden per trossos: en lloc de dir el color de cada píxel, es diu «2 buits, 4 vermells, 2 buits».',
+      same(ax(B), q.calc('La fila 1 del bolet es guarda així: «2 buits, 4 vermells, 2 buits». Quants píxels té la fila?', 8, 'Suma els trossos.', '2 + 4 + 2 = 8.'),
+        q.calc('La fila 4 és tota vermella. Quants trossos té?', rle(B[3]).length, 'Si tots els píxels són iguals, n\'hi ha prou amb dir-ho un cop: «8 vermells».', 'Un sol tros: «8 vermells».'),
+        q.calc('Quants trossos té la fila 2?', rle(B[1]).length, 'Cada vegada que canvia el color, comença un tros nou.', `${rle(B[1]).map(([c, n]) => `${n} ${c === '.' ? (n === 1 ? 'buit' : 'buits') : n === 1 ? one(c) : many(c)}`).join(', ')}: ${rle(B[1]).length} trossos.`))),
+    paint('Descomprimeix', 'La poma està guardada per trossos. Pinta fila a fila, d\'esquerra a dreta, i sortirà!',
+      { goal: G('poma'), how: 'rle', colors: ['m', 'g', 'r'], axes: true }),
+    read('Filtres i percentatges', 'Aquest quadre té 10 × 10 = 100 píxels: cada píxel és l\'1 %. El 100 % és el quadre sencer.',
+      [[pic(HUNDRED), q.calc('Quin percentatge del quadre és blau? (Escriu només el número.)', 25, 'Compta els blaus: 2 files de 10 i 5 més.', '25 de 100 = 25 %.')],
+        [pic(HUNDRED), q.pick('El 25 % és la mateixa part que...', [F(1, 4), F(1, 2), F(1, 25)], '25 de 100: quantes vegades 25 fan 100?', '25 de 100 = 1/4. El 50 % és la meitat i el 25 %, un quart.')],
+        [pic(box(10, 10, 'y')), morph(q.calc('Un filtre torna gris el 50 % dels píxels del quadre. Quants píxels són?', 50, 'El 50 % és la meitat.', '100 : 2 = 50 píxels. Mira!'), pic(box(10, 10, 'y').map((r, i) => i < 5 ? r : 'n'.repeat(10))))]])
   ] }
 ];
+// every level shows on the screen of its project, unless it says another
+for (const s of SECTIONS) if (s.screen) s.levels.forEach(l => { l.screen ??= s.screen; });
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
 
 /* ---------- the cursus: circles, projects, marks ---------- */
@@ -367,7 +673,9 @@ export const PROJECTS = SECTIONS;
 export const CIRCLES = [
   { name: 'Primers píxels', projects: [0, 1] },
   { name: 'Colors i miralls', projects: [2, 3] },
-  { name: 'Mosaics i botiga', projects: [4, 5] }
+  { name: 'Mosaics i botiga', projects: [4, 5] },
+  { name: 'Pantalles i moviments', projects: [6, 7] },
+  { name: 'Animació i filtres', projects: [8, 9] }
 ];
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', badges: p => badges(p), BADGES: () => BADGES });
 export const { circleOf, noteOf, reached, xpOf, levelText, isOpen, examOpen, levelIn, examIn, sheetIn } = cursus;
@@ -379,7 +687,8 @@ export const POOL = [
   { pic: pic(['rrbb']), q: q.pick('Quina part del quadre és vermella?', ['La meitat', 'Un quart', 'Tot'], 'Hi ha 4 píxels: quants són vermells?', '2 de 4: la meitat!') }
 ];
 
-// What is saved is facts only: { so, stars[60], piscina, exams[3], fulls }. Marks, XP, level and badges are worked out, never stored.
+// What is saved is facts only: { so, stars[100], piscina, exams[5], fulls }. A save from before the circles of screens had 60 stars and
+// 3 exams: the places of the new projects and exams start empty. Marks, XP, level and badges are worked out, never stored.
 // a complete progress inside its limits from any value at all; a new object
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
@@ -391,9 +700,13 @@ export const BADGES = [
   { name: 'Primer full', what: "Caça bé les errades d'un full." },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
   { name: 'Deu fulls', what: "Caça bé les errades de deu fulls." },
-  { name: 'Mestre del píxel', what: 'Supera els tres exàmens.' }
+  { name: 'Mestre del píxel', what: 'Supera els exàmens dels tres primers cercles.' },
+  { name: 'Píxels en moviment', what: "Supera l'examen del cercle 3." },
+  { name: 'Mestre de les pantalles', what: "Supera l'examen del cercle 4." }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+// «Mestre del píxel» was the badge of the three first exams, and stays so when more circles come
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.slice(0, 3).every(e => e === true),
+  p.exams[3] === true, p.exams[4] === true];
 
 /* ---------- the exam and «Caça l'errada» ---------- */
 // Chance enters only through rnd (a function like Math.random).
@@ -415,7 +728,8 @@ export function exam(c, rnd) {
 // A sheet: three sentences somebody wrote about a drawing, each { kind, pic, says, real, opts }: says is the sentence written, real the
 // true one (the sentence is wrong when they differ) and opts the three to choose from when fixing it. The mistakes are the ones a
 // child makes: a pixel counted twice or missed, the numbers of an address turned round, the sides of a rectangle added instead of
-// multiplied, and a colour compared with the other colour instead of with the whole
+// multiplied, a colour compared with the other colour instead of with the whole, a drawing made twice as big taken for twice as many
+// pixels (it has four times as many) and the corners of a frame counted twice
 const pickOf = (a, rnd) => a[at(a.length, rnd)];
 const SHEET = ['bolet', 'cor', 'moneda', 'estrella', 'granota', 'fantasma', 'poma', 'creeper'];
 const CLAIM = {
@@ -443,6 +757,15 @@ const CLAIM = {
     const [a, b] = shuffle(['r', 'b', 'y', 'g', 'l'], rnd), g = scatter(w, h, [[a, k], [b, N - k]], 1 + at(1000, rnd));
     const say = ([x, z]) => `${F(x, z)} del quadre és de color ${one(a)}.`, right = simp(k, N), pp = simp(k, N - k), other = simp(N - k, N);
     return { pic: pic(g), real: say(right), says: say(bad ? pp : right), opts: shuffle([right, pp, other].map(say), rnd) };
+  },
+  scale(bad, rnd) {
+    const s = SPRITES[pickOf(['cor', 'moneda', 'poma', 'estrella', 'corPetit', 'espasa'], rnd)], n = painted(s.g);
+    const say = x => `Si fem ${s.the} el doble de gran (cada píxel, 2 × 2), tindrà ${x} píxels pintats.`;
+    return { pic: pic(s.g), real: say(4 * n), says: say(bad ? 2 * n : 4 * n), opts: shuffle([4 * n, 2 * n, n + 4].map(say), rnd) };
+  },
+  frame(bad, rnd) {
+    const w = 4 + at(6, rnd), h = 3 + at(5, rnd), real = 2 * w + 2 * h - 4, say = x => `El marc té ${x} píxels.`;
+    return { pic: pic(frameOf(w, h, pickOf(['m', 'n', 'y', 'b'], rnd))), real: say(real), says: say(bad ? real + 4 : real), opts: shuffle([...new Set([real, real + 4, w * h, real + 2])].slice(0, 3).map(say), rnd) };
   }
 };
 export const KINDS = Object.keys(CLAIM);
