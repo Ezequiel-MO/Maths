@@ -337,7 +337,7 @@ function read({ t, L, stage, tip, slip, win, step }) {
 // rings what is wrong; a right one ends the level
 function paint({ t, L, stage, tip, slip, win }) {
   let busy = false, brush = L.colors[0];
-  stage.innerHTML = `${L.model ? '<div class="board model" id="model"><p class="cap">El model</p></div>' : ''}${L.steps ? `<ol class="todo" id="todo">${L.steps.map(s => `<li><b class="sw" style="--c:${COLORS[s.ch].hex}"></b><span>${s.text.replace(/\(\d+, \d+\)/g, '<span class="c">$&</span>')}</span></li>`).join('')}</ol>` : ''}
+  stage.innerHTML = `${L.model ? '<div class="board model" id="model"><p class="cap">El model</p></div>' : ''}${L.steps ? `<ol class="todo" id="todo">${L.steps.map(s => `<li>${s.ch ? `<b class="sw" style="--c:${COLORS[s.ch].hex}"></b>` : ''}<span>${s.text.replace(/\(\d+, \d+\)/g, '<span class="c">$&</span>')}</span></li>`).join('')}</ol>` : ''}
     ${L.rules ? `<ul class="rules" id="rules"><li class="head">El dibuix ha de tenir</li>${L.rules.map(r => `<li>${ruleText(r)}</li>`).join('')}</ul>` : ''}
     <div class="board" id="board"></div><div class="palette" id="pal" role="radiogroup" aria-label="Colors">${[...L.colors, '.'].map(ch => `<button class="pc${ch === '.' ? ' rub' : ''}" data-c="${ch}" role="radio" aria-label="${ch === '.' ? 'Goma' : one(ch)}" style="--c:${ch === '.' ? 'transparent' : COLORS[ch].hex}">${ch === '.' ? 'Goma' : ''}</button>`).join('')}</div>
     <div class="ans"><button class="btn" id="check">Comprova</button></div>`;
