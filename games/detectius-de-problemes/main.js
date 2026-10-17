@@ -114,7 +114,7 @@ function frame(n, label, tools = '') {
 /* ---------- the case: a story, its question and the scene on top ---------- */
 const LUPA = '<span class="lupa" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="13" cy="13" r="8" fill="none" stroke="#fff" stroke-width="4"/><path d="M19 19L27 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg></span>';
 const caseHtml = (prob, place) => `<article class="case"><div class="scn">${scene(place)}</div>
-  <div class="note"><p class="story" id="story"></p><div id="chart"></div><p class="qq">${LUPA}<span>${H(prob.q)}</span></p></div></article>`;
+  <div class="note"><p class="story" id="story"></p><div id="chart"></div><p class="qq">${LUPA}<span class="qt">${H(prob.q)}</span></p></div></article>`;
 // the story: clues are buttons while they are looked for; the ones found stay marked
 function paintStory(stage, prob, st, live) {
   $('#story', stage).innerHTML = prob.segs.map(s => {
@@ -155,6 +155,8 @@ function detective({ t, prob, place, stage, tip, slip, win, good }) {
     st.phase = phase; busy = false; openAt = performance.now() + SETTLE;
     const i = STEPS.findIndex(s => s[0] === phase);
     $('#pass', stage).querySelectorAll('li').forEach((li, j) => { li.className = j < i ? 'done' : j === i ? 'now' : ''; });
+    // the check answers its own question: the number its inverse gives back, not the one of the case
+    $('.qt', stage).textContent = phase === 'check' ? prob.check.ask : prob.q;
     paintCase(); paintAns(); tip(SAY[phase](prob));
     keyFn = phase === 'calc' ? calcKey : phase === 'est' ? estKey : null;
   }

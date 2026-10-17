@@ -89,7 +89,7 @@ const BARS_TITLE = 'Alumnes apuntats a cada esport';
 function twoBars(r, items) { const [x, y] = mix(r, items); return x.v > y.v ? [x, y] : [y, x]; }
 
 /* ---------- the cases ---------- */
-// T[id](r) → { text with {clues}, tok: { clue: { t, u } }, q, unit, exprs (the first is the right one), and maybe answer, dec, hints,
+// T[id](r) → { text with {clues}, tok: { clue: { t, u } }, q, cq (the question the check answers: what its inverse gives back), unit, exprs (the first is the right one), and maybe answer, dec, hints,
 // check, sol, opHint, calcTip, chart }. u marks a clue that is needed; the others are there on purpose
 const T = {
   // ===== the market: adding and taking away =====
@@ -97,25 +97,25 @@ const T = {
     const a = int(r, 150, 480), h = pick(r, [8, 9]); let b; do { b = int(r, 120, 399); } while (b === a);
     return { text: 'Al matí, la fruiteria del mercat va vendre {a} de fruita i a la tarda en va vendre {b}. La fruiteria obre a les {h} del matí.',
       tok: { a: { t: a + ' kg', u: 1 }, b: { t: b + ' kg', u: 1 }, h: { t: String(h) } },
-      q: 'Quants quilos de fruita va vendre en tot el dia?', unit: 'kg', exprs: [E('+', a, b), sub(a, b), E('×', a, b), E('+', a, h)] };
+      q: 'Quants quilos de fruita va vendre en tot el dia?', cq: 'Quants quilos de fruita va vendre al matí?', unit: 'kg', exprs: [E('+', a, b), sub(a, b), E('×', a, b), E('+', a, h)] };
   },
   m2: r => {
     const p = person(r), c = pick(r, [100, 200, 500]), a = c === 100 ? int(r, 35, 94) : c === 200 ? int(r, 105, 189) : int(r, 215, 480), d = int(r, 30, 90) * 10;
     return { text: `${p.Ca} compra un patinet que costa {a} i paga amb un bitllet de {c}. El farà servir per anar a l’escola, que és a {d} de casa seva.`,
       tok: { a: { t: a + ' €', u: 1 }, c: { t: c + ' €', u: 1 }, d: { t: d + ' metres' } },
-      q: 'Quants diners li han de tornar?', unit: '€', exprs: [E('−', c, a), E('+', c, a), sub(d, a), sub(c, d)] };
+      q: 'Quants diners li han de tornar?', cq: 'De quants euros és el bitllet amb què paga?', unit: '€', exprs: [E('−', c, a), E('+', c, a), sub(d, a), sub(c, d)] };
   },
   m3: r => {
     const p = person(r), a = int(r, 220, 520), b = a - int(r, 40, 180), pr = pick(r, [2, 3]);
     return { text: `${p.Ca} té una parada al mercat. Dissabte va vendre {a} de taronges i diumenge, {b}. Cada quilo costa {p}.`,
       tok: { a: { t: a + ' kg', u: 1 }, b: { t: b + ' kg', u: 1 }, p: { t: pr + ' €' } },
-      q: 'Quants quilos més va vendre dissabte que diumenge?', unit: 'kg', exprs: [E('−', a, b), E('+', a, b), E('×', a, pr), E('−', a, pr)] };
+      q: 'Quants quilos més va vendre dissabte que diumenge?', cq: 'Quants quilos de taronges va vendre dissabte?', unit: 'kg', exprs: [E('−', a, b), E('+', a, b), E('×', a, pr), E('−', a, pr)] };
   },
   m4: r => {
     const p = person(r), a = int(r, 180, 450), b = int(r, 60, a - 40), g = pick(r, [6, 18, 21]);
     return { text: `${p.Ca} es vol comprar una bicicleta que costa {a}. Ja ha estalviat {b}. La bicicleta té {g} marxes.`,
       tok: { a: { t: a + ' €', u: 1 }, b: { t: b + ' €', u: 1 }, g: { t: String(g) } },
-      q: 'Quants diners li falten per poder-la comprar?', unit: '€', exprs: [E('−', a, b), E('+', a, b), E('−', a, g), sub(b, g)] };
+      q: 'Quants diners li falten per poder-la comprar?', cq: 'Quant costa la bicicleta?', unit: '€', exprs: [E('−', a, b), E('+', a, b), E('−', a, g), sub(b, g)] };
   },
   m5: r => {
     const p = person(r), cents = [0.25, 0.5, 0.75, 0.2, 0.4, 0.6, 0.8], a = r6(int(r, 2, 6) + pick(r, cents)), n = int(r, 3, 6);
@@ -123,7 +123,7 @@ const T = {
     const A = L(a, { dec: 2 }), B = L(b, { dec: 2 });
     return { dec: 2, text: `${p.Ca} compra un meló per {a} i unes cireres per {b}. La venedora li regala {n} llimones.`,
       tok: { a: { t: fmt(a, 2) + ' €', u: 1 }, b: { t: fmt(b, 2) + ' €', u: 1 }, n: { t: String(n) } },
-      q: 'Quant paga en total?', unit: '€', exprs: [E('+', A, B), a >= b ? E('−', A, B) : E('−', B, A), E('+', E('+', A, B), n), E('×', A, n)],
+      q: 'Quant paga en total?', cq: 'Quant costa el meló?', unit: '€', exprs: [E('+', A, B), a >= b ? E('−', A, B) : E('−', B, A), E('+', E('+', A, B), n), E('×', A, n)],
       opHint: 'Pagar les dues coses és ajuntar els dos preus.' };
   },
   // ===== the school trip: multiplying and sharing out =====
@@ -131,21 +131,21 @@ const T = {
     const n = int(r, 3, 8), k = int(r, 24, 48), h = pick(r, [2, 3, 4]);
     return { text: 'Per anar a la granja escola, l’escola lloga {n}. A cada autobús hi viatgen {k}. El viatge dura {h}.',
       tok: { n: { t: n + ' autobusos', u: 1 }, k: { t: k + ' alumnes', u: 1 }, h: { t: h + ' hores' } },
-      q: 'Quants alumnes van d’excursió?', unit: 'alumnes', exprs: [E('×', n, k), E('+', n, k), E('−', k, n), E('×', E('×', n, k), h)],
+      q: 'Quants alumnes van d’excursió?', cq: 'Quants autobusos lloga l’escola?', unit: 'alumnes', exprs: [E('×', n, k), E('+', n, k), E('−', k, n), E('×', E('×', n, k), h)],
       opHint: 'Hi ha diversos autobusos amb el mateix nombre d’alumnes: és una suma que es repeteix.' };
   },
   e2: r => {
     const g = int(r, 3, 8), q = int(r, 6, 14), t = g * q, d = pick(r, [45, 60, 90]);
     return { text: 'A la granja, els {t} es reparteixen en {g} iguals per fer els tallers. Cada taller dura {d}.',
       tok: { t: { t: t + ' alumnes', u: 1 }, g: { t: g + ' grups', u: 1 }, d: { t: d + ' minuts' } },
-      q: 'Quants alumnes hi ha a cada grup?', unit: 'alumnes', exprs: [E('÷', t, g), E('×', t, g), E('−', t, g), E('÷', t, d)],
+      q: 'Quants alumnes hi ha a cada grup?', cq: 'Quants alumnes es reparteixen en els grups?', unit: 'alumnes', exprs: [E('÷', t, g), E('×', t, g), E('−', t, g), E('÷', t, d)],
       opHint: 'Repartir en parts iguals és dividir.' };
   },
   e3: r => {
     const k = pick(r, [40, 45, 50, 55]), q = int(r, 2, 5), rr = int(r, 3, k - 5), t = k * q + rr, pr = int(r, 4, 9);
     return { answer: q + 1, text: 'A l’excursió hi van {t}, comptant alumnes i mestres. A cada autobús hi caben {k}. L’entrada al parc costa {p} per persona.',
       tok: { t: { t: t + ' persones', u: 1 }, k: { t: k + ' persones', u: 1 }, p: { t: pr + ' €' } },
-      q: 'Quants autobusos necessiten com a mínim perquè hi vagin tots?', unit: 'autobusos',
+      q: 'Quants autobusos necessiten com a mínim perquè hi vagin tots?', cq: `Quantes persones hi caben en ${q + 1} autobusos?`, unit: 'autobusos',
       exprs: [E('÷', t, k), E('×', t, k), E('−', t, k), E('×', t, pr)],
       calcTip: 'Divideix… i pensa què passa amb les persones que sobren.',
       hints: { [q]: `Amb ${q} autobusos hi caben ${q * k} persones… i ${rr} es quedarien a terra! En cal un més.` },
@@ -156,14 +156,14 @@ const T = {
     const pr = int(r, 3, 9), n = int(r, 40, 58), s = int(r, 8, 20);
     return { text: 'L’entrada al museu costa {p} per alumne. Hi van les dues classes de 4t, en total {n}. El museu té {s}.',
       tok: { p: { t: pr + ' €', u: 1 }, n: { t: n + ' alumnes', u: 1 }, s: { t: s + ' sales' } },
-      q: 'Quant paguen en total per les entrades?', unit: '€', exprs: [E('×', n, pr), E('+', n, pr), E('−', n, pr), E('×', s, pr)],
+      q: 'Quant paguen en total per les entrades?', cq: 'Quants alumnes van al museu?', unit: '€', exprs: [E('×', n, pr), E('+', n, pr), E('−', n, pr), E('×', s, pr)],
       opHint: 'Cada alumne paga el mateix: és una suma que es repeteix moltes vegades.' };
   },
   e5: r => {
     const k = int(r, 4, 9), q = int(r, 6, 15), rr = int(r, 2, k - 1), t = k * q + rr, c = int(r, 10, 14);
     return { answer: q, text: 'La mestra té {t} per premiar l’excursió. Vol donar {k} a cada alumne. A la classe hi ha {c} taules.',
       tok: { t: { t: t + ' adhesius', u: 1 }, k: { t: k + ' adhesius', u: 1 }, c: { t: String(c) } },
-      q: 'A quants alumnes pot donar adhesius?', unit: 'alumnes', exprs: [E('÷', t, k), E('×', t, k), E('−', t, k), E('+', t, c)],
+      q: 'A quants alumnes pot donar adhesius?', cq: `Quants adhesius necessita per a ${q} alumnes?`, unit: 'alumnes', exprs: [E('÷', t, k), E('×', t, k), E('−', t, k), E('+', t, c)],
       calcTip: 'Divideix… n’hi ha prou, amb els que sobren, per a un alumne més?',
       hints: { [q + 1]: `No n’hi ha prou! Per a ${q + 1} alumnes en caldrien ${(q + 1) * k} i només n’hi ha ${t}.` },
       check: { q: `${q} × ${k} = ?`, opts: [q * k, (q + 1) * k, q * k - 10], ok: q * k, msg: `${q * k} ≤ ${t}: n’hi ha per a ${q} alumnes i en sobren ${rr}.` },
@@ -174,14 +174,14 @@ const T = {
     const items = bars(r), [X, Y] = twoBars(r, items), Z = items.find(i => i !== X && i !== Y), d = pick(r, [5, 6]);
     return { text: 'Al poliesportiu han comptat quants alumnes s’han apuntat a cada esport. El poliesportiu obre {d} dies a la setmana.',
       tok: { d: { t: String(d) }, ...barTok(items, [X.k, Y.k]) }, chart: { type: 'bars', title: BARS_TITLE, items },
-      q: `Quants alumnes més hi ha a ${X.label.toLowerCase()} que a ${Y.label.toLowerCase()}?`, unit: 'alumnes',
+      q: `Quants alumnes més hi ha a ${X.label.toLowerCase()} que a ${Y.label.toLowerCase()}?`, cq: `Quants alumnes hi ha a ${X.label.toLowerCase()}?`, unit: 'alumnes',
       exprs: [E('−', X.v, Y.v), E('+', X.v, Y.v), sub(X.v, Z.v), E('−', X.v, d)] };
   },
   s2: r => {
     const items = bars(r), [X, Y] = twoBars(r, items), Z = items.find(i => i !== X && i !== Y), m = pick(r, [45, 60]);
     return { text: 'El gràfic mostra els alumnes apuntats a cada esport. Cada entrenament dura {m}.',
       tok: { m: { t: m + ' minuts' }, ...barTok(items, [X.k, Y.k]) }, chart: { type: 'bars', title: BARS_TITLE, items },
-      q: `Quants alumnes hi ha en total entre ${X.label.toLowerCase()} i ${Y.label.toLowerCase()}?`, unit: 'alumnes',
+      q: `Quants alumnes hi ha en total entre ${X.label.toLowerCase()} i ${Y.label.toLowerCase()}?`, cq: `Quants alumnes hi ha a ${X.label.toLowerCase()}?`, unit: 'alumnes',
       exprs: [E('+', X.v, Y.v), E('−', X.v, Y.v), E('+', X.v, Z.v), E('+', E('+', X.v, Y.v), Z.v)] };
   },
   s3: r => {
@@ -192,7 +192,7 @@ const T = {
     for (const row of rows) tok[row.k] = { t: row.label, u: row === X ? 1 : 0, chart: 1 };
     return { text: 'A l’olimpíada de l’escola, cada classe ha guanyat medalles. Mira el pictograma. L’olimpíada va durar {d}.',
       tok, chart: { type: 'picto', title: 'Medalles de cada classe', per, keyK: 'key', rows },
-      q: `Quantes medalles va guanyar la classe de ${X.label}?`, unit: 'medalles',
+      q: `Quantes medalles va guanyar la classe de ${X.label}?`, cq: `Quants dibuixos de medalla té la fila de ${X.label}?`, unit: 'medalles',
       exprs: [E('×', X.count, per), E('+', X.count, per), E('×', O.count, per), E('×', X.count, d)],
       opHint: `Cada dibuix val ${per}. Si hi ha diversos dibuixos, es repeteix ${per} diverses vegades.` };
   },
@@ -202,7 +202,7 @@ const T = {
     for (const i of items) if (i !== X) while (items.some(o => o !== i && o.v === i.v)) i.v = int(r, 12, 64);
     return { text: `Mira quants alumnes s’han apuntat a cada esport. A ${X.label.toLowerCase()} volen formar equips de {k}, sense que en sobri cap. Cada partit dura {m}.`,
       tok: { k: { t: X.team + ' jugadors', u: 1 }, m: { t: m + ' minuts' }, ...barTok(items, [X.k]) }, chart: { type: 'bars', title: BARS_TITLE, items },
-      q: `Quants equips de ${X.label.toLowerCase()} poden formar?`, unit: 'equips',
+      q: `Quants equips de ${X.label.toLowerCase()} poden formar?`, cq: `Quants alumnes s’han apuntat a ${X.label.toLowerCase()}?`, unit: 'equips',
       exprs: [E('÷', X.v, X.team), E('×', X.v, X.team), E('−', X.v, X.team), E('÷', X.v, m)],
       opHint: 'Fer equips iguals és repartir: dividir.' };
   },
@@ -211,61 +211,61 @@ const T = {
     const p = person(r), g = int(r, 3, 17) * 50, e = int(r, 2, 5), K = () => L(1000, { keep: 1 });
     return { text: `Per fer un pastís, ${p.ca} necessita {g} de farina i {e}. Al rebost té un paquet de {kg} de farina.`,
       tok: { g: { t: g + ' g', u: 1 }, e: { t: e + ' ous' }, kg: { t: '1 kg', u: 1 } },
-      q: 'Quants grams de farina li quedaran al paquet?', unit: 'g', exprs: [E('−', K(), g), E('−', g, L(1, { keep: 1 })), E('+', K(), g), E('−', K(), e)],
+      q: 'Quants grams de farina li quedaran al paquet?', cq: 'Quants grams de farina té el paquet sencer?', unit: 'g', exprs: [E('−', K(), g), E('−', g, L(1, { keep: 1 })), E('+', K(), g), E('−', K(), e)],
       opHint: 'Recorda: 1 kg són 1000 g. Quan fas servir farina, al paquet en queda menys.' };
   },
   p2: r => {
     const i = int(r, 0, 2), d = [2, 3, 4][i], n = d * int(r, 8, 22), pc = pick(r, [1, 2]), f = ['la meitat', 'la tercera part', 'la quarta part'][i];
     return { text: 'Aquest matí, la pastisseria ha fet {n}. Abans del migdia n’ha venut {f}. Cada magdalena costa {pc}.',
       tok: { n: { t: n + ' magdalenes', u: 1 }, f: { t: f, u: 1 }, pc: { t: pc + ' €' } },
-      q: 'Quantes magdalenes ha venut?', unit: 'magdalenes', exprs: [E('÷', n, L(d, { keep: 1 })), E('×', n, d), E('−', n, d), E('+', n, d)],
+      q: 'Quantes magdalenes ha venut?', cq: 'Quantes magdalenes ha fet la pastisseria aquest matí?', unit: 'magdalenes', exprs: [E('÷', n, L(d, { keep: 1 })), E('×', n, d), E('−', n, d), E('+', n, d)],
       opHint: `Per saber ${f} cal repartir entre ${d}.` };
   },
   p3: r => {
     const p = person(r), lt = pick(r, [1, 2, 3]), ml = pick(r, [250, 200, 500]), w = int(r, 4, 9) * 100, LL = () => L(lt * 1000, { keep: 1 });
     return { text: `${p.Ca} prepara suc per berenar. La gerra té {L} de suc i cada got és de {ml}. La gerra buida pesa {w}.`,
       tok: { L: { t: lt + (lt === 1 ? ' litre' : ' litres'), u: 1 }, ml: { t: ml + ' mL', u: 1 }, w: { t: w + ' g' } },
-      q: 'Quants gots pot omplir?', unit: 'gots', exprs: [E('÷', LL(), ml), E('×', lt, ml), E('−', LL(), ml), E('÷', L(lt, { keep: 1 }), ml)],
+      q: 'Quants gots pot omplir?', cq: 'Quants mil·lilitres de suc hi ha a la gerra?', unit: 'gots', exprs: [E('÷', LL(), ml), E('×', lt, ml), E('−', LL(), ml), E('÷', L(lt, { keep: 1 }), ml)],
       opHint: 'Passa els litres a mil·lilitres (1 L = 1000 mL) i reparteix-los en gots.' };
   },
   p4: r => {
     const p = person(r), g = pick(r, [125, 150, 175, 200, 225, 250, 300, 350, 450]), n = int(r, 3, 8), c = int(r, 12, 30);
     return { text: `Cada capsa de galetes pesa {g}. ${p.Ca} porta {n} a la festa de la classe. A cada capsa hi ha {c} galetes.`,
       tok: { g: { t: g + ' g', u: 1 }, n: { t: n + ' capses', u: 1 }, c: { t: String(c) } },
-      q: 'Quants grams pesen totes les capses juntes?', unit: 'g', exprs: [E('×', g, n), E('+', g, n), E('×', c, n), E('−', g, n)] };
+      q: 'Quants grams pesen totes les capses juntes?', cq: 'Quants grams pesa cada capsa?', unit: 'g', exprs: [E('×', g, n), E('+', g, n), E('×', c, n), E('−', g, n)] };
   },
   // ===== the cinema: time and rows =====
   c1: r => {
     const f = int(r, 8, 15), s = int(r, 12, 24), d = int(r, 85, 130), sn = int(r, 2, 7);
     return { text: 'La sala {sn} del cinema té {f} i a cada fila hi ha {s}. La pel·lícula d’avui dura {d}.',
       tok: { sn: { t: String(sn) }, f: { t: f + ' files', u: 1 }, s: { t: s + ' butaques', u: 1 }, d: { t: d + ' minuts' } },
-      q: 'Quantes butaques hi ha a la sala?', unit: 'butaques', exprs: [E('×', f, s), E('+', f, s), sub(s, f), E('×', s, sn)],
+      q: 'Quantes butaques hi ha a la sala?', cq: 'Quantes files té la sala?', unit: 'butaques', exprs: [E('×', f, s), E('+', f, s), sub(s, f), E('×', s, sn)],
       opHint: 'Totes les files tenen les mateixes butaques: és una suma repetida.' };
   },
   c2: r => {
     const t = int(r, 180, 320), v = int(r, 90, t - 25), pr = pick(r, [6, 7, 8]);
     return { text: 'A la sala gran hi caben {t}. Per a la sessió d’aquesta tarda ja s’han venut {v}. Cada entrada costa {p}.',
       tok: { t: { t: t + ' persones', u: 1 }, v: { t: v + ' entrades', u: 1 }, p: { t: pr + ' €' } },
-      q: 'Quantes butaques queden lliures?', unit: 'butaques', exprs: [E('−', t, v), E('+', t, v), E('×', v, pr), E('−', t, pr)] };
+      q: 'Quantes butaques queden lliures?', cq: 'Quantes persones hi caben a la sala gran?', unit: 'butaques', exprs: [E('−', t, v), E('+', t, v), E('×', v, pr), E('−', t, pr)] };
   },
   c3: r => {
     const m = int(r, 5, 55), k = int(r, 12, 40), S = () => L(60, { keep: 1 });
     return { text: 'La pel·lícula de dibuixos dura {h} i {m}. A la cua de la taquilla hi ha {k}.',
       tok: { h: { t: '1 hora', u: 1 }, m: { t: m + ' minuts', u: 1 }, k: { t: k + ' persones' } },
-      q: 'Quants minuts dura la pel·lícula en total?', unit: 'min', exprs: [E('+', S(), m), E('+', L(1, { keep: 1 }), m), E('+', L(100, { keep: 1 }), m), E('−', S(), m)],
+      q: 'Quants minuts dura la pel·lícula en total?', cq: 'Quants minuts té 1 hora?', unit: 'min', exprs: [E('+', S(), m), E('+', L(1, { keep: 1 }), m), E('+', L(100, { keep: 1 }), m), E('−', S(), m)],
       opHint: 'Recorda: 1 hora són 60 minuts.' };
   },
   c4: r => {
     const p = person(r), n = int(r, 3, 6), m = pick(r, [20, 22, 24, 25, 30, 35, 40, 45]), tt = int(r, 2, 5);
     return { text: `El cap de setmana, ${p.ca} mira {n} de la seva sèrie preferida. Cada capítol dura {m}. La sèrie té {t}.`,
       tok: { n: { t: n + ' capítols', u: 1 }, m: { t: m + ' minuts', u: 1 }, t: { t: tt + ' temporades' } },
-      q: 'Quants minuts passa mirant la sèrie?', unit: 'min', exprs: [E('×', n, m), E('+', n, m), E('−', m, n), E('×', tt, m)] };
+      q: 'Quants minuts passa mirant la sèrie?', cq: 'Quants capítols mira?', unit: 'min', exprs: [E('×', n, m), E('+', n, m), E('−', m, n), E('×', tt, m)] };
   },
   c5: r => {
     const p = person(r), a = int(r, 30, 55), b = int(r, 5, a - 8), pr = int(r, 3, 6);
     return { text: `La sessió comença a les {a}. ${p.Ca} arriba al cinema a les {b}. Les crispetes costen {p}.`,
       tok: { a: { t: '18:' + pad(a), u: 1 }, b: { t: '18:' + pad(b), u: 1 }, p: { t: pr + ' €' } },
-      q: 'Quants minuts abans de la pel·lícula arriba al cinema?', unit: 'min', exprs: [E('−', a, b), E('+', a, b), E('−', a, pr), sub(b, pr)],
+      q: 'Quants minuts abans de la pel·lícula arriba al cinema?', cq: 'A les 18 i quants minuts comença la sessió?', unit: 'min', exprs: [E('−', a, b), E('+', a, b), E('−', a, pr), sub(b, pr)],
       opHint: 'Les dues hores són de les 18 h: fixa’t només en els minuts i busca la diferència.' };
   },
   // ===== the big case: two steps =====
@@ -273,7 +273,7 @@ const T = {
     const a = int(r, 300, 900), b = int(r, 40, 150), c = int(r, 20, 120), s = int(r, 8, 30);
     return { text: 'La biblioteca de l’escola tenia {a}. Aquest mes s’han deixat en préstec {b} i n’han arribat {c} de nous. La biblioteca té {s}.',
       tok: { a: { t: a + ' llibres', u: 1 }, b: { t: b + ' llibres', u: 1 }, c: { t: String(c), u: 1 }, s: { t: s + ' prestatgeries' } },
-      q: 'Quants llibres hi ha ara a la biblioteca?', unit: 'llibres',
+      q: 'Quants llibres hi ha ara a la biblioteca?', cq: 'Quants llibres quedaven a la biblioteca després dels préstecs?', unit: 'llibres',
       exprs: [E('+', E('−', a, b), c), E('+', E('+', a, b), c), E('−', E('−', a, b), c), E('−', E('+', a, b), c)],
       opHint: 'Els prestats surten de la biblioteca (es resten) i els nous hi entren (se sumen).' };
   },
@@ -281,7 +281,7 @@ const T = {
     const p = person(r), n = int(r, 2, 6), pr = int(r, 2, 5), c = n * pr < 18 ? pick(r, [20, 50]) : 50, h = pick(r, [48, 80, 100]);
     return { text: `${p.Ca} compra {n} per a l’escola. Cada llibreta costa {p} i té {h} fulls. Paga amb un bitllet de {c}.`,
       tok: { n: { t: n + ' llibretes', u: 1 }, p: { t: pr + ' €', u: 1 }, h: { t: String(h) }, c: { t: c + ' €', u: 1 } },
-      q: 'Quants diners li tornen?', unit: '€',
+      q: 'Quants diners li tornen?', cq: 'De quants euros és el bitllet amb què paga?', unit: '€',
       exprs: [E('−', c, E('×', n, pr)), E('×', E('−', c, n), pr), E('×', n, pr), E('−', E('−', c, n), pr)],
       opHint: 'Primer calcula quant costen totes les llibretes; després, el que sobra del bitllet.' };
   },
@@ -289,7 +289,7 @@ const T = {
     const g = int(r, 4, 9), k = int(r, 12, 25), m = int(r, 5, 15), h = pick(r, [10, 11]);
     return { text: 'Al festival de primavera hi participen {g} de {k} cadascun. A més, hi ha {m} que els acompanyen. El festival comença a les {h}.',
       tok: { g: { t: g + ' grups', u: 1 }, k: { t: k + ' nens', u: 1 }, m: { t: m + ' monitors', u: 1 }, h: { t: String(h) } },
-      q: 'Quantes persones hi ha en total al festival?', unit: 'persones',
+      q: 'Quantes persones hi ha en total al festival?', cq: 'Quants nens hi ha entre tots els grups?', unit: 'persones',
       exprs: [E('+', E('×', g, k), m), E('×', g, k), E('+', E('+', g, k), m), E('×', g, E('+', k, m))],
       opHint: 'Primer compta els nens de tots els grups; després, suma-hi els monitors.' };
   },
@@ -299,7 +299,7 @@ const T = {
     const b = tot - a, km = int(r, 2, 9);
     return { text: `${p.Ca} té {a} i el seu germà té {b}. Ajunten els diners i compren {n} iguals per al teatre, sense que els en sobri gens. El teatre és a {km} de casa.`,
       tok: { a: { t: a + ' €', u: 1 }, b: { t: b + ' €', u: 1 }, n: { t: n + ' entrades', u: 1 }, km: { t: km + ' km' } },
-      q: 'Quant costa cada entrada?', unit: '€',
+      q: 'Quant costa cada entrada?', cq: 'Quants diners ajunten entre els dos?', unit: '€',
       exprs: [E('÷', E('+', a, b), n), E('×', E('+', a, b), n), E('+', E('+', a, b), n), E('÷', sub(a, b), n)],
       opHint: 'Primer ajunta els diners dels dos; després, reparteix-los entre les entrades.' };
   },
@@ -307,7 +307,7 @@ const T = {
     const p = person(r), rr = int(r, 3, 6), s = int(r, 4, 8), e = int(r, 2, s - 1), pr = int(r, 6, 15);
     return { text: `Una capsa de bombons té {r} de {s} bombons. ${p.Ca} i la seva família se’n mengen {e}. La capsa va costar {p}.`,
       tok: { r: { t: rr + ' files', u: 1 }, s: { t: String(s), u: 1 }, e: { t: String(e), u: 1 }, p: { t: pr + ' €' } },
-      q: 'Quants bombons queden a la capsa?', unit: 'bombons',
+      q: 'Quants bombons queden a la capsa?', cq: 'Quants bombons tenia la capsa plena?', unit: 'bombons',
       exprs: [E('−', E('×', rr, s), e), E('×', rr, s), E('−', E('+', rr, s), e), E('×', rr, E('−', s, e))],
       opHint: 'Primer compta tots els bombons de la capsa (files × bombons per fila); després, treu-ne els que es mengen.' };
   }
@@ -359,7 +359,7 @@ export function build(id, rnd = Math.random) {
     ops: mix(rnd, ops), label: lbl(right), answer,
     est: { value: est, label: lbl(rounded) === lbl(right) ? null : `${lbl(rounded)} ≈ ${fmt(est, dec && !Number.isInteger(est) ? 2 : 0)}`, max, step,
       tol: Math.max(answer * 0.2, Math.abs(answer - est) * 1.25, step) },
-    check: { ...check, opts: mix(rnd, check.opts) }, hints: raw.hints || {}, opHint: raw.opHint || null, calcTip: raw.calcTip || null,
+    check: { ...check, ask: raw.cq, opts: mix(rnd, check.opts) }, hints: raw.hints || {}, opHint: raw.opHint || null, calcTip: raw.calcTip || null,
     sol: raw.answer !== undefined ? [] : steps(right).map(s => `${fmt(s.a, s.dec)} ${s.o} ${fmt(s.b, s.dec)} = ${fmt(s.v, dec && !Number.isInteger(s.v) ? 2 : 0)}`),
     solNote: raw.sol || null };
 }
