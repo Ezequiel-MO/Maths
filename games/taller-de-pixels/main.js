@@ -5,7 +5,7 @@ import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, COLORS, POINTS, VALID, EXAM_PASS, shuffle, starsFor, F, simp, ruleText, ruleWhy,
   clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn,
-  brokenRules, wrongCells, one, SPRITES } from './logic.js';
+  brokenRules, wrongCells, one, SPRITES, guide } from './logic.js';
 import { makeBoard, spriteSvg } from './pixels.js';
 import { studio } from './lliure.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
@@ -234,14 +234,14 @@ function full() {
 /* ---------- read a drawing: one question after another, answered on the drawing, with the keys or with a choice ---------- */
 // The drawing stays while the next question is about it too. A wrong answer is a slip and the frog says how to look; a right one
 // lights up what answered it and says why. step(k), when given, hears of every new question (the dots of the Piscina)
-function read({ t, L, stage, tip, slip, win, step }) {
+function read({ t, L, stage, tip, slip, win, step, exam }) {
   const n = L.rounds.length;
-  let k = -1, R = null, busy = false, buf = '', fr = null, shown = null, opts = [];
-  stage.innerHTML = `<p class="ask" id="q"></p><div class="board" id="board"></div><div class="ans" id="ans"></div>`;
+  let k = -1, R = null, busy = false, buf = '', fr = null, shown = null, opts = [], gid = 0;
+  stage.innerHTML = `<p class="ask" id="q"></p><div class="board" id="board"></div><div class="guide" id="guide" aria-live="polite"></div><div class="ans" id="ans"></div>`;
   const B = makeBoard($('#board'), t, { onTap: touch, screen: L.screen }), ans = $('#ans');
   const KEYS = d => `<button class="key" data-d="${d}">${d}</button>`;
   function arm() {
-    k++; R = L.rounds[k]; busy = false; buf = ''; fr = { n: '', d: '', on: 'n' }; openAt = performance.now() + SETTLE; step?.(k);
+    k++; R = L.rounds[k]; busy = false; buf = ''; fr = { n: '', d: '', on: 'n' }; openAt = performance.now() + SETTLE; step?.(k); unguide();
     const key = JSON.stringify(R.pic);
     if (key !== shown) { B.show(R.pic); shown = key; } else B.unmark();
     B.el.classList.toggle('tap', R.q.type === 'tap');
@@ -261,7 +261,7 @@ function read({ t, L, stage, tip, slip, win, step }) {
     else d.innerHTML = buf || caret;
   }
   async function right(el) {
-    busy = true;
+    busy = true; unguide();
     if (el) { el.classList.add('ok'); spark(el, 140); }
     blip(880); tip(`${pick(HURRAY)} ${R.q.say}`, 'go');
     if (R.q.type === 'num' || R.q.type === 'frac') { $('#disp')?.classList.add('ok'); ans.querySelectorAll('button').forEach(b => b.disabled = true); }
@@ -275,6 +275,7 @@ function read({ t, L, stage, tip, slip, win, step }) {
   function wrong(el) {
     slip(); if (el) again(el).add('shake');
     tip(`Ui! ${R.q.hint}`, 'oops');
+    if (!exam) guideIt(1400);
   }
   // a tap on a pixel of the drawing
   function touch(key) {
@@ -328,7 +329,21 @@ function read({ t, L, stage, tip, slip, win, step }) {
     if (d && (R?.q.type === 'num' || R?.q.type === 'frac') && !e.target.closest?.('.px')) { e.preventDefault(); press(d); }
   };
   arm(); if (L.say) tip(L.say);
-  return () => busy ? '' : R.q.hint;
+  // The frog's hand: the steps of guide() played one after the other, over the drawing (rows, columns and pixels lit, with numbers)
+  // and under it (little cards to count with). A new question, a right answer or a new hint stops the one playing
+  function unguide() { gid++; B.hint(null); $('#guide').innerHTML = ''; }
+  async function guideIt(wait = 0) {
+    const steps = guide(R.pic.g, R.q), id = ++gid;
+    if (!steps.length) return;
+    await sleep(wait);
+    for (const [i, st] of steps.entries()) {
+      if (id !== gid || !t.on || busy) return;
+      B.hint(st); tip(`👀 ${st.say}`);
+      $('#guide').innerHTML = st.chips.length ? `<div class="chips">${st.chips.map(([top, txt, cls], j) => `<span class="gc ${cls || ''}" style="--d:${RM ? 0 : Math.min(2, j * 0.12)}s"><small>${top}</small><b>${txt}</b></span>`).join('')}</div>` : '';
+      if (i < steps.length - 1) await sleep(RM ? 2600 : 1900 + Math.min(1500, st.chips.length * 100));
+    }
+  }
+  return () => { if (busy) return ''; guideIt(1300); return R.q.hint; };
 }
 
 /* ---------- paint a drawing, and check it whole ---------- */

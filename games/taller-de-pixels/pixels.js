@@ -84,10 +84,11 @@ function svgOf(st) {
 //   mark(keys, cls)        rings the pixels ('ok' or 'no'); unmark() takes the rings away
 //   cheer()                the drawing jumps for joy; shake(keys) the pixels shake
 export function makeBoard(host, t, o = {}) {
-  const shell = document.createElement('div'), wrap = document.createElement('div'), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), cur = document.createElement('i');
+  const shell = document.createElement('div'), wrap = document.createElement('div'), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), cur = document.createElement('i'), ov = document.createElement('div');
+  ov.className = 'ov'; ov.setAttribute('aria-hidden', 'true');
   wrap.className = 'px' + (o.paint ? ' paint' : o.onTap ? ' tap' : ''); wrap.tabIndex = o.paint || o.onTap ? 0 : -1;
   cur.className = 'cur'; cur.hidden = true;
-  wrap.append(svg, cur); shell.append(wrap); host.append(shell);
+  wrap.append(svg, ov, cur); shell.append(wrap); host.append(shell);
   const st = { Lt: null, g: null, p: null, marks: new Map(), locked: new Set(), look: lookOf(null) };
   let R = null, want = null, kf = 1, kc = 1, skin, timer = 0;
 
@@ -115,7 +116,7 @@ export function makeBoard(host, t, o = {}) {
   // the state of a new picture, laid out and drawn in the SVG
   function place(p) {
     stop(); dress(p.screen ?? o.screen ?? null);
-    st.p = p; st.g = p.g.slice(); st.marks.clear(); st.look = lookOf(skin);
+    st.p = p; st.g = p.g.slice(); st.marks.clear(); st.look = lookOf(skin); ov.innerHTML = '';
     st.Lt = layout(st.g, p, Math.min(o.max || 520, host.clientWidth || 340) - (skin ? PAD : 0));
     redraw();
   }
@@ -193,6 +194,14 @@ export function makeBoard(host, t, o = {}) {
     load: g => { place({ ...st.p, g }); R?.draw(st, { reveal: false }); },
     put: (f, c, ch) => set(f, c, ch),
     unlock: () => st.locked.clear(),
+    // a step of the frog's hint over the drawing: rows and columns lit, and pixels lit with a number in them (logic.js guide())
+    hint(step) {
+      if (!step || !st.Lt) { ov.innerHTML = ''; return; }
+      const { bw, bh, cell, ox, oy, w, h } = st.Lt, X = x => `${x / bw * 100}%`, Y = y => `${y / bh * 100}%`;
+      ov.innerHTML = [...(step?.rows || []).map(f => `<i class="band" style="left:${X(ox)};top:${Y(oy + (f - 1) * cell)};width:${X(w * cell)};height:${Y(cell)}"></i>`),
+        ...(step?.cols || []).map(c => `<i class="band" style="left:${X(ox + (c - 1) * cell)};top:${Y(oy)};width:${X(cell)};height:${Y(h * cell)}"></i>`),
+        ...(step?.marks || []).filter(([f, c]) => f >= 1 && f <= h && c >= 1 && c <= w).map(([f, c, t, cls]) => `<b class="spot ${cls || ''}" style="left:${X(ox + (c - 1) * cell)};top:${Y(oy + (f - 1) * cell)};width:${X(cell)};height:${Y(cell)};font-size:${Math.max(9, Math.min(18, cell * 0.45))}px">${t ?? ''}</b>`)].join('');
+    },
     mark(keys, cls) { for (const k of keys) st.marks.set(k, cls); redraw(); R?.marks(st); },
     unmark() { if (!st.marks.size) return; st.marks.clear(); redraw(); R?.marks(st); },
     cheer() { if (!RM) R?.cheer(st); },
