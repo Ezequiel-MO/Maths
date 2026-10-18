@@ -194,7 +194,7 @@ function textItems(r, T, which = null) {
 /* ---------- the rounds of the six projects ---------- */
 // R[p](idx, rnd) → { items, intro?, text? }. intro is a recording heard before the questions (lines), once says the questions have no
 // sentence of their own: the whole recording is what is heard, as in the test
-const BASIC = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'white'];
+const BASIC = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'white', 'grey'];
 const R = [
   // 0 · Hello!: colours and numbers
   (idx, r) => {
@@ -222,10 +222,10 @@ const R = [
   },
   // 1 · My world: animals, food, clothes, hobbies, places, things
   (idx, r) => {
-    const G = [['ani'], ['food'], ['clo'], ['hob'], ['pla', 'tra'], ['sch', 'rec', 'nat']];
-    const all = groups('ani', 'food', 'clo', 'hob', 'pla', 'tra', 'sch', 'rec', 'nat');
+    const G = [['ani', 'body'], ['food'], ['clo'], ['hob'], ['pla', 'tra'], ['sch', 'rec', 'nat']];
+    const all = groups('ani', 'body', 'food', 'clo', 'hob', 'pla', 'tra', 'sch', 'rec', 'nat');
     const same = k => all.filter(x => W[x].cat === W[k].cat);
-    if (idx <= 5) { const pool = groups(...G[idx]); return { items: draw(r, pool, 6).map(k => listenWord(r, k, pool.filter(x => W[x].cat === W[k].cat).length >= 3 ? pool.filter(x => W[x].cat === W[k].cat) : pool)) }; }
+    if (idx <= 5) { const pool = groups(...G[idx]); return { items: draw(r, pool, idx ? 6 : 7).map(k => listenWord(r, k, pool.filter(x => W[x].cat === W[k].cat).length >= 3 ? pool.filter(x => W[x].cat === W[k].cat) : pool)) }; }
     if (idx === 6) return { items: draw(r, all, 6).map(k => readWord(r, k, same(k), 4)) };
     if (idx === 7) return { items: draw(r, all, 6).map(k => lookWord(r, k, same(k), 3)) };
     if (idx === 8) return { items: draw(r, all.filter(k => spellable(k) && W[k].word.length <= 6), 5).map(k => spellWord(r, W[k].word, W[k].pic, k)) };
@@ -286,6 +286,9 @@ const R = [
 ];
 // the round of level idx of project p, drawn with rnd
 export function round(p, idx, rnd = Math.random) { return (R[p] || R[0])(Math.min(9, Math.max(0, whole(idx))), rnd); }
+
+// where the words of each group of the album come up first: [project, level]
+export const LEARN = { col: [0, 0], num: [0, 1], ani: [1, 0], body: [1, 0], food: [1, 1], clo: [1, 2], hob: [1, 3], pla: [1, 4], tra: [1, 4], sch: [1, 5], rec: [1, 5], nat: [1, 5] };
 
 /* ---------- the cursus: circles, projects, marks ---------- */
 const lv = titles => titles.map(title => ({ title }));
