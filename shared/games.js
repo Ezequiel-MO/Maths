@@ -18,6 +18,7 @@ import { clean as shop, noteOf as shopNote, VALID as SHOP_VALID } from '../games
 import { clean as pixels, noteOf as pixelNote, VALID as PIXEL_VALID } from '../games/taller-de-pixels/logic.js';
 import { clean as cases, noteOf as caseNote, VALID as CASE_VALID } from '../games/detectius-de-problemes/logic.js';
 import { clean as english, noteOf as englishNote, VALID as ENGLISH_VALID } from '../games/estany-parla-angles/logic.js';
+import { clean as odo, noteOf as odoNote, VALID as ODO_VALID, kmOf } from '../games/comptaquilometres/logic.js';
 // the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
 const programs = (s, total) => { const p = code(s), n = Array.from({ length: total }, (_, i) => codeNote(p, i)).filter(x => x >= CODE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
@@ -53,8 +54,13 @@ const stalls = (s, total) => { const p = shop(s), n = Array.from({ length: total
 const solved = (s, total) => { const p = cases(s), n = Array.from({ length: total }, (_, i) => caseNote(p, i)).filter(x => x >= CASE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the English of the pond works the same way; the record of the simulacre of the test goes after the projects
 const spoken = (s, total) => { const p = english(s), n = Array.from({ length: total }, (_, i) => englishNote(p, i)).filter(x => x >= ENGLISH_VALID).length; return [n ? `${n} de ${total} projectes` : '', p.proves ? `Simulacre: ${p.best} de 20` : ''].filter(Boolean).join(' · '); };
+// the odometer works the same way; the km the car of the trip has done go after the projects
+const trips = (s, total) => { const p = odo(s), n = Array.from({ length: total }, (_, i) => odoNote(p, i)).filter(x => x >= ODO_VALID).length, km = kmOf(p); return [n ? `${n} de ${total} projectes` : '', km ? `${String(km).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} km` : ''].filter(Boolean).join(' · '); };
 
 export const GAMES = [
+  { id: 'comptaquilometres', href: 'comptaquilometres.html', store: 'comptaquilometres', tag: 'Números grans', title: 'El comptaquilòmetres',
+    what: 'Viatja amb la granota fins al 999.999: posa el punt dels milers, llegeix i escriu números grans, compara, ordena, fes girar les rodes i arrodoneix.', total: 9, record: (s, total) => trips(s, total),
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M6 40a26 26 0 0 1 52 0" fill="none" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/><path d="M32 40L18 24" stroke="#FF6B5E" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="40" r="4" fill="#CFEFFF"/><rect x="4" y="46" width="56" height="16" rx="4" fill="#1B2730" stroke="#3A4A55" stroke-width="2"/><g font-family="sans-serif" font-weight="800" font-size="11" fill="#F4F1E8" text-anchor="middle"><text x="12" y="58">1</text><text x="20" y="58">2</text><text x="28" y="58">5</text><text x="40" y="58">0</text><text x="48" y="58">0</text><text x="56" y="58">0</text></g><circle cx="34" cy="58" r="1.6" fill="#F7C64E"/></svg>` },
   { id: 'salts-de-granota', href: 'salts-de-granota.html', store: 'salts-de-granota', tag: 'Càlcul mental', title: 'Salts de Granota',
     what: 'Trucs per sumar i restar de cap, amb números grans i per sota de zero.', total: 23, record: (s, total) => leaps(s, total),
     icon: `<svg viewBox="-34 -50 68 68" aria-hidden="true"><ellipse cx="0" cy="6" rx="30" ry="10" fill="#2F7F40"/><ellipse cx="0" cy="-12" rx="21" ry="16" fill="#4FB562" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="10" cy="-27" r="8" fill="#fff" stroke="#2F7F40" stroke-width="2"/><circle cx="-10" cy="-27" r="3.2" fill="#0F3A40"/><circle cx="10" cy="-27" r="3.2" fill="#0F3A40"/><path d="M-8 -8 Q0 -2 8 -8" fill="none" stroke="#2F7F40" stroke-width="2.5" stroke-linecap="round"/></svg>` },
