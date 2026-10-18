@@ -217,7 +217,7 @@ function examen(c) {
     const tip = (txt, cls = '') => { if (cls === 'oops' ? failed : cls === 'go' && !done) say(txt.replace(/^Ui! /, ''), cls); };
     stage.inert = false; tail.innerHTML = ''; dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     $('#qn').hidden = false; $('#qn').textContent = `${k + 1} de ${qs.length} · ${PROJECTS[L.p].name}`;
-    say(ASK[L.kind]);
+    say(L.kind === 'kit' && L.live ? `${ASK.drum} ${keysSay(L.rows)}` : ASK[L.kind]);
     KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), spark, win: () => end(true) });
     if (stage.getBoundingClientRect().bottom > innerHeight) $('#coach').scrollIntoView({ block: 'start', behavior: 'auto' });
   }
@@ -730,6 +730,13 @@ const KICON = {
   tom2: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M4 13v17c0 5 7 8 16 8s16-3 16-8V13" fill="#8A5CD6"/><ellipse cx="20" cy="13" rx="16" ry="6.500" fill="#F3FBF8" stroke="#5B3A99" stroke-width="2"/></svg>'
 };
 const cap1 = s => s[0].toUpperCase() + s.slice(1);
+// Live, the drums are played with the keyboard: C for the snare, B for the bass drum. The pads go in the order of their keys on
+// the keyboard (C is left of B), so the snare is on the left. A drum with no letter of its own takes its number
+const KEYS = { caixa: 'c', bombo: 'b' }, ROW = 'zxcvbnm';
+const keyOf = (rows, i) => KEYS[rows[i].drum] || String(i + 1);
+const padOrder = rows => rows.map((_, i) => i).sort((a, b) => ROW.indexOf(keyOf(rows, a)) - ROW.indexOf(keyOf(rows, b)));
+const perA = el => el.replace(/^el /, 'al ').replace(/^la /, 'a la ');
+const keysSay = rows => `Toca amb el teclat, no amb el ratolí: ${list(padOrder(rows).map(i => `${keyOf(rows, i).toUpperCase()} per ${perA(KIT[rows[i].drum].el)}`))}.`;
 
 // The rows to fill are drawn empty, the given ones full and locked. «Escolta» plays the grid as it is (it can change while it plays),
 // «Escolta el ritme» the one to find, and «Fet!» checks the rows to fill. With live the whole bar is drawn and played on the pads
@@ -753,7 +760,8 @@ function drums({ t, L, stage, tip, slip, spark, win }) {
     </div>
     <p class="cap">${n === 4 ? 'Cada columna és un temps del compàs.' : 'Cada temps es parteix en dues caselles: 4 temps, 8 caselles.'}</p>
     ${live ? `<div class="slot"><div class="opts" id="ctl"><button class="btn" id="listen">1 · Escolta</button><button class="btn soft" id="mine">2 · Ara jo!</button></div><b class="countin" id="count" hidden></b></div>
-      <div class="kpads">${rows.map((r, i) => `<button class="kpad" data-r="${i}" aria-label="${KIT[r.drum].name}">${KICON[r.drum]}<b>${KIT[r.drum].name}</b></button>`).join('')}</div>`
+      <div class="kpads">${padOrder(rows).map(i => `<button class="kpad" data-r="${i}" aria-label="${KIT[rows[i].drum].name}, tecla ${keyOf(rows, i).toUpperCase()}">${KICON[rows[i].drum]}<b>${KIT[rows[i].drum].name}</b><kbd>${keyOf(rows, i).toUpperCase()}</kbd></button>`).join('')}</div>
+      <p class="kkeys">⌨️ ${keysSay(rows)}</p>`
     : `<div class="opts kctl">${ear ? '<button class="btn soft" id="ear">Escolta el ritme</button>' : ''}<button class="btn soft" id="mine">Escolta el teu</button><button class="btn" id="done">Fet!</button></div>`}`;
   const cells = [...stage.querySelectorAll('.cell')], cellAt = (r, s) => cells[r * n + s], heads = [...stage.querySelectorAll('.kname[data-r]')];
   const col = s => cells.forEach(c => c.classList.toggle('now', +c.dataset.s === s));
@@ -804,7 +812,7 @@ function drums({ t, L, stage, tip, slip, spark, win }) {
   }
 
   // live: a bar of clicks to get the pulse, then the bar twice; a tap counts on the right pad and close enough to a hit not yet tapped
-  const REPS = 2, barMs = n * ms, beatMs = barMs / 4, pads = [...stage.querySelectorAll('.kpad')], count = $('#count');
+  const REPS = 2, barMs = n * ms, beatMs = barMs / 4, pads = rows.map((_, i) => stage.querySelector(`.kpad[data-r="${i}"]`)), count = $('#count');
   const onsets = [];
   for (let rep = 0; rep < REPS; rep++) for (let s = 0; s < n; s++) rows.forEach((r, i) => { if (r.hits[s]) onsets.push({ r: i, s, at: rep * barMs + s * ms }); });
   // how far from a hit a tap still counts: generous, but never as far as the next hit of the same drum
@@ -830,7 +838,7 @@ function drums({ t, L, stage, tip, slip, spark, win }) {
     await sleep(Math.max(...tol) + 60); if (!t.on) return;
     col(-1); count.hidden = true; $('#ctl').hidden = false; run = null;
     $('#listen').className = 'btn soft'; $('#mine').className = 'btn';
-    if (!mine) return tip(`Ara tu! Prem «2 · Ara jo!». Sonaran 4 clics per agafar el ritme; després toca cada tambor quan la columna que s'il·lumina hi té un cop.`);
+    if (!mine) return tip(`Ara tu! Prem «2 · Ara jo!». Sonaran 4 clics per agafar el ritme; després prem la tecla de cada tambor quan la columna que s'il·lumina hi té un cop. ${keysSay(rows)}`);
     const missed = onsets.length - r.got.size, slack = onsets.length >= 8 ? 1 : 0;
     if (missed + r.extra <= slack) return win(`♪ ${L.title}`);
     slip(); tip(`Gairebé! ${missed ? `T'han faltat ${missed} ${missed > 1 ? 'cops' : 'cop'}. ` : ''}${r.extra ? `N'has tocat ${r.extra} de més, fora de temps o amb el tambor que no era. ` : ''}Escolta'l i torna-hi.`, 'oops');
@@ -844,11 +852,16 @@ function drums({ t, L, stage, tip, slip, spark, win }) {
     if (best < 0) { r.extra++; again(pads[i]).add('shake'); return; }
     r.got.add(best); const c = cellAt(i, onsets[best].s); again(c).add('ok'); spark(c, 130);
   }
-  pads.forEach((p, i) => { p.onpointerdown = e => { e.preventDefault(); tap(i); }; });
-  keyFn = e => { const i = +e.key - 1; if (i >= 0 && i < rows.length) tap(i); };
+  // the mouse and the touchpad do not play (they are too slow to keep time): the pad shakes and the frog says the keys. A finger on a touch screen still plays
+  pads.forEach((p, i) => { p.onpointerdown = e => {
+    e.preventDefault();
+    if (e.pointerType !== 'mouse') return tap(i);
+    again(p).add('shake'); tip(`Amb el ratolí no! Prem la tecla ${keyOf(rows, i).toUpperCase()} del teclat per tocar ${KIT[rows[i].drum].el}.`);
+  }; });
+  keyFn = e => { const i = rows.findIndex((_, j) => keyOf(rows, j) === e.key.toLowerCase()); if (i >= 0) { e.preventDefault(); tap(i); } };
   $('#listen').onclick = () => go(false); $('#mine').onclick = () => go(true);
-  tip(`${L.say} Primer prem «1 · Escolta».`);
-  return () => run ? '' : `Cada columna és ${n === 4 ? 'un temps' : 'mig temps'}. ${rows.map(r => `${cap1(KIT[r.drum].el)} toca ${where(r.hits)}`).join('; ')}. Amb el teclat: ${rows.map((r, i) => `${i + 1} per ${KIT[r.drum].el}`).join(', ')}.`;
+  tip(`${L.say} Primer prem «1 · Escolta». ${keysSay(rows)}`);
+  return () => run ? '' : `Cada columna és ${n === 4 ? 'un temps' : 'mig temps'}. ${rows.map(r => `${cap1(KIT[r.drum].el)} toca ${where(r.hits)}`).join('; ')}. ${keysSay(rows)}`;
 }
 
 /* ---------- proportions: the notes that sound well together vibrate in small whole numbers, and keep them however much they vibrate ---------- */

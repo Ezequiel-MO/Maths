@@ -67,7 +67,7 @@ export async function mount(st, { hexOf, centre }) {
   function draw(st, { reveal }) {
     const { Lt } = st;
     app.renderer.resize(Lt.bw, Lt.bh);
-    gsap.killTweensOf(sprites.flatMap(s => [s, s.scale])); tls.forEach(tl => tl.kill()); tls = [];
+    gsap.killTweensOf(sprites.flatMap(s => [s, s.scale, s.position])); tls.forEach(tl => tl.kill()); tls = [];
     pix.removeChildren().forEach(c => c.destroy());
     sprites = [];
     const k = size(st);
@@ -99,7 +99,7 @@ export async function mount(st, { hexOf, centre }) {
       const [i, j] = ij(st, n); if (st.g[i][j] === '.') return;
       const fc = src(i + 1, j + 1); if (!fc || !old.Lt) return;
       const [x, y] = centre(old.Lt, fc[0], fc[1]), delay = Math.min(0.45, (i + j) * 0.02);
-      gsap.from(s, { x, y, duration: 0.85, delay, ease: 'power3.inOut' });
+      gsap.from(s.position, { x, y, duration: 0.85, delay, ease: 'power3.inOut' });
       if (k0 !== k) gsap.from(s.scale, { x: k0, y: k0, duration: 0.85, delay, ease: 'power3.inOut' });
     });
   }
@@ -129,16 +129,16 @@ export async function mount(st, { hexOf, centre }) {
   function cheer(st) {
     sprites.forEach((s, n) => {
       if (st.g[Math.floor(n / st.Lt.w)][n % st.Lt.w] === '.') return;
-      gsap.to(s, { y: s.home - st.Lt.cell * 0.45, duration: 0.18, delay: (n % st.Lt.w) * 0.05, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
+      gsap.to(s.position, { y: s.home - st.Lt.cell * 0.45, duration: 0.18, delay: (n % st.Lt.w) * 0.05, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true });
     });
   }
   function shake(st, keys) {
-    for (const k of keys) { const s = at(st, ...k.split(',').map(Number)); if (s) gsap.fromTo(s, { x: s.hx - 4 }, { x: s.hx, duration: 0.5, ease: 'elastic.out(1.2, 0.25)', overwrite: true }); }
+    for (const k of keys) { const s = at(st, ...k.split(',').map(Number)); if (s) gsap.fromTo(s.position, { x: s.hx - 4 }, { x: s.hx, duration: 0.5, ease: 'elastic.out(1.2, 0.25)', overwrite: true }); }
   }
   function destroy() {
     if (gone) return;
     gone = true; tls.forEach(tl => tl.kill());
-    gsap.killTweensOf([rings, ...sprites.flatMap(s => [s, s.scale])]);
+    gsap.killTweensOf([rings, ...sprites.flatMap(s => [s, s.scale, s.position])]);
     dot?.destroy(true);
     app.destroy({ removeView: true }, { children: true });
   }
