@@ -18,11 +18,12 @@ import { PROJECTS as DATA } from '../games/observatori-de-l-estany/logic.js';
 import { PROJECTS as SHOP } from '../games/mercat-de-l-estany/logic.js';
 import { PROJECTS as PIXELS } from '../games/taller-de-pixels/logic.js';
 import { PROJECTS as CASES } from '../games/detectius-de-problemes/logic.js';
+import { PROJECTS as ENGLISH } from '../games/estany-parla-angles/logic.js';
 import { PROJECTS as ODO } from '../games/comptaquilometres/logic.js';
 
 const TOTALS = { 'salts-de-granota': TRICKS.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   'nenufars-a-trossos': PADS.length,
-  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length, 'volta-al-mon': TRIP.length, 'escacs-de-l-estany': CHESS.length, 'robot-dels-pronoms': ROBOT_ORDERS.length, llums: LIGHTS.length, 'observatori-de-l-estany': DATA.length, 'mercat-de-l-estany': SHOP.length, 'taller-de-pixels': PIXELS.length, 'detectius-de-problemes': CASES.length, comptaquilometres: ODO.length };
+  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length, 'volta-al-mon': TRIP.length, 'escacs-de-l-estany': CHESS.length, 'robot-dels-pronoms': ROBOT_ORDERS.length, llums: LIGHTS.length, 'observatori-de-l-estany': DATA.length, 'mercat-de-l-estany': SHOP.length, 'taller-de-pixels': PIXELS.length, 'detectius-de-problemes': CASES.length, comptaquilometres: ODO.length, 'estany-parla-angles': ENGLISH.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];
