@@ -6,7 +6,7 @@ import { load, save as store } from '../../shared/progress.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, combo } from '../../shared/shell.js';
 import { PROJECTS, CIRCLES, POOL, POINTS, EXAM_PASS, VALID, starsFor, clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf,
-  BADGES, badges, levelIn, poolIn, exam, examIn, examItem, sheet, sheetIn, streakIn, wordsIn, mockDone, round, pool, mock, VOCAB, W } from './logic.js';
+  BADGES, badges, levelIn, poolIn, exam, examIn, examItem, sheet, sheetIn, streakIn, wordsIn, mockDone, round, pool, mock, VOCAB, W, LEARN } from './logic.js';
 import { GROUPS } from './content.js';
 import { speak, hush, canSpeak, english } from './speech.js';
 import { FROG, RADIO, picHtml, monster, shape, HEX, CA } from './art.js';
@@ -558,19 +558,41 @@ function full() {
   arm();
 }
 
-/* ---------- the album: every word, the ones found in colour; a tap says it ---------- */
+/* ---------- the album: every word, the ones found in colour; a tap opens its card ---------- */
+// A found word: big, said aloud, with the play buttons. A word still missing: its shadow, and the level where it comes up, to go there
 function album() {
-  fresh(); show("L'àlbum de paraules", true, 280);
+  const t = fresh(); show("L'àlbum de paraules", true, 280);
   const n = count(prog.words);
-  $('#game').innerHTML = `<div class="albhead"><h2>📒 ${n} de ${VOCAB.length} paraules</h2><p class="grow">Toca una paraula per sentir-la. Les que falten surten a les preguntes dels nivells: encerta-les a la primera!</p></div>
+  $('#game').innerHTML = `<div class="albhead"><h2>📒 ${n} de ${VOCAB.length} paraules</h2><p class="grow">Toca una paraula. Les que tens les pots escoltar; les que falten s'aconsegueixen encertant-les a la primera als nivells.</p></div>
     ${GROUPS.map(([g, name]) => { const ws = VOCAB.map((v, i) => [v, i]).filter(([v]) => v.cat === g); const got = ws.filter(([, i]) => prog.words[i]).length;
       return `<section class="agroup"><h3>${H(name)} <small>${got} de ${ws.length}</small></h3><div class="agrid">${ws.map(([v, i]) => prog.words[i]
         ? `<button class="aw" data-k="${v.key}">${picHtml(v.pic)}<span>${H(v.word)}</span></button>`
-        : `<span class="aw no" aria-label="Encara no">${picHtml(v.pic)}<span>?</span></span>`).join('')}</div></section>`; }).join('')}
-    <button class="btn" id="bk">Torna al mapa</button>`;
+        : `<button class="aw no" data-k="${v.key}" aria-label="Paraula que falta">${picHtml(v.pic)}<span>?</span></button>`).join('')}</div></section>`; }).join('')}
+    <button class="btn" id="bk">Torna al mapa</button><div class="zoom" id="zoom" hidden></div>`;
+  const zoom = $('#zoom'), close = () => { hush(); zoom.hidden = true; keyFn = null; };
+  function card(k) {
+    const v = W[k], i = VOCAB.findIndex(x => x.key === k), got = prog.words[i];
+    if (got) {
+      zoom.innerHTML = `<div class="zcard" role="dialog" aria-modal="true" aria-label="${H(v.word)}"><div class="big">${picHtml(v.pic)}</div><p class="zword">${H(v.word)}</p>${audioHtml()}<button class="btn soft" data-close>Tanca</button></div>`;
+      const P = player($('.zcard', zoom), v.word, Infinity);
+      P.play(); blip(880);
+    } else {
+      const [p, idx] = LEARN[v.cat] || [1, 0], open = OPEN || isOpen(prog, circleOf(p));
+      zoom.innerHTML = `<div class="zcard" role="dialog" aria-modal="true" aria-label="Paraula que falta"><div class="big no">${picHtml(v.pic)}</div><p class="zword">?</p>
+        <p class="lead">Encara no l'has trobada. Surt a <b>${H(PROJECTS[p].name)}</b>, al nivell «${H(PROJECTS[p].levels[idx].title)}» i en altres. Encerta-la a la primera i entrarà a l'àlbum!</p>
+        ${open ? `<button class="btn" data-go>Vés-hi</button>` : `<p class="lead">Aquest projecte encara està tancat.</p>`}<button class="${open ? 'link' : 'btn soft'}" data-close>Tanca</button></div>`;
+      if (open) $('[data-go]', zoom).onclick = () => level(p, idx);
+      blip(330);
+    }
+    zoom.hidden = false; $('.zcard', zoom).classList.add('pop');
+    ($('[data-go]', zoom) || $('[data-close]', zoom)).focus({ preventScroll: true });
+    keyFn = e => { if (e.key === 'Escape') close(); };
+  }
+  zoom.onclick = e => { if (e.target === zoom || e.target.closest('[data-close]')) close(); };
   $('#game').onclick = e => {
+    if (!t.on || !zoom.hidden) return;
     const b = e.target.closest('.aw[data-k]');
-    if (b) { const v = W[b.dataset.k]; speak(v.word); again(b).add('pop'); spark(b, 140); }
+    if (b) { again(b).add('pop'); if (!b.classList.contains('no')) spark(b, 140); card(b.dataset.k); }
     if (e.target.closest('#bk')) mapa();
   };
 }
