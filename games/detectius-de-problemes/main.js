@@ -27,12 +27,12 @@ const buzz = () => click(150, 0, 0.3, 0.12, 'triangle');
 const fanfare = () => chime([523, 659, 784, 1047, 1319]);
 
 const HURRAY = ['Molt bé!', 'Perfecte!', 'Genial!', 'Ben resolt!', 'Quin detectiu!', 'Cas tancat!'];
-const HUES = [45, 200, 140, 330, 262, 290];
+const HUES = [45, 200, 140, 330, 262, 290, 25];
 const again = e => { e.classList.remove('shake', 'pop'); void e.getBoundingClientRect(); return e.classList; };
 const spark = (e, h = 48) => { if (e) { const p = mid(e); FX.burst(p.x, p.y, h, 14, 120); } };
 const H = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 // the place of a case, from the first letter of its id: the scene on top of it
-const placeOf = id => ({ m: 'mercat', e: 'excursio', s: 'esports', p: 'pastisseria', c: 'cinema', g: 'misteri' })[id[0]] || 'misteri';
+const placeOf = id => ({ m: 'mercat', e: 'excursio', s: 'esports', p: 'pastisseria', c: 'cinema', g: 'misteri', h: 'estacio' })[id[0]] || 'misteri';
 // a number of a case as it is written: with a comma, and with cents when the case has them
 const num = (prob, v) => fmt(v, prob.dec && !Number.isInteger(v) ? 2 : 0);
 
@@ -96,7 +96,7 @@ function mapa() {
   const n = validated(prog).length, lit = i => noteOf(prog, i) >= VALID;
   M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi">${bld(PROJECTS[i].place)}</span>`,
     before: `<div class="town" aria-hidden="true">${PROJECTS.map((p, i) => bld(p.place, lit(i) ? ' lit' : '')).join('')}</div>
-      <p class="grow">${n >= 6 ? 'Has resolt els casos dels sis llocs!' : n ? `Llocs resolts: ${n} de 6. Valida un projecte més i s'encendrà un altre lloc.` : 'Valida projectes i els llocs de la ciutat s\'encendran.'}</p>`,
+      <p class="grow">${n >= PROJECTS.length ? 'Has resolt els casos de tots els llocs!' : n ? `Llocs resolts: ${n} de ${PROJECTS.length}. Valida un projecte més i s'encendrà un altre lloc.` : 'Valida projectes i els llocs de la ciutat s\'encendran.'}</p>`,
     foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${OPEN || validated(prog).length ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
       ${badgeList(BADGES, got)}</div>`,
     open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full]] });

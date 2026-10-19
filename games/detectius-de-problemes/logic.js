@@ -310,6 +310,73 @@ const T = {
       q: 'Quants bombons queden a la capsa?', cq: 'Quants bombons tenia la capsa plena?', unit: 'bombons',
       exprs: [E('−', E('×', rr, s), e), E('×', rr, s), E('−', E('+', rr, s), e), E('×', rr, E('−', s, e))],
       opHint: 'Primer compta tots els bombons de la capsa (files × bombons per fila); després, treu-ne els que es mengen.' };
+  },
+  // ===== the station: the clock, the timetable and the calendar =====
+  // the clock of the station is a clue of the chart: the child reads it (the long hand on the 4 is 20 minutes, not 4)
+  h1: r => {
+    const H = int(r, 8, 17), m = pick(r, [35, 40, 45, 50, 55]), d = int(r, Math.max(15, 65 - m), 50), s = int(r, 40, 60), S = () => L(60, { keep: 1 });
+    return { text: 'El bus de l’excursió surt de l’escola a les {a}. El viatge fins a la granja dura {d}. A l’autobús hi ha {s}.',
+      tok: { a: { t: `${H}:${pad(m)}`, u: 1 }, d: { t: d + ' minuts', u: 1 }, s: { t: s + ' seients' } },
+      q: `A les ${H + 1} i quants minuts arriba a la granja?`, cq: `Quants minuts passen des de les ${H}:00 fins que arriba?`, unit: 'min',
+      exprs: [E('−', E('+', m, d), S()), E('+', m, d), E('+', E('−', S(), m), d), sub(d, m)],
+      opHint: 'Suma els minuts. Si passen de 60, ja és l’hora següent: treu-ne els 60 d’aquella hora.' };
+  },
+  h2: r => {
+    const p = person(r), H = pick(r, [9, 10]), pr = int(r, 2, 4);
+    // the first train leaves at :05 or later, so no time is ever the price of the ticket (two operations would give the same)
+    let t = int(r, 5, 9);
+    const rows = ['Estany', 'Riera', 'Pineda', 'Molí', 'Platja'].map((label, i) => { if (i) t += int(r, 5, 12); return { k: 't' + i, label, m: t, v: `${H}:${pad(t)}` }; });
+    const [i, j] = mix(r, [0, 1, 2, 3, 4]).slice(0, 2).sort((a, b) => a - b), X = rows[i], Y = rows[j], Z = rows.find(o => o !== X && o !== Y);
+    const tok = { p: { t: pr + ' €' } };
+    for (const o of rows) tok[o.k] = { t: `${o.label}: ${o.v}`, u: o === X || o === Y ? 1 : 0, chart: 1 };
+    return { text: `${p.Ca} agafa el tren a ${X.label} i baixa a ${Y.label}. Mira l’horari. El bitllet costa {p}.`,
+      tok, chart: { type: 'table', title: 'Horari del tren', head: ['Estació', 'Hora'], rows },
+      q: 'Quants minuts dura el viatge?', cq: `A les ${H} i quants minuts arriba a ${Y.label}?`, unit: 'min',
+      exprs: [E('−', Y.m, X.m), E('+', Y.m, X.m), sub(Y.m, Z.m), E('−', Y.m, pr)],
+      opHint: 'Busca a l’horari quan surt i quan arriba. La diferència entre les dues hores és el que dura el viatge.' };
+  },
+  h3: r => {
+    const p = person(r), d = int(r, 2, 18), h = pick(r, [8, 9]);
+    return { text: `Avui és {d}. ${p.Ca} vol regalar un llibre per Sant Jordi, el {s}. La llibreria tanca a les {h}.`,
+      tok: { d: { t: d + ' d’abril', u: 1 }, s: { t: '23 d’abril', u: 1 }, h: { t: h + ' del vespre' } },
+      q: 'Quants dies falten per Sant Jordi?', cq: 'Quin dia d’abril és Sant Jordi?', unit: 'dies',
+      exprs: [E('−', 23, d), E('+', 23, d), E('−', L(30, { keep: 1 }), d), sub(23, h)],
+      opHint: 'Del dia d’avui fins al 23: quant hi falta? És una resta.' };
+  },
+  h4: r => {
+    const [mo, len, next] = pick(r, [['març', 31, 'abril'], ['maig', 31, 'juny'], ['setembre', 30, 'octubre'], ['novembre', 30, 'desembre']]);
+    const de = w => /^[aeiou]/.test(w) ? 'd’' + w : 'de ' + w, p = person(r), d = int(r, len - 12, len - 2), b = int(r, 3, 15), h = pick(r, [5, 6]);
+    return { text: `Avui és {d}. El mes de ${mo} té {l}. L’aniversari de ${p.ca} és el {b}, i la festa serà a les {h}.`,
+      tok: { d: { t: `${d} ${de(mo)}`, u: 1 }, l: { t: len + ' dies', u: 1 }, b: { t: `${b} ${de(next)}`, u: 1 }, h: { t: h + ' de la tarda' } },
+      q: 'Quants dies falten per a l’aniversari?', cq: `Quants dies falten perquè s’acabi el ${mo}?`, unit: 'dies',
+      exprs: [E('+', E('−', len, d), b), sub(b, d), E('+', E('−', len === 31 ? 30 : 31, d), b), E('+', d, b)],
+      opHint: `Primer, quants dies queden de ${mo} fins al ${len}? Després, suma-hi els dies ${de(next)}.` };
+  },
+  h5: r => {
+    const w = int(r, 2, 5), d = int(r, 1, 6), n = int(r, 3, 5);
+    return { text: 'Les colònies comencen d’aquí a {w} i {d}. Una setmana té {s}. Les colònies duren {n}.',
+      tok: { w: { t: w + ' setmanes', u: 1 }, d: { t: d === 1 ? '1 dia' : d + ' dies', u: 1 }, s: { t: '7 dies', u: 1 }, n: { t: n + ' dies' } },
+      q: 'D’aquí a quants dies comencen les colònies?', cq: `Quants dies són ${w} setmanes?`, unit: 'dies',
+      exprs: [E('+', E('×', w, 7), d), E('+', w, d), E('+', E('×', w, 7), n), E('×', E('+', w, d), 7)],
+      opHint: 'Primer passa les setmanes a dies (cada una en té 7); després suma-hi els dies que queden.' };
+  },
+  h6: r => {
+    const h = int(r, 2, 6), m = pick(r, [10, 15, 20, 25, 30]), d = pick(r, [10, 15, 20, 25].filter(x => m + x <= 55)), v = int(r, 4, 8);
+    return { text: 'El rellotge de l’estació marca l’hora que surt el tren. El viatge fins a la platja dura {d}. El tren porta {v}.',
+      tok: { clock: { t: 'El rellotge', u: 1, chart: 1 }, d: { t: d + ' minuts', u: 1 }, v: { t: v + ' vagons' } },
+      chart: { type: 'clock', title: 'El rellotge de l’estació', h, m, k: 'clock' },
+      q: `A les ${h} i quants minuts arriba a la platja?`, cq: `A les ${h} i quants minuts surt el tren?`, unit: 'min',
+      exprs: [E('+', m, d), E('+', m / 5, d), E('+', h, d), sub(m, d)],
+      opHint: 'Mira l’agulla llarga: cada número del rellotge són 5 minuts. Després, suma-hi el que dura el viatge.' };
+  },
+  h7: r => {
+    const h = int(r, 3, 7), m = pick(r, [25, 30, 35, 40, 45, 50, 55]), n = int(r, 12, 30), S = () => L(60, { keep: 1 });
+    return { text: 'Mira el rellotge de l’estació. L’últim tren surt a les {t} en punt. A l’andana hi esperen {n}.',
+      tok: { clock: { t: 'El rellotge', u: 1, chart: 1 }, t: { t: `${h + 1}:00`, u: 1 }, n: { t: n + ' persones' } },
+      chart: { type: 'clock', title: 'El rellotge de l’estació', h, m, k: 'clock' },
+      q: 'Quants minuts falten perquè surti el tren?', cq: 'Quants minuts té 1 hora?', unit: 'min',
+      exprs: [E('−', S(), m), E('−', S(), m / 5), E('−', L(100, { keep: 1 }), m), sub(m, n)],
+      opHint: 'Una hora té 60 minuts. Mira quants minuts marca l’agulla llarga i quants en falten fins a 60.' };
   }
 };
 export const CASES = Object.keys(T);
@@ -370,7 +437,8 @@ const TITLE = { m1: 'La fruita del dia', m2: 'El canvi del patinet', m3: 'Dissab
   s1: 'Qui en té més?', s2: 'Tots junts', s3: 'El pictograma', s4: 'Fem equips',
   p1: 'La farina que queda', p2: 'Una part de les magdalenes', p3: 'Gots de suc', p4: 'Capses de galetes',
   c1: 'Files i butaques', c2: 'Butaques lliures', c3: 'Hores i minuts', c4: 'La sèrie', c5: 'Arribar abans',
-  g1: 'La biblioteca', g2: 'Llibretes i canvi', g3: 'El festival', g4: 'Entrades del teatre', g5: 'La capsa de bombons' };
+  g1: 'La biblioteca', g2: 'Llibretes i canvi', g3: 'El festival', g4: 'Entrades del teatre', g5: 'La capsa de bombons',
+  h1: 'El bus passa l’hora', h2: 'L’horari del tren', h3: 'Quants dies falten?', h4: 'Canvi de mes', h5: 'Setmanes i dies', h6: 'El rellotge de busques', h7: 'Fins a l’hora en punt' };
 // ten levels per project: the cases of its place, one after another and again
 const ten = ids => Array.from({ length: 10 }, (_, i) => ({ title: TITLE[ids[i % ids.length]], case: ids[i % ids.length] }));
 export const PROJECTS = [
@@ -379,12 +447,14 @@ export const PROJECTS = [
   { name: 'El poliesportiu', sub: 'Gràfics i dades', place: 'esports', levels: ten(['s1', 's2', 's3', 's4']) },
   { name: 'La pastisseria', sub: 'Mesures i parts', place: 'pastisseria', levels: ten(['p1', 'p2', 'p4', 'p3']) },
   { name: 'El cinema', sub: 'Temps i files', place: 'cinema', levels: ten(['c1', 'c2', 'c3', 'c4', 'c5']) },
-  { name: 'El gran cas', sub: 'Problemes de dos passos', place: 'misteri', levels: ten(['g1', 'g2', 'g3', 'g4', 'g5']) }
+  { name: 'El gran cas', sub: 'Problemes de dos passos', place: 'misteri', levels: ten(['g1', 'g2', 'g3', 'g4', 'g5']) },
+  // last, so the stars saved by place stay with their projects
+  { name: 'L’horari i el calendari', sub: 'Rellotges, horaris i dies', place: 'estacio', levels: ten(['h3', 'h6', 'h2', 'h7', 'h1', 'h5', 'h4', 'h6', 'h1', 'h4']) }
 ];
 export const CIRCLES = [
   { name: 'Llegir i triar', projects: [0, 1] },
   { name: 'Dades i mesures', projects: [2, 3] },
-  { name: 'Detectiu expert', projects: [4, 5] }
+  { name: 'Detectiu expert', projects: [4, 5, 6] }
 ];
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', badges: p => badges(p), BADGES: () => BADGES });
 export const { circleOf, noteOf, reached, validated, xpOf, levelText, isOpen, examOpen, levelIn, poolIn, examIn, sheetIn } = cursus;
@@ -392,7 +462,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle };
 // the Piscina: three cases to learn the five steps
 export const POOL = [{ title: 'El primer cas', case: 'm4' }, { title: 'El segon cas', case: 'e1' }, { title: 'El tercer cas', case: 's2' }];
 
-// What is saved is facts only: { so, stars[60], piscina, exams[3], fulls }. Marks, XP, level and badges are worked out, never stored.
+// What is saved is facts only: { so, stars[70], piscina, exams[3], fulls }. Marks, XP, level and badges are worked out, never stored.
 // a complete progress inside its limits from any value at all; a new object
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
@@ -404,7 +474,7 @@ export const BADGES = [
   { name: 'Primer full', what: "Caça bé les errades d'un full." },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
   { name: 'Deu fulls', what: "Caça bé les errades de deu fulls." },
-  { name: 'Tots els llocs', what: 'Valida els sis projectes.' },
+  { name: 'Tots els llocs', what: 'Valida els set projectes.' },
   { name: 'Gran detectiu', what: 'Supera els tres exàmens.' }
 ];
 export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10,
