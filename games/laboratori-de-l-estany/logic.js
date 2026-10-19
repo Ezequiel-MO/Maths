@@ -1,7 +1,8 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the laboratory, with no page in it. Seven sections of ten levels: finding elements on the table and
-// building atoms, joining atoms into molecules, mixing drops in a proportion, filling a cylinder to a percentage, solutions and
-// alloys, reactions, and experiments that chain a percentage, a sum and a proportion. It must keep importing from Node.
+// The rules and the data of the laboratory, with no page in it. Eight sections of ten levels: the kitchen first (litres and grams in
+// the fridge, and real recipes for more or fewer people), then filling a cylinder to a percentage and juices and salt water, and the
+// chemistry at the end: finding elements on the table and building atoms, joining atoms into molecules, reactions, and experiments
+// that chain a percentage, a sum and a proportion. It must keep importing from Node.
 
 /* ---------- the elements ---------- */
 // the families, each with its colour on the table
@@ -111,10 +112,13 @@ const ask = (title, pic, steps, say = '') => ({ kind: 'ask', title, pic, steps, 
 const st = (q, want, opts, unit, done, how) => ({ q, want, opts, unit, done, how });
 
 const WATER = [['H2', 2], ['O2', 1]], AMMO = [['N2', 1], ['H2', 3]];
-const BELL = { t: 'bar', total: '50 kg', parts: [['coure', 90, 25], ['estany', 10, 200]] };
+const COCOA = { t: 'bar', total: '250 ml', parts: [['cacau', 10, 25], ['llet', 90, 215]] };
+// a card of things with how much of each: what there is in the fridge, or what a recipe needs
+const card = (title, items) => ({ t: 'card', title, items });
 const AIR = hide => ({ t: 'bar', parts: [['nitrogen', 78, 215], ['oxigen', 21, 0], ['altres gasos', hide ? null : 1, 285]] });
 
-export const SECTIONS = [
+// the seven sections as the game had them first; SECTIONS below is the order of the cursus now
+const FIRST = [
   { name: 'Els elements', sub: 'Troba cada element a la taula i construeix àtoms.', levels: [
     find('O', "Troba l'<b>oxigen</b>. El seu símbol és <b>O</b>.", 'Tot el que toques està fet d\'elements. Toca una casella per saber qui és, i quan el tinguis prem «És aquest!».'),
     find('C', 'Troba el <b>carboni</b>. El seu símbol és <b>C</b>.', 'Cada element té un símbol d\'una o dues lletres. Pots tocar totes les caselles que vulguis: mirar no costa res.'),
@@ -141,17 +145,47 @@ export const SECTIONS = [
       st('En 5 molècules d\'aigua, quants àtoms hi ha en total?', 15, [10, 15, 20], '', '5 × 3 = 15 àtoms', 'Cada molècula d\'aigua té 3 àtoms.'),
       st('I quants d\'aquests àtoms són d\'hidrogen?', 10, [5, 10, 15], '', '5 × 2 = 10 d\'hidrogen: 2 de cada 3', 'A cada molècula, 2 dels 3 àtoms són d\'hidrogen.')], 'A l\'aigua sempre hi ha la mateixa proporció: 2 d\'hidrogen per cada 1 d\'oxigen.')
   ] },
-  { name: 'La recepta', sub: 'Barreja gotes en la proporció justa.', levels: [
-    mix('Poció taronja', [['vermell', 1], ['groc', 1]], { given: [0, 3] }, 'Una recepta diu quant va de cada cosa. Aquí, per cada gota vermella, una de groga.'),
-    mix('Poció llima', [['blau', 1], ['groc', 2]], { given: [0, 2] }, 'Per cada gota blava, 2 de grogues. Si hi poses 2 de blaves, la recepta es fa 2 cops.'),
-    mix('Poció sol', [['vermell', 1], ['groc', 3]], { given: [1, 9] }, 'Ara saps les grogues. Quants cops has fet la recepta si n\'hi ha 9?'),
-    mix('Poció lila', [['vermell', 2], ['blau', 3]], { given: [0, 4] }, '2 de vermelles per cada 3 de blaves. Amb 4 de vermelles, la recepta es fa 2 cops.'),
-    ask('El llautó', { t: 'parts', parts: [['coure', 2, 25], ['zinc', 1, 200]] }, [st('Amb 10 g de zinc, quants grams de coure calen?', 20, [5, 12, 20, 30], 'g', '10 × 2 = 20 g de coure', 'Per cada part de zinc van 2 parts de coure: el doble.')], 'El llautó de les trompetes es fa amb 2 parts de coure per cada part de zinc.'),
-    mix('Poció llima', [['blau', 1], ['groc', 2]], { total: 9 }, 'Ara només saps el total. Cada cop que fas la recepta hi van 1 + 2 = 3 gotes.'),
-    mix('Poció lila', [['vermell', 2], ['blau', 3]], { total: 10 }, 'La recepta sencera són 2 + 3 = 5 gotes. Quants cops hi cap en 10?'),
-    mix('Poció maragda', [['blau', 3], ['groc', 1]], { total: 12 }, '3 de blaves per cada groga: 4 gotes cada cop.'),
-    ask('Més poció', { t: 'drops', parts: [['vermell', 3], ['blau', 2]] }, [st('Amb 12 gotes vermelles, quantes de blaves calen?', 8, [6, 8, 11, 18], '', '12 és 4 cops 3, i 4 × 2 = 8 de blaves', '12 de vermelles són 4 cops la recepta. Fes també 4 cops les blaves.')], 'La recepta diu 3 gotes vermelles per cada 2 de blaves.'),
-    mix('Poció foc', [['vermell', 3], ['groc', 4]], { total: 14 }, 'L\'última recepta: 3 i 4. Suma primer quantes gotes fa un cop.')
+  // real recipes: for more people the recipe is made more times, for fewer it is shared out; 4 → 6 goes through 2 (the half)
+  { name: 'La recepta', sub: 'Receptes de veritat: per a més persones o per a menys.', levels: [
+    ask('Crepes per a 4', card('Crepes per a 2 persones', [['🥚', '1 ou'], ['🥛', '100 ml de llet'], ['🌾', '50 g de farina']]), [
+      st('Avui en feu per a 4 persones: el doble. Quants ous calen?', 2, [1, 2, 3], '', '1 × 2 = 2 ous', 'Per a 4 persones és el doble que per a 2.'),
+      st('I quants ml de llet?', 200, [150, 200, 300], 'ml', '100 × 2 = 200 ml de llet', 'El doble de 100 ml.'),
+      st('I quants grams de farina?', 100, null, 'g', '50 × 2 = 100 g de farina', 'El doble de 50 g.')], 'Una recepta diu quant cal de cada cosa per a unes quantes persones. Si en sou més, es multiplica tot.'),
+    ask('Macarrons per a 2', card('Macarrons per a 4 persones', [['🍝', '400 g de macarrons'], ['🍅', '200 g de tomàquet'], ['🧀', '4 cullerades de formatge']]), [
+      st('Avui només sou 2: la meitat. Quants grams de macarrons?', 200, [100, 200, 300], 'g', '400 : 2 = 200 g de macarrons', 'Per a la meitat de persones, la meitat de cada cosa.'),
+      st('I quants grams de tomàquet?', 100, null, 'g', '200 : 2 = 100 g de tomàquet', 'La meitat de 200 g.'),
+      st('I quantes cullerades de formatge?', 2, [1, 2, 4], '', '4 : 2 = 2 cullerades', 'La meitat de 4.')], 'Per a menys persones es divideix: per a 2 és la meitat que per a 4.'),
+    ask('Batut per a 6', card('Batut de plàtan per a 2 persones', [['🍌', '2 plàtans'], ['🥛', '300 ml de llet'], ['🍯', '2 cullerades de mel']]), [
+      st('Per a 6 persones, quantes vegades cal fer la recepta?', 3, [2, 3, 4], '', '6 : 2 = 3 vegades', '6 persones són 3 grups de 2.'),
+      st('Quants plàtans calen?', 6, [4, 6, 8], '', '2 × 3 = 6 plàtans', 'La recepta 3 vegades: 3 cops 2 plàtans.'),
+      st('I quants ml de llet?', 900, null, 'ml', '300 × 3 = 900 ml de llet', '3 cops 300 ml.')], 'De 2 a 6 persones: la recepta es fa 3 vegades.'),
+    ask('El suc concentrat', { t: 'parts', parts: [['suc concentrat', 1, 30], ['aigua', 4, 215]] }, [
+      st('Amb 100 ml de suc concentrat, quants ml d\'aigua hi poses?', 400, null, 'ml', '100 × 4 = 400 ml d\'aigua', 'Per cada part de suc, 4 parts d\'aigua: 4 cops 100 ml.'),
+      st('Quants ml de beguda surten en total?', 500, [400, 500, 104], 'ml', '100 + 400 = 500 ml', 'Ajunta el suc i l\'aigua.')], 'L\'ampolla de suc concentrat diu: «1 part de suc per cada 4 parts d\'aigua».'),
+    ask('Truita per a 6', card('Truita de patates per a 4 persones', [['🥚', '6 ous'], ['🥔', '600 g de patates'], ['🫒', '4 cullerades d\'oli']]), [
+      st('Primer, per a 2 persones: la meitat. Quants ous?', 3, [2, 3, 4], '', '6 : 2 = 3 ous per a 2', 'La meitat de 6.'),
+      st('I per a 6 persones, que són 4 + 2?', 9, [8, 9, 12], '', '6 + 3 = 9 ous per a 6', 'Suma els de 4 persones i els de 2.'),
+      st('Quants grams de patates per a 6 persones?', 900, null, 'g', '600 + 300 = 900 g de patates', '600 g per a 4 i la meitat, 300 g, per a 2. Suma-ho.')], 'De 4 a 6 persones: fes la recepta per a 2 (la meitat) i suma-la a la de 4.'),
+    ask('Limonada per a la festa', card('Limonada per a 4 gots', [['🍋', '3 llimones'], ['🍬', '60 g de sucre'], ['💧', '800 ml d\'aigua']]), [
+      st('Per a la festa en vols 12 gots. Quantes vegades has de fer la recepta?', 3, [3, 8, 12], '', '12 : 4 = 3 vegades', 'Quantes vegades hi cap 4 en 12?'),
+      st('Quantes llimones calen?', 9, null, '', '3 × 3 = 9 llimones', '3 vegades 3 llimones.'),
+      st('I quants ml d\'aigua?', 2400, null, 'ml', '800 × 3 = 2400 ml d\'aigua', '3 vegades 800 ml: 800 + 800 + 800.')], 'Aquesta limonada surt per a 4 gots.'),
+    ask('El pastís de iogurt', card('Pastís de iogurt (es mesura amb el got del iogurt)', [['🥛', '1 iogurt'], ['🌾', '3 gots de farina'], ['🍬', '2 gots de sucre'], ['🫒', '1 got d\'oli'], ['🥚', '3 ous']]), [
+      st('En vols fer 2 pastissos. Quants gots de farina?', 6, [5, 6, 9], '', '3 × 2 = 6 gots de farina', 'El doble de 3.'),
+      st('I quants ous?', 6, null, '', '3 × 2 = 6 ous', 'El doble de 3.'),
+      st('Entre farina, sucre i oli, quants gots fan els 2 pastissos?', 12, null, '', '(3 + 2 + 1) × 2 = 12 gots', 'Un pastís en vol 3 + 2 + 1 = 6 gots. I dos pastissos?')], 'El pastís de iogurt es mesura amb el got buit del iogurt.'),
+    ask('Cacau per a tothom', card('Llet amb cacau per a 1 tassa', [['🥛', '200 ml de llet'], ['🍫', '2 cullerades de cacau']]), [
+      st('Per a 5 tasses, quants ml de llet calen?', 1000, null, 'ml', '200 × 5 = 1000 ml de llet', '5 vegades 200 ml.'),
+      st('Quants litres de llet són?', 1, [1, 10, 100], 'l', '1000 ml = 1 l', 'Un litre té 1000 ml.'),
+      st('I quantes cullerades de cacau?', 10, null, '', '2 × 5 = 10 cullerades', '5 vegades 2 cullerades.')], 'Berenar per a tota la família.'),
+    ask('Pizza per a 6', card('Massa de pizza per a 4 persones', [['🌾', '400 g de farina'], ['💧', '250 ml d\'aigua'], ['🧂', '8 g de sal']]), [
+      st('Per a 2 persones, la meitat: quants grams de farina?', 200, [100, 200, 300], 'g', '400 : 2 = 200 g per a 2', 'La meitat de 400.'),
+      st('I per a 6 persones, que són 4 + 2?', 600, null, 'g', '400 + 200 = 600 g de farina', 'Suma la farina de 4 persones i la de 2.'),
+      st('Quants ml d\'aigua per a 6 persones?', 375, null, 'ml', '250 + 125 = 375 ml d\'aigua', 'Per a 4, 250 ml. Per a 2, la meitat: 125 ml. Suma-ho.')], 'De 4 a 6 persones, una altra vegada: per a 2 i per a 4, i ho sumes.'),
+    ask('El gran sopar', card('Amanida per a 4 persones', [['🥬', '1 enciam'], ['🍅', '4 tomàquets'], ['🥕', '2 pastanagues'], ['🧀', '100 g de formatge']]), [
+      st('Sou 8 a sopar. Quants tomàquets calen?', 8, null, '', '4 × 2 = 8 tomàquets', '8 persones són el doble de 4.'),
+      st('I quants grams de formatge?', 200, null, 'g', '100 × 2 = 200 g de formatge', 'El doble de 100 g.'),
+      st('Un altre dia sou 6. Quantes pastanagues calen?', 3, [2, 3, 4], '', '2 + 1 = 3 pastanagues', 'Per a 4, 2 pastanagues. Per a 2, la meitat: 1. Suma-ho.')], 'L\'última recepta: multiplica, divideix i suma.')
   ] },
   { name: 'El tant per cent', sub: 'Omple provetes: la meitat, una quarta part, una desena part.', levels: [
     dose('cyl', 100, 10, 50, '«Per cent» vol dir «de cada 100». Aquesta proveta fa 100 ml: el 50 % són 50 ml, la meitat.'),
@@ -165,21 +199,21 @@ export const SECTIONS = [
     dose('cyl', 300, 20, 20, 'Troba primer el 10 %, que és dividir per 10. El 20 % és el doble.'),
     ask('L\'aire', AIR(true), [st('Quin tant per cent de l\'aire queda per als altres gasos?', 1, [1, 9, 11], '%', '78 + 21 = 99, i fins a 100 en falta 1', 'Tot plegat ha de sumar 100. Suma 78 i 21, i mira quant hi falta.')], 'L\'aire que respires és un 78 % nitrogen i un 21 % oxigen.')
   ] },
-  { name: 'Dissolucions', sub: 'Sal, or i bronze: quant n\'hi ha de cada cosa?', levels: [
+  { name: 'Sucs i barreges', sub: 'Aigua salada, sucs i cacau: quant n\'hi ha de cada cosa?', levels: [
     dose('salt', 100, 5, 10, 'La sal es desfà dins l\'aigua: això és una dissolució. Aigua salada al 10 %: de cada 100 g, 10 són sal.'),
     dose('salt', 200, 5, 10, 'Ara en fas 200 g. El 10 % és una desena part.'),
-    ask('Un anell d\'or', { t: 'bar', total: '20 g', parts: [['or', 75, 48], ['altres metalls', 25, 200]] }, [st('En un anell de 20 g, quants grams són d\'or?', 15, [5, 15, 18], 'g', '20 : 4 = 5, i 5 × 3 = 15 g d\'or', pctHow(75, 20, 'g'))], 'L\'or de les joies és un 75 % or: la resta són altres metalls que el fan més dur.'),
+    ask('Suc de taronja', { t: 'bar', total: '200 ml', parts: [['taronja', 75, 30], ['aigua', 25, 215]] }, [st('En un got de 200 ml, quants ml són de taronja?', 150, [50, 150, 175], 'ml', '200 : 4 = 50, i 50 × 3 = 150 ml de taronja', pctHow(75, 200, 'ml'))], 'Al brik diu: «75 % de taronja». La resta és aigua.'),
     dose('salt', 300, 5, 5, 'El 5 % és la meitat del 10 %. Troba primer el 10 % de 300.'),
-    ask('La campana', BELL, [st('La campana pesa 50 kg. Quants quilos són d\'estany?', 5, [5, 10, 40], 'kg', '50 : 10 = 5 kg d\'estany', pctHow(10, 50, 'kg'))], 'El bronze d\'aquesta campana és un 90 % coure i un 10 % estany. Sí: l\'estany també és un metall!'),
-    ask('La campana', BELL, [st('La campana pesa 50 kg i 5 són d\'estany. Quants quilos són de coure?', 45, [40, 45, 49], 'kg', '50 − 5 = 45 kg de coure', 'Tot el que no és estany és coure: treu 5 de 50.')], 'La mateixa campana. Ara toca el coure.'),
+    ask('Llet amb cacau', COCOA, [st('Una tassa de 250 ml té un 10 % de cacau. Quants ml són de cacau?', 25, [10, 25, 50], 'ml', '250 : 10 = 25 ml de cacau', pctHow(10, 250, 'ml'))], 'Llet amb cacau: un 10 % és cacau i la resta, llet.'),
+    ask('Llet amb cacau', COCOA, [st('La tassa fa 250 ml i 25 són de cacau. Quants ml són de llet?', 225, [150, 225, 240], 'ml', '250 − 25 = 225 ml de llet', 'Tot el que no és cacau és llet: treu 25 de 250.')], 'La mateixa tassa. Ara toca la llet.'),
     dose('salt', 150, 10, 20, 'Aigua ben salada: al 20 %. Troba el 10 % de 150 i fes-ne el doble.'),
-    ask('El teu cos', { t: 'bar', parts: [['oxigen', 65, 0], ['carboni', 18, 140], ['hidrogen', 10, 215], ['la resta', null, 285]] }, [st('Quin tant per cent és tota la resta?', 7, [3, 7, 17], '%', '65 + 18 + 10 = 93, i fins a 100 en falten 7', 'Suma 65, 18 i 10, i mira quant falta per arribar a 100.')], 'El teu cos és un 65 % oxigen, un 18 % carboni i un 10 % hidrogen.'),
+    ask('La limonada', { t: 'bar', parts: [['aigua', 72, 215], ['suc de llimona', 20, 55], ['sucre', null, 320]] }, [st('Quin tant per cent és de sucre?', 8, [2, 8, 28], '%', '72 + 20 = 92, i fins a 100 en falten 8', 'Suma 72 i 20, i mira quant falta per arribar a 100.')], 'Aquesta limonada és un 72 % aigua i un 20 % suc de llimona. La resta és sucre.'),
     ask('Aigua al cos', { t: 'bar', total: '30 kg', parts: [['aigua', 60, 215], ['la resta', 40, 28]] }, [
       st('Un nen pesa 30 kg. Primer: quant és el 10 % de 30 kg?', 3, [3, 6, 10], 'kg', '10 % de 30 kg = 3 kg', 'El 10 % és dividir per 10.'),
       st('I el 60 %, que és 6 cops més?', 18, [12, 18, 20], 'kg', '3 × 6 = 18 kg d\'aigua', 'Multiplica per 6 el que val el 10 %.')], 'El cos és un 60 % aigua. Fes-ho en dos passos.'),
-    ask('La farmaciola', { t: 'cyl', size: 200, step: 50, v: 200 }, [
+    ask('El refresc', { t: 'cyl', size: 200, step: 50, v: 200 }, [
       st('Primer: quant és l\'1 % de 200 ml?', 2, [2, 3, 20], 'ml', '200 : 100 = 2 ml', 'L\'1 % és dividir per 100.'),
-      st('I el 3 %?', 6, [5, 6, 60], 'ml', '2 × 3 = 6 ml', 'El 3 % és 3 cops l\'1 %.')], 'L\'aigua oxigenada de la farmaciola és al 3 %: de cada 100 ml, només 3 ho són de debò. L\'ampolla fa 200 ml.')
+      st('El refresc té un 3 % de suc de llimona. Quants ml són?', 6, [5, 6, 60], 'ml', '2 × 3 = 6 ml', 'El 3 % és 3 cops l\'1 %.')], 'Un got de 200 ml de refresc de llimona. Al pot diu: «3 % de suc». Només una mica és suc de veritat!')
   ] },
   { name: 'Reaccions', sub: 'Els àtoms canvien de parella, sempre en la mateixa proporció.', levels: [
     react([['C', 1], ['O2', 1]], [['CO2', 1]], [0, 3], 'En una reacció les molècules es desfan i els àtoms en fan de noves. La recepta diu quantes en calen de cada.'),
@@ -240,6 +274,37 @@ export const SECTIONS = [
       st('Quants ml fa ara la poció?', 55, null, 'ml', '50 + 5 = 55 ml', 'Suma la purpurina als 50 ml.')], 'L\'última poció: 3 parts de blau per cada 2 de groc.')
   ] }
 ];
+// the fridge: litres and millilitres, kilos and grams, with things from home
+const FRIDGE = { name: 'La nevera', sub: 'Litres i mil·lilitres, quilos i grams: el que hi ha a la nevera.', levels: [
+  ask('El brik de llet', card('A la nevera', [['🥛', 'Llet: 1 l']]), [st('Quants mil·lilitres té 1 litre?', 1000, [10, 100, 1000], 'ml', '1 l = 1000 ml', 'Mil·lilitre vol dir «la mil·lèsima part d\'un litre»: un litre en té mil.')], 'A la nevera hi ha un brik de llet d\'1 litre. Els líquids es mesuren en litres (l) i mil·lilitres (ml).'),
+  ask('Gots de llet', { t: 'cyl', size: 1000, step: 250, v: 1000 }, [st('Cada got és de 250 ml. Quants gots omples amb 1 litre?', 4, [2, 4, 10], 'gots', '1000 : 250 = 4 gots', '250 + 250 = 500, que és mig litre. Quants 250 fan 1000?')], 'Aquesta gerra té 1 litre de llet: 1000 ml.'),
+  ask('Mig litre', card('A la nevera', [['🧃', 'Suc de taronja: mig litre'], ['💧', 'Aigua: 1 litre i mig']]), [
+    st('Quants ml té el suc de mig litre?', 500, [50, 500, 5000], 'ml', 'Mig litre = 1000 : 2 = 500 ml', 'La meitat de 1000 ml.'),
+    st('I l\'ampolla d\'aigua d\'1 litre i mig?', 1500, null, 'ml', '1000 + 500 = 1500 ml', '1 litre són 1000 ml, i mig litre, 500 ml. Suma-ho.')], 'Mig litre és la meitat d\'un litre.'),
+  ask('El formatge', card('A la nevera', [['🧀', 'Formatge: 250 g'], ['🧈', 'Mantega: 250 g']]), [
+    st('Quants grams té 1 quilo?', 1000, [10, 100, 1000], 'g', '1 kg = 1000 g', 'Quilo vol dir mil: un quilo són mil grams.'),
+    st('Quants trossos de formatge de 250 g fan 1 kg?', 4, [2, 4, 10], '', '1000 : 250 = 4 trossos', 'Quants 250 g fan 1000 g?')], 'Les coses que pesen es mesuren en quilos (kg) i grams (g).'),
+  ask('Quant més pesa?', card('A la nevera', [['🍗', 'Pollastre: 1 kg'], ['🥓', 'Pernil: 750 g']]), [st('Quants grams més pesa el pollastre que el pernil?', 250, [25, 250, 749], 'g', '1000 − 750 = 250 g més', 'Passa el quilo a grams, 1000 g, i després resta 750.')], 'Per comparar-los, tots dos han d\'estar en grams.'),
+  ask('La fruita', card('Al calaix de la fruita', [['🍎', 'Pomes: 2 kg'], ['🍌', 'Plàtans: 500 g'], ['🍇', 'Raïm: 750 g']]), [
+    st('Quants grams pesen les pomes?', 2000, [20, 200, 2000], 'g', '2 kg = 2000 g', 'Cada quilo són 1000 g.'),
+    st('Quants grams de fruita hi ha en total?', 3250, null, 'g', '2000 + 500 + 750 = 3250 g', 'Suma els grams de les tres fruites.')], 'Primer passa-ho tot a grams.'),
+  ask('Ampolletes', card('A la nevera', [['🥤', 'Ampolla gran: 2 l'], ['🧃', 'Ampolleta: 200 ml']]), [st('Quantes ampolletes de 200 ml omplen l\'ampolla de 2 l?', 10, [4, 10, 100], '', '2 l = 2000 ml, i 2000 : 200 = 10', '2 litres són 2000 ml. Quantes vegades hi cap 200?')], 'Una ampolla gran i unes ampolletes per anar d\'excursió.'),
+  ask('Iogurts', card('A la nevera', [['🥄', 'Paquet de 4 iogurts de 125 g']]), [
+    st('Quants grams fa el paquet sencer?', 500, null, 'g', '125 × 4 = 500 g', '125 + 125 = 250, i dues vegades 250.'),
+    st('Quants paquets fan 1 kg?', 2, [2, 4, 8], '', '1000 : 500 = 2 paquets', '1 kg són 1000 g. Quantes vegades hi cap 500?')], 'Cada iogurt pesa 125 g.'),
+  ask('Què queda?', { t: 'cyl', size: 1000, step: 250, v: 750 }, [
+    st('La gerra feia 1 l i n\'has begut un got de 250 ml. Quants ml queden?', 750, [250, 750, 900], 'ml', '1000 − 250 = 750 ml', '1 l són 1000 ml. Treu-ne el got.'),
+    st('En beus un altre got. Quants ml queden ara?', 500, null, 'ml', '750 − 250 = 500 ml: mig litre', 'Treu un altre got de 250 ml.')], 'A la gerra hi havia 1 litre de suc.'),
+  ask('Repte de la nevera', card('Al rebost', [['📦', 'Una caixa de 6 briks de llet d\'1 l']]), [
+    st('Quants litres de llet hi ha a la caixa?', 6, null, 'l', '6 × 1 = 6 l', 'Cada brik té 1 litre.'),
+    st('Quants ml són?', 6000, null, 'ml', '6 l = 6000 ml', 'Cada litre són 1000 ml.'),
+    st('A casa en gasteu 750 ml cada dia. Quants ml en gasteu en 2 dies?', 1500, null, 'ml', '750 × 2 = 1500 ml', 'El doble de 750.'),
+    st('Quants ml queden a la caixa després de 2 dies?', 4500, null, 'ml', '6000 − 1500 = 4500 ml', 'Treu el que heu gastat de 6000 ml.')], 'L\'últim repte de la nevera: litres, mil·lilitres i dies.')
+] };
+// The order of the cursus: the kitchen first, then the percentages and the mixes, and the chemistry at the end.
+// OLD[i] is the place now of the section that was the i-th at first: a save from then keeps its stars in the same section
+export const OLD = [4, 5, 1, 2, 3, 6, 7];
+export const SECTIONS = [FRIDGE, FIRST[2], FIRST[3], FIRST[4], FIRST[0], FIRST[1], FIRST[5], FIRST[6]];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
 
 /* ---------- stars ---------- */
@@ -249,24 +314,36 @@ export const LEVELS = SECTIONS.flatMap(s => s.levels);
 // circles, a mark for each project, an exam for each circle, XP and badges. A project is one of the sections above, with its ten levels
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
-  { name: 'Àtoms i molècules', projects: [0, 1] },
-  { name: 'Mescles i percentatges', projects: [2, 3, 4] },
-  { name: 'El gran laboratori', projects: [5, 6] }
+  { name: 'La cuina', projects: [0, 1] },
+  { name: 'Mescles i percentatges', projects: [2, 3] },
+  { name: 'La química', projects: [4, 5, 6, 7] }
 ];
-// the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
-const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', badges: p => badges(p), BADGES: () => BADGES });
+// The progress of the cursus, the same in every game (shared/curs.js). The stars of each level, in the order of now, are kept in lv;
+// the exam of circle c is kept at EXAM + c, after the three exams of the first order. A circle is open too when some level of it has
+// stars, or when an exam of the first order had opened its sections (the first exam opened the percentages, the second the
+// reactions). Only atoms and molecules, open to everyone at first, wait now at the end for whoever had not played them
+export const EXAM = 3;
+const played = (p, c) => CIRCLES[c].projects.some(i => p.lv.slice(i * 10, i * 10 + 10).some(n => n > 0)) || (c > 0 && p.exams[c - 1] === true);
+const cursus = curs({ PROJECTS, CIRCLES, field: 'lv', lists: ['stars'], slot: c => EXAM + c, alsoOpen: played, badges: p => badges(p), BADGES: () => BADGES });
 export const { circleOf, noteOf, reached, xpOf, levelText, isOpen, examOpen, levelIn, examIn, sheetIn } = cursus;
 export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three elements of the Piscina, the first challenges: hydrogen, oxygen and carbon
 export const POOL = ['H', 'O', 'C'];
 
-// What is saved is facts only: { so, stars[70], piscina, exams[3], fulls }. stars is what the game kept before the cursus (the best
-// stars of each level), so a save from then is already a progress. Marks, XP, level and badges are worked out, never stored.
-// A complete progress inside its limits from any value at all; a new object. It only ever raises: whoever played before the cursus has the Piscina done
+// What is saved is facts only: { so, lv[80], stars[70], piscina, exams[6], fulls }. lv holds the stars of each level in the order of
+// now. stars and exams[0..2] are what the first order kept: they are never written again, only read, so a cloud copy from before
+// (merged position by position) can never mix the two orders. Marks, XP, level and badges are worked out, never stored.
+// A complete progress inside its limits from any value at all; a new object. It only ever raises: the stars of the first order go
+// to their section in the new one, the exam of the percentages to its circle, and the two exams of chemistry, both passed, to the
+// circle of chemistry. The kitchen is new: its exam is to be done
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
-  const stars = slots(o.stars, LEVELS.length).map(s => within(s, 3));
-  return { so: o.so !== false, stars, piscina: o.piscina === true || stars.some(s => s > 0), exams: slots(o.exams, CIRCLES.length).map(e => e === true), fulls: Math.max(0, whole(o.fulls)) };
+  const stars = slots(o.stars, FIRST.length * 10).map(s => within(s, 3)), lv = slots(o.lv, LEVELS.length).map(s => within(s, 3));
+  OLD.forEach((p, i) => { for (let k = 0; k < 10; k++) lv[p * 10 + k] = Math.max(lv[p * 10 + k], stars[i * 10 + k]); });
+  const exams = slots(o.exams, EXAM + CIRCLES.length).map(e => e === true);
+  exams[EXAM + 1] ||= exams[1];
+  exams[EXAM + 2] ||= exams[0] && exams[2];
+  return { so: o.so !== false, lv, stars, piscina: o.piscina === true || lv.some(s => s > 0), exams, fulls: Math.max(0, whole(o.fulls)) };
 }
 export const BADGES = [
   { name: 'Piscina acabada', what: 'Acaba la Piscina.' },
@@ -275,7 +352,7 @@ export const BADGES = [
   { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
   { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, CIRCLES.every((_, c) => p.exams[EXAM + c] === true)];
 
 /* ---------- the exam and «Caça l'errada» ---------- */
 // Chance enters only through rnd (a function like Math.random).

@@ -4,7 +4,7 @@ import { pond } from '../../shared/fx.js';
 import { panel, levelRow, wireLevels } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { PROJECTS, CIRCLES, POOL, ELEMENTS, GROUPS, MOLS, INKS, POINTS, VALID, EXAM_PASS, el, byZ, placeOf, shells, neutronsOf, the, de, formula, stateOf, blend, pctHow, starsFor,
-  clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn } from './logic.js';
+  clean, noteOf, reached, levelText, isOpen, examOpen, circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, EXAM } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow } from '../../shared/shell.js';
 import { frames, svgEl } from '../../shared/scene.js';
@@ -14,8 +14,8 @@ const KEY = 'laboratori-de-l-estany';
 // with the exam of the one before, an exam with its projects validated, and a level after the one before
 const OPEN = OBERT;
 
-// Facts only: { so, stars, piscina, exams, fulls }. clean() makes a complete progress out of anything the browser holds, the save
-// from before the cursus too
+// Facts only: { so, lv, stars, piscina, exams, fulls }. clean() makes a complete progress out of anything the browser holds, the save
+// from before the cursus and from the first order of the sections too
 let prog = clean(load(KEY));
 const save = () => { store(KEY, prog); paintXp(); };
 // The bar at the top of every screen: «Nivell 2,27», and the fill is the decimals, the part of the level that is done
@@ -107,7 +107,7 @@ const KIND = { find, atom, mol, mix, dose, react, ask };
 const RING = [140, 195, 262];   // the colour of each circle
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4].map((r, i) => `<circle r="${r}" fill="none" stroke="hsl(${RING[c]} 60% 60%)" stroke-width="2.4" opacity="${2 - i <= c ? 1 : 0.25}"/>`).join('')}</svg>`;
 // the map of the cursus (shared/mapa.js): what it says of each project and exam, and the next thing to do
-const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'stars' });
+const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'lv', passed: (p, c) => p.exams[EXAM + c] });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('El mapa', false, 165);
@@ -163,7 +163,7 @@ function level(sec, idx) {
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     <div class="coach" id="coach">${FROG}<p class="status tip" id="tip"></p></div><div class="stage" id="stage"></div>`;
   // a level is marked done when it has a star
-  root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.stars[sec * 10 + i] > 0));
+  root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.lv[sec * 10 + i] > 0));
   wireLevels(root, i => level(sec, i));
   const stage = $('#stage');
   const tip = (txt, cls = '') => { $('#tip').className = 'status tip ' + cls; $('#tip').innerHTML = `<span>${txt}</span>`; again($('#coach')); $('#coach').className = 'coach ' + cls; };
@@ -212,7 +212,7 @@ function examen(c) {
     const end = ok => {
       if (done || !t.on) return;
       done = true; failed = !ok; keyFn = null; stage.inert = true; run[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
-      if (last) { res = examIn(prog, c, qs, run); res.first = res.good && !prog.exams[c]; prog = res.prog; save(); }
+      if (last) { res = examIn(prog, c, qs, run); res.first = res.good && !prog.exams[EXAM + c]; prog = res.prog; save(); }
       if (ok) { say('Correcte!', 'go'); chime([523, 659, 784]); FX.celebrate(6); return sleep(1000).then(() => { if (t.on) next(); }); }
       say('No és correcte.', 'oops'); buzz(); openAt = performance.now() + SETTLE;
       tail.innerHTML = `<button class="btn" id="nx">${last ? 'Mira el resultat' : 'Segueix'}</button>`;
@@ -628,6 +628,8 @@ function react({ t, L, stage, tip, slip, win }) {
 /* ---------- questions over a drawing: one, or several that lean on each other ---------- */
 // what each kind of drawing shows
 const PIC = {
+  // a card of things with how much of each: what is in the fridge, or what a recipe needs
+  card: P => `<div class="mbox kcard"><p class="kt">${P.title}</p><ul>${P.items.map(([e, t]) => `<li><span aria-hidden="true">${e}</span>${t}</li>`).join('')}</ul></div>`,
   // a strip split in its parts, each as wide as its percentage; a part with no number shows «?»
   bar: P => { const known = P.parts.reduce((s, p) => s + (p[1] || 0), 0), free = P.parts.filter(p => p[1] == null).length;
     return `<div class="comp">${P.total ? `<div class="rule"><b>${P.total}</b></div>` : ''}<div class="cbar">${P.parts.map(([, pct, h]) => `<div class="cp" style="flex:${pct ?? (100 - known) / free};--h:${h}"><b>${pct == null ? '?' : pct + ' %'}</b></div>`).join('')}</div>

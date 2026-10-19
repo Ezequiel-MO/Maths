@@ -274,3 +274,10 @@ sub { font-size: 0.62em; line-height: 0; }
 /* a phone upright: the menu has no big title (the kicker and the bar stay) */
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
 @media (prefers-reduced-motion: reduce) { .frog .bub, .el.hint, .rflask.liquid .sea path { animation: none; } .xp-bar i, #liq, .liq { transition: none; } }
+
+/* the card of the kitchen: what is in the fridge, or what a recipe needs */
+.kcard { background: #FFF8E6; color: #22304F; border: 2px solid #22304F; border-radius: 16px; padding: 10px 16px 12px; max-width: 420px; margin: 0 auto; align-items: stretch; }
+.kcard .kt { margin: 0 0 4px; text-align: center; font: 800 1.05rem/1.2 var(--display, inherit); }
+.kcard ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kcard li { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1rem; padding: 4px 8px; border-radius: 10px; background: #fff; }
+.kcard li span { font-size: 1.6rem; line-height: 1; }
