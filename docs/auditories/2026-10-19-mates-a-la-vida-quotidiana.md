@@ -31,7 +31,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 | 3 | Divisiones donde importa qué hacer con el resto | cursus de l'estany | alto | decidida (2026-10-19): en «El racó de pensar», añadir 5-6 situaciones reales (autobús de excursión, hueveras, cromos, mesas de cumpleaños, ascensor, pizzas) junto a las de ranas, con las mismas 4 preguntas sobre el resto; los ejercicios de los proyectos no cambian. Falta implementarla |
 | 4 | El niño recoge sus propios datos | observatori | alto | aplazada (2026-10-19): el Observatori se queda como está por ahora |
 | 5 | El tiquet con una errada | mercat | medio-alto | decidida (2026-10-19): «L'error del tiquet», la estimación y el 3×2 ya existían. Se añaden tiquets con las líneas bien y el total mal (cazarlo estimando) y un tipo «tiquet» en «Caça l'errada», cambiando niveles existentes, sin proyecto nuevo. Falta implementarla |
-| 6 | Contexto para negativos y complementos | salts de granota | medio-alto | pendiente |
+| 6 | Contexto para negativos y complementos | salts de granota | medio-alto | decidida (2026-10-19): solo una frase real en la explicación del principio (el ejemplo resuelto) de los proyectos de Sota zero (termómetro, ascensor, aparcamiento) y de Amics del 10 / del 100 (el cambio de un billete); los problemas siguen siendo números solos. Falta implementarla |
 | 7 | Panot de Barcelona y cuadrícula del Eixample | taller de píxels / volta al món | medio | pendiente |
 | 8 | Datos reales desde los primeros proyectos | comptaquilòmetres | medio | pendiente |
 | 9 | Tarjeta «Busca-ho a casa» al validar un proyecto | todos los cursus | alto en relación con su coste | pendiente |
