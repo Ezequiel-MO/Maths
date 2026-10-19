@@ -94,8 +94,8 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .display, .claimbox, .estv, .mv
 .key:active { background: var(--sun); color: #2A1C00; }
 .key.ok { grid-column: 1 / -1; background: var(--pad); color: var(--on-pad); border: 0; box-shadow: 0 4px 0 var(--pad-dark); }
 
-/* the town on top of the map: the six places, lit when their project is validated */
-.town { width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; align-items: end; }
+/* the town on top of the map: the seven places, lit when their project is validated */
+.town { width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; align-items: end; }
 .town .bld { width: 100%; height: auto; filter: grayscale(1) brightness(0.55); opacity: 0.7; transition: filter 0.6s; }
 .town .bld.lit { filter: drop-shadow(0 0 10px rgb(247 198 78 / 0.55)); opacity: 1; }
 .grow { font-weight: 800; font-size: 0.9rem; color: var(--muted); max-width: 44ch; }
@@ -151,6 +151,10 @@ span.tk { background: none; border-bottom-color: transparent; padding: 0; }
 .pkey-bg { fill: #FFF0C7; stroke: #22304F; stroke-width: 3; }
 .pkey.ok .pkey-bg { fill: #D7F6E4; stroke: #1E7F4B; stroke-width: 4; }
 .pkey-t { font: 800 30px var(--display); fill: #22304F; }
+.clk-n { font: 800 24px var(--display); fill: #22304F; }
+.tt-h { font: 800 18px var(--body); fill: #56627F; }
+.tt-l { font: 800 22px var(--display); fill: #22304F; }
+.tt-v { font: 800 24px var(--display); fill: #22304F; font-variant-numeric: tabular-nums; }
 .bar.hint .bar-r, .prow.hint .prow-bg, .pkey.hint .pkey-bg { stroke: #FF7A2F; stroke-width: 6; animation: blink 0.5s ease-in-out 6 alternate; }
 
 /* the clues found, the operations, the number line and the sums */

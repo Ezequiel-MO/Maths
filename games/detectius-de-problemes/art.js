@@ -1,5 +1,6 @@
-// The pictures of the detectives of problems, as SVG text: the detective frog, the buildings of the six places, the scene on top of each
-// case, the bar chart and the pictogram of the sports centre (their clues can be tapped) and the icons of the five steps. Nothing here
+// The pictures of the detectives of problems, as SVG text: the detective frog, the buildings of the seven places, the scene on top of each
+// case, the bar chart and the pictogram of the sports centre, the clock and the timetable of the station (their clues can be tapped)
+// and the icons of the five steps. Nothing here
 // knows the progress or the page.
 
 /* ---------- the detective frog: the frog of the pond with a deerstalker and a magnifying glass ---------- */
@@ -43,7 +44,7 @@ function cloud(x, y, s, cls) {
   return `<g class="${cls || 'cloud'}" transform="translate(${x} ${y}) scale(${s})"><g fill="#fff"><ellipse cx="0" cy="0" rx="46" ry="16"/><circle cx="-18" cy="-8" r="16"/><circle cx="8" cy="-14" r="20"/><circle cx="28" cy="-4" r="13"/></g></g>`;
 }
 
-/* ---------- the buildings of the six places (origin: the middle of the base) ---------- */
+/* ---------- the buildings of the seven places (origin: the middle of the base) ---------- */
 export const B = {};
 B.mercat = () => {
   let fruit = '';
@@ -127,6 +128,18 @@ B.misteri = () => `<g>${shadow(78)}
     <rect x="32" y="-70" width="24" height="26" rx="3" fill="#FFE27A"/><path d="M44 -70 v26 M32 -57 h24" stroke="#5A4A8C" stroke-width="3"/>
     <rect x="-42" y="-38" width="26" height="38" rx="13" fill="#2E2554"/><circle cx="-22" cy="-18" r="2.5" fill="#FFC23D"/>
     <rect x="-70" y="-10" width="136" height="10" fill="#4A3C78"/></g>`;
+// the station: a clock on the front (ten past ten, the hour of the shop windows), three arches and the sign
+B.estacio = () => `<g>${shadow(80)}
+    <rect x="-76" y="-96" width="152" height="96" fill="#E9C46A"/>
+    <rect x="-82" y="-104" width="164" height="12" rx="3" fill="#B5651D"/>
+    <path d="M-30 -104 L0 -134 L30 -104 Z" fill="#B5651D"/>
+    <rect x="-24" y="-176" width="48" height="74" fill="#E9C46A"/><path d="M-30 -176 L0 -196 L30 -176 Z" fill="#9C4A1A"/>
+    <circle cx="0" cy="-146" r="19" fill="#FFF6EE" stroke="#22304F" stroke-width="3.5"/>
+    ${[0, 3, 6, 9].map(k => { const a = k * Math.PI / 6; return `<path d="M${15 * Math.sin(a)} ${-146 - 15 * Math.cos(a)} L${12 * Math.sin(a)} ${-146 - 12 * Math.cos(a)}" stroke="#22304F" stroke-width="2.5"/>`; }).join('')}
+    <path d="M0 -146 L-8 -151 M0 -146 L11 -153" stroke="#22304F" stroke-width="3" stroke-linecap="round"/><circle cx="0" cy="-146" r="2.5" fill="#E8476A"/>
+    <rect x="-46" y="-90" width="92" height="16" rx="3" fill="#22304F"/>
+    <text x="0" y="-77" text-anchor="middle" font-family="Lilita One, Impact, sans-serif" font-size="13" fill="#FFC23D" letter-spacing="1.5">ESTACIÓ</text>
+    ${[-50, 0, 50].map(x => `<path d="M${x - 16} 0 V-46 A16 16 0 0 1 ${x + 16} -46 V0 Z" fill="#7BAAD6" stroke="#B5651D" stroke-width="4"/><path d="M${x} -62 V0" stroke="#B5651D" stroke-width="2.5"/>`).join('')}</g>`;
 
 /* ---------- the scene on top of a case (800 × 260) ---------- */
 function sky(id, a, b) {
@@ -182,6 +195,16 @@ export function scene(wid) {
       `<g transform="translate(150 206)"><path d="M-20 0 L-26 -46 L26 -46 L20 0 Z" fill="#FFF6EE"/><path d="M-14 0 L-18 -46 M0 0 V-46 M14 0 L18 -46" stroke="#E8476A" stroke-width="6"/>` +
       Array.from({ length: 9 }, (_, i) => `<circle cx="${-22 + (i % 5) * 11}" cy="${-50 - Math.floor(i / 5) * 9}" r="7" fill="#FFF3C4"/>`).join('') + `</g>` +
       `<g transform="translate(650 186)"><circle r="26" fill="#22304F" stroke="#8A93A8" stroke-width="4"/>${[0, 72, 144, 216, 288].map((a) => `<circle cx="${14 * Math.cos((a * Math.PI) / 180)}" cy="${14 * Math.sin((a * Math.PI) / 180)}" r="6" fill="#8A93A8"/>`).join('')}<path d="M20 18 Q60 30 90 10" stroke="#22304F" stroke-width="10" fill="none"/></g>`;
+  } else if (wid === 'estacio') {
+    s = sky(wid, '#8FD3F5', '#E3F6FF') + cloud(150, 44, 0.8) + cloud(640, 56, 0.75, 'cloud slow') +
+      `<path d="M0 176 Q200 140 400 168 T800 160 L800 200 L0 200 Z" fill="#9CC5E8"/>` +
+      `<rect y="196" width="800" height="64" fill="#C9B79C"/><rect y="196" width="800" height="8" fill="#A8957A"/>` +
+      `<path d="M0 236 H800 M0 252 H800" stroke="#6B7285" stroke-width="4"/>` + Array.from({ length: 27 }, (_, i) => `<rect x="${i * 30 + 4}" y="232" width="14" height="24" fill="#8B5A2B" opacity=".55"/>`).join('') +
+      `<g transform="translate(400 208) scale(1.05)">${B.estacio()}</g>` +
+      `<g transform="translate(120 200)"><rect x="-3" y="-80" width="6" height="80" fill="#22304F"/><rect x="-44" y="-96" width="88" height="22" rx="4" fill="#22304F"/><text x="0" y="-80" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="13" fill="#FFC23D">ANDANA 1</text></g>` +
+      `<g class="bus-drive" transform="translate(660 232)"><rect x="-70" y="-46" width="140" height="40" rx="10" fill="#E8476A"/><rect x="-70" y="-20" width="140" height="6" fill="#FFF6EE"/>` +
+      [-50, -22, 6, 34].map(x => `<rect x="${x}" y="-40" width="18" height="14" rx="3" fill="#BFE9FF"/>`).join('') +
+      `<circle cx="-44" cy="-4" r="7" fill="#22304F"/><circle cx="44" cy="-4" r="7" fill="#22304F"/></g>`;
   } else {
     s = `<defs><linearGradient id="sky-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E2A63"/><stop offset=".6" stop-color="#8C5A9E"/><stop offset="1" stop-color="#F2A271"/></linearGradient></defs><rect width="800" height="260" fill="url(#sky-m)"/>` +
       `<circle cx="640" cy="64" r="36" fill="#FFF3C4"/><circle cx="640" cy="64" r="56" fill="#FFF3C4" opacity=".18"/>` +
@@ -246,8 +269,33 @@ function pictogram(chart, sel, interactive) {
     <text x="186" y="${ky + 30}" class="pkey-t">= ${chart.per}</text></g>`;
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${chart.title}">${g}</svg>`;
 }
+// the clock of the station: { h, m, k }; the whole clock is one clue. The short hand moves on between two hours as the minutes go by
+function clockChart(c, sel, interactive) {
+  const cx = 260, cy = 128, R = 108, state = sel[c.k] || '', P = (deg, r) => { const a = deg * Math.PI / 180; return [cx + r * Math.sin(a), cy - r * Math.cos(a)]; };
+  let g = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#FFFDF8" stroke="#22304F" stroke-width="7"/>`;
+  for (let i = 0; i < 60; i++) { const big = i % 5 === 0, [x1, y1] = P(i * 6, R - 6), [x2, y2] = P(i * 6, R - (big ? 20 : 12)); g += `<path d="M${x1} ${y1} L${x2} ${y2}" stroke="#22304F" stroke-width="${big ? 4 : 1.6}" stroke-linecap="round"/>`; }
+  for (let n = 1; n <= 12; n++) { const [x, y] = P(n * 30, R - 32); g += `<text x="${x}" y="${y + 9}" text-anchor="middle" class="clk-n">${n}</text>`; }
+  const [hx, hy] = P(((c.h % 12) + c.m / 60) * 30, R * 0.42), [mx, my] = P(c.m * 6, R * 0.6);
+  g += `<path d="M${cx} ${cy} L${hx} ${hy}" stroke="#22304F" stroke-width="11" stroke-linecap="round"/><path d="M${cx} ${cy} L${mx} ${my}" stroke="#E8476A" stroke-width="6" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="8" fill="#22304F"/>`;
+  return `<svg class="chart" viewBox="${cx - 190} 0 380 256" role="img" aria-label="${c.title}"><g class="prow ${state} ${interactive ? 'tap' : ''}" ${interactive ? `data-tok="${c.k}" role="button" tabindex="0"` : ''} aria-label="El rellotge">
+    <rect x="${cx - R - 14}" y="${cy - R - 14}" width="${2 * R + 28}" height="${2 * R + 28}" rx="28" class="prow-bg"/>${g}</g></svg>`;
+}
+// the timetable of the train: { head, rows: [{ k, label, v }] }; each row is a clue
+function timetable(c, sel, interactive) {
+  const W = 520, rowH = 44, top = 44, n = c.rows.length, H = top + n * rowH + 6;
+  let g = `<text x="40" y="30" class="tt-h">${c.head[0]}</text><text x="${W - 40}" y="30" text-anchor="end" class="tt-h">${c.head[1]}</text>`;
+  c.rows.forEach((row, i) => {
+    const y = top + i * rowH, state = sel[row.k] || '';
+    g += `<g class="prow ${state} ${interactive ? 'tap' : ''}" ${interactive ? `data-tok="${row.k}" role="button" tabindex="0"` : ''} aria-label="${row.label}: ${row.v}">
+      <rect x="4" y="${y}" width="${W - 8}" height="${rowH - 6}" rx="10" class="prow-bg"/>
+      <circle cx="26" cy="${y + 19}" r="7" fill="#E8476A"/><text x="44" y="${y + 28}" class="tt-l">${row.label}</text>
+      <text x="${W - 40}" y="${y + 28}" text-anchor="end" class="tt-v">${row.v}</text></g>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${c.title}">${g}</svg>`;
+}
 export function chart(c, sel, interactive) {
-  return c.type === 'picto' ? pictogram(c, sel || {}, interactive) : barChart(c, sel || {}, interactive);
+  const f = { picto: pictogram, clock: clockChart, table: timetable }[c.type] || barChart;
+  return f(c, sel || {}, interactive);
 }
 
 /* ---------- the icons of the five steps ---------- */

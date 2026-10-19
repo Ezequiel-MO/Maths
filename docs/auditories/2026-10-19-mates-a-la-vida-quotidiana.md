@@ -26,7 +26,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 
 | # | Idea | Juego | Valor | Estado |
 |---|------|-------|-------|--------|
-| 1 | Horario y calendario | detectius | alto | decidida (2026-10-19): proyecto nuevo con reloj de agujas; falta implementarla |
+| 1 | Horario y calendario | detectius | alto | hecha (2026-10-19): 7º proyecto «L'horari i el calendari» (estación con reloj), en el círculo «Detectiu expert». Casos: Sant Jordi, reloj de agujas + duración, horario del tren, reloj hasta la hora en punto, bus que pasa la hora, semanas y días, cambio de mes |
 | 2 | Cocina y nevera en lugar de química difícil | laboratori | alto | decidida (2026-10-19): la cocina primero y la química al final, 8 proyectos en 3 círculos. C0 «La cuina»: «La nevera» (nuevo: briks, botellas, kg/g, l/ml) y «La recepta» (recetas reales, para 4 → para 6 o 2). C1: «El tant per cent» y «Dissolucions» (zumos y bebidas en lugar de oro y bronce). C2 «La química»: elements, molècules, reaccions y el gran experiment. Las estrellas guardadas viajan con su proyecto al reordenar. Falta implementarla |
 | 3 | Divisiones donde importa qué hacer con el resto | cursus de l'estany | alto | decidida (2026-10-19): en «El racó de pensar», añadir 5-6 situaciones reales (autobús de excursión, hueveras, cromos, mesas de cumpleaños, ascensor, pizzas) junto a las de ranas, con las mismas 4 preguntas sobre el resto; los ejercicios de los proyectos no cambian. Falta implementarla |
 | 4 | El niño recoge sus propios datos | observatori | alto | aplazada (2026-10-19): el Observatori se queda como está por ahora |
