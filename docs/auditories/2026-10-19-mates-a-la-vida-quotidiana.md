@@ -33,7 +33,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 | 5 | El tiquet con una errada | mercat | medio-alto | decidida (2026-10-19): «L'error del tiquet», la estimación y el 3×2 ya existían. Se añaden tiquets con las líneas bien y el total mal (cazarlo estimando) y un tipo «tiquet» en «Caça l'errada», cambiando niveles existentes, sin proyecto nuevo. Falta implementarla |
 | 6 | Contexto para negativos y complementos | salts de granota | medio-alto | decidida (2026-10-19): solo una frase real en la explicación del principio (el ejemplo resuelto) de los proyectos de Sota zero (termómetro, ascensor, aparcamiento) y de Amics del 10 / del 100 (el cambio de un billete); los problemas siguen siendo números solos. Falta implementarla |
 | 7 | Panot de Barcelona y cuadrícula del Eixample | taller de píxels / volta al món | medio | decidida (2026-10-19): las dos. Panot en píxeles en el Taller de píxels (completarlo trasladando, girando o reflejando) y Eixample en la Volta al món (un recorrido por la cuadrícula en «El mapa» y la vuelta a una manzana en «El perímetre»). Cambiar 3-4 niveles, sin proyectos nuevos. Falta implementarla |
-| 8 | Datos reales desde los primeros proyectos | comptaquilòmetres | medio | pendiente |
+| 8 | Datos reales desde los primeros proyectos | comptaquilòmetres | medio | decidida (2026-10-19): en «Els milers», «Fins a 99.999», «Qui ha fet més km?» y «Ordena», cambiar parte de los números sueltos por datos de Cataluña con `thing` (montañas, ciudades, pueblos, aforos), con las cifras comprobadas. Sin proyectos nuevos. Falta implementarla |
 | 9 | Tarjeta «Busca-ho a casa» al validar un proyecto | todos los cursus | alto en relación con su coste | pendiente |
 
 ## 1. Cómo están hoy los juegos
