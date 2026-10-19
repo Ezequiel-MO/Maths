@@ -489,6 +489,17 @@
   "starsFor": "5c809b3644ee396e",
   "xpOf": "61c4ee3fb50c3e86"
  },
+ "rutina-de-l-estany": {
+  "=FACTS": "b7801774819f73ae",
+  "=GAPS": "9289d9ca3860c238",
+  "=LEAST": "c1dfd96eea8cc2b6",
+  "=NEW": "fe5dbbcea5ce7e29",
+  "=SABUDA": "1b6453892473a467",
+  "=TABLES": "7b52009b64fd0a2a",
+  "=TRUCS": "77de68daecd823ba",
+  "=TRUC_KINDS": "056169dee1da2363",
+  "clean": "9ad26ffe6b5ca7c2"
+ },
  "salts-de-granota": {
   "=BADGES": "6901ed8b8cb5a8ed",
   "=CIRCLES": "60b712bcffd5e9d3",

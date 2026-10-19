@@ -19,6 +19,9 @@ import { clean as pixels, noteOf as pixelNote, VALID as PIXEL_VALID } from '../g
 import { clean as cases, noteOf as caseNote, VALID as CASE_VALID } from '../games/detectius-de-problemes/logic.js';
 import { clean as english, noteOf as englishNote, VALID as ENGLISH_VALID } from '../games/estany-parla-angles/logic.js';
 import { clean as odo, noteOf as odoNote, VALID as ODO_VALID, kmOf } from '../games/comptaquilometres/logic.js';
+import { clean as routine, known as knownOf } from '../games/rutina-de-l-estany/logic.js';
+// the daily routine is not a cursus: the line says how many facts of the tables are known and how many days it was done
+const daily = (s, total) => { const p = routine(s), n = knownOf(p); return [n ? `${n} de ${total} sabudes` : '', p.dies ? `${p.dies} ${p.dies === 1 ? 'dia' : 'dies'}` : ''].filter(Boolean).join(' · '); };
 // the programming rocket keeps the stars of its levels; a save from before its cursus kept the levels done in five sections, and clean turns them into project marks
 const programs = (s, total) => { const p = code(s), n = Array.from({ length: total }, (_, i) => codeNote(p, i)).filter(x => x >= CODE_VALID).length; return n ? `${n} de ${total} projectes` : ''; };
 // the laboratory works as the concert: the mark of a project comes out of the stars of its levels
@@ -58,6 +61,9 @@ const spoken = (s, total) => { const p = english(s), n = Array.from({ length: to
 const trips = (s, total) => { const p = odo(s), n = Array.from({ length: total }, (_, i) => odoNote(p, i)).filter(x => x >= ODO_VALID).length, km = kmOf(p); return [n ? `${n} de ${total} projectes` : '', km ? `${String(km).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} km` : ''].filter(Boolean).join(' · '); };
 
 export const GAMES = [
+  { id: 'rutina-de-l-estany', href: 'rutina-de-l-estany.html', store: 'rutina-de-l-estany', tag: 'Rutina diària', title: "La rutina de l'estany",
+    what: 'Cinc minuts cada dia: les taules en capsetes, que tornen just quan toca, i tres trucs per treure una multiplicació nova d\'una que ja saps.', total: 36, record: (s, total) => daily(s, total),
+    icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="6" width="48" height="24" rx="7" fill="#FFB547"/><rect x="8" y="34" width="22" height="24" rx="7" fill="#6FE3FF"/><rect x="34" y="34" width="22" height="24" rx="7" fill="#06202B" stroke="#F7C64E" stroke-width="2.5" stroke-dasharray="4 3"/><g font-family="sans-serif" font-weight="800" text-anchor="middle"><text x="32" y="24" font-size="16" fill="#2A1C00">28</text><text x="19" y="52" font-size="15" fill="#06202B">7</text><text x="45" y="52" font-size="15" fill="#F7C64E">?</text></g></svg>` },
   { id: 'comptaquilometres', href: 'comptaquilometres.html', store: 'comptaquilometres', tag: 'Números grans', title: 'El comptaquilòmetres',
     what: 'Viatja amb la granota fins al 999.999: posa el punt dels milers, llegeix i escriu números grans, compara, ordena, fes girar les rodes i arrodoneix.', total: 9, record: (s, total) => trips(s, total),
     icon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M6 40a26 26 0 0 1 52 0" fill="none" stroke="#F7C64E" stroke-width="4" stroke-linecap="round"/><path d="M32 40L18 24" stroke="#FF6B5E" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="40" r="4" fill="#CFEFFF"/><rect x="4" y="46" width="56" height="16" rx="4" fill="#1B2730" stroke="#3A4A55" stroke-width="2"/><g font-family="sans-serif" font-weight="800" font-size="11" fill="#F4F1E8" text-anchor="middle"><text x="12" y="58">1</text><text x="20" y="58">2</text><text x="28" y="58">5</text><text x="40" y="58">0</text><text x="48" y="58">0</text><text x="56" y="58">0</text></g><circle cx="34" cy="58" r="1.6" fill="#F7C64E"/></svg>` },
