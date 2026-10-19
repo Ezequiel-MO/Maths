@@ -34,7 +34,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 | 6 | Contexto para negativos y complementos | salts de granota | medio-alto | decidida (2026-10-19): solo una frase real en la explicación del principio (el ejemplo resuelto) de los proyectos de Sota zero (termómetro, ascensor, aparcamiento) y de Amics del 10 / del 100 (el cambio de un billete); los problemas siguen siendo números solos. Falta implementarla |
 | 7 | Panot de Barcelona y cuadrícula del Eixample | taller de píxels / volta al món | medio | decidida (2026-10-19): las dos. Panot en píxeles en el Taller de píxels (completarlo trasladando, girando o reflejando) y Eixample en la Volta al món (un recorrido por la cuadrícula en «El mapa» y la vuelta a una manzana en «El perímetre»). Cambiar 3-4 niveles, sin proyectos nuevos. Falta implementarla |
 | 8 | Datos reales desde los primeros proyectos | comptaquilòmetres | medio | decidida (2026-10-19): en «Els milers», «Fins a 99.999», «Qui ha fet més km?» y «Ordena», cambiar parte de los números sueltos por datos de Cataluña con `thing` (montañas, ciudades, pueblos, aforos), con las cifras comprobadas. Sin proyectos nuevos. Falta implementarla |
-| 9 | Tarjeta «Busca-ho a casa» al validar un proyecto | todos los cursus | alto en relación con su coste | pendiente |
+| 9 | Tarjeta «Busca-ho a casa» al validar un proyecto | todos los cursus | alto en relación con su coste | aplazada (2026-10-19): los juegos se quedan sin tarjeta por ahora |
 
 ## 1. Cómo están hoy los juegos
 
