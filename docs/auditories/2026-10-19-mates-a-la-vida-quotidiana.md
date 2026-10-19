@@ -30,7 +30,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 | 2 | Cocina y nevera en lugar de química difícil | laboratori | alto | decidida (2026-10-19): la cocina primero y la química al final, 8 proyectos en 3 círculos. C0 «La cuina»: «La nevera» (nuevo: briks, botellas, kg/g, l/ml) y «La recepta» (recetas reales, para 4 → para 6 o 2). C1: «El tant per cent» y «Dissolucions» (zumos y bebidas en lugar de oro y bronce). C2 «La química»: elements, molècules, reaccions y el gran experiment. Las estrellas guardadas viajan con su proyecto al reordenar. Falta implementarla |
 | 3 | Divisiones donde importa qué hacer con el resto | cursus de l'estany | alto | decidida (2026-10-19): en «El racó de pensar», añadir 5-6 situaciones reales (autobús de excursión, hueveras, cromos, mesas de cumpleaños, ascensor, pizzas) junto a las de ranas, con las mismas 4 preguntas sobre el resto; los ejercicios de los proyectos no cambian. Falta implementarla |
 | 4 | El niño recoge sus propios datos | observatori | alto | aplazada (2026-10-19): el Observatori se queda como está por ahora |
-| 5 | El tiquet con una errada | mercat | medio-alto | pendiente |
+| 5 | El tiquet con una errada | mercat | medio-alto | decidida (2026-10-19): «L'error del tiquet», la estimación y el 3×2 ya existían. Se añaden tiquets con las líneas bien y el total mal (cazarlo estimando) y un tipo «tiquet» en «Caça l'errada», cambiando niveles existentes, sin proyecto nuevo. Falta implementarla |
 | 6 | Contexto para negativos y complementos | salts de granota | medio-alto | pendiente |
 | 7 | Panot de Barcelona y cuadrícula del Eixample | taller de píxels / volta al món | medio | pendiente |
 | 8 | Datos reales desde los primeros proyectos | comptaquilòmetres | medio | pendiente |
