@@ -26,7 +26,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 
 | # | Idea | Juego | Valor | Estado |
 |---|------|-------|-------|--------|
-| 1 | Horario y calendario | detectius | alto | pendiente |
+| 1 | Horario y calendario | detectius | alto | decidida (2026-10-19): proyecto nuevo con reloj de agujas; falta implementarla |
 | 2 | Cocina y nevera en lugar de química difícil | laboratori | alto | pendiente |
 | 3 | Divisiones donde importa qué hacer con el resto | cursus de l'estany | alto | pendiente |
 | 4 | El niño recoge sus propios datos | observatori | alto | pendiente |
