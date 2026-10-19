@@ -27,7 +27,7 @@ De Innovamat solo hubo resúmenes de búsqueda (su blog no cargaba).
 | # | Idea | Juego | Valor | Estado |
 |---|------|-------|-------|--------|
 | 1 | Horario y calendario | detectius | alto | decidida (2026-10-19): proyecto nuevo con reloj de agujas; falta implementarla |
-| 2 | Cocina y nevera en lugar de química difícil | laboratori | alto | decidida (2026-10-19): cambiar «La recepta» (recetas reales, para 4 → para 6 o 2) y «Dissolucions» (zumos, briks, kg/g y l/ml); la química de átomos se queda; falta implementarla |
+| 2 | Cocina y nevera en lugar de química difícil | laboratori | alto | decidida (2026-10-19): la cocina primero y la química al final, 8 proyectos en 3 círculos. C0 «La cuina»: «La nevera» (nuevo: briks, botellas, kg/g, l/ml) y «La recepta» (recetas reales, para 4 → para 6 o 2). C1: «El tant per cent» y «Dissolucions» (zumos y bebidas en lugar de oro y bronce). C2 «La química»: elements, molècules, reaccions y el gran experiment. Las estrellas guardadas viajan con su proyecto al reordenar. Falta implementarla |
 | 3 | Divisiones donde importa qué hacer con el resto | cursus de l'estany | alto | pendiente |
 | 4 | El niño recoge sus propios datos | observatori | alto | pendiente |
 | 5 | El tiquet con una errada | mercat | medio-alto | pendiente |
