@@ -82,12 +82,14 @@ const MONSTER = { col: ['green', 'blue', 'red', 'purple', 'orange', 'pink'], eye
 
 /* ---------- the radio: a person who talks about themself (Listening 1) ---------- */
 // A person drawn with rnd: name, pronoun, a job sometimes, and for each fact the right option. nots puts «I don't like tennis.» before
-// «I love playing football.»: the wrong option is heard too, as in the test
+// «I love playing football.»: the wrong option is heard too, as in the test. Each question keeps its piece of the recording (part): the
+// lines since the previous fact, the greeting and the «I don't like...» included
 function person(r, facts, nots = false) {
   const [name, he] = pick(r, PEOPLE), grown = r() < 0.4;
   const lines = [`Hello! My name is ${name}.`];
   if (grown) lines.push(`I am ${pick(r, ROLES)}.`);
   const qs = [];
+  let cut = 0;
   for (const f of facts) {
     const F = FACTS[f];
     let pool = F.opts;
@@ -96,8 +98,9 @@ function person(r, facts, nots = false) {
     const right = pick(r, pool), others = draw(r, pool.filter(o => o !== right), 2);
     if (nots && F.not && r() < 0.6) lines.push(others[0].n);
     lines.push(right.s);
-    const opts = mix(r, [right, ...others]);
-    qs.push({ f, say: right.s, line: F.line, ca: F.ca, opts: opts.map(o => ({ pic: o.pic || W[o.k].pic, key: W[o.k] ? o.k : null, word: o.pic ? o.pic.slice(1) : W[o.k].word })), ok: opts.indexOf(right), word: right.k });
+    const opts = mix(r, [right, ...others]), part = lines.slice(cut);
+    cut = lines.length;
+    qs.push({ f, say: right.s, part, line: F.line, ca: F.ca, opts: opts.map(o => ({ pic: o.pic || W[o.k].pic, key: W[o.k] ? o.k : null, word: o.pic ? o.pic.slice(1) : W[o.k].word })), ok: opts.indexOf(right), word: right.k });
   }
   const [love, line] = pick(r, LOVES), wrong = draw(r, LOVES.map(l => l[0]), 2, [love]);
   lines.push(line);
@@ -377,12 +380,14 @@ export function examItem(q, rnd = Math.random) {
 /* ---------- the simulacre: the 20 questions of the test, as in 2025-26 ---------- */
 // Listening 1 (1-6): a person talks; five questions with pictures and one with words. Listening 2 (7-10): TRUE or FALSE according to
 // what is heard. Reading (11-16): six questions about a text; (17-20) TRUE or FALSE. Every recording can be heard twice.
-export function mock(rnd = Math.random) {
+// step is the first version, «pas a pas»: no whole recording first, each question plays its own piece of it (same sentences, same draws)
+export function mock(rnd = Math.random, step = false) {
   const P = person(rnd, draw(rnd, Object.keys(FACTS), 5), true), T = pick(rnd, TOPICS), L = heardLines(rnd, T, 4), X = pick(rnd, TEXTS.long);
   const R1 = textItems(rnd, X), mc = R1.filter(i => i.k === 'pick'), tf = R1.filter(i => i.k === 'tf');
+  const L1 = step ? [...radioItems(P, true).map((it, i) => ({ ...it, say: P.qs[i].part })), loveItem(P, true)] : [...radioItems(P, false), loveItem(P, false)];
   return [
-    { title: 'LISTENING 1 (1-6)', name: `Meet ${P.name}`, en: SAYS.radio[0], intro: { who: P.name, lines: P.lines }, items: [...radioItems(P, false), loveItem(P, false)] },
-    { title: 'LISTENING 2 (7-10)', name: T.name, en: SAYS.tfHeard[0], topic: T, intro: { who: T.name, lines: L.map((l, i) => `Number ${i + 7}. ${l.heard}`) }, items: L.map((l, i) => tfHeard(l, i + 7, false)) },
+    { title: 'LISTENING 1 (1-6)', name: `Meet ${P.name}`, en: SAYS.radio[0], intro: { who: P.name, lines: P.lines }, items: L1 },
+    { title: 'LISTENING 2 (7-10)', name: T.name, en: SAYS.tfHeard[0], topic: T, intro: step ? null : { who: T.name, lines: L.map((l, i) => `Number ${i + 7}. ${l.heard}`) }, items: L.map((l, i) => tfHeard(l, i + 7, step)) },
     { title: 'READING COMPREHENSION (11-20)', name: X.title, en: SAYS.text[0], text: X, items: [...mc.slice(0, 6), ...tf.slice(0, 4)] }
   ];
 }
