@@ -155,6 +155,21 @@ export function combos(slots, o = {}) {
   if (o.distinct) all = all.filter(a => new Set(a).size === a.length);
   return [...new Set(all.map(a => comboKey(a, o)))];
 }
+/* the tree to count with: under the things of a question of how many, the child makes it grow one node at a time */
+// t: { slots: [{ name, items }], distinct, unordered, miss }: a level per slot, and with miss ({ name, e }) one more level, the group the
+// question asks for, as big as the child tries (n). distinct: no item twice on a branch; unordered: the levels have the same items and a
+// branch only goes on to the ones after the last (from it, if they may repeat), so each combination comes once: 3 + 2 + 1.
+// The items a node grows into (path: the keys from the root), leaving out the ones that can reach no tip
+export function branches(t, path, n = 0) {
+  const d = path.length, L = t.slots.length + (t.miss ? 1 : 0);
+  if (d >= L) return [];
+  const pool = d < t.slots.length ? t.slots[d].items : Array.from({ length: n }, (_, i) => ({ k: `m${i}`, e: t.miss.e, t: `${i + 1}` }));
+  const last = t.unordered && d ? pool.findIndex(x => x.k === path[d - 1]) : -1;
+  return pool.filter((x, i) => !(t.distinct && path.includes(x.k)) && !(t.unordered && (t.distinct ? i <= last : i < last)))
+    .filter(x => d + 1 === L || branches(t, [...path, x.k], n).length > 0);
+}
+// the tips of the whole tree: how many ways it counts
+export const tips = (t, n = 0, path = []) => path.length === t.slots.length + (t.miss ? 1 : 0) ? 1 : branches(t, path, n).reduce((s, x) => s + tips(t, n, [...path, x.k]), 0);
 function allQ(text, look, sl, o, hint, say) {
   const n = combos(sl, o).length;
   return R({ s: 'combo', look, slots: sl, same: !!o.same, distinct: !!o.distinct, unordered: !!o.unordered }, Q('all', text, n, hint, say(n), o));
@@ -170,16 +185,24 @@ const FLAVOURS = [{ k: 'm', e: '🍓', c: 'r', t: 'maduixa' }, { k: 'x', e: '�
 const FROGS = ['r', 'b', 'g', 'y', 'p'].map(c => ({ k: c, c, e: '🐸', t: `la granota ${COLORS[c].f}` }));
 const DIGITS = [1, 2, 3, 4].map(d => ({ k: String(d), e: String(d), t: String(d) }));
 const STRIPES = ['r', 'b', 'y', 'g'].map(c => ({ k: c, c, t: COLORS[c].m }));
+const BREAD = [{ k: 'b', e: '🥖', t: 'barra' }, { k: 'c', e: '🥐', t: 'croissant' }, { k: 'm', e: '🍞', t: 'pa de motlle' }];
+const FILLINGS = [{ k: 'p', e: '🧀', t: 'formatge' }, { k: 'j', e: '🥓', t: 'bacó' }, { k: 't', e: '🍅', t: 'tomàquet' }, { k: 'o', e: '🥚', t: 'ou' }];
+const SAUCES = [{ k: 'a', e: '🧄', t: 'allioli' }, { k: 'x', e: '🌶️', t: 'salsa picant' }];
 const sl = (name, items) => ({ name, items });
 const dress = (s, h, sh = 0) => [sl('Samarreta', SHIRTS.slice(0, s)), sl('Barret', HATS.slice(0, h)), ...(sh ? [sl('Sabates', SHOES.slice(0, sh))] : [])];
 const sayAll = what => n => `Totes ${n}! ${what}`;
-// groups of things to count the combinations of: { s: 'outfit', groups: [{ name, items }] }
-const outfit = groups => ({ s: 'outfit', groups });
+// groups of things to count the combinations of: { s: 'outfit', groups: [{ name, items }], tree }. With tree (see branches) the child can
+// grow the tree to count them on the screen; its levels are the groups, unless it brings its own slots
+const outfit = (groups, tree) => ({ s: 'outfit', groups, ...(tree ? { tree: { slots: groups, ...tree } } : {}) });
 const mulHint = 'Per a cada una del primer grup, hi ha totes les del segon: és una multiplicació.';
 function countMul(text, groups, unit = '') {
   const n = groups.reduce((p, g) => p * g.items.length, 1);
-  return N(text, n, mulHint, `${groups.map(g => g.items.length).join(' × ')} = ${n}.`, outfit(groups), unit);
+  return N(text, n, mulHint, `${groups.map(g => g.items.length).join(' × ')} = ${n}.`, outfit(groups, {}), unit);
 }
+// two of the same things, as a cone (an order, may repeat) or a cup (no order, different): the tree of its two balls
+const scoops = (fl, cup = false, rep = false) => outfit([{ name: 'Gustos', items: fl }], cup ? { slots: [sl('Una bola', fl), sl('L\'altra', fl)], distinct: true, unordered: true } : { slots: [sl('A baix', fl), sl('A dalt', fl)], distinct: !rep });
+// n frogs that take places in order (a podium, a row, a captain): one place after another, never the same frog twice
+const lineUp = (n, places, o = {}) => outfit([{ name: 'Granotes', items: FROGS.slice(0, n) }], { slots: places.map(p => sl(p, FROGS.slice(0, n))), distinct: true, ...o });
 // a tree: the first things, and from each, all the second ones
 const tree = (a, b) => ({ s: 'tree', a, b });
 // a table of two entries: rows and columns, and in each cell what they make (cell); hl the cells the hint lights
@@ -319,16 +342,16 @@ export const PROJECTS = [
       allQ('Troba totes les maneres de vestir-la.', 'frog', dress(2, 2, 2), {}, 'Fixa la samarreta i el barret, i prova les dues sabates. Després canvia el barret...', sayAll('2 × 2 × 2 = 8.')),
       countMul('I amb 3 samarretes, 2 barrets i 2 sabates?', [{ name: 'Samarretes', items: SHIRTS.slice(0, 3) }, { name: 'Barrets', items: HATS.slice(0, 2) }, { name: 'Sabates', items: SHOES }])]),
     lv('Què falta?', 'Ara saps quantes combinacions hi ha. Quantes coses hi havia?', [
-      N('Hi ha 12 maneres de vestir la granota i té 4 samarretes. Quants barrets té?', 3, '4 × ? = 12.', '4 × 3 = 12: té 3 barrets.', outfit([{ name: 'Samarretes', items: SHIRTS }])),
-      N('Hi ha 10 maneres i té 2 barrets. Quantes samarretes té?', 5, '? × 2 = 10.', '5 × 2 = 10: té 5 samarretes.', outfit([{ name: 'Barrets', items: HATS.slice(0, 2) }])),
-      N('Hi ha 6 maneres i té 3 samarretes. Quants barrets té?', 2, '3 × ? = 6.', '3 × 2 = 6.', outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, 3) }]))]),
+      N('Hi ha 12 maneres de vestir la granota i té 4 samarretes. Quants barrets té?', 3, '4 × ? = 12.', '4 × 3 = 12: té 3 barrets.', outfit([{ name: 'Samarretes', items: SHIRTS }], { miss: { name: 'Barrets', e: '🎩' } })),
+      N('Hi ha 10 maneres i té 2 barrets. Quantes samarretes té?', 5, '? × 2 = 10.', '5 × 2 = 10: té 5 samarretes.', outfit([{ name: 'Barrets', items: HATS.slice(0, 2) }], { miss: { name: 'Samarretes', e: '👕' } })),
+      N('Hi ha 6 maneres i té 3 samarretes. Quants barrets té?', 2, '3 × ? = 6.', '3 × 2 = 6.', outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, 3) }], { miss: { name: 'Barrets', e: '🎩' } }))]),
     lv('La taula', 'Una taula de doble entrada també ho ensenya tot: cada casella és una combinació.', [
       N('Quantes caselles té la taula?', 12, 'Files per columnes.', '3 files × 4 columnes = 12 combinacions.', table(SHIRTS.slice(0, 3).map(x => x.e), HATS.map(x => x.e), SHIRTS.slice(0, 3).map(() => HATS.map(h => h.e)), [], { rowc: SHIRTS.slice(0, 3).map(x => x.c) })),
       N('En quantes caselles hi ha la samarreta vermella?', 4, 'Mira la fila de la samarreta vermella.', 'Una fila sencera: 4, una per barret.', table(SHIRTS.slice(0, 3).map(x => x.e), HATS.map(x => x.e), SHIRTS.slice(0, 3).map(() => HATS.map(h => h.e)), ['0-0', '0-1', '0-2', '0-3'], { rowc: SHIRTS.slice(0, 3).map(x => x.c) })),
       N('En quantes hi ha la corona?', 3, 'Mira la columna de la corona.', 'Una columna sencera: 3, una per samarreta.', table(SHIRTS.slice(0, 3).map(x => x.e), HATS.map(x => x.e), SHIRTS.slice(0, 3).map(() => HATS.map(h => h.e)), ['0-3', '1-3', '2-3'], { rowc: SHIRTS.slice(0, 3).map(x => x.c) }))]),
     lv('Repte de vestir', 'Tot el que saps de combinar!', [
       countMul('Quantes maneres hi ha?', [{ name: 'Samarretes', items: SHIRTS.slice(0, 3) }, { name: 'Barrets', items: HATS }]),
-      N('Hi ha 8 maneres i té 2 samarretes i 2 barrets. Quantes sabates té?', 2, '2 × 2 × ? = 8.', '2 × 2 × 2 = 8.', outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, 2) }, { name: 'Barrets', items: HATS.slice(0, 2) }])),
+      N('Hi ha 8 maneres i té 2 samarretes i 2 barrets. Quantes sabates té?', 2, '2 × 2 × ? = 8.', '2 × 2 × 2 = 8.', outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, 2) }, { name: 'Barrets', items: HATS.slice(0, 2) }], { miss: { name: 'Sabates', e: '👟' } })),
       allQ('Troba-les totes!', 'frog', dress(4, 2), {}, 'Una samarreta rere l\'altra, cada una amb els 2 barrets.', sayAll('4 × 2 = 8.'))])
   ] },
   { name: 'Gelats i menús', sub: 'Importa l\'ordre?', ico: '🍦', levels: [
@@ -348,21 +371,21 @@ export const PROJECTS = [
       Pk('Per què hi ha més cucurutxos que tarrines?', ['Al cucurutxo importa quin va a dalt', 'Perquè el cucurutxo és més gran', 'No n\'hi ha més'], 'Maduixa a baix i xocolata a dalt... és el mateix cucurutxo que al revés?', 'Al cucurutxo, maduixa-xocolata i xocolata-maduixa són diferents. A la tarrina, no.')]),
     lv('Es poden repetir', 'I si les dues boles poden ser del mateix gust?', [
       allQ('Troba tots els cucurutxos de dues boles, encara que es repeteixin.', 'cone', [sl('A baix', FLAVOURS.slice(0, 3)), sl('A dalt', FLAVOURS.slice(0, 3))], { same: true }, 'Ara també val maduixa-maduixa!', sayAll('3 × 3 = 9.')),
-      N('I amb 4 gustos, quants cucurutxos hi ha si es poden repetir?', 16, 'A baix, 4 gustos. A dalt, també 4.', '4 × 4 = 16.', outfit([{ name: 'A baix', items: FLAVOURS }, { name: 'A dalt', items: FLAVOURS }]))]),
+      N('I amb 4 gustos, quants cucurutxos hi ha si es poden repetir?', 16, 'A baix, 4 gustos. A dalt, també 4.', '4 × 4 = 16.', outfit([{ name: 'A baix', items: FLAVOURS }, { name: 'A dalt', items: FLAVOURS }], {}))]),
     lv('Tarrina o cucurutxo', 'Pensa: importa l\'ordre? Es poden repetir?', [
-      N('Quants cucurutxos de 2 gustos diferents es poden fer amb 4 gustos?', 12, 'A baix 4 gustos; a dalt, els 3 que queden.', '4 × 3 = 12.', outfit([{ name: 'Gustos', items: FLAVOURS }])),
-      N('I quantes tarrines de 2 gustos diferents, amb 4 gustos?', 6, 'Són la meitat dels cucurutxos: cada parella surt dues vegades al cucurutxo.', '12 cucurutxos entre 2 = 6 tarrines.', outfit([{ name: 'Gustos', items: FLAVOURS }])),
+      N('Quants cucurutxos de 2 gustos diferents es poden fer amb 4 gustos?', 12, 'A baix 4 gustos; a dalt, els 3 que queden.', '4 × 3 = 12.', scoops(FLAVOURS)),
+      N('I quantes tarrines de 2 gustos diferents, amb 4 gustos?', 6, 'Són la meitat dels cucurutxos: cada parella surt dues vegades al cucurutxo.', '12 cucurutxos entre 2 = 6 tarrines.', scoops(FLAVOURS, true)),
       Pk('Quins són iguals?', ['Tarrina de maduixa i xocolata, i tarrina de xocolata i maduixa', 'Cucurutxo de maduixa a baix, i de xocolata a baix', 'Cap'], 'A la tarrina no hi ha ni dalt ni baix.', 'A la tarrina l\'ordre no importa: són la mateixa.')]),
     lv('Entrepans', 'A la parada d\'entrepans tries el pa i el farcit.', [
-      N('Hi ha 2 pans i 4 farcits. Quants entrepans diferents?', 8, mulHint, '2 × 4 = 8.', outfit([{ name: 'Pans', items: [{ k: 'b', e: '🥖', t: 'barra' }, { k: 'c', e: '🥐', t: 'croissant' }] }, { name: 'Farcits', items: [{ k: 'p', e: '🧀', t: 'formatge' }, { k: 'j', e: '🥓', t: 'bacó' }, { k: 't', e: '🍅', t: 'tomàquet' }, { k: 'o', e: '🥚', t: 'ou' }] }]), 'entrepans'),
-      N('Si hi ha 15 entrepans i 3 pans, quants farcits hi ha?', 5, '3 × ? = 15.', '3 × 5 = 15.', null),
-      N('Hi ha 3 pans, 3 farcits i 2 salses. Quants entrepans?', 18, 'Pans × farcits × salses.', '3 × 3 × 2 = 18.', null, 'entrepans')]),
+      N('Hi ha 2 pans i 4 farcits. Quants entrepans diferents?', 8, mulHint, '2 × 4 = 8.', outfit([{ name: 'Pans', items: BREAD.slice(0, 2) }, { name: 'Farcits', items: FILLINGS }], {}), 'entrepans'),
+      N('Si hi ha 15 entrepans i 3 pans, quants farcits hi ha?', 5, '3 × ? = 15.', '3 × 5 = 15.', outfit([{ name: 'Pans', items: BREAD }], { miss: { name: 'Farcits', e: '🧀' } })),
+      N('Hi ha 3 pans, 3 farcits i 2 salses. Quants entrepans?', 18, 'Pans × farcits × salses.', '3 × 3 × 2 = 18.', outfit([{ name: 'Pans', items: BREAD }, { name: 'Farcits', items: FILLINGS.slice(0, 3) }, { name: 'Salses', items: SAUCES }], {}), 'entrepans')]),
     lv('El menú del dia', 'Endevina què falta!', [
-      N('Hi ha 18 menús, 3 primers i 3 segons. Quantes postres hi ha?', 2, '3 × 3 × ? = 18.', '3 × 3 = 9, i 9 × 2 = 18.', outfit([{ name: 'Primers', items: FIRST }, { name: 'Segons', items: SECOND }])),
-      N('Hi ha 12 menús, 2 primers i 2 postres. Quants segons hi ha?', 3, '2 × ? × 2 = 12.', '2 × 3 × 2 = 12.', outfit([{ name: 'Primers', items: FIRST.slice(0, 2) }, { name: 'Postres', items: DESSERT }]))]),
+      N('Hi ha 18 menús, 3 primers i 3 segons. Quantes postres hi ha?', 2, '3 × 3 × ? = 18.', '3 × 3 = 9, i 9 × 2 = 18.', outfit([{ name: 'Primers', items: FIRST }, { name: 'Segons', items: SECOND }], { miss: { name: 'Postres', e: '🍮' } })),
+      N('Hi ha 12 menús, 2 primers i 2 postres. Quants segons hi ha?', 3, '2 × ? × 2 = 12.', '2 × 3 × 2 = 12.', outfit([{ name: 'Primers', items: FIRST.slice(0, 2) }, { name: 'Postres', items: DESSERT }], { miss: { name: 'Segons', e: '🍗' } }))]),
     lv('Repte de la gelateria', 'Pensa bé: importa l\'ordre?', [
-      N('Quants cucurutxos de 2 boles es poden fer amb 3 gustos, si es poden repetir?', 9, 'A baix 3, a dalt 3.', '3 × 3 = 9.', outfit([{ name: 'Gustos', items: FLAVOURS.slice(0, 3) }])),
-      N('Quantes tarrines de 2 gustos diferents amb 3 gustos?', 3, 'Maduixa-xocolata, maduixa-llimona...', 'Són 3.', outfit([{ name: 'Gustos', items: FLAVOURS.slice(0, 3) }])),
+      N('Quants cucurutxos de 2 boles es poden fer amb 3 gustos, si es poden repetir?', 9, 'A baix 3, a dalt 3.', '3 × 3 = 9.', scoops(FLAVOURS.slice(0, 3), false, true)),
+      N('Quantes tarrines de 2 gustos diferents amb 3 gustos?', 3, 'Maduixa-xocolata, maduixa-llimona...', 'Són 3.', scoops(FLAVOURS.slice(0, 3), true)),
       countMul('Quants menús?', [{ name: 'Primers', items: FIRST }, { name: 'Segons', items: SECOND }, { name: 'Postres', items: DESSERT }], 'menús')])
   ] },
   { name: 'Ordres i podis', sub: 'Podis, banderes, cadenats i salutacions', ico: '🏆', levels: [
@@ -371,12 +394,12 @@ export const PROJECTS = [
     lv('Banderes', 'Pinta una bandera de tres franges, cada franja d\'un color diferent.', [
       allQ('Troba totes les banderes amb vermell, blau i groc.', 'flag', [sl('Dalt', STRIPES.slice(0, 3)), sl('Mig', STRIPES.slice(0, 3)), sl('Baix', STRIPES.slice(0, 3))], { same: true, distinct: true }, 'Per a cada color de dalt, els altres dos poden anar de 2 maneres.', sayAll('3 × 2 × 1 = 6.'))]),
     lv('Quatre a la cursa', 'Ara corren quatre granotes, però el podi només té tres llocs.', [
-      N('Quantes granotes poden quedar primeres?', 4, 'Qualsevol de les que corren.', 'Qualsevol de les 4.', null),
-      N('Si ja saps qui és primera, quantes poden quedar segones?', 3, 'La primera ja no pot ser segona.', 'Les 3 que queden.', null),
-      N('Quants podis diferents hi ha amb 4 granotes?', 24, '4 per a la primera, 3 per a la segona, 2 per a la tercera.', '4 × 3 × 2 = 24.', null, 'podis')]),
+      N('Quantes granotes poden quedar primeres?', 4, 'Qualsevol de les que corren.', 'Qualsevol de les 4.', lineUp(4, ['1a', '2a', '3a'])),
+      N('Si ja saps qui és primera, quantes poden quedar segones?', 3, 'La primera ja no pot ser segona.', 'Les 3 que queden.', lineUp(4, ['1a', '2a', '3a'])),
+      N('Quants podis diferents hi ha amb 4 granotes?', 24, '4 per a la primera, 3 per a la segona, 2 per a la tercera.', '4 × 3 × 2 = 24.', lineUp(4, ['1a', '2a', '3a']), 'podis')]),
     lv('El cadenat', 'Un cadenat amb dues rodes. Cada roda va de l\'1 al 3, i els números es poden repetir.', [
       allQ('Troba tots els codis possibles.', 'lock', [sl('Roda 1', DIGITS.slice(0, 3)), sl('Roda 2', DIGITS.slice(0, 3))], { same: true }, 'Comença per 11, 12, 13... i després el 2 a la primera roda.', sayAll('3 × 3 = 9.')),
-      N('I amb tres rodes de l\'1 al 2?', 8, '2 × 2 × 2.', '2 × 2 × 2 = 8.', null, 'codis')]),
+      N('I amb tres rodes de l\'1 al 2?', 8, '2 × 2 × 2.', '2 × 2 × 2 = 8.', outfit([{ name: 'Cada roda', items: DIGITS.slice(0, 2) }], { slots: ['Roda 1', 'Roda 2', 'Roda 3'].map(r => sl(r, DIGITS.slice(0, 2))) }), 'codis')]),
     lv('Codis secrets', 'Els codis poden ser molts!', [
       N('Un cadenat de 2 rodes, cada una del 0 al 9. Quants codis hi ha?', 100, '10 × 10. També: del 00 al 99.', '10 × 10 = 100.', null, 'codis'),
       N('Un cadenat de 3 rodes de l\'1 al 3. Quants codis?', 27, '3 × 3 × 3.', '3 × 3 × 3 = 27.', null, 'codis'),
@@ -388,11 +411,11 @@ export const PROJECTS = [
       N('I 5 granotes?', 10, 'La primera saluda 4, la segona 3 més...', '4 + 3 + 2 + 1 = 10.', crowd(5)),
       N('I 6 granotes?', 15, '5 + 4 + 3 + 2 + 1.', '5 + 4 + 3 + 2 + 1 = 15.', crowd(6))]),
     lv('La foto', 'Les granotes es posen en fila per fer-se una foto.', [
-      N('De quantes maneres es poden posar 3 granotes en fila?', 6, 'Com al podi: 3 per al primer lloc, 2 per al segon, 1 per al tercer.', '3 × 2 × 1 = 6.', null, 'maneres'),
-      N('I 4 granotes?', 24, '4 × 3 × 2 × 1.', '4 × 3 × 2 × 1 = 24.', null, 'maneres')]),
+      N('De quantes maneres es poden posar 3 granotes en fila?', 6, 'Com al podi: 3 per al primer lloc, 2 per al segon, 1 per al tercer.', '3 × 2 × 1 = 6.', lineUp(3, ['1r', '2n', '3r']), 'maneres'),
+      N('I 4 granotes?', 24, '4 × 3 × 2 × 1.', '4 × 3 × 2 × 1 = 24.', lineUp(4, ['1r', '2n', '3r', '4t']), 'maneres')]),
     lv('Capità o parella', 'Importa l\'ordre? Capità i sotscapità no és el mateix que una parella!', [
-      N('De 5 granotes, triem capità i sotscapità. De quantes maneres?', 20, '5 per a capità, i les 4 que queden per a sotscapità.', '5 × 4 = 20.', null, 'maneres'),
-      N('De 5 granotes, triem una parella per ballar. De quantes maneres?', 10, 'A la parella no hi ha primera ni segona: la meitat de 20.', '20 entre 2 = 10 parelles.', null, 'parelles'),
+      N('De 5 granotes, triem capità i sotscapità. De quantes maneres?', 20, '5 per a capità, i les 4 que queden per a sotscapità.', '5 × 4 = 20.', lineUp(5, ['Capità', 'Sotscapità']), 'maneres'),
+      N('De 5 granotes, triem una parella per ballar. De quantes maneres?', 10, 'A la parella no hi ha primera ni segona: la meitat de 20.', '20 entre 2 = 10 parelles.', lineUp(5, ['Una', 'L\'altra'], { unordered: true }), 'parelles'),
       Pk('Per què hi ha més maneres de triar capità i sotscapità?', ['Perquè importa qui és el capità', 'Perquè són més granotes', 'No n\'hi ha més'], 'Ana capità i Biel sotscapità... és el mateix que al revés?', 'Amb capità i sotscapità, l\'ordre importa: cada parella compta dues vegades.')]),
     lv('Repte dels ordres', 'Podis, codis i salutacions!', [
       N('Quants podis hi ha amb 5 granotes?', 60, '5 × 4 × 3.', '5 × 4 × 3 = 60.', null, 'podis'),
@@ -568,7 +591,7 @@ const CLAIM = {
   mult(bad, rnd) {
     const [s, h] = pickOf([[3, 4], [2, 3], [4, 2], [3, 3], [2, 4]], rnd);
     const say = n => `Amb ${s} samarretes i ${h} barrets, hi ha ${n} maneres de vestir la granota.`;
-    return { scene: outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, s) }, { name: 'Barrets', items: HATS.slice(0, h) }]), real: say(s * h), says: say(bad ? s + h : s * h), opts: shuffle([s * h, s + h, s * h + 1].map(say), rnd) };
+    return { scene: outfit([{ name: 'Samarretes', items: SHIRTS.slice(0, s) }, { name: 'Barrets', items: HATS.slice(0, h) }], {}), real: say(s * h), says: say(bad ? s + h : s * h), opts: shuffle([s * h, s + h, s * h + 1].map(say), rnd) };
   },
   greet(bad, rnd) {
     const n = pickOf([3, 4, 5], rnd), g = n * (n - 1) / 2, say = x => `Si ${n} granotes se saluden totes amb totes, hi ha ${x} salutacions.`;

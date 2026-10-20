@@ -2,7 +2,7 @@
 // experiment, the bag and the spinner the child makes, the builder of combinations with its gallery, trees, tables and the ring of frogs
 // that greet. Each scene is drawn from the plain data of logic.js. What a hint shows is drawn too, hidden (.hx), and comes up when the
 // board gets the class hint.
-import { COLORS, METER, outcomes, ways, nameOf, throwOf, comboKey, punt } from './logic.js';
+import { COLORS, METER, outcomes, ways, nameOf, throwOf, comboKey, branches, punt } from './logic.js';
 import { RM, sleep } from '../../shared/util.js';
 
 const H = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -181,6 +181,62 @@ function comboScene(board, sc) {
   return api;
 }
 
+/* ---------- the tree to count with: under a button, the child touches its nodes and they grow their branches ---------- */
+// Every tip is a whole way, and the tips are numbered from the top, so the last number says how many there are. A node with a single
+// branch grows it by itself (the last frog of a row has no choice). With t.miss the last level is the group the question asks for, and
+// the child tries how big it is with − and +. ping() hears every growth
+function grower(box, t, ping) {
+  const L = t.slots.length + (t.miss ? 1 : 0), open = new Set(['']), seen = new Set(), key = path => path.join('/');
+  let n = 1;
+  box.innerHTML = `<button class="btn soft tbtn">🌳 Compta-ho amb un arbre</button><div class="tpanel" hidden>
+    <p class="how">Toca les rodones que bateguen i en sortiran les branques. Cada punta és una manera.</p>
+    ${t.miss ? `<p class="tmiss">${H(t.miss.name)}: <button class="key mini" data-m="-1" aria-label="Un menys">−</button><b>1</b><button class="key mini" data-m="1" aria-label="Un més">+</button></p>` : ''}
+    <div class="tsvg"></div></div>`;
+  const grow = path => {
+    open.add(key(path));
+    if (!t.miss) for (const x of branches(t, path, n)) { const p = [...path, x.k]; if (p.length < L && branches(t, p, n).length === 1) grow(p); }
+  };
+  function paint() {
+    const nodes = [], edges = [];
+    let rows = 0, tip = 0;
+    // the visible nodes, top to bottom: a node with no branches out takes a row, one with branches sits in the middle of them
+    const walk = (path, it) => {
+      const p = key(path), kids = open.has(p) ? branches(t, path, n) : [], me = { p, d: path.length, it, can: path.length < L && !open.has(p) };
+      if (kids.length) { const cs = kids.map(x => walk([...path, x.k], x)); me.y = (cs[0].y + cs[cs.length - 1].y) / 2; cs.forEach(c => edges.push([me, c])); }
+      else me.y = rows++;
+      if (me.d === L) me.tip = ++tip;
+      nodes.push(me);
+      return me;
+    };
+    const root = walk([], null), rh = rows > 12 ? 22 : 28, r = rows > 12 ? 10 : 12, W = 320, dx = Math.min(96, (W - 56) / L);
+    const x0 = Math.max(14, (W - L * dx - 30) / 2), X = d => x0 + d * dx, Y = row => 24 + row * rh + rh / 2, fresh = m => seen.has(m.p) ? '' : ' new';
+    const name = d => d < t.slots.length ? t.slots[d].name : t.miss.name;
+    const node = m => {
+      const x = X(m.d), y = Y(m.y), it = m.it;
+      return `<g class="tn${m.can ? ' grow' : ''}${fresh(m)}"${m.can ? ` data-p="${H(m.p)}" role="button" tabindex="0" aria-label="Fes créixer: ${H(it.t)}"` : ''}>
+        ${m.can ? `<circle class="ring" cx="${x}" cy="${y}" r="${r + 5}"/><circle cx="${x}" cy="${y}" r="${r + 10}" fill="transparent"/>` : ''}
+        <circle cx="${x}" cy="${y}" r="${r}" fill="${it.c ? hex(it.c) : '#2A4B5C'}" stroke="${m.d > t.slots.length ? '#9EC3C0' : 'rgb(0 0 0 / 0.35)'}"${m.d > t.slots.length ? ' stroke-dasharray="3 2"' : ''}/>
+        <text x="${x}" y="${(y + r * 0.45).toFixed(1)}" text-anchor="middle" font-size="${(r * 1.25).toFixed(1)}">${H(it.e || '')}</text>
+        ${m.tip ? `<text class="tipn" x="${x + r + 7}" y="${y + 5}">${m.tip}</text>` : ''}</g>`;
+    };
+    box.querySelector('.tsvg').innerHTML = `<svg class="treecount" viewBox="0 0 ${W} ${24 + rows * rh + 4}" aria-label="L'arbre: ${tip === 1 ? '1 punta' : `${tip} puntes`}">
+      ${Array.from({ length: L }, (_, d) => `<text class="thead" x="${X(d + 1)}" y="12" text-anchor="middle">${H(name(d))}</text>`).join('')}
+      ${edges.map(([a, b]) => `<path class="${fresh(b)}" d="M${X(a.d)} ${Y(a.y)}L${X(b.d)} ${Y(b.y)}"/>`).join('')}
+      <circle cx="${X(0)}" cy="${Y(root.y)}" r="6" fill="#F7C64E"/>${nodes.filter(m => m.d).map(node).join('')}</svg>`;
+    nodes.forEach(m => seen.add(m.p));
+  }
+  const touch = g => { grow(g.dataset.p.split('/')); paint(); ping?.(); };
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.tbtn, [data-m], .grow[data-p]');
+    if (!b) return;
+    if (b.matches('.tbtn')) { b.hidden = true; box.querySelector('.tpanel').hidden = false; paint(); ping?.(); }
+    else if (b.dataset.m) { n = Math.max(1, Math.min(9, n + +b.dataset.m)); box.querySelector('.tmiss b').textContent = n; paint(); ping?.(); }
+    else touch(b);
+  });
+  // a node grows with Enter too, and the keys of the number do not hear it
+  box.addEventListener('keydown', e => { const g = e.target.closest?.('.grow[data-p]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); touch(g); } });
+}
+
 /* ---------- the other scenes ---------- */
 const meterHTML = tap => `<div class="meter"><div class="mline"></div>${METER.map((m, i) => `<div class="mm${tap ? ' hit' : ''}" data-k="m${i}" style="--x:${i * 25}%"${tap ? ` role="button" tabindex="0" aria-label="${m}"` : ''}><i></i><span>${m}</span></div>`).join('')}</div>`;
 function treeSVG(a, b) {
@@ -228,8 +284,11 @@ export function scene(board, sc, { tap = false } = {}) {
   else if (sc.s === 'exp') api = Object.assign(expScene(board, sc.dev), api);
   else if (sc.s === 'build') api = Object.assign(buildScene(board, sc), api);
   else if (sc.s === 'combo') api = Object.assign(comboScene(board, sc), api);
-  else if (sc.s === 'outfit') board.innerHTML = `<div class="scene s-outfit">${sc.groups.map(g => `<div class="grp"><span class="sn">${H(g.name)}: ${g.items.length}</span><span class="row">${g.items.map(it => itemHTML(it)).join('')}</span></div>`).join('')}
-    ${sc.groups.length > 1 ? `<p class="hx tally">${sc.groups.map(g => g.items.length).join(' × ')}</p>` : ''}</div>`;
+  else if (sc.s === 'outfit') {
+    board.innerHTML = `<div class="scene s-outfit">${sc.groups.map(g => `<div class="grp"><span class="sn">${H(g.name)}: ${g.items.length}</span><span class="row">${g.items.map(it => itemHTML(it)).join('')}</span></div>`).join('')}
+    ${sc.groups.length > 1 ? `<p class="hx tally">${sc.groups.map(g => g.items.length).join(' × ')}</p>` : ''}</div>${sc.tree ? '<div class="counter"></div>' : ''}`;
+    if (sc.tree) grower(board.querySelector('.counter'), sc.tree, () => api.changed?.());
+  }
   else if (sc.s === 'tree') board.innerHTML = `<div class="scene s-tree">${treeSVG(sc.a, sc.b)}</div>`;
   else if (sc.s === 'table') board.innerHTML = `<div class="scene s-table">${tableHTML(sc)}</div>`;
   else if (sc.s === 'crowd') board.innerHTML = `<div class="scene s-crowd">${crowdSVG(sc.n)}</div>`;
