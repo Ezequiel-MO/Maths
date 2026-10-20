@@ -463,48 +463,56 @@ function examen(c) {
 }
 
 /* ---------- the simulacre: the twenty questions of the test, in its three parts ---------- */
+// Two ways. «Pas a pas», the first version: each question plays its own sentence and waits for the right answer, as in a level (it does
+// not count for the record). «Com a l'abril»: the whole recording first, twice at most, one try, nothing shown until the end
+const MOCK_TIP = [
+  ['Prem 🔊 per escoltar. La pots escoltar dues vegades.', 'Ara la segona part: escolta les frases i digues si són iguals que les escrites.', 'Última part: llegeix el text amb calma.'],
+  ['Escolta la frase i toca la resposta bona. Fins que no l’encertis, no passem a la frase següent.', 'Ara la segona part: escolta la frase i digues si és igual que l’escrita.', 'Última part: llegeix el text amb calma. Les respostes hi són!']];
 function simulacre() {
   const t = fresh(); show('Simulacre de la prova', true, 20); streakBreak();
   $('#game').innerHTML = `${coachHtml()}<div class="stage" id="stage"><div class="mockintro"><h2>🎯 Simulacre de la prova d'anglès</h2>
     <p>Com a l'abril: <b>20 preguntes</b> en tres parts.</p>
     <ol><li><b>Listening 1</b> (1-6): algú parla de si mateix. Tria el dibuix.</li><li><b>Listening 2</b> (7-10): TRUE o FALSE segons el que sents.</li><li><b>Reading</b> (11-20): llegeix un text i respon.</li></ol>
-    <p>Cada gravació es pot escoltar <b>dues vegades</b>. No hi ha pistes, i no sabràs si encertes fins al final.</p>
-    <button class="btn" id="go">Comença</button></div></div>`;
+    <div class="cards"><button class="card" id="step"><span class="ci" aria-hidden="true">👣</span><b>Pas a pas</b><span>Una frase i la seva pregunta. Fins que no l’encertis, no passem a la següent.</span></button>
+      <button class="card" id="go"><span class="ci" aria-hidden="true">🎯</span><b>Com a l'abril</b><span>Tota la gravació seguida, dues vegades. Sense pistes: ho sabràs al final.</span></button></div></div></div>`;
   const tip = tipper();
-  tip('Concentra’t, com el dia de la prova. Tu pots!');
-  $('#go').onclick = () => start();
-  function start() {
-    const S = mock(Math.random), all = S.flatMap((s, i) => s.items.map(it => ({ it, s: i }))), run = [];
+  tip('Primer pas a pas. Quan et surti bé, prova-ho com a l’abril. Tu pots!');
+  $('#step').onclick = () => start(true); $('#go').onclick = () => start(false);
+  function start(step) {
+    const S = mock(Math.random, step), all = S.flatMap((s, i) => s.items.map(it => ({ it, s: i }))), run = [];
     $('#game').innerHTML = `<div class="hud mid">${dotsHtml(all.length, 'Vint preguntes')}</div>${coachHtml()}<div class="stage" id="stage"><p class="sechead" id="sh"></p><div id="ctx"></div><div id="q"></div></div>`;
     const tip2 = tipper();
-    const env = { t, mode: 'mock', limit: 2, auto: false, ca: false, tip: tip2, slip: () => {}, right: () => {} };
+    let env = { t, mode: 'mock', limit: 2, auto: false, ca: false, tip: tip2, slip: () => {}, right: () => {} };
+    if (step) { env = learnEnv(t, tip2, () => {}); env.ca = false; }
     (async () => {
       let k = 0;
       for (const [si, s] of S.entries()) {
         $('#sh').innerHTML = `<b>${H(s.title)}</b> · ${H(s.name)}`;
-        context({ intro: s.intro || null, topic: s.topic || null, text: s.text || null, once: !!s.intro }, env);
-        tip2(si === 0 ? 'Prem 🔊 per escoltar. La pots escoltar dues vegades.' : si === 1 ? 'Ara la segona part: escolta les frases i digues si són iguals que les escrites.' : 'Última part: llegeix el text amb calma.');
+        context(step ? { who: s.intro?.who || null, topic: s.topic || null, text: s.text || null } : { intro: s.intro || null, topic: s.topic || null, text: s.text || null, once: !!s.intro }, env);
+        tip2(MOCK_TIP[step ? 1 : 0][si]);
         for (const it of s.items) {
           paintDots(k, run);
           const r = await ask(it, env); if (!t.on) return;
-          run[k++] = r.ok; blip(520);
+          run[k++] = r.ok; if (!step) blip(520);
         }
       }
       paintDots(-1, run);
-      finish(S, all, run);
+      finish(S, all, run, step);
     })();
   }
-  function finish(S, all, run) {
-    const score = count(run), r = mockDone(prog, score); prog = r.prog; save();
+  // step: the score is the questions right at the first try, and the record and the count of simulacres stay as they were
+  function finish(S, all, run, step) {
+    const score = count(run), r = step ? null : mockDone(prog, score);
+    if (r) { prog = r.prog; save(); }
     $('#ctx').innerHTML = $('#q').innerHTML = ''; $('#sh').textContent = '';
     const parts = S.map((s, i) => { const idx = all.map((a, j) => a.s === i ? j : -1).filter(j => j >= 0); return `${H(s.title.replace(/ \(.*/, ''))}: ${count(idx.map(j => run[j]))} de ${idx.length}`; });
-    const say = score >= 18 ? 'Excel·lent!' : score >= 14 ? 'Molt bé!' : score >= 10 ? 'Aprovat!' : 'Continua entrenant: ho aconseguiràs!';
-    score >= 10 ? (fanfare(), FX.celebrate(score >= 18 ? 24 : 14)) : click(196, 0, 0.5, 0.12, 'triangle');
-    tipper()(score >= 10 ? `${say} Ho has fet molt bé.` : 'Cada simulacre t’ajuda a millorar. Repassa el que ha fallat i torna-hi!', score >= 10 ? 'go' : '');
+    const say = step ? (score >= 16 ? 'Ja pots provar-ho com a l’abril!' : 'Has arribat al final!') : score >= 18 ? 'Excel·lent!' : score >= 14 ? 'Molt bé!' : score >= 10 ? 'Aprovat!' : 'Continua entrenant: ho aconseguiràs!';
+    step || score >= 10 ? (fanfare(), FX.celebrate(score >= 18 ? 24 : 14)) : click(196, 0, 0.5, 0.12, 'triangle');
+    tipper()(step ? `Molt bé! ${score >= 16 ? 'Ara prova-ho com a l’abril.' : 'Torna-hi pas a pas fins que les encertis gairebé totes a la primera.'}` : score >= 10 ? `${say} Ho has fet molt bé.` : 'Cada simulacre t’ajuda a millorar. Repassa el que ha fallat i torna-hi!', step || score >= 10 ? 'go' : '');
     const missed = all.flatMap((a, j) => run[j] ? [] : [`<li><b>${j + 1}.</b> ${H(a.it.show || a.it.learn)} → <b>${H(a.it.k === 'tf' ? (a.it.ok ? 'TRUE' : 'FALSE') : (a.it.opts[a.it.ok].t || a.it.opts[a.it.ok].word))}</b></li>`]);
-    panel($('#stage'), `<h2>${score} de 20</h2><p class="lead go">${say}</p><p class="lead">${parts.join(' · ')}</p>
-      <p class="lead">${r.best ? 'Nou rècord!' : `Rècord: ${prog.best} de 20`} · Simulacres fets: ${prog.proves}</p>${news(r.news)}
-      ${missed.length ? `<details class="review"><summary>Mira les que has fallat (${missed.length})</summary><ul>${missed.join('')}</ul></details>` : '<p class="lead go">Totes bé! 🎉</p>'}
+    panel($('#stage'), `<h2>${score} de 20${step ? ' a la primera' : ''}</h2><p class="lead go">${say}</p><p class="lead">${parts.join(' · ')}</p>
+      ${step ? '<p class="lead">Pas a pas no compta per al rècord.</p>' : `<p class="lead">${r.best ? 'Nou rècord!' : `Rècord: ${prog.best} de 20`} · Simulacres fets: ${prog.proves}</p>${news(r.news)}`}
+      ${missed.length ? `<details class="review"><summary>${step ? 'Les que no has encertat a la primera' : 'Mira les que has fallat'} (${missed.length})</summary><ul>${missed.join('')}</ul></details>` : '<p class="lead go">Totes bé! 🎉</p>'}
       <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Un altre simulacre</button>`);
     $('#bk').onclick = () => mapa(); $('#rp').onclick = () => simulacre();
   }
