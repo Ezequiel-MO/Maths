@@ -255,6 +255,28 @@ b.seq { position: absolute; top: -8px; right: -8px; display: grid; place-items: 
 .board.hint .tbl td.lit { background: var(--sun); color: #2A1C00; }
 .scene .crowdsvg { width: 220px; }
 
+/* the tree to count with: a button, and under it the tree that grows where it is touched */
+.counter { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+.tbtn { font-size: 1rem; padding: 0.4em 1em; }
+.tpanel { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 6px 4px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); animation: pop 0.3s; }
+.tpanel[hidden] { display: none; }
+.tpanel .how { font-size: 0.85rem; text-align: center; line-height: 1.25; }
+.tmiss { margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; }
+.tmiss b { min-width: 1.4em; text-align: center; font: 800 1.4rem/1 var(--display); color: var(--sun); }
+.tmiss .key.mini { width: 40px; height: 40px; font-size: 1.4rem; }
+.tsvg { width: 100%; }
+.treecount { display: block; width: 100%; height: auto; overflow: visible; user-select: none; -webkit-user-select: none; }
+.treecount text { font-family: var(--display); }
+.treecount path { stroke: #9EC3C0; stroke-width: 1.8; fill: none; }
+.treecount .thead { font-size: 11px; font-weight: 800; fill: var(--muted); }
+.treecount .tipn { font-size: 13px; font-weight: 800; fill: var(--sun); }
+.treecount .grow { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.treecount .grow .ring { fill: none; stroke: var(--sun); stroke-width: 2.5; animation: beat 1.1s ease-in-out infinite; }
+.treecount .grow:focus-visible .ring { stroke-width: 4; }
+.treecount .new { animation: sprout 0.35s ease-out; }
+@keyframes beat { 50% { opacity: 0.2; } }
+@keyframes sprout { from { opacity: 0; } }
+
 @keyframes flip { 50% { transform: rotateY(90deg) scale(0.9); } }
 @keyframes blink { 50% { opacity: 0.25; } }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }

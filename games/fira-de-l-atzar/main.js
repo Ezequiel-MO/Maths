@@ -238,6 +238,7 @@ function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
     const ty = R.q.type, tap = ty === 'tap' || ty === 'order', key = JSON.stringify([R.scene, tap]);
     if (key !== shown || ty === 'build' || ty === 'all') { S = scene(board, R.scene, { tap }); shown = key; if (R.scene?.s === 'dev' || R.scene?.s === 'exp') rattle(); }
     else { board.classList.remove('hint'); board.querySelectorAll('.ok, .no').forEach(e => e.classList.remove('ok', 'no')); }
+    if (R.scene?.tree) S.changed = () => blip(600);
     board.querySelectorAll('.seq').forEach(e => e.remove());
     $('#q').innerHTML = `${n > 1 ? `<small>Pregunta ${k + 1} de ${n}</small>` : ''}${R.q.text}`; again($('#q')).add('pop');
     if (tap) ans.innerHTML = `<p class="how">👆 ${ty === 'order' ? 'Toca\'ls per ordre.' : 'Toca la resposta.'}</p>`;
