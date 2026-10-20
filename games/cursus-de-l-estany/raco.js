@@ -23,12 +23,25 @@ const GROUPED = [
   { set: (D, d) => `Amb ${D} petxines es fan collarets de ${d} petxines cada un.`, art: 'Les', things: 'petxines', boxes: 'collarets', full: 'collarets sencers', one: 'un collaret',
     ask: { full: 'Quants collarets sencers surten?', left: 'Quantes petxines sobren?', short: 'Quantes petxines falten per fer un collaret més?' } },
   { set: (D, d) => `${D} capgrossos neden en files de ${d}.`, art: 'Els', things: 'capgrossos', boxes: 'files', full: 'files senceres', one: 'una fila',
-    ask: { full: 'Quantes files senceres fan?', left: 'Quants capgrossos queden fora de les files?', short: 'Quants capgrossos falten per fer una fila més?' } }
+    ask: { full: 'Quantes files senceres fan?', left: 'Quants capgrossos queden fora de les files?', short: 'Quants capgrossos falten per fer una fila més?' } },
+  // the same four questions in the child's own days; ds fixes the size of a group when life fixes it (a box of eggs holds 6)
+  { set: (D, d) => `${D} persones volen pujar al cinquè pis, i a l'ascensor hi caben ${d} persones.`, art: 'Les', things: 'persones', boxes: 'viatges', full: 'viatges plens', one: 'un viatge',
+    ask: { full: 'Quants viatges fa l\'ascensor ple del tot?', need: 'Quants viatges ha de fer l\'ascensor perquè pugin totes?', left: 'Quantes persones pugen a l\'últim viatge, el que no va ple?' } },
+  { set: (D, d) => `A la granja han recollit ${D} ous i els guarden en capses de ${d}.`, ds: [6], art: 'Els', things: 'ous', boxes: 'capses', full: 'capses plenes', one: 'una capsa',
+    ask: { full: 'Quantes capses s\'omplen del tot?', need: 'Quantes capses calen per guardar-los tots?', left: 'Quants ous queden a la capsa que no s\'omple?', short: 'Quants ous falten per omplir una altra capsa?' } },
+  { set: (D, d) => `Tens ${D} cromos repetits i en fas paquets de ${d} per canviar-los.`, art: 'Els', things: 'cromos', boxes: 'paquets', full: 'paquets sencers', one: 'un paquet',
+    ask: { full: 'Quants paquets sencers pots fer?', left: 'Quants cromos sobren?', short: 'Quants cromos et falten per fer un altre paquet?' } },
+  { set: (D, d) => `A la festa d'aniversari hi ha ${D} nens, i a cada taula hi seuen ${d}.`, ds: [4, 5, 6, 8], art: 'Els', things: 'nens', boxes: 'taules', full: 'taules plenes', one: 'una taula',
+    ask: { full: 'Quantes taules queden plenes?', need: 'Quantes taules calen perquè tothom pugui seure?', left: 'Quants nens seuen a la taula que no s\'omple?' } },
+  { set: (D, d) => `${D} nens van d'excursió en cotxe, i a cada cotxe hi caben ${d} nens.`, ds: [3, 4], art: 'Els', things: 'nens', boxes: 'cotxes', full: 'cotxes plens', one: 'un cotxe',
+    ask: { full: 'Quants cotxes van plens?', need: 'Quants cotxes calen perquè hi vagin tots?', left: 'Quants nens van al cotxe que no s\'omple?' } },
+  { set: (D, d) => `Has fet ${D} galetes i les poses en bosses de ${d} per regalar-les.`, art: 'Les', things: 'galetes', boxes: 'bosses', full: 'bosses plenes', one: 'una bossa',
+    ask: { full: 'Quantes bosses plenes pots regalar?', left: 'Quantes galetes et queden fora de les bosses?', short: 'Quantes galetes falten per omplir una altra bossa?' } }
 ];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 // a story with a remainder: Q and R are at least 2 (no singulars to write), and so is what is missing in a 'short' one
 function grouped(T, kind, rnd) {
-  const d = int(kind === 'short' ? 4 : 3, 8, rnd), Q = int(2, 6, rnd), R = int(2, d - (kind === 'short' ? 2 : 1), rnd), D = d * Q + R;
+  const lo = kind === 'short' ? 4 : 3, sizes = T.ds?.filter(x => x >= lo), d = sizes?.length ? sizes[at(sizes.length, rnd)] : int(lo, 8, rnd), Q = int(2, 6, rnd), R = int(2, d - (kind === 'short' ? 2 : 1), rnd), D = d * Q + R;
   const els = T.art.toLowerCase(), base = `${D} ÷ ${d} = ${Q} i en sobren ${R}.`;
   const w = { full: Q, need: Q + 1, left: R, short: d - R }[kind], units = kind === 'left' || kind === 'short' ? T.things : T.boxes;
   const why = {
@@ -56,7 +69,11 @@ const EXACT = [
   { fig: 'group', lab: 'Files', text: (D, d) => `${D} capgrossos neden en files de ${d}. Quantes files fan?`,
     why: (D, d, Q) => `${D} ÷ ${d} = ${Q}: fan ${Q} files, perquè ${Q} × ${d} = ${D}.`, hint: (d) => `Fes grups de ${d} amb el material: cada grup és una fila.` },
   { fig: 'group', lab: 'Fanals', text: (D, d) => `Hi ha ${D} cuques de llum i a cada fanal n'hi van ${d}. Quants fanals s'omplen?`,
-    why: (D, d, Q) => `${D} ÷ ${d} = ${Q}: s'omplen ${Q} fanals, perquè ${Q} × ${d} = ${D}.`, hint: (d) => `Fes grups de ${d} amb el material: cada grup és un fanal.` }
+    why: (D, d, Q) => `${D} ÷ ${d} = ${Q}: s'omplen ${Q} fanals, perquè ${Q} × ${d} = ${D}.`, hint: (d) => `Fes grups de ${d} amb el material: cada grup és un fanal.` },
+  { fig: 'share', lab: 'Maduixes', text: (D, d) => `Per berenar, ${D} maduixes es reparteixen en ${d} plats, a parts iguals. Quantes maduixes hi ha a cada plat?`,
+    why: (D, d, Q) => `${D} ÷ ${d} = ${Q}: a cada plat hi ha ${Q} maduixes, perquè ${d} × ${Q} = ${D}.`, hint: () => 'Fes servir el material: cada nenúfar fa de plat. Reparteix-les d\'una en una.' },
+  { fig: 'group', lab: 'Pàgines', text: (D, d) => `L'àlbum té ${D} cromos per enganxar i a cada pàgina n'hi van ${d}. Quantes pàgines omples?`,
+    why: (D, d, Q) => `${D} ÷ ${d} = ${Q}: omples ${Q} pàgines, perquè ${Q} × ${d} = ${D}.`, hint: (d) => `Fes grups de ${d} amb el material: cada grup és una pàgina.` }
 ];
 function exact(T, rnd) {
   const d = int(2, T.fig === 'share' ? 5 : 8, rnd), Q = int(2, 6, rnd), D = d * Q;
