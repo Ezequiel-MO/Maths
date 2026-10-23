@@ -7,6 +7,7 @@ import { PROJECTS, CIRCLES, POOL, NOTES, WHERE, FIGS, INTERVALS, POINTS, VALID, 
   circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, drill, darks, KIT, propQ } from './logic.js';
 import { staff, glyph, board } from './score.js';
 import { band } from './sound.js';
+import { BPM, AHEAD, clock, until, metroStrip, metronome } from './metro.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, list, news, starRow, soundButton } from '../../shared/shell.js';
 
@@ -27,8 +28,13 @@ const fresh = tokens();
 
 // the tubes and the drum are the instruments of sound.js; the shared voice keeps the chimes, the fireworks and the clicks
 const { tone, chime } = voice(() => prog.so), { tone: click } = voice(() => prog.so, false);
-const { pipe: blow, drum, kit: hit } = band(() => prog.so);
+const { pipe: blow, drum, kit: hit, wake } = band(() => prog.so);
 const FX = pond(tone);
+// The tempo of the metronome is a choice of this device, not progress: it is kept apart from the save, under a key with no ':' (a ':'
+// splits the key of a saved game), and a browser that keeps nothing just starts at BPM.start
+const TEMPO = 'concert-de-l-estany-tempo';
+let bpm = (() => { try { const v = +localStorage.getItem(TEMPO); return v >= BPM.min && v <= BPM.max ? v : BPM.start; } catch (e) { return BPM.start; } })();
+const setBpm = v => { bpm = v; try { localStorage.setItem(TEMPO, v); } catch (e) {} };
 
 /* ---------- the drawings ---------- */
 const DRUM = `<svg class="drum" viewBox="0 0 96 86" aria-hidden="true"><ellipse cx="48" cy="80" rx="34" ry="5" fill="rgb(0 0 0 / 0.35)"/>
@@ -218,7 +224,7 @@ function examen(c) {
     stage.inert = false; tail.innerHTML = ''; dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     $('#qn').hidden = false; $('#qn').textContent = `${k + 1} de ${qs.length} · ${PROJECTS[L.p].name}`;
     say(L.kind === 'kit' && L.live ? `${ASK.drum} ${keysSay(L.rows)}` : ASK[L.kind]);
-    KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), spark, win: () => end(true) });
+    KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), spark, win: () => end(true), exam: true });
     if (stage.getBoundingClientRect().bottom > innerHeight) $('#coach').scrollIntoView({ block: 'start', behavior: 'auto' });
   }
   // the end: how many were right, whether the exam is passed and what that gives and opens, and what to go over
@@ -301,33 +307,43 @@ function full() {
 // the tubes of a stage: ring(i) sounds one and makes it glow
 function tubesOf(stage) {
   const tubes = [...stage.querySelectorAll('.tube')];
-  const ring = (i, dur = 0.5) => {
-    sing(NOTES[i].freq, dur, NOTES[i].hue);
-    const e = tubes[i], r = e.getBoundingClientRect(); again(e).add('ring');
-    FX.ring(r.left + r.width / 2, r.top, NOTES[i].hue, 6, 44, 0.5);
+  // at sounds it that many seconds ahead, and the tube lights up then
+  const ring = (i, dur = 0.5, at = 0) => {
+    blow(NOTES[i].freq, dur, undefined, at);
+    const glow = () => {
+      wave(NOTES[i].freq / NOTES[0].freq, NOTES[i].hue);
+      const e = tubes[i], r = e.getBoundingClientRect(); again(e).add('ring');
+      FX.ring(r.left + r.width / 2, r.top, NOTES[i].hue, 6, 44, 0.5);
+    };
+    at > 0.01 ? setTimeout(glow, at * 1000) : glow();
   };
   return { tubes, ring };
 }
 
 /* ---------- read the score and play it on the tubes ---------- */
-function play({ t, L, stage, tip, slip, spark, win }) {
+// Note by note, at the child's own pace; or in time, with the metronome strip under the score: «Escolta a temps» plays the tune with the
+// clicks, «Toca a temps» is for the child (inTime, below), and enough notes on time count as playing it. An exam has no metronome.
+// After a run in time the tune starts again from its first note
+function play({ t, L, stage, tip, slip, spark, win, exam }) {
   // some levels leave a few notes without their colour, others each time the level is played. With rounds the tune is played once for
   // each, and before each one more notes go dark: the first ones of a single order drawn by chance, so a note once dark stays dark
-  const tune = L.tune, rounds = L.rounds, order = rounds && [...darks(tune, Infinity, Math.random)];
+  const tune = L.tune, rounds = L.rounds, order = rounds && [...darks(tune, Infinity, Math.random)], beats = L.beats || 4;
   const darkAt = r => new Set(order.slice(0, Math.round(rounds[r] * order.length)));
   let round = 0, dark = rounds ? darkAt(0) : darks(tune, L.dark || 0, Math.random, L.near);
   const paintRound = () => { if (rounds) $('#round').innerHTML = `Volta <b>${round + 1}</b> de ${rounds.length}`; };
-  stage.innerHTML = `${rounds ? '<p class="cap" id="round"></p>' : ''}<div class="sheet" id="sheet">${staff(tune.map(([step, f], i) => ({ step, fig: f, hue: L.help && step != null && !dark.has(i) ? NOTES[step].hue : null, label: L.help > 1 && step != null ? NOTES[step].short : '' })))}</div>${WAVE}${TUBES}`;
+  stage.innerHTML = `${rounds ? '<p class="cap" id="round"></p>' : ''}<div class="sheet" id="sheet">${staff(tune.map(([step, f], i) => ({ step, fig: f, hue: L.help && step != null && !dark.has(i) ? NOTES[step].hue : null, label: L.help > 1 && step != null ? NOTES[step].short : '' })), { beats })}</div>${exam ? '' : metroStrip(beats, bpm)}${WAVE}${TUBES}`;
   const nts = [...stage.querySelectorAll('.nt')], { tubes, ring } = tubesOf(stage), sheet = $('#sheet');
-  let k = 0, busy = false;
+  let k = 0, busy = false, run = null;
   // the rests pass on their own; the note to play glows
   const arm = () => {
     while (k < tune.length && tune[k][0] == null) nts[k++].classList.add('done');
     nts.forEach((e, i) => e.classList.toggle('now', i === k));
     tubes.forEach(e => e.classList.remove('hint')); seek(sheet, nts[k]);
   };
-  async function tap(i) {
+  async function tap(i, when) {
+    if (run) return run.tap(i, when);
     if (busy || !t.on) return;
+    if (k === 0) nts.forEach(e => e.classList.remove('got', 'miss'));   // what the last run in time left marked
     const want = tune[k][0];
     ring(i);
     if (i !== want) {
@@ -336,13 +352,17 @@ function play({ t, L, stage, tip, slip, spark, win }) {
     }
     spark(nts[k], NOTES[i].hue); nts[k].classList.add('done'); k++; arm();
     if (k < tune.length) return;
+    finish(false);
+  }
+  // the whole tune played, note by note or in time: the next round, or the end
+  async function finish(timed) {
     // the next round: the notes that go dark lose their colour one after the other, and the score starts again
     if (rounds && round < rounds.length - 1) {
       busy = true; round++;
       const next = darkAt(round), gone = order.filter(j => next.has(j) && !dark.has(j)); dark = next;
       tip(`Molt bé! Volta ${round + 1} de ${rounds.length}: ${!gone.length ? 'torna-hi.' : gone.length === 1 ? 'una nota es torna negra. Mira-la bé!' : `${gone.length} notes més es tornen negres. Mira-les bé!`}`, 'go');
       await sleep(900); if (!t.on) return;
-      nts.forEach(e => e.classList.remove('done', 'now')); seek(sheet, nts[0]);
+      nts.forEach(e => e.classList.remove('done', 'now', 'got', 'miss')); seek(sheet, nts[0]);
       for (const j of gone.sort((a, b) => a - b)) {
         seek(sheet, nts[j]); nts[j].classList.remove('hue'); click(300 + 40 * tune[j][0], 0, 0.12, 0.04);
         await sleep(RM ? 60 : 260); if (!t.on) return;
@@ -351,23 +371,97 @@ function play({ t, L, stage, tip, slip, spark, win }) {
       k = 0; busy = false; paintRound(); arm();
       return;
     }
-    // the whole tune once more, each note as long as its figure says
-    busy = true; tip('Ara escolta-la sencera!', 'go'); await sleep(800);
-    for (let j = 0; j < tune.length; j++) {
-      if (!t.on) return;
-      const [step, f] = tune[j], d = FIGS[f].beats;
-      nts.forEach((e, n) => { e.classList.toggle('now', n === j); e.classList.toggle('done', n > j); }); seek(sheet, nts[j]);
-      if (step != null) ring(step, d * 0.45);
-      await sleep(d * 420);
+    busy = true;
+    // note by note, the whole tune once more, each note as long as its figure says; in time it has just been heard
+    if (!timed) {
+      tip('Ara escolta-la sencera!', 'go'); await sleep(800);
+      for (let j = 0; j < tune.length; j++) {
+        if (!t.on) return;
+        const [step, f] = tune[j], d = FIGS[f].beats;
+        nts.forEach((e, n) => { e.classList.toggle('now', n === j); e.classList.toggle('done', n > j); }); seek(sheet, nts[j]);
+        if (step != null) ring(step, d * 0.45);
+        await sleep(d * 420);
+      }
     }
     if (!t.on) return;
     nts.forEach(e => e.classList.remove('now', 'done'));
-    win(`♪ ${L.title}`);
+    win(timed ? `♪ ${L.title}, a temps!` : `♪ ${L.title}`);
   }
-  stage.querySelector('.tubes').onclick = e => { const b = e.target.closest('.tube'); if (b) tap(+b.dataset.n); };
-  keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1); };
+  // in time a tube sounds when the finger lands, not when it lifts, and the moment of the tap is the moment of the event
+  const tubesEl = stage.querySelector('.tubes');
+  tubesEl.onclick = e => { const b = e.target.closest('.tube'); if (b && !run) tap(+b.dataset.n); };
+  tubesEl.onpointerdown = e => { const b = e.target.closest('.tube'); if (b && run) tap(+b.dataset.n, e.timeStamp); };
+  keyFn = e => { if (/^[1-8]$/.test(e.key)) tap(e.key - 1, e.timeStamp); };
+
+  // in time: the strip ticks, a run lights each note when it comes, and «Para» stops it
+  const M = !exam && metronome($('#metro'), { beats, get: () => bpm, set: setBpm, tick: (one, at) => click(one ? 1320 : 880, at, 0.05, one ? 0.13 : 0.08) });
+  async function go(mine) {
+    if (run || busy || !t.on) return;
+    // the two sounds (the clicks and the tubes) are made before the first click, so making them does not hold the count back
+    busy = true; click(40, 0, 0.02, 0.0001); wake(); await sleep(150); busy = false;
+    if (!t.on) return;
+    k = 0; nts.forEach(e => e.classList.remove('done', 'now', 'got', 'miss')); tubes.forEach(e => e.classList.remove('hint'));
+    const r = run = inTime({ t, tune, beats, M, nts, sheet, tubes, ring, spark, mine });
+    M.busy(true);
+    tip(mine ? `Primer sonen ${beats} clics per agafar el ritme. Després toca cada nota quan s'il·lumini, ni abans ni després. Amb les tecles 1 a 8 és més fàcil.`
+      : 'Escolta com encaixen les notes amb els clics. Una negra dura un clic, una blanca dos, una rodona quatre, i una corxera mig.');
+    const res = await r.done;
+    if (!t.on) return;
+    run = null; M.busy(false); M.still();
+    if (!res || !mine) {
+      nts.forEach(e => e.classList.remove('now', 'got', 'miss')); arm();
+      return tip(!res ? L.say : 'Ara tu! Prem «Toca a temps», o toca-la nota a nota sense pressa.');
+    }
+    const missed = res.notes - res.hits, slack = Math.floor(res.notes / 8);
+    if (missed + res.extra <= slack) { tip(`${res.hits} de ${res.notes} notes a temps!`, 'go'); return finish(true); }
+    arm();
+    tip(`${res.hits} de ${res.notes} notes a temps. ${missed ? `${missed === 1 ? 'Se t\'ha escapat 1 nota' : `Se t'han escapat ${missed} notes`} (les que s'han apagat). ` : ''}${res.extra ? `${res.extra === 1 ? 'Un tub ha sonat' : `${res.extra} tubs han sonat`} fora de lloc. ` : ''}Torna-hi${bpm > BPM.min ? ', i si vols, baixa el tempo amb el −' : ''}.`, 'oops');
+  }
+  if (M) { $('#mlisten').onclick = () => go(false); $('#mplay').onclick = () => go(true); $('#mstop').onclick = () => run && run.stop(); }
+
   arm(); paintRound(); tip(L.say);
-  return () => { if (busy) return ''; const w = tune[k][0]; tubes[w].classList.add('hint'); return `La nota que brilla és ${WHERE[w]}: és el ${NOTES[w].name}. El seu tub fa pampallugues.`; };
+  return () => { if (busy || run) return ''; const w = tune[k][0]; tubes[w].classList.add('hint'); return `La nota que brilla és ${WHERE[w]}: és el ${NOTES[w].name}. El seu tub fa pampallugues.`; };
+}
+
+/* ---------- a tune in time, with the metronome ---------- */
+// A bar of clicks to count in, then the tune: the metronome ticks every beat and each sign lights up for as long as its figure lasts.
+// Listening, the tubes play it. mine, the child does: a tap counts for a note of that tube not played yet if it comes close enough to the
+// moment the note starts, a little before or a little after (a long note leaves more room after). Of two such notes it goes to the first,
+// so a late tap on four Do in a row does not take the next Do's place and leave every one after it short. A note that goes by unplayed is
+// marked miss. tap(i, when) takes the time of the event, so a busy page does not make a tap late. Gives { tap, stop, done }: done gives
+// null if the screen went away or «Para» stopped it, else { hits, notes, extra }: the notes played on time, the notes there were to play,
+// and the taps that were not one of them
+function inTime({ t, tune, beats, M, nts, sheet, tubes, ring, spark, mine }) {
+  const ms = M.ms, lead = beats * ms, on = { go: true }, hit = new Set(), evs = [];
+  let at = 0, extra = 0;
+  const notes = tune.map(([step, f]) => { const n = { step, at: lead + at * ms, dur: FIGS[f].beats * ms }; at += FIGS[f].beats; return n; });
+  notes.forEach((n, j) => { n.early = Math.min(220, 0.5 * (j ? n.at - notes[j - 1].at : lead)); n.late = Math.min(320, 0.6 * n.dur); });
+  const total = Math.ceil(at - 1e-6);
+  M.ready();
+  // what is heard goes AHEAD ms early with the time it is due, so the sound keeps time; what is seen comes on time
+  for (let b = 0; b < beats + total; b++) {
+    evs.push({ at: b * ms - AHEAD, fn: due => M.click(b, until(due + AHEAD)) });
+    evs.push({ at: b * ms, fn: () => M.beat(b) });
+  }
+  notes.forEach((n, j) => {
+    if (!mine && n.step != null) evs.push({ at: n.at - AHEAD, fn: due => ring(n.step, n.dur * 0.85 / 1000, until(due + AHEAD)) });
+    evs.push({ at: n.at, fn: () => { nts.forEach((e, i) => e.classList.toggle('now', i === j)); seek(sheet, nts[j]); } });
+    if (mine && n.step != null) evs.push({ at: n.at + n.late, fn: () => { if (!hit.has(j)) nts[j].classList.add('miss'); } });
+  });
+  evs.push({ at: lead + total * ms, fn: () => nts.forEach(e => e.classList.remove('now')) });
+  seek(sheet, nts[0]);
+  const c = clock(evs, () => t.on && on.go);
+  function tap(i, when) {
+    if (!t.on) return;
+    ring(i);
+    if (!mine) return;
+    // an event's time is on the clock of performance.now(); one that is not (an old browser) counts from now
+    const real = performance.now(), now = (when > real - 1000 && when <= real + 50 ? when : real) - c.start;
+    const best = notes.findIndex((n, j) => n.step === i && !hit.has(j) && now >= n.at - n.early && now <= n.at + n.late);
+    if (best < 0) { extra++; return tubes[i].classList.add('shake'); }
+    hit.add(best); nts[best].classList.add('got'); spark(nts[best], NOTES[i].hue);
+  }
+  return { tap, stop: () => { on.go = false; }, done: c.done.then(ok => ok ? { hits: hit.size, notes: notes.filter(n => n.step != null).length, extra } : null) };
 }
 
 /* ---------- the place of each note on the staff, one note at a time ---------- */
