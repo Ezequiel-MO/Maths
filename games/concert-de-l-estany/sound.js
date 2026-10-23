@@ -19,11 +19,12 @@ export function band(on) {
   const noise = (a, t, stop) => { const n = a.createBufferSource(); n.buffer = hiss; n.loop = true; n.start(t, Math.random()); n.stop(stop); return n; };
 
   // A blown tube: the note with a few quieter harmonics over it (the odd ones louder, as in a tube closed at one end),
-  // a puff of breath at the start that stays as a whisper, and a slow tremble once the note is held
-  function pipe(f, dur = 0.5, vol = 0.22) {
+  // a puff of breath at the start that stays as a whisper, and a slow tremble once the note is held. at puts it that many seconds
+  // ahead on the clock of the sound, which keeps time even when the page is busy (the metronome's songs in time)
+  function pipe(f, dur = 0.5, vol = 0.22, at = 0) {
     if (!on()) return;
     try {
-      const a = ctx(), t = a.currentTime, end = t + Math.max(dur, 0.22), stop = end + 0.5, g = a.createGain();
+      const a = ctx(), t = a.currentTime + at, end = t + Math.max(dur, 0.22), stop = end + 0.5, g = a.createGain();
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.045); g.gain.setTargetAtTime(vol * 0.75, t + 0.05, 0.15); g.gain.setTargetAtTime(0.0001, end, 0.07);
       g.connect(out);
       const lfo = a.createOscillator(), depth = a.createGain();
@@ -76,5 +77,7 @@ export function band(on) {
       else { const f = name === 'tom1' ? 240 : 130; tone(f * 1.4, f, 0.38, vol); hiss('bandpass', 1200, 0.8, 0.05, vol * 0.3); }
     } catch (e) {}
   }
-  return { pipe, drum, kit };
+  // the sound is made the first time it is needed, and that can take a moment: a song in time makes it before its first click
+  const wake = () => { if (on()) try { ctx(); } catch (e) {} };
+  return { pipe, drum, kit, wake };
 }

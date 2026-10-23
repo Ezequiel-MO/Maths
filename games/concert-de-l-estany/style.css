@@ -295,12 +295,6 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .nt.got { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #3ED98A); }
 .nt.miss { opacity: 0.22; }
 
-/* a song to rehearse: on the map, and a button for each phrase and one for the whole song */
-.extra .song { font-size: 1rem; }
-.parts { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
-.pbtn { min-width: 34px; height: 34px; padding: 0 9px; border-radius: 17px; border: 2px solid var(--edge); background: #2A4B5C; color: var(--ink); font: 800 1rem/1 var(--display); }
-.pbtn.on { background: var(--sun); border-color: var(--sun); color: #2A1C00; }
-
 /* proportions: a table of how many times each note vibrates, its smallest numbers first and then the ones of now */
 .ptab { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 18px; align-items: center; justify-items: center; padding: 8px 18px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
 .ph { font: 800 0.85rem/1 var(--display); color: var(--muted); }
