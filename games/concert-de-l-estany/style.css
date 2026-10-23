@@ -269,6 +269,38 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
   border: 2px solid #C9D6DB; border-bottom-width: 4px; font: 800 1.15rem/1 var(--display); text-align: center; }
 .kkeys { margin: 4px 0 0; text-align: center; font-weight: 800; color: var(--sun); }
 
+/* the metronome under a score: the metronome that swings and lands on each click, a numbered dot for each beat (the first one starts
+   the bar and lights up in gold), the tempo with − and +, and the buttons of a tune in time */
+.metro { width: 100%; max-width: 640px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; padding: 8px 12px; border-radius: 20px; background: var(--glass); border: 1px solid var(--edge); }
+.mface, .mtempo, .mctl { display: flex; align-items: center; gap: 8px; }
+.pend { width: 30px; height: 38px; overflow: visible; }
+.pend .mbox { fill: #8A5A2B; stroke: #5E3B19; stroke-width: 1.2; }
+.pend .mscale { stroke: #F3E2C0; stroke-width: 1; opacity: 0.5; }
+.pend .arm path { stroke: #F3FBF8; stroke-width: 2.2; stroke-linecap: round; }
+.pend .arm rect { fill: var(--sun); }
+.pend circle { fill: #F3E2C0; }
+.mbeats { display: flex; gap: 5px; }
+.mbeats i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 800 0.9rem/1 var(--display); font-style: normal; color: var(--muted); border: 2px solid var(--edge); }
+.mbeats i.one { border-color: rgb(247 198 78 / 0.55); }
+.mbeats i.on { background: var(--mint); border-color: var(--mint); color: #06301A; animation: pop 0.18s; }
+.mbeats i.one.on { background: var(--sun); border-color: var(--sun); color: #2A1C00; }
+.mstep { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--edge); background: #2A4B5C; color: var(--ink); font: 800 1.3rem/1 var(--display); }
+.mstep:disabled { opacity: 0.35; }
+.mbpm { display: flex; flex-direction: column; align-items: center; min-width: 66px; }
+.mbpm b { font: 800 1.35rem/1.05 var(--display); font-variant-numeric: tabular-nums; }
+.mbpm small { font-weight: 800; font-size: 0.75rem; color: var(--muted); }
+.mctl { flex-basis: 100%; justify-content: center; }   /* a row of their own, so «Para» in their place moves nothing */
+.mctl .btn { font-size: 1.05rem; min-width: 0; padding-inline: 0.9em; white-space: nowrap; }
+/* after a run in time the notes played on time glow green and the ones that went by unplayed fade */
+.nt.got { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #3ED98A); }
+.nt.miss { opacity: 0.22; }
+
+/* a song to rehearse: on the map, and a button for each phrase and one for the whole song */
+.extra .song { font-size: 1rem; }
+.parts { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.pbtn { min-width: 34px; height: 34px; padding: 0 9px; border-radius: 17px; border: 2px solid var(--edge); background: #2A4B5C; color: var(--ink); font: 800 1rem/1 var(--display); }
+.pbtn.on { background: var(--sun); border-color: var(--sun); color: #2A1C00; }
+
 /* proportions: a table of how many times each note vibrates, its smallest numbers first and then the ones of now */
 .ptab { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 18px; align-items: center; justify-items: center; padding: 8px 18px; border-radius: 18px; background: var(--glass); border: 1px solid var(--edge); }
 .ph { font: 800 0.85rem/1 var(--display); color: var(--muted); }
@@ -291,4 +323,4 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @media (max-width: 480px) { .frog { width: 56px; height: 52px; } .coach { gap: 12px; } }
 /* a phone upright: the map has no big title (the exam buttons need that height; the kicker and the bar stay) */
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
-@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg { animation: none; } .xp-bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on { animation: none; } .xp-bar i { transition: none; } }
