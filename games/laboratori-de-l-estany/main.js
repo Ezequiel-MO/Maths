@@ -78,7 +78,7 @@ const term = ([id, n]) => `<span class="term"><span class="tm">${mols(id, n, 0.8
 const eqHtml = (left, right) => `<div class="eq" role="img" aria-label="La recepta de la reacció">${left.map(term).join('<b class="op">+</b>')}<b class="op arrow">→</b>${right.map(term).join('<b class="op">+</b>')}</div>`;
 
 const HURRAY = ['Eureka!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin experiment!'];
-const HUES = [205, 140, 28, 175, 262, 350, 318];
+const HUES = [205, 140, 28, 175, 262, 350, 318, 48, 40];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 const cops = k => `${k} ${k > 1 ? 'cops' : 'cop'}`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
@@ -101,7 +101,7 @@ addEventListener('keydown', e => { if (keyFn && !e.ctrlKey && !e.metaKey && !e.a
 // a tap that comes less than SETTLE after a question came up was meant for the one before
 let openAt = 0;
 // each kind of level draws its stage and gives back its hint: a function that shows the help and returns what the tip says
-const KIND = { find, atom, mol, mix, dose, react, ask };
+const KIND = { find, atom, mol, mix, dose, react, ask, pour, weigh };
 
 /* ---------- the map: three bands, one button for each project and the exam of the circle at the end ---------- */
 const RING = [140, 195, 262];   // the colour of each circle
@@ -574,6 +574,104 @@ function dose({ t, L, stage, tip, slip, win }) {
   return () => busy ? '' : pctHow(L.pct, L.size, unit);
 }
 
+/* ---------- the warm-up: cups poured into a jug, and a scale to balance; each is accepted the moment it is right ---------- */
+// a measuring jug of J.cap ml: a short line every J.tick on both sides, the labels of each side, v ml of liquid and, with aim, the line to reach
+function jugHtml(J, v, aim) {
+  const at = m => `bottom:${m / J.cap * 100}%`;
+  return `<div class="jug" id="jug"><div class="liq" id="jl" style="height:${v / J.cap * 100}%"></div>${aim ? `<i class="aim" style="${at(aim)}"></i>` : ''}
+    ${Array.from({ length: J.cap / J.tick }, (_, i) => `<i class="tk" style="${at((i + 1) * J.tick)}"></i>`).join('')}
+    ${(J.left || []).map(([m, s]) => `<b class="lb l" style="${at(m)}">${s}</b>`).join('')}${(J.right || []).map(([m, s]) => `<b class="lb r" style="${at(m)}">${s}</b>`).join('')}</div>`;
+}
+const UNIT = { ml: 1, dl: 100, l: 1000 };
+// the line a level keeps, «10 gots omplen 1 l: 1 l = 10 dl», with what comes after the colon under it
+const kept = s => { const [a, z] = s.split(': '); return z ? `${a}<br><small>${z}</small>` : a; };
+function pour({ t, L, stage, tip, win }) {
+  const J = L.jug, C = L.cup;
+  let n = 0, busy = false;
+  stage.innerHTML = `<p class="ask">${L.ask}</p>
+    <div class="row doser">${jugHtml(J, 0, L.mark)}<div class="side"><b class="read" id="read"></b><small class="eqs" id="eqs"></small>
+      <div class="pm"><button class="btn soft" data-d="1"><span aria-hidden="true">${C.icon}</span> Aboca ${C.a}<br><small>${C.tag}</small></button><button class="key" data-d="-1" aria-label="Treu-ne ${C.a}">−</button></div></div></div>`;
+  const draw = () => {
+    const v = n * C.ml;
+    $('#read').textContent = `${n} ${n === 1 ? C.one : C.many}`;
+    $('#eqs').textContent = n ? L.show.map(u => `${v / UNIT[u]} ${u}`).join(' = ') : ' ';
+    $('#jl').style.height = v / J.cap * 100 + '%';
+  };
+  stage.querySelector('.pm').onclick = async e => {
+    const b = e.target.closest('[data-d]'); if (!b || busy || !t.on) return;
+    if (+b.dataset.d < 0) { if (n) { n--; blip(330); draw(); } return; }
+    if ((n + 1) * C.ml > J.cap) { again($('#jug')).add('shake'); return tip('No hi cap més: la gerra ja és plena!', 'oops'); }
+    n++; plop(n); draw();
+    // a stream falls from the cup down to the new surface
+    if (!RM) { const s = document.createElement('i'); s.className = 'stream'; s.style.bottom = n * C.ml / J.cap * 100 + '%'; s.onanimationend = () => s.remove(); $('#jug').append(s); }
+    if (n * C.ml !== L.want) return;
+    busy = true; $('#jug').classList.add('won'); spark($('#jug'), 175);
+    tip(`Just! ${L.done}.`, 'go');
+    await sleep(1900); if (!t.on) return;
+    win(kept(L.done));
+  };
+  draw(); tip(L.say);
+  return () => busy ? '' : L.how;
+}
+// A scale with two pans hanging from a beam: the thing on the left, the weights on the right. The beam leans to the heavier side, more
+// the more it weighs, and the needle stands on the mark when both weigh the same. The pans hang from the ends of the beam, so they stay level
+const ARM = 110, HOOK = 30;
+const scaleSvg = T => `<svg class="scale" id="sc" viewBox="-170 -4 340 222" role="img" aria-label="Una balança de dos plats">
+    <path class="post" d="M0 ${HOOK}V202"/><ellipse class="foot" cx="0" cy="206" rx="60" ry="8"/>
+    <path class="dial" d="M-20 ${HOOK + 44}a26 26 0 0 0 40 0"/><path class="zero" d="M0 ${HOOK + 50}v10"/>
+    ${[0, 1].map(s => `<g class="pan" id="pan${s}"><path class="cord" d="M0 0L-48 80M0 0L48 80"/><path class="dish" d="M-58 80h116q-8 14-28 14h-60q-20 0-28-14Z"/><g id="load${s}"></g></g>`).join('')}
+    <g class="beam" id="beam"><path class="bar" d="M${-ARM - 6} ${HOOK}H${ARM + 6}"/><path class="needle" d="M0 ${HOOK}v48"/><circle class="pin" cx="0" cy="${HOOK}" r="7"/></g></svg>`;
+// the size of each weight as drawn: a chocolate bar, a big weight of 100 g or more, a small one
+const SIZE = w => w.look === 'xoco' ? [20, 9] : w.g >= 100 ? [20, 16] : [12, 10];
+const weightSvg = (w, x, y) => { const [a, b] = SIZE(w);
+  return w.look === 'xoco' ? `<rect class="xo" x="${x}" y="${y}" width="${a}" height="${b}" rx="2"/><path class="xl" d="M${x + 7} ${y + 1}v${b - 2}M${x + 13} ${y + 1}v${b - 2}"/>`
+    : `<path class="pw" d="M${x + 2} ${y + b}l2 -${b - 4}h${a - 8}l2 ${b - 4}Z"/><circle class="pw" cx="${x + a / 2}" cy="${y + 2.5}" r="${b > 12 ? 3 : 2}"/>`; };
+// the weights on the pan, the big ones at the bottom, in rows from the dish up
+function loadSvg(W, counts) {
+  const items = W.flatMap((w, i) => Array(counts[i]).fill(w)).sort((p, q) => SIZE(q)[1] - SIZE(p)[1]), rows = [];
+  let x = 99;
+  for (const w of items) { if (x + SIZE(w)[0] > 98) { rows.push([]); x = 0; } rows.at(-1).push(w); x += SIZE(w)[0] + 2; }
+  let y = 80, out = '';
+  for (const r of rows) {
+    const wid = r.reduce((s, w) => s + SIZE(w)[0] + 2, -2);
+    let x0 = -wid / 2;
+    for (const w of r) { out += weightSvg(w, x0, y - SIZE(w)[1]); x0 += SIZE(w)[0] + 2; }
+    y -= Math.max(...r.map(w => SIZE(w)[1])) + 2;
+  }
+  return out;
+}
+function weigh({ t, L, stage, tip, win }) {
+  const T = L.thing, W = L.weights, counts = W.map(() => 0), MAX = 12;
+  let busy = false;
+  stage.innerHTML = `<p class="ask">${L.ask}</p>${scaleSvg(T)}<p class="cap" id="lean"></p>
+    <div class="inks">${W.map((w, i) => `<div class="ink" style="--h:45"><button class="btn soft" data-i="${i}" data-d="1">+ 1 ${w.one}<br><small>${w.g} g</small></button>
+      <span class="n"><b id="n${i}">0</b><button class="key sm" data-i="${i}" data-d="-1" aria-label="Treu una ${w.one} de ${w.g} g">−</button></span></div>`).join('')}</div>`;
+  $('#load0').innerHTML = `<text class="thing" y="74">${T.icon}</text><g class="tagp"><rect x="-30" y="98" width="60" height="22" rx="11"/><text y="114">${T.tag}</text></g>`;
+  const total = () => counts.reduce((s, n, i) => s + n * W[i].g, 0);
+  const draw = () => {
+    const r = total(), a = 16 * Math.tanh(4 * (r - T.g) / T.g), dx = ARM * Math.cos(a * Math.PI / 180), dy = ARM * Math.sin(a * Math.PI / 180);
+    $('#beam').style.transform = `rotate(${a.toFixed(2)}deg)`;
+    $('#pan0').style.transform = `translate(${(-dx).toFixed(1)}px, ${(HOOK - dy).toFixed(1)}px)`; $('#pan1').style.transform = `translate(${dx.toFixed(1)}px, ${(HOOK + dy).toFixed(1)}px)`;
+    $('#load1').innerHTML = loadSvg(W, counts);
+    counts.forEach((n, i) => { $('#n' + i).textContent = n; });
+    $('#lean').innerHTML = `A l'altre plat: <b>${r} g</b> · ${r < T.g ? `pesa més ${T.the}` : r > T.g ? 'pesa més l\'altre plat' : 'la balança és recta!'}`;
+  };
+  stage.querySelector('.inks').onclick = async e => {
+    const b = e.target.closest('[data-d]'); if (!b || busy || !t.on) return;
+    const i = +b.dataset.i, d = +b.dataset.d;
+    if (d < 0 && !counts[i]) return;
+    if (d > 0 && counts[i] >= MAX) return tip('Al plat no n\'hi caben més!', 'oops');
+    counts[i] += d; d > 0 ? plop(counts[i]) : blip(330); draw();
+    if (total() !== T.g) return;
+    busy = true; $('#sc').classList.add('won'); spark($('#sc'), 140);
+    tip(`Recta! ${L.done}.`, 'go');
+    await sleep(1900); if (!t.on) return;
+    win(kept(L.done));
+  };
+  draw(); tip(L.say);
+  return () => busy ? '' : L.how;
+}
+
 /* ---------- a reaction: as many of each molecule as the recipe says, for the ones already there ---------- */
 // The ones that go in wait each in its beaker; «Reacciona!» pours them into the flask, where they fly about, flash and come out as the new ones
 function react({ t, L, stage, tip, slip, win }) {
@@ -636,6 +734,8 @@ const PIC = {
       <p class="legend">${P.parts.map(([n, , h]) => `<span style="--h:${h}"><i></i>${n}</span>`).join('')}</p></div>`; },
   grid: P => `<div class="grid100" role="img" aria-label="Cent quadrets">${Array.from({ length: 100 }, (_, i) => `<i${i < P.n ? ' class="on"' : ''}></i>`).join('')}</div>`,
   cyl: P => `<div class="row doser still">${cylHtml(P.size, P.step, P.v)}</div>`,
+  // a measuring jug with a scale on each side (the warm-up)
+  jug: P => `<div class="row doser still">${jugHtml(P, P.v)}</div>`,
   mols: P => P.list.map(([id, n]) => `<div class="mbox"><div class="mrow">${mols(id, n, n > 3 ? 1.25 : 2.2)}</div><p class="cap"><b class="fml">${formula(id)}</b> · ${MOLS[id].name}</p></div>`).join(''),
   text: P => `<div class="mbox"><b class="fml huge">${P.html}</b><p class="cap">${P.cap}</p></div>`,
   eq: P => eqHtml(P.left, P.right),
