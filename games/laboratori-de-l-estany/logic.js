@@ -1,6 +1,6 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the laboratory, with no page in it. Eight sections of ten levels: the kitchen first (litres and grams in
-// the fridge, and real recipes for more or fewer people), then filling a cylinder to a percentage and juices and salt water, and the
+// The rules and the data of the laboratory, with no page in it. Nine sections of ten levels: the kitchen first (a warm-up of jugs and a
+// scale, litres and grams in the fridge, and real recipes for more or fewer people), then filling a cylinder to a percentage and juices and salt water, and the
 // chemistry at the end: finding elements on the table and building atoms, joining atoms into molecules, reactions, and experiments
 // that chain a percentage, a sum and a proportion. It must keep importing from Node.
 
@@ -301,10 +301,71 @@ const FRIDGE = { name: 'La nevera', sub: 'Litres i mil·lilitres, quilos i grams
     st('A casa en gasteu 750 ml cada dia. Quants ml en gasteu en 2 dies?', 1500, null, 'ml', '750 × 2 = 1500 ml', 'El doble de 750.'),
     st('Quants ml queden a la caixa després de 2 dies?', 4500, null, 'ml', '6000 − 1500 = 4500 ml', 'Treu el que heu gastat de 6000 ml.')], 'L\'últim repte de la nevera: litres, mil·lilitres i dies.')
 ] };
+// The warm-up before the fridge: nothing to know yet, only to do and watch. Glasses poured into a jug until it is full, and a scale
+// balanced with chocolate bars and weights; the count says the relation (10 dl in 1 l, 1000 g in 1 kg). Only the last levels ask, and
+// what they ask is on the drawing or was just seen.
+// pour: cups of cup.ml poured into a jug until it holds want ml (it is accepted the moment it does). jug is { cap, tick, left, right }
+// in ml, each label [ml, text] on that side; mark draws the line to reach; show the units the total is said in under the count
+const pour = o => ({ kind: 'pour', ...o });
+// weigh: weights on the other pan until the scale is level with the thing (accepted the moment it is)
+const weigh = o => ({ kind: 'weigh', ...o });
+const GOT = { ml: 100, one: 'got petit', many: 'gots petits', a: 'un got', tag: '1 dl', icon: '🥛' };
+const TUB = { ml: 10, one: 'tub', many: 'tubs', a: 'un tub', tag: '10 ml', icon: '🧪' };
+const TASSA = { ml: 250, one: 'tassa', many: 'tasses', a: 'una tassa', tag: '250 ml', icon: '☕' };
+const XOCO = { g: 100, one: 'rajola', many: 'rajoles', look: 'xoco' };
+const P100 = { g: 100, one: 'pesa', many: 'peses', look: 'pesa' };
+const P10 = { g: 10, one: 'pesa', many: 'peses', look: 'pesa' };
+const DL = Array.from({ length: 10 }, (_, i) => [(i + 1) * 100, `${i + 1} dl`]);
+const ML = Array.from({ length: 10 }, (_, i) => [(i + 1) * 100, `${(i + 1) * 100} ml`]);
+const WARM = { name: 'Mesura i pesa', sub: 'Gerres i balances: què és un litre, un decilitre, un quilo i un gram.', warm: true, levels: [
+  pour({ title: 'El litre', jug: { cap: 1000, tick: 100, left: [[1000, '1 l']] }, cup: GOT, want: 1000, show: ['dl'],
+    ask: 'Omple la gerra d\'<b>1 litre</b> amb gots petits d\'<b>1 decilitre</b>.',
+    say: 'Un litre (l) és el que hi cap en un brik de llet. Un decilitre (dl) és un got petit. Quants n\'hi caben, en un litre?',
+    done: '10 gots d\'1 dl omplen 1 l: 1 l = 10 dl', how: 'Cada got omple una ratlla de la gerra. Continua fins a dalt de tot.' }),
+  pour({ title: 'El decilitre', jug: { cap: 100, tick: 10, left: [[100, '1 dl']] }, cup: TUB, want: 100, show: ['ml'],
+    ask: 'Omple el got d\'<b>1 decilitre</b> amb un tub d\'assaig de <b>10 mil·lilitres</b>.',
+    say: 'Un mil·lilitre (ml) és molt poc: unes 20 gotes. Aquest tub d\'assaig en porta 10 ml cada vegada.',
+    done: '10 tubs de 10 ml omplen 1 dl: 1 dl = 100 ml', how: 'Cada tub omple una ratlla del got. Continua fins a dalt de tot.' }),
+  pour({ title: 'Mig litre', jug: { cap: 1000, tick: 100, left: DL, right: ML }, cup: GOT, want: 500, mark: 500, show: ['dl', 'ml'],
+    ask: 'Posa-hi <b>mig litre</b>: fins a la ratlla groga.',
+    say: 'Aquesta gerra té dues escales: a l\'esquerra, decilitres, i a la dreta, mil·lilitres. Mig litre és la meitat de la gerra.',
+    done: 'Mig litre = 5 dl = 500 ml', how: 'La ratlla groga és a la meitat de la gerra. Cada got hi puja una ratlla.' }),
+  weigh({ title: 'El quilo', thing: { icon: '📦', name: 'Sucre', the: 'el paquet de sucre', tag: '1 kg', g: 1000 }, weights: [XOCO],
+    ask: 'Posa rajoles de xocolata de <b>100 g</b> a l\'altre plat fins que la balança quedi recta.',
+    say: 'Un quilo (kg) és el que pesa un paquet de sucre. Un gram (g) és molt poc: el que pesa un clip. Cada rajola de xocolata pesa 100 g.',
+    done: '10 rajoles de 100 g pesen 1 kg: 1 kg = 1000 g', how: 'Mentre la balança baixi pel costat del sucre, hi falten rajoles.' }),
+  weigh({ title: 'La rajola', thing: { icon: '🍫', name: 'Xocolata', the: 'la rajola', tag: '100 g', g: 100 }, weights: [P10],
+    ask: 'Equilibra la rajola de <b>100 g</b> amb peses de <b>10 g</b>.',
+    say: 'Les peses són peces de metall que pesen just el que hi diu.',
+    done: '10 peses de 10 g = 100 g', how: 'Mentre la balança baixi pel costat de la rajola, hi falten peses.' }),
+  weigh({ title: 'Mig quilo', thing: { icon: '🍝', name: 'Macarrons', the: 'el paquet de macarrons', tag: '½ kg', g: 500 }, weights: [XOCO],
+    ask: 'El paquet de macarrons fa <b>mig quilo</b>. Quantes rajoles de 100 g pesa?',
+    say: 'Mig quilo és la meitat d\'un quilo. El quilo de sucre pesava 10 rajoles.',
+    done: 'Mig quilo = 5 rajoles de 100 g = 500 g', how: 'Mig quilo és la meitat de les 10 rajoles del quilo.' }),
+  ask('Llegeix la gerra', { t: 'jug', cap: 1000, tick: 100, left: DL, right: ML, v: 300 }, [
+    st('Quants decilitres de suc hi ha a la gerra?', 3, [3, 30, 300], 'dl', 'Hi ha 3 dl de suc', 'Mira l\'escala de l\'esquerra, la dels decilitres: fins on arriba el suc?'),
+    st('I quants mil·lilitres són?', 300, [3, 30, 300], 'ml', '3 dl = 300 ml', 'Mira l\'escala de la dreta, la dels mil·lilitres. Cada decilitre són 100 ml.')], 'Ara només cal mirar: el suc arriba a una ratlla de cada escala.'),
+  weigh({ title: 'Un quart de quilo', thing: { icon: '🧈', name: 'Mantega', the: 'la mantega', tag: '¼ kg', g: 250 }, weights: [P100, P10],
+    ask: 'La mantega pesa <b>un quart de quilo</b>. Equilibra-la amb peses de 100 g i de 10 g.',
+    say: 'Ara tens peses de dues mides. Posa primer les grosses, i acaba amb les petites.',
+    done: 'Un quart de quilo = 2 peses de 100 g i 5 de 10 g = 250 g', how: 'Posa peses de 100 g mentre la mantega pesi més. Quan en sobri una, treu-la i continua amb les de 10 g.' }),
+  pour({ title: 'Tasses de 250 ml', jug: { cap: 1000, tick: 250, left: [[500, '½ l'], [1000, '1 l']], right: [[250, '250 ml'], [500, '500 ml'], [750, '750 ml'], [1000, '1000 ml']] },
+    cup: TASSA, want: 1000, show: ['ml'],
+    ask: 'Omple la gerra d\'<b>1 litre</b> amb tasses de <b>250 ml</b>.',
+    say: '250 ml és un quart de litre: el que hi cap en una tassa d\'esmorzar.',
+    done: '4 tasses de 250 ml = 1000 ml = 1 l', how: 'Cada tassa omple una ratlla de la gerra. Continua fins a dalt de tot.' }),
+  ask('El que has vist', card('Les mesures del laboratori', [['🧃', 'Brik de llet: 1 l'], ['🥛', 'Got petit: 1 dl'], ['🧪', 'Tub d\'assaig: 10 ml'], ['📦', 'Sucre: 1 kg'], ['🍫', 'Rajola: 100 g']]), [
+    st('Quants gots petits d\'1 dl omplen el brik d\'1 l?', 10, [2, 10, 100], '', '1 l = 10 dl', 'Recorda la primera gerra: quants gots hi vas abocar?'),
+    st('Quants mil·lilitres té 1 litre?', 1000, [10, 100, 1000], 'ml', '1 l = 1000 ml', '1 l són 10 dl, i cada decilitre són 100 ml.'),
+    st('Quantes rajoles de 100 g pesen com el sucre d\'1 kg?', 10, [4, 10, 100], '', '10 rajoles de 100 g = 1 kg', 'Recorda la balança del sucre: quantes rajoles hi vas posar?'),
+    st('Quants grams té 1 quilo?', 1000, [10, 100, 1000], 'g', '1 kg = 1000 g', '10 rajoles de 100 g: 100, 200, 300... fins a 10 rajoles.')], 'L\'últim repte de l\'escalfament: el que has vist a les gerres i a la balança.')
+] };
 // The order of the cursus: the kitchen first, then the percentages and the mixes, and the chemistry at the end.
-// OLD[i] is the place now of the section that was the i-th at first: a save from then keeps its stars in the same section
+// OLD[i] is the place now of the section that was the i-th at first: a save from then keeps its stars in the same section.
+// The warm-up came last of all, so it goes at the end of the list and the stars saved before it keep their places; the map shows it
+// first of the kitchen through CIRCLES
 export const OLD = [4, 5, 1, 2, 3, 6, 7];
-export const SECTIONS = [FRIDGE, FIRST[2], FIRST[3], FIRST[4], FIRST[0], FIRST[1], FIRST[5], FIRST[6]];
+export const SECTIONS = [FRIDGE, FIRST[2], FIRST[3], FIRST[4], FIRST[0], FIRST[1], FIRST[5], FIRST[6], WARM];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
 
 /* ---------- stars ---------- */
@@ -314,7 +375,7 @@ export const LEVELS = SECTIONS.flatMap(s => s.levels);
 // circles, a mark for each project, an exam for each circle, XP and badges. A project is one of the sections above, with its ten levels
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
-  { name: 'La cuina', projects: [0, 1] },
+  { name: 'La cuina', projects: [8, 0, 1] },
   { name: 'Mescles i percentatges', projects: [2, 3] },
   { name: 'La química', projects: [4, 5, 6, 7] }
 ];
@@ -330,7 +391,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three elements of the Piscina, the first challenges: hydrogen, oxygen and carbon
 export const POOL = ['H', 'O', 'C'];
 
-// What is saved is facts only: { so, lv[80], stars[70], piscina, exams[6], fulls }. lv holds the stars of each level in the order of
+// What is saved is facts only: { so, lv[90], stars[70], piscina, exams[6], fulls }. lv holds the stars of each level in the order of
 // now. stars and exams[0..2] are what the first order kept: they are never written again, only read, so a cloud copy from before
 // (merged position by position) can never mix the two orders. Marks, XP, level and badges are worked out, never stored.
 // A complete progress inside its limits from any value at all; a new object. It only ever raises: the stars of the first order go
@@ -357,9 +418,9 @@ export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, 
 /* ---------- the exam and «Caça l'errada» ---------- */
 // Chance enters only through rnd (a function like Math.random).
 // Six different levels of the projects of circle c, at least one of each project, in a random order; each is a copy of the level
-// with p, its project, and idx added. A circle that does not exist gives the first
+// with p, its project, and idx added. A circle that does not exist gives the first. The warm-up is not asked: it only prepares
 export function exam(c, rnd) {
-  const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
+  const ps = (CIRCLES[c] || CIRCLES[0]).projects.filter(p => !PROJECTS[p].warm), used = new Set();
   const draw = p => {
     let idx = at(10, rnd);
     for (let n = 0; n < 10 && used.has(p * 10 + idx); n++) idx = (idx + 1) % 10;
