@@ -22,10 +22,11 @@ import { PROJECTS as ENGLISH } from '../games/estany-parla-angles/logic.js';
 import { PROJECTS as ODO } from '../games/comptaquilometres/logic.js';
 import { FACTS as ROUTINE } from '../games/rutina-de-l-estany/logic.js';
 import { PROJECTS as FAIR } from '../games/fira-de-l-atzar/logic.js';
+import { PROJECTS as CASTLE } from '../games/castell-dels-numeros/logic.js';
 
 const TOTALS = { 'salts-de-granota': TRICKS.length, coet: ROCKET.length, 'abac-xines': ABACUS.length, 'coet-multiplicador': TIMES.length,
   'nenufars-a-trossos': PADS.length,
-  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length, 'volta-al-mon': TRIP.length, 'escacs-de-l-estany': CHESS.length, 'robot-dels-pronoms': ROBOT_ORDERS.length, llums: LIGHTS.length, 'observatori-de-l-estany': DATA.length, 'mercat-de-l-estany': SHOP.length, 'taller-de-pixels': PIXELS.length, 'detectius-de-problemes': CASES.length, comptaquilometres: ODO.length, 'estany-parla-angles': ENGLISH.length, 'rutina-de-l-estany': ROUTINE.length, 'fira-de-l-atzar': FAIR.length };
+  'cursus-de-l-estany': PROJECTS.length, 'concert-de-l-estany': CONCERT.length, 'laboratori-de-l-estany': LAB.length, 'volta-al-mon': TRIP.length, 'escacs-de-l-estany': CHESS.length, 'robot-dels-pronoms': ROBOT_ORDERS.length, llums: LIGHTS.length, 'observatori-de-l-estany': DATA.length, 'mercat-de-l-estany': SHOP.length, 'taller-de-pixels': PIXELS.length, 'detectius-de-problemes': CASES.length, comptaquilometres: ODO.length, 'estany-parla-angles': ENGLISH.length, 'rutina-de-l-estany': ROUTINE.length, 'fira-de-l-atzar': FAIR.length, 'castell-dels-numeros': CASTLE.length };
 const bad = [];
 for (const g of GAMES) {
   const page = g.href.split('#')[0];
