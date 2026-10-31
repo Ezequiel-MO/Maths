@@ -1,10 +1,10 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the concert, with no page in it. Fourteen projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Seventeen projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
 // (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
 // their colours little by little (three times: easy tunes by steps, Star Wars, and tunes played over while they fade), the drum kit, and the
-// proportions of the notes of a chord. They are laid out as the cursus of 42 Barcelona, like the abacus and the
-// division game: a Piscina to get in, a map of three circles, a mark for each project, an exam for each circle, XP and badges
+// proportions of the notes of a chord, and at the end the guitar: its strings, the notes of its frets and tunes to play on it. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// division game: a Piscina to get in, a map of four circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
 // The scale of Do in just intonation. A tube that is n/d as long as the Do tube sounds d/n times as high:
@@ -77,6 +77,41 @@ const x = (steps, k, ask) => ({ t: 'x', steps, k, ask });
 const len = (step, cm) => ({ t: 'len', step, cm });
 const nm = (lo, hi) => ({ t: 'name', steps: [lo, hi] });
 const prop = (title, qs, say) => ({ kind: 'prop', title, qs, say });
+
+/* ---------- the guitar ---------- */
+// The six strings in the usual tuning, counted as guitarists do: the 1st is the thinnest and highest, the 6th the thickest and lowest.
+// A note is a count of half steps (as in MIDI, where 60 is the Do in the middle of the piano): each fret raises a string half a step, and
+// 12 frets are an octave, the same note higher. Unlike the tubes, a guitar is tuned in equal half steps
+export const TUNING = { 1: 64, 2: 59, 3: 55, 4: 50, 5: 45, 6: 40 };
+export const PCS = ['Do', 'Do♯', 'Re', 'Re♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
+// the step of the scale of each note without a sharp: its tube, and so its colour
+const STEP = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
+export const pcOf = m => ((m % 12) + 12) % 12;
+export const isSharp = pc => !(pc in STEP);
+export const noteAt = (s, f) => TUNING[s] + f;
+export const hz = m => 440 * 2 ** ((m - 69) / 12);
+// a note keeps the colour of its tube in every octave; a sharp has the colours of the two notes it lives between
+export const huesOf = pc => isSharp(pc) ? [NOTES[STEP[pc - 1]].hue, NOTES[STEP[pc + 1]].hue] : [NOTES[STEP[pc]].hue];
+// every place [string, fret] of the strings strs, from fret 0 to upto, that sounds the note pc
+export const placesOf = (pc, strs, upto) => strs.flatMap(s => Array.from({ length: upto + 1 }, (_, f) => f).filter(f => pcOf(noteAt(s, f)) === pc).map(f => [s, f]));
+const ALLS = [1, 2, 3, 4, 5, 6];
+// '6:3 5:0': places as string:fret; a '|' only parts the phrases of a tune, and cuts keeps where
+const places = s => s.split(' ').filter(x => x !== '|').map(x => x.split(':').map(Number));
+const phrases = s => { const cuts = []; let n = 0; for (const x of s.split(' ')) x === '|' ? cuts.push(n) : n++; return cuts; };
+const pcs = s => s.split(' ').map(n => PCS.indexOf(n));
+// walk: places to press one after the other, each one sounding and showing its note. There is nothing to get wrong: it is the warm-up of
+// what comes after, and it is never asked in an exam. done is what the frog says at the end; bar shows how much of the string vibrates
+const walk = (title, path, frets, say, done, more = {}) => ({ kind: 'walk', title, path: places(path), frets, say, done, ...more });
+// fret: the name of a note, to find on the strings strs up to fret upto; any place of it there is good. With all, every place of it
+const fret = (title, set, n, strs, upto, say, more = {}) => ({ kind: 'fret', title, set: pcs(set), n, strs, upto, frets: Math.max(3, upto), say, ...more });
+// which: a place of from lights up and sounds, and its name is chosen on a keyboard of colours; sharps puts the sharps on it too
+const which = (title, from, n, frets, say, more = {}) => ({ kind: 'which', title, from: places(from), n, frets, say, ...more });
+// riff: a tune on the strings it uses, at the child's own pace. help 2 shows the name of each note in colour and lights its place,
+// 1 only the name in colour, 0 the name in white
+const riff = (title, tune, help, frets, say) => {
+  const t = places(tune);
+  return { kind: 'riff', title, tune: t, cuts: phrases(tune), strs: [...new Set(t.map(([s]) => s))].sort(), help, frets, say };
+};
 // The answer of a question and the values to choose from, smallest first. The wrong ones are the mistakes that teach: adding what
 // the other note gained instead of multiplying, and, for a tube, the fraction turned over (the tube of a higher note is shorter)
 export function propQ(q) {
@@ -263,6 +298,56 @@ export const SECTIONS = [
     prop('Tubs i vibracions', [len(4, 60), len(7, 60), len(3, 60), len(2, 60)], 'Al revés que les vibracions: el Sol vibra 3/2 del Do, però el seu tub fa 2/3 del de Do. Com més curt és el tub, més vibra.'),
     prop('Quin interval és?', [nm(0, 4), nm(0, 7), nm(0, 3), nm(3, 7), nm(0, 2)], 'Mira els números de les vibracions: 1 i 2 és l\'octava, 2 i 3 la quinta, 3 i 4 la quarta, 4 i 5 la tercera.'),
     prop('L\'acord de Fa', [x([3, 5, 7], 8, 1), x([0, 2, 4], 6, 2), x([3, 5, 7], 8, 2), nm(4, 7), len(5, 60)], 'L\'últim! L\'acord de Fa també fa 4 : 5 : 6, com el de Do. Barreja de tot el que has après.')
+  ] },
+  // The guitar, its own circle. First the six strings played open and the notes of the two thinnest ones, the first a beginner plays
+  { name: 'Les cordes de la guitarra', sub: 'Mi, La, Re, Sol, Si, Mi: les sis cordes a l\'aire i les notes de les dues més fines.', levels: [
+    walk('Les sis cordes', '6:0 5:0 4:0 3:0 2:0 1:0', 3, 'La guitarra té sis cordes. La de baix és la més gruixuda i sona més greu. Toca-les una per una sense prémer cap trast: és tocar-les «a l\'aire».',
+      'Mi, La, Re, Sol, Si, Mi! La de baix i la de dalt es diuen igual: totes dues són un Mi, una greu i l\'altra aguda.', { names: false }),
+    which('Com es diu cada corda?', '6:0 5:0 4:0 3:0 2:0 1:0', 6, 3, 'Una corda sona. Quina és? Tria el seu nom al teclat de colors. De baix a dalt: Mi, La, Re, Sol, Si, Mi.', { names: false }),
+    fret('Toca la corda', 'Mi La Re Sol Si', 6, ALLS, 0, 'Ara al revés: et dic una nota i tu toques la corda a l\'aire. El Mi hi és dues vegades, a baix i a dalt: qualsevol de les dues val.', { names: false }),
+    walk('La primera corda', '1:0 1:1 1:3', 3, 'La primera corda és la més fina, la de dalt: un Mi agut. Si la prems en un trast, vibra un tros més curt i sona més aguda, com un tub més curt.',
+      'Mi a l\'aire, Fa al trast 1 i Sol al trast 3: tres notes en una sola corda!'),
+    fret('Mi, Fa i Sol', 'Mi Fa Sol', 6, [1], 3, 'Troba cada nota a la primera corda: a l\'aire, al trast 1 o al trast 3. El color t\'ajuda: el Mi és groc, el Fa verd i el Sol turquesa.'),
+    walk('La segona corda', '2:0 2:1 2:3', 3, 'La segona corda és un Si. Prem-la al trast 1 i després al trast 3.',
+      'Si a l\'aire, Do al trast 1 i Re al trast 3. Ja en saps sis: Mi, Fa i Sol a la primera corda, i Si, Do i Re a la segona.'),
+    fret('Si, Do i Re', 'Si Do Re', 6, [2], 3, 'Troba cada nota a la segona corda. Si a l\'aire, Do al trast 1 i Re al trast 3.'),
+    which('Primera o segona', '1:0 1:1 1:3 2:0 2:1 2:3', 8, 3, 'Una nota s\'encén a la primera o a la segona corda. Com es diu? Mira primer quina corda és, i després el trast.'),
+    riff('Hot Cross Buns', '1:0 2:3 2:1 | 1:0 2:3 2:1 | 2:1 2:1 2:1 2:1 2:3 2:3 2:3 2:3 | 1:0 2:3 2:1', 2, 3, 'La cançó dels tubs, ara a la guitarra: Mi, Re i Do. On has de prémer, s\'hi encén un cercle.'),
+    riff('Oda a l\'alegria', '1:0 1:0 1:1 1:3 | 1:3 1:1 1:0 2:3 | 2:1 2:1 2:3 1:0 | 1:0 2:3 2:3', 1, 3, 'La melodia de Beethoven amb les dues cordes de dalt. Ara no s\'encén on és: mira el nom i el color, i busca-la tu.')
+  ] },
+  // the first three frets of all six strings: the first position, where every note without a sharp has a place
+  { name: 'La primera posició', sub: 'Totes les notes dels tres primers trastos, a les sis cordes.', levels: [
+    walk('L\'escala de Sol', '3:0 3:2 2:0 2:1 2:3 1:0 1:1 1:3', 3, 'La tercera corda és un Sol, i al trast 2 fa un La. Des d\'allà, puja per les cordes de dalt: sortirà una escala sencera.',
+      'Sol, La, Si, Do, Re, Mi, Fa, Sol: vuit notes seguides, com els vuit tubs!'),
+    fret('Les tres cordes de dalt', 'Sol La Si Do Re Mi Fa', 8, [1, 2, 3], 3, 'Troba cada nota a les tres cordes més fines. Pensa primer a quina corda és, i després a quin trast.'),
+    walk('Les cordes de baix', '6:0 6:1 6:3 5:0 5:2 5:3 4:0 4:2 4:3 3:0', 3, 'Ara les tres cordes gruixudes. Comença pel Mi greu, la de baix de tot, i puja: també surt una escala!',
+      'Mi, Fa, Sol, La, Si, Do, Re, Mi, Fa, Sol. Les cordes gruixudes sonen greu, però les notes es diuen igual que a dalt.'),
+    which('Notes greus', '6:0 6:1 6:3 5:0 5:2 5:3 4:0 4:2 4:3', 8, 3, 'Una nota s\'encén a les cordes gruixudes. Com es diu? La sisena corda és com la primera: Mi, Fa i Sol, als mateixos trastos.'),
+    fret('A les cordes de baix', 'Mi Fa Sol La Si Do Re', 8, [4, 5, 6], 3, 'Troba cada nota a les tres cordes gruixudes. El Mi i el Fa hi són dues vegades: qualsevol de les dues val.'),
+    riff('Seven Nation Army', '4:2 4:2 3:0 4:2 4:0 5:3 5:2', 2, 3, 'La cançó que es canta als estadis: po, po-po-po-po, po, po! Amb les cordes gruixudes. On has de prémer, s\'hi encén un cercle.'),
+    which('Totes les cordes', '6:0 6:1 6:3 5:0 5:2 5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 2:3 1:0 1:1 1:3', 10, 3, 'Una nota s\'encén a qualsevol corda. Si dubtes, mira la corda a l\'aire de l\'esquerra i compta els trastos.'),
+    fret('On és el Do?', 'Do Re Mi Fa Sol La Si', 8, ALLS, 3, 'Moltes notes hi són dues vegades: el Do és al trast 3 de la cinquena corda i al trast 1 de la segona. Qualsevol lloc val!'),
+    riff('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 1, 3, 'Aquesta la saps! Comença a la tercera corda a l\'aire. Mira el nom i el color de cada nota i busca on és.'),
+    riff('Oda a l\'alegria, greu', '4:2 4:2 4:3 3:0 | 3:0 4:3 4:2 4:0 | 5:3 5:3 4:0 4:2 | 4:2 4:0 4:0', 0, 3, 'L\'última! L\'Oda a les cordes gruixudes, una octava més greu. Les notes ja no tenen color: només el nom.')
+  ] },
+  // fret by fret: each fret is half a step, and so the sharps between the notes; the 5th fret sounds as the next string open (the way
+  // a guitar is tuned), and the 12th, at half the string, is the octave: the same fractions as the tubes
+  { name: 'Trast a trast', sub: 'Cada trast puja mig to: els sostinguts, el trast 5 i el trast 12.', levels: [
+    walk('Sense saltar-ne cap', '1:0 1:1 1:2 1:3 1:4 1:5', 5, 'Toca la primera corda trast a trast, sense saltar-te\'n cap. Al trast 2 hi ha una nota nova: el Fa sostingut, Fa♯, que viu entre el Fa i el Sol.',
+      'Mi, Fa, Fa♯, Sol, Sol♯, La. Del Mi al Fa hi ha un sol trast, però del Fa al Sol n\'hi ha dos: al mig hi ha el Fa♯.'),
+    which('Els sostinguts', '1:0 1:1 1:2 1:3 1:4 1:5 2:0 2:1 2:2 2:3 2:4 2:5', 8, 5, 'Les notes amb ♯ són les tecles fosques de dalt del teclat: cada una viu entre les dues notes de color que té a sota.', { sharps: true }),
+    walk('Si i Do, enganxats', '2:0 2:1 2:2 2:3 2:4 2:5', 5, 'Ara la segona corda, trast a trast. Compte: del Si al Do no hi ha cap nota al mig!',
+      'Si, Do, Do♯, Re, Re♯, Mi. Mi i Fa, i Si i Do, només tenen un trast entre ells. Les altres notes en tenen dos, amb un ♯ al mig.'),
+    fret('Troba els sostinguts', 'Fa♯ Sol♯ Do♯ Re♯', 6, [1, 2], 5, 'Un sostingut és un trast més amunt que la seva nota: el Do♯ és just després del Do.'),
+    walk('El truc del trast 5', '6:5 5:0 5:5 4:0 4:5 3:0 3:4 2:0 2:5 1:0', 5, 'Toca el trast 5 de la sisena corda i després la cinquena a l\'aire. Escolta bé: com sonen?',
+      'Sonen igual! El trast 5 d\'una corda fa la nota de la corda de dalt a l\'aire, menys a la tercera corda, que és al trast 4. Amb aquest truc s\'afina la guitarra!'),
+    fret('Tots els llocs', 'La Mi Sol', 3, ALLS, 5, 'Una nota pot ser a molts llocs. Troba tots els llocs on hi ha cada nota, fins al trast 5. A sota hi ha quants en falten.', { all: true }),
+    walk('Mitja corda', '5:0 5:5 5:7 5:12', 12, 'La cinquena corda a l\'aire, i després als trastos 5, 7 i 12. Mira la barra de sota: quin tros de corda vibra?',
+      'Al trast 5 vibren 3/4 de la corda, al 7 uns 2/3, i al 12 la meitat: és el La una octava més agut. Les mateixes fraccions que els tubs!', { bar: true }),
+    which('Més amunt del mànec', '6:5 6:7 6:8 6:10 6:12 5:5 5:7 5:8 5:10 5:12', 8, 12, 'Notes més amunt, a les cordes gruixudes. Ajuda\'t dels punts del mànec: el trast 12 és com la corda a l\'aire.', { sharps: true }),
+    riff('Smoke on the Water', '3:0 3:3 3:5 | 3:0 3:3 3:6 3:5 | 3:0 3:3 3:5 3:3 3:0', 2, 6, 'Un riff de rock molt famós, tot a la tercera corda. Té dos sostinguts: el La♯ i el Do♯.'),
+    riff('Per a Elisa', '1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 3:1 2:0 2:1 | 1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 2:1 2:0 3:2', 1, 5,
+      'L\'última! La melodia de Beethoven per a piano, a la guitarra. Comença amb un Mi i un Re♯ que van i vénen.')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -273,16 +358,19 @@ export const PROJECTS = SECTIONS;
 export const CIRCLES = [
   { name: 'Notes i tubs', projects: [0, 7, 8, 10, 9, 11, 1] },
   { name: 'Ritme i salts', projects: [2, 12, 3, 4] },
-  { name: 'El gran concert', projects: [5, 6, 13] }
+  { name: 'El gran concert', projects: [5, 6, 13] },
+  // the guitar does not wait for the other exams: it opens with the Piscina, like circle 0
+  { name: 'La guitarra', projects: [14, 15, 16], free: true }
 ];
 // the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
-const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['secs'], onLevel: (next, i, idx) => { next.secs[i] = Math.max(next.secs[i], idx + 1); }, badges: p => badges(p), BADGES: () => BADGES });
+const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['secs'], onLevel: (next, i, idx) => { next.secs[i] = Math.max(next.secs[i], idx + 1); }, badges: p => badges(p), BADGES: () => BADGES,
+  alsoOpen: (p, c) => CIRCLES[c].free === true && p.piscina === true });
 export const { circleOf, noteOf, xpOf, levelText, isOpen, examOpen, levelIn, examIn, sheetIn } = cursus;
 export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three notes of the Piscina, the first challenges: Do, Mi and Sol
 export const POOL = [0, 2, 4];
 
-// What is saved is facts only: { so, secs[14], stars[140], piscina, exams[3], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[17], stars[170], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 // A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises:
@@ -298,9 +386,11 @@ export const BADGES = [
   { name: 'Primer full', what: 'Troba bé les errades d\'un full.' },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
   { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
-  { name: 'Cursus complet', what: 'Supera els tres exàmens.' }
+  { name: 'Cursus complet', what: 'Supera els tres exàmens.' },
+  { name: 'Guitarrista', what: 'Supera l\'examen de la guitarra.' }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+// the cursus was complete with three exams before the guitar came: its badge stays theirs
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.slice(0, 3).every(e => e === true), p.exams[3] === true];
 
 /* ---------- the exam and «Caça l'errada» ---------- */
 // Chance enters only through rnd (a function like Math.random).
@@ -328,16 +418,18 @@ export function darks(tune, n, rnd, near) {
 }
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
-// is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A circle that does not exist gives the first.
+// is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A tune on the guitar is cut to its
+// first six notes and keeps their names but lights no place, and a walk on the strings is never asked. A circle that does not exist gives the first.
 export function exam(c, rnd) {
   const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
   const draw = p => {
+    const asked = idx => !used.has(p * 10 + idx) && PROJECTS[p].levels[idx].kind !== 'walk';
     let idx = at(10, rnd);
-    for (let n = 0; n < 10 && used.has(p * 10 + idx); n++) idx = (idx + 1) % 10;   // walk on from a random place, so it ends even if rnd never varies
+    for (let n = 0; n < 10 && !asked(idx); n++) idx = (idx + 1) % 10;   // walk on from a random place, so it ends even if rnd never varies
     used.add(p * 10 + idx);
     const L = PROJECTS[p].levels[idx];
-    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0, rounds: null }), ...((L.kind === 'spot' || L.kind === 'place') && { n: Math.min(L.n, 4) }),
-      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), p, idx };
+    return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0, rounds: null }), ...((L.kind === 'spot' || L.kind === 'place' || L.kind === 'fret' || L.kind === 'which') && { n: Math.min(L.n, 4) }),
+      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), ...(L.kind === 'riff' && { tune: L.tune.slice(0, 6), cuts: L.cuts.filter(k => k < 6), help: Math.min(L.help, 1) }), p, idx };
   };
   const list = ps.map(draw);
   while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));

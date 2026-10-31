@@ -77,7 +77,34 @@ export function band(on) {
       else { const f = name === 'tom1' ? 240 : 130; tone(f * 1.4, f, 0.38, vol); hiss('bandpass', 1200, 0.8, 0.05, vol * 0.3); }
     } catch (e) {}
   }
+  // A plucked string (Karplus-Strong): a soft burst of noise goes round a loop as long as one wave of the note, and every turn two
+  // samples are averaged, so the high harmonics die first, as on a real string. The loop is a whole number of samples (plus the half the
+  // average adds), and the playback rate puts the note back in tune. Each note is worked out once and kept
+  const strung = new Map();
+  function string(a, f) {
+    const sr = a.sampleRate, N = Math.max(2, Math.round(sr / f - 0.5));
+    if (!strung.has(N)) {
+      const len = Math.floor(sr * 2.4), b = a.createBuffer(1, len, sr), d = b.getChannelData(0);
+      let prev = 0, peak = 0;
+      for (let i = 0; i < N; i++) { prev = d[i] = 0.55 * (Math.random() * 2 - 1) + 0.45 * prev; }
+      for (let i = N; i < len; i++) d[i] = 0.4985 * (d[i - N] + d[i - N - 1 < 0 ? 0 : i - N - 1]);
+      for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(d[i]));
+      for (let i = 0; i < len; i++) d[i] /= peak || 1;
+      strung.set(N, b);
+    }
+    return { b: strung.get(N), rate: f * (N + 0.5) / sr };
+  }
+  function pluck(f, dur = 1.6, vol = 0.42, at = 0) {
+    if (!on()) return;
+    try {
+      const a = ctx(), t = a.currentTime + at, { b, rate } = string(a, f), src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
+      src.buffer = b; src.playbackRate.value = rate;
+      lp.type = 'lowpass'; lp.frequency.value = Math.min(8000, f * 12); lp.Q.value = 0.5;   // a nylon string sounds round, not bright
+      g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(0.0001, t + dur, 0.15);
+      src.connect(lp).connect(g).connect(out); src.start(t); src.stop(t + dur + 1);
+    } catch (e) {}
+  }
   // the sound is made the first time it is needed, and that can take a moment: a song in time makes it before its first click
   const wake = () => { if (on()) try { ctx(); } catch (e) {} };
-  return { pipe, drum, kit, wake };
+  return { pipe, drum, kit, pluck, wake };
 }
