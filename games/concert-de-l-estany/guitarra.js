@@ -4,6 +4,7 @@
 // colours of the two notes it lives between.
 import { $, sleep } from '../../shared/util.js';
 import { list } from '../../shared/shell.js';
+import { shuffle } from '../../shared/curs.js';
 import { PCS, noteAt, pcOf, isSharp, hz, huesOf, placesOf, drill } from './logic.js';
 
 const SP = 44, TOP = 14, NUT = 92, RIGHT = 26;   // the gap between strings, the top margin and the nut
@@ -76,7 +77,7 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
       : kind === 'next' ? '<circle r="15" fill="rgb(255 255 255 / 0.14)" stroke="#fff" stroke-width="2.5" stroke-dasharray="5 4"/>'
       : kind === 'hint' ? '<circle r="19" fill="none" stroke="#F7C64E" stroke-width="3.5"/>'
       : dot(pc, PCS[pc], kind === 'plain');
-    const under = kind === 'map';
+    const under = kind === 'map' || kind === 'shade';
     dots.insertAdjacentHTML(under ? 'afterbegin' : 'beforeend', `<g transform="translate(${G.cx(f)} ${rowY(s)})"><g class="gdot ${kind}${cls ? ' ' + cls : ''}">${body}</g></g>`);
     const m = under ? dots.firstElementChild : dots.lastElementChild; marks.set(key, m);
     // a neck that scrolls sideways brings into view the place to press or to name
@@ -87,6 +88,7 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
     return m.firstElementChild;
   }
   const drop = kind => { for (const [k, m] of marks) if (!kind || k.startsWith(kind + '@')) { m.remove(); marks.delete(k); } };
+  const get = (s, f, kind) => marks.get(`${kind}@${s}:${f}`)?.firstElementChild || null;
   const unput = (s, f, kind) => { const key = `${kind}@${s}:${f}`; marks.get(key)?.remove(); marks.delete(key); };
   // the map of the notes: every note of the strings and frets that can be played, written on the neck as a chart. It stays when a level
   // clears its marks for the next question; a place that already has its note on the map keeps it
@@ -120,7 +122,7 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
   }
   const onTap = fn => { el.onclick = e => { const c = e.target.closest('.gcell'); if (c) fn(+c.dataset.s, +c.dataset.f); }; };
   const clear = () => { for (const [k, m] of marks) if (!k.startsWith('map@')) { m.remove(); marks.delete(k); } };
-  return { wrap, put, unput, drop, map, flash, sound, onTap, clear };
+  return { wrap, put, get, unput, drop, map, flash, sound, onTap, clear };
 }
 
 // the keyboard of colours: the seven notes in a row, and, with sharps, each sharp over the gap between the two notes it lives between.
@@ -248,18 +250,27 @@ export function guitar(deps) {
     return () => { if (busy) return ''; const [s, f] = cur(); pad.querySelector(`[data-pc="${pcOf(noteAt(s, f))}"]`).classList.add('hint'); return `${clue(s, f, L.sharps)} La seva tecla fa pampallugues.`; };
   }
 
-  /* riff: a tune on the strings, note after note. Any place that sounds the very note is good, in any string of the tune */
+  /* riff: a tune on the strings, note after note. Any place that sounds the very note is good, in any string of the tune. With rounds it is
+     played once for each, and the shadows of its notes on the neck go: rounds[r] is the share of them gone before round r. They go in one
+     order of chance, so a shadow once gone stays gone; in a round with every shadow, the one of the note to play glows */
   function riff({ t, L, stage, tip, slip, spark, win, exam }) {
-    const tune = L.tune;
-    stage.innerHTML = `<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
+    const tune = L.tune, rounds = L.rounds || [null], order = shuffle([...new Map(tune.map(p => [p.join(':'), p])).values()]);
+    stage.innerHTML = `${rounds.length > 1 ? '<p class="cap" id="vlt"></p>' : ''}<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
     const B = neck(stage, { frets: L.frets, strs: L.strs, upto: L.frets });
     if (L.map) B.map(L.map === 'faint');
     if (!exam) stage.insertAdjacentHTML('beforeend', '<button class="link" id="hear">Escolta la cançó</button>');
     const notes = [...stage.querySelectorAll('#gtune .gn')];
-    let k = 0, busy = false, playing = false;
+    let k = 0, r = 0, busy = false, playing = false;
+    const shades = () => {
+      B.drop('shade'); if (rounds[r] == null) return;
+      order.slice(Math.round(rounds[r] * order.length)).forEach(p => B.put(...p, 'shade'));
+      $('#vlt').innerHTML = `Volta <b class="sun">${r + 1}</b> de ${rounds.length} · ${rounds[r] === 0 ? 'amb totes les ombres' : rounds[r] >= 1 ? 'sense ombres' : 'amb menys ombres'}`;
+    };
     const mark = () => {
       notes.forEach((e, i) => { e.classList.toggle('cur', i === k); e.classList.toggle('done', i < k); });
       B.drop('next'); if (L.help === 2 && k < tune.length) B.put(...tune[k], 'next');
+      stage.querySelectorAll('.gdot.shade.cur').forEach(e => e.classList.remove('cur'));
+      if (rounds[r] === 0 && k < tune.length) B.get(...tune[k], 'shade')?.classList.add('cur');
     };
     B.onTap(async (s, f) => {
       if (busy || playing || !t.on) return;
@@ -271,9 +282,17 @@ export function guitar(deps) {
       }
       B.drop('hint'); B.flash(s, f, L.help ? 'note' : 'plain');
       if (++k < tune.length) return mark();
-      busy = true; mark(); spark($('#gtune'), 30); tip('Cançó tocada de cap a peus!', 'go');
+      busy = true; mark(); spark($('#gtune'), 30);
+      if (r < rounds.length - 1) {
+        r++;
+        tip(rounds[r] >= 1 ? 'Molt bé! Última volta: ja no hi ha cap ombra. Tu ja saps on són!' : `Molt bé! Volta ${r + 1}: algunes ombres han marxat. Recordes on eren?`, 'go');
+        await sleep(1700); if (!t.on) return;
+        k = 0; shades(); mark(); busy = false;
+        return;
+      }
+      tip('Cançó tocada de cap a peus!', 'go');
       await sleep(900); if (!t.on) return;
-      win(`${L.title}<br><small>${tune.length} notes</small>`);
+      win(`${L.title}<br><small>${rounds.length > 1 ? `${rounds.length} voltes, cada cop amb menys ombres` : `${tune.length} notes`}</small>`);
     });
     // the whole tune, at an even pace, the notes lighting up one after the other; nothing can be played meanwhile
     if (!exam) $('#hear').onclick = async () => {
@@ -288,7 +307,7 @@ export function guitar(deps) {
       if (!t.on) return;
       playing = false; $('#hear').disabled = false; mark();
     };
-    mark(); tip(L.say);
+    shades(); mark(); tip(L.say);
     return () => { if (busy || playing) return ''; B.put(...tune[k], 'hint'); return `El ${nameAt(...tune[k])} és ${aPlace(...tune[k])}. El seu lloc fa pampallugues.`; };
   }
 

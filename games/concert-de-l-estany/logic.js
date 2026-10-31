@@ -1,9 +1,9 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the concert, with no page in it. Eighteen projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Twenty projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
 // (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
 // their colours little by little (three times: easy tunes by steps, Star Wars, and tunes played over while they fade), the drum kit, and the
-// proportions of the notes of a chord, and at the end the guitar: a map of its notes to start with, its strings, the notes of its frets and tunes to play on it. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// proportions of the notes of a chord, and at the end the guitar: a map of its notes to start with, its strings, the notes of its frets and tunes to play on it, with their shadows first. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of four circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -115,6 +115,9 @@ const riff = (title, tune, help, frets, say, more = {}) => {
 // Any of these on a neck can take map: 'all' writes every note of its strings and frets on it, as a chart, and 'faint' the same, pale.
 // ladder: the notes on the keyboard of colours, one after the other, as a staircase: each step is as high as the half steps it climbs, so
 // Mi to Fa and Si to Do are half as high as the others. 'Do↑' is the Do an octave higher. A warm-up like walk, never asked in an exam
+// shade: a tune played three times. In the first round the shadow of each of its notes is on the neck, pale, and the one to play glows;
+// before the second half of the shadows go, and in the third there are none: only the names over the neck are left
+const shade = (title, tune, frets, say) => riff(title, tune, 1, frets, say, { rounds: [0, 0.5, 1] });
 const ladder = (title, steps, sharps, say, done) => ({ kind: 'ladder', title, steps: steps.split(' ').map(n => n === 'Do↑' ? 12 : PCS.indexOf(n)), sharps, say, done });
 // The answer of a question and the values to choose from, smallest first. The wrong ones are the mistakes that teach: adding what
 // the other note gained instead of multiplying, and, for a tube, the fraction turned over (the tube of a higher note is shorter)
@@ -375,6 +378,32 @@ export const SECTIONS = [
       'Do, Re, Mi, Fa, Sol, La, Si, Do. Ja te la saps!', { strs: [2, 3, 4, 5] }),
     riff('L\'escala de Do, amunt i avall', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 | 2:1 2:0 3:2 3:0 4:3 4:2 4:0 5:3', 1, 3,
       'L\'últim! Ara sense el cercle que et guia: a dalt hi ha el nom de cada nota, i al mànec les notes es veuen fluixes, per si et cal mirar-les.', { map: 'faint' })
+  ] },
+  // Tunes to practise with their shadows, three times each, fewer shadows every time: the tunes of the guitar circle and others the child
+  // knows from the tubes. First the ones of the three thin strings, then the thick strings, the films and the sharps
+  { name: 'Cançons amb ombra', sub: 'Cada cançó tres cops: primer amb l\'ombra de les notes al mànec, i a cada volta en queden menys.', levels: [
+    shade('Hot Cross Buns', '1:0 2:3 2:1 | 1:0 2:3 2:1 | 2:1 2:1 2:1 2:1 2:3 2:3 2:3 2:3 | 1:0 2:3 2:1', 3, 'Cada cançó es toca tres cops. A la primera volta, l\'ombra de cada nota és al mànec i la que toca brilla. A cada volta, les ombres van marxant.'),
+    shade('A la clara lluna', '2:1 2:1 2:1 2:3 | 1:0 2:3 | 2:1 1:0 2:3 2:3 | 2:1', 3, 'Una cançó francesa molt tranquil·la, amb Do, Re i Mi. Mira les ombres: totes són a les dues cordes de dalt.'),
+    shade('Super Mario', '1:0 1:0 1:0 2:1 1:0 1:3 | 3:0', 3, 'La música d\'en Mario! Acaba amb un Sol greu: la tercera corda a l\'aire.'),
+    shade('Mary tenia un xai', '1:0 2:3 2:1 2:3 1:0 1:0 1:0 | 2:3 2:3 2:3 | 1:0 1:3 1:3 | 1:0 2:3 2:1 2:3 1:0 1:0 1:0 1:0 | 2:3 2:3 1:0 2:3 2:1', 3, 'Molts Mi i molts Re seguits. Quan una nota es repeteix, tornes a tocar el mateix lloc.'),
+    shade('Frère Jacques', '3:0 3:2 2:0 3:0 | 3:0 3:2 2:0 3:0 | 2:0 2:1 2:3 | 2:0 2:1 2:3', 3, 'Comença a la tercera corda a l\'aire, un Sol. Sol, La, Si, Sol, dues vegades, i després Si, Do, Re.'),
+    shade('Oda a l\'alegria', '1:0 1:0 1:1 1:3 | 1:3 1:1 1:0 2:3 | 2:1 2:1 2:3 1:0 | 1:0 2:3 2:3', 3, 'La melodia de Beethoven de «Les cordes de la guitarra», ara amb ombres per practicar-la.'),
+    shade('Jingle Bells', '1:0 1:0 1:0 | 1:0 1:0 1:0 | 1:0 1:3 2:1 2:3 | 1:0 | 1:1 1:1 1:1 1:1 | 1:1 1:0 1:0 1:0 1:0 | 1:0 2:3 2:3 1:0 | 2:3 1:3', 3, 'Molts Mi seguits, a la primera corda a l\'aire. Compta\'ls bé!'),
+    shade('Per molts anys', '3:0 3:0 3:2 3:0 2:1 2:0 | 3:0 3:0 3:2 3:0 2:3 2:1 | 3:0 3:0 1:3 1:0 2:1 2:0 3:2 | 1:1 1:1 1:0 2:1 2:3 2:1', 3, 'La cançó dels aniversaris. Té un salt gran: del Sol greu de la tercera corda al Sol agut de la primera.'),
+    shade('When the Saints', '2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 1:0 2:1 1:0 2:3', 3, 'Do, Mi, Fa, Sol, tres vegades. La tercera continua i acaba en un Re.'),
+    shade('El pont de Londres', '2:3 1:0 2:3 2:1 2:0 2:1 2:3 | 3:2 2:0 2:1 | 2:0 2:1 2:3 | 2:3 1:0 2:3 2:1 2:0 2:1 2:3 | 3:2 2:3 2:0 3:0', 3, 'L\'última! Va per graons, amunt i avall, i acaba al Sol de la tercera corda.')
+  ] },
+  { name: 'Més cançons amb ombra', sub: 'Cordes gruixudes, pel·lícules, jocs i sostinguts. Primer amb ombres; a la tercera volta, sense.', levels: [
+    shade('Bella ciao', '4:2 3:2 2:0 2:1 3:2 | 4:2 3:2 2:0 2:1 3:2', 3, 'Comença a la quarta corda, amb un Mi greu, i puja: Mi, La, Si, Do, La. Dues vegades.'),
+    shade('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 3, 'La de «La primera posició», ara amb ombres per practicar-la.'),
+    shade('Seven Nation Army', '4:2 4:2 3:0 4:2 4:0 5:3 5:2', 3, 'El riff dels estadis, amb ombres. Tot a les cordes gruixudes.'),
+    shade('Star Wars', '5:3 3:0 | 4:3 4:2 4:0 2:1 3:0 | 4:3 4:2 4:0 2:1 3:0 | 4:3 4:2 4:3 4:0', 3, 'Comença amb un Do greu, al trast 3 de la cinquena corda, i salta al Sol. Que la Força t\'acompanyi!'),
+    shade('La cucaracha', '3:0 3:0 3:0 2:1 1:0 | 3:0 3:0 3:0 2:1 1:0 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 3, 'Tres Sol ràpids i un salt amunt, dues vegades. Després baixa de dos en dos fins al Sol.'),
+    shade('Tetris', '1:0 2:0 2:1 2:3 2:1 2:0 | 3:2 3:2 2:1 1:0 2:3 2:1 | 2:0 2:1 2:3 1:0 | 2:1 3:2 3:2', 3, 'La música del Tetris, a les tres cordes de dalt. Va per graons, amunt i avall.'),
+    shade('Rema, rema', '3:0 3:0 3:0 3:2 2:0 | 2:0 3:2 2:0 2:1 2:3 | 1:3 1:3 2:3 2:3 2:0 2:0 3:0 3:0 | 2:3 2:1 2:0 3:2 3:0', 3, 'Puja a poc a poc, fa un salt fins al Sol de la primera corda i baixa de pressa.'),
+    shade('La marxa imperial', '3:2 3:2 3:2 4:3 2:1 | 3:2 4:3 2:1 3:2 | 1:0 1:0 1:0 1:1 2:1 | 3:1 4:3 2:1 3:2', 3, 'La música d\'en Darth Vader, amb un sostingut: el Sol♯, al trast 1 de la tercera corda.'),
+    shade('Smoke on the Water', '3:0 3:3 3:5 | 3:0 3:3 3:6 3:5 | 3:0 3:3 3:5 3:3 3:0', 6, 'El riff de rock, ara amb ombres. Tot a la tercera corda: el La♯ i el Do♯ són els sostinguts.'),
+    shade('Per a Elisa, el començament', '1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 3:1 2:0 2:1', 5, 'L\'última! El començament de Per a Elisa, amb ombres. El Mi i el Re♯ van i vénen.')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -387,7 +416,7 @@ export const CIRCLES = [
   { name: 'Ritme i salts', projects: [2, 12, 3, 4] },
   { name: 'El gran concert', projects: [5, 6, 13] },
   // the guitar does not wait for the other exams: it opens with the Piscina, like circle 0
-  { name: 'La guitarra', projects: [17, 14, 15, 16], free: true }
+  { name: 'La guitarra', projects: [17, 14, 18, 15, 19, 16], free: true }
 ];
 // the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['secs'], onLevel: (next, i, idx) => { next.secs[i] = Math.max(next.secs[i], idx + 1); }, badges: p => badges(p), BADGES: () => BADGES,
@@ -397,7 +426,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three notes of the Piscina, the first challenges: Do, Mi and Sol
 export const POOL = [0, 2, 4];
 
-// What is saved is facts only: { so, secs[18], stars[180], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[20], stars[200], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 // A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises:
@@ -446,7 +475,7 @@ export function darks(tune, n, rnd, near) {
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
 // is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A tune on the guitar is cut to its
-// first six notes and keeps their names but lights no place, and a walk on the strings is never asked, nor a warm-up project (it only
+// first six notes and keeps their names but lights no place and shows no shadow, and a walk on the strings is never asked, nor a warm-up project (it only
 // prepares, though it has to be validated to open the exam). A circle that does not exist gives the first.
 export function exam(c, rnd) {
   const ps = (CIRCLES[c] || CIRCLES[0]).projects.filter(p => !PROJECTS[p].warm), used = new Set();
@@ -457,7 +486,7 @@ export function exam(c, rnd) {
     used.add(p * 10 + idx);
     const L = PROJECTS[p].levels[idx];
     return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0, rounds: null }), ...((L.kind === 'spot' || L.kind === 'place' || L.kind === 'fret' || L.kind === 'which') && { n: Math.min(L.n, 4) }),
-      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), ...(L.kind === 'riff' && { tune: L.tune.slice(0, 6), cuts: L.cuts.filter(k => k < 6), help: Math.min(L.help, 1) }), p, idx };
+      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), ...(L.kind === 'riff' && { tune: L.tune.slice(0, 6), cuts: L.cuts.filter(k => k < 6), help: Math.min(L.help, 1), rounds: null }), p, idx };
   };
   const list = ps.map(draw);
   while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));
