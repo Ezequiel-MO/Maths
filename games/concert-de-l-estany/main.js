@@ -57,7 +57,7 @@ const WAVE = '<svg class="wave" id="wave" viewBox="0 0 300 40" preserveAspectRat
 const TUBES = `<div class="tubes">${NOTES.map((n, i) => `<button class="tube" data-n="${i}" style="--h:${n.hue};--l:${n.len / 180}" aria-label="${n.name}"><span>${n.short}</span></button>`).join('')}</div>`;
 
 const HURRAY = ['Bravo!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin concert!'];
-const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85, 232, 108, 290, 12, 160, 32, 20, 44];
+const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85, 232, 108, 290, 12, 160, 32, 20, 44, 56];
 const frac = (n, d) => `<span class="fr"><b>${n}</b><i>${d}</i></span>`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
 const again = e => { e.classList.remove('ring', 'shake', 'hit', 'on', 'ok'); void e.getBoundingClientRect(); return e.classList; };
@@ -192,7 +192,7 @@ function level(sec, idx) {
   }
 
   const help = KIND[L.kind]({ t, L, stage, tip, slip, spark, win });
-  $('#hintb').hidden = L.kind === 'walk';   // a walk on the strings has nothing to get wrong, and no hint
+  $('#hintb').hidden = L.kind === 'walk' || L.kind === 'ladder';   // a warm-up has nothing to get wrong, and no hint
   $('#hintb').onclick = () => { if (over) return; const txt = help(); if (txt) { slip(); tip(txt); } };
   stars();
   // on a short screen the end of the stage can be under the fold, and a child does not know there is more: start from the frog's tip

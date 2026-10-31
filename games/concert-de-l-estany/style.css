@@ -361,8 +361,19 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .gcut { width: 2px; height: 26px; margin: 0 4px; background: var(--edge); }
 .glen { width: 100%; max-width: 560px; height: 16px; display: flex; justify-content: flex-end; border-radius: 999px; background: repeating-linear-gradient(90deg, rgb(160 230 220 / 0.2) 0 6px, transparent 6px 10px); }
 .glen i { --h: 50; width: 100%; height: 100%; border-radius: 999px; background: hsl(var(--h) 85% 60%); box-shadow: 0 0 12px hsl(var(--h) 90% 55% / 0.6); transition: width 0.5s; }
+.gdot.map { transform: scale(0.82); opacity: 0.92; }
+.gdot.map.faint { opacity: 0.3; }
+/* the staircase of the notes: a step for each note, as high as the half steps from Do; the small ones (Mi-Fa, Si-Do) light up at the end */
+.gstairs { width: 100%; max-width: 560px; height: 176px; display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding: 0 4px; border-bottom: 3px solid var(--edge); }
+.gstep { flex: 1 1 0; min-width: 0; max-width: 54px; height: calc(22px + var(--u) * 12px); padding-top: 5px; border: 2px dashed rgb(160 230 220 / 0.3); border-bottom: 0; border-radius: 9px 9px 0 0;
+  display: flex; justify-content: center; font: 800 0.85rem/1 var(--display); color: transparent; overflow: hidden; }
+.gstep.next { border-color: var(--sun); animation: beacon 0.8s ease-in-out infinite; }
+.gstep.on { border: 0; color: #06220D; background: linear-gradient(180deg, hsl(var(--a) 92% 70%), hsl(var(--a) 80% 48%)); animation: pop 0.25s ease-out; }
+.gstep.on.sh { color: #fff; background: linear-gradient(90deg, hsl(var(--a) 85% 60%) 0 5px, #1E2438 5px calc(100% - 5px), hsl(var(--b) 85% 60%) calc(100% - 5px)); }
+.gstep.half { box-shadow: 0 -5px 0 var(--sun), 0 0 16px var(--sun); }
+@media (max-width: 480px) { .gstep { font-size: 0.68rem; letter-spacing: -0.02em; } }
 @keyframes gvib { 0% { transform: scaleY(1); opacity: 0.95; } 8% { transform: scaleY(0.45); } 16% { transform: scaleY(0.85); } 26% { transform: scaleY(0.35); } 38% { transform: scaleY(0.6); opacity: 0.75; } 100% { transform: scaleY(0); opacity: 0; } }
 @keyframes gnext { 50% { transform: scale(1.18); opacity: 0.55; } }
 @keyframes gask { 50% { transform: scale(1.1); } }
 
-@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on, .gdot.next, .gdot.hint, .gdot.ask, .gvib, .gkey.hint { animation: none; } .xp-bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on, .gdot.next, .gdot.hint, .gdot.ask, .gvib, .gkey.hint, .gstep.next { animation: none; } .xp-bar i { transition: none; } }
