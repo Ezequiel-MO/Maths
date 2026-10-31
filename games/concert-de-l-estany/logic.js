@@ -1,9 +1,9 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the concert, with no page in it. Seventeen projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Eighteen projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
 // (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
 // their colours little by little (three times: easy tunes by steps, Star Wars, and tunes played over while they fade), the drum kit, and the
-// proportions of the notes of a chord, and at the end the guitar: its strings, the notes of its frets and tunes to play on it. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// proportions of the notes of a chord, and at the end the guitar: a map of its notes to start with, its strings, the notes of its frets and tunes to play on it. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of four circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -108,10 +108,14 @@ const fret = (title, set, n, strs, upto, say, more = {}) => ({ kind: 'fret', tit
 const which = (title, from, n, frets, say, more = {}) => ({ kind: 'which', title, from: places(from), n, frets, say, ...more });
 // riff: a tune on the strings it uses, at the child's own pace. help 2 shows the name of each note in colour and lights its place,
 // 1 only the name in colour, 0 the name in white
-const riff = (title, tune, help, frets, say) => {
+const riff = (title, tune, help, frets, say, more = {}) => {
   const t = places(tune);
-  return { kind: 'riff', title, tune: t, cuts: phrases(tune), strs: [...new Set(t.map(([s]) => s))].sort(), help, frets, say };
+  return { kind: 'riff', title, tune: t, cuts: phrases(tune), strs: [...new Set(t.map(([s]) => s))].sort(), help, frets, say, ...more };
 };
+// Any of these on a neck can take map: 'all' writes every note of its strings and frets on it, as a chart, and 'faint' the same, pale.
+// ladder: the notes on the keyboard of colours, one after the other, as a staircase: each step is as high as the half steps it climbs, so
+// Mi to Fa and Si to Do are half as high as the others. 'Do↑' is the Do an octave higher. A warm-up like walk, never asked in an exam
+const ladder = (title, steps, sharps, say, done) => ({ kind: 'ladder', title, steps: steps.split(' ').map(n => n === 'Do↑' ? 12 : PCS.indexOf(n)), sharps, say, done });
 // The answer of a question and the values to choose from, smallest first. The wrong ones are the mistakes that teach: adding what
 // the other note gained instead of multiplying, and, for a tube, the fraction turned over (the tube of a higher note is shorter)
 export function propQ(q) {
@@ -348,6 +352,29 @@ export const SECTIONS = [
     riff('Smoke on the Water', '3:0 3:3 3:5 | 3:0 3:3 3:6 3:5 | 3:0 3:3 3:5 3:3 3:0', 2, 6, 'Un riff de rock molt famós, tot a la tercera corda. Té dos sostinguts: el La♯ i el Do♯.'),
     riff('Per a Elisa', '1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 3:1 2:0 2:1 | 1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 2:1 2:0 3:2', 1, 5,
       'L\'última! La melodia de Beethoven per a piano, a la guitarra. Comença amb un Mi i un Re♯ que van i vénen.')
+  ] },
+  // The warm-up of the guitar, the first project of its circle though it came after the others: the notes on a keyboard as a staircase,
+  // then the neck with every note written on it (pure notes in colour, sharps dark), and the scale of Do led by the hand, then less and less
+  { name: 'El mapa de les notes', sub: 'Per començar: on són les notes pures i els sostinguts, i l\'escala de Do, amb totes les notes escrites.', warm: true, levels: [
+    ladder('Les set notes', 'Do Re Mi Fa Sol La Si Do↑', false, 'Les notes pures són set: Do, Re, Mi, Fa, Sol, La i Si. Toca la tecla que fa pampallugues i mira com l\'escala va pujant.',
+      'Mira els graons: del Mi al Fa i del Si al Do són la meitat d\'alts que els altres. Són els graons petits, i ara surten en groc.'),
+    ladder('Els sostinguts', 'Do Do♯ Re Re♯ Mi Fa Fa♯ Sol Sol♯ La La♯ Si Do↑', true, 'Ara amb les tecles fosques: els sostinguts, ♯. El Do♯ és mig graó més amunt que el Do. Toca-les totes, una darrere l\'altra.',
+      'Dotze notes, tots els graons iguals. Els sostinguts omplen els forats entre les notes pures, però entre Mi i Fa, i entre Si i Do, no hi ha forat: no hi ha cap sostingut.'),
+    walk('El mapa de la primera corda', '1:0 1:1 1:2 1:3 1:4 1:5', 5, 'Al mànec passa el mateix que al teclat: cada trast és la nota següent. Totes les notes ja hi són escrites: les de color són pures, les fosques són sostinguts.',
+      'Mi, Fa, Fa♯, Sol, Sol♯, La. Igual que al teclat: entre el Mi i el Fa no hi ha sostingut, i per això són en trastos de costat.', { strs: [1], map: 'all' }),
+    walk('El mapa de la segona corda', '2:0 2:1 2:2 2:3 2:4 2:5', 5, 'La segona corda comença amb un Si. Toca-la trast a trast i mira el mapa: on hi ha notes de color i on hi ha sostinguts?',
+      'Si, Do, Do♯, Re, Re♯, Mi. El Si i el Do també són enganxats, com al teclat. I al trast 5 hi ha el Mi, la mateixa nota que la primera corda a l\'aire!', { strs: [2], map: 'all' }),
+    walk('Només les notes pures', '2:0 2:1 2:3 1:0 1:1 1:3', 3, 'Ara toca només les notes de color i salta els sostinguts. Comença a la segona corda i passa a la primera.',
+      'Si, Do, Re, Mi, Fa, Sol: les notes pures de les dues cordes de dalt. Són les mateixes que tocaràs a «Les cordes de la guitarra».', { strs: [1, 2], map: 'all' }),
+    which('La nota amagada', '1:1 1:2 1:3 1:4 1:5 2:1 2:2 2:3 2:4 2:5', 6, 5, 'Una nota s\'ha amagat al mapa. Mira la del trast d\'abans: la nota amagada és la següent, com la tecla del costat al teclat.',
+      { strs: [1, 2], map: 'all', sharps: true }),
+    fret('Llegeix el mapa', 'Mi Fa Sol Si Do Re', 6, [1, 2], 3, 'Totes les notes són escrites al mànec. Troba la que et demano: només cal llegir el mapa, i el color t\'ajuda.', { map: 'all' }),
+    walk('L\'escala de Do, amb mapa', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1', 3, 'L\'escala de Do, la primera que aprenen els guitarristes. Comença al trast 3 de la cinquena corda i segueix el cercle que fa pampallugues.',
+      'Do, Re, Mi, Fa, Sol, La, Si, Do: les set notes pures i el Do agut. Has tocat una escala a la guitarra!', { strs: [2, 3, 4, 5], map: 'all' }),
+    walk('L\'escala de Do, sense mapa', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1', 3, 'La mateixa escala, però ara el mapa no hi és. El cercle que fa pampallugues encara et guia, i cada nota diu el seu nom quan la toques.',
+      'Do, Re, Mi, Fa, Sol, La, Si, Do. Ja te la saps!', { strs: [2, 3, 4, 5] }),
+    riff('L\'escala de Do, amunt i avall', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 | 2:1 2:0 3:2 3:0 4:3 4:2 4:0 5:3', 1, 3,
+      'L\'últim! Ara sense el cercle que et guia: a dalt hi ha el nom de cada nota, i al mànec les notes es veuen fluixes, per si et cal mirar-les.', { map: 'faint' })
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -360,7 +387,7 @@ export const CIRCLES = [
   { name: 'Ritme i salts', projects: [2, 12, 3, 4] },
   { name: 'El gran concert', projects: [5, 6, 13] },
   // the guitar does not wait for the other exams: it opens with the Piscina, like circle 0
-  { name: 'La guitarra', projects: [14, 15, 16], free: true }
+  { name: 'La guitarra', projects: [17, 14, 15, 16], free: true }
 ];
 // the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['secs'], onLevel: (next, i, idx) => { next.secs[i] = Math.max(next.secs[i], idx + 1); }, badges: p => badges(p), BADGES: () => BADGES,
@@ -370,7 +397,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three notes of the Piscina, the first challenges: Do, Mi and Sol
 export const POOL = [0, 2, 4];
 
-// What is saved is facts only: { so, secs[17], stars[170], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[18], stars[180], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 // A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises:
@@ -419,9 +446,10 @@ export function darks(tune, n, rnd, near) {
 // Six different levels of the projects of circle c, at least one of each project, in a random order. Each is a copy of the level with p,
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
 // is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A tune on the guitar is cut to its
-// first six notes and keeps their names but lights no place, and a walk on the strings is never asked. A circle that does not exist gives the first.
+// first six notes and keeps their names but lights no place, and a walk on the strings is never asked, nor a warm-up project (it only
+// prepares, though it has to be validated to open the exam). A circle that does not exist gives the first.
 export function exam(c, rnd) {
-  const ps = (CIRCLES[c] || CIRCLES[0]).projects, used = new Set();
+  const ps = (CIRCLES[c] || CIRCLES[0]).projects.filter(p => !PROJECTS[p].warm), used = new Set();
   const draw = p => {
     const asked = idx => !used.has(p * 10 + idx) && PROJECTS[p].levels[idx].kind !== 'walk';
     let idx = at(10, rnd);

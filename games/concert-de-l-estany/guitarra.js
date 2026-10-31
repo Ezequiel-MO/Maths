@@ -67,16 +67,18 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
   host.insertAdjacentHTML('beforeend', `<div class="gneck${F > 7 ? ' long' : ''}">${svg}</div>`);
   const wrap = host.lastElementChild, el = wrap.firstElementChild, dots = $('.gdots', el), buzzes = $('.gbuzz', el), marks = new Map();
   // the mark of a kind at a place: 'note' (its name), 'plain' (its name in white), 'ghost' (another place of the same note), 'bad' (a wrong one),
-  // 'ask' (a note to name), 'next' (where to press) and 'hint'. A place holds one mark of each kind
-  function put(s, f, kind = 'note') {
+  // 'ask' (a note to name), 'next' (where to press), 'hint' and 'map' (the chart of every note, under all the rest). A place holds one mark
+  // of each kind; cls adds a class to it
+  function put(s, f, kind = 'note', cls = '') {
     const key = `${kind}@${s}:${f}`, pc = pcOf(noteAt(s, f));
     marks.get(key)?.remove();
     const body = kind === 'ask' ? '<circle r="15" fill="#fff"/><text y="5" class="q">?</text>'
       : kind === 'next' ? '<circle r="15" fill="rgb(255 255 255 / 0.14)" stroke="#fff" stroke-width="2.5" stroke-dasharray="5 4"/>'
       : kind === 'hint' ? '<circle r="19" fill="none" stroke="#F7C64E" stroke-width="3.5"/>'
       : dot(pc, PCS[pc], kind === 'plain');
-    dots.insertAdjacentHTML('beforeend', `<g transform="translate(${G.cx(f)} ${rowY(s)})"><g class="gdot ${kind}">${body}</g></g>`);
-    const m = dots.lastElementChild; marks.set(key, m);
+    const under = kind === 'map';
+    dots.insertAdjacentHTML(under ? 'afterbegin' : 'beforeend', `<g transform="translate(${G.cx(f)} ${rowY(s)})"><g class="gdot ${kind}${cls ? ' ' + cls : ''}">${body}</g></g>`);
+    const m = under ? dots.firstElementChild : dots.lastElementChild; marks.set(key, m);
     // a neck that scrolls sideways brings into view the place to press or to name
     if ((kind === 'next' || kind === 'hint' || kind === 'ask') && wrap.scrollWidth > wrap.clientWidth) {
       const r = m.getBoundingClientRect(), w = wrap.getBoundingClientRect();
@@ -85,6 +87,10 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
     return m.firstElementChild;
   }
   const drop = kind => { for (const [k, m] of marks) if (!kind || k.startsWith(kind + '@')) { m.remove(); marks.delete(k); } };
+  const unput = (s, f, kind) => { const key = `${kind}@${s}:${f}`; marks.get(key)?.remove(); marks.delete(key); };
+  // the map of the notes: every note of the strings and frets that can be played, written on the neck as a chart. It stays when a level
+  // clears its marks for the next question; a place that already has its note on the map keeps it
+  const map = faint => { for (const s of strs) for (let f = 0; f <= upto; f++) if (!marks.has(`map@${s}:${f}`)) put(s, f, 'map', faint ? 'faint' : ''); };
   // a note that shows for a moment where it was played, unless a mark of its own is already there
   function flash(s, f, kind = 'note') {
     if (marks.has(`note@${s}:${f}`)) return;
@@ -113,7 +119,8 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
     at > 0.01 ? setTimeout(go, at * 1000) : go();
   }
   const onTap = fn => { el.onclick = e => { const c = e.target.closest('.gcell'); if (c) fn(+c.dataset.s, +c.dataset.f); }; };
-  return { wrap, put, drop, flash, sound, onTap, clear: () => drop() };
+  const clear = () => { for (const [k, m] of marks) if (!k.startsWith('map@')) { m.remove(); marks.delete(k); } };
+  return { wrap, put, unput, drop, map, flash, sound, onTap, clear };
 }
 
 // the keyboard of colours: the seven notes in a row, and, with sharps, each sharp over the gap between the two notes it lives between.
@@ -146,7 +153,8 @@ export function guitar(deps) {
   /* walk: press the places one after the other; each one sounds and shows its note. A tap somewhere else only sounds */
   function walk({ t, L, stage, tip, spark, win }) {
     stage.innerHTML = '<p class="goal" id="goal"></p>';
-    const B = neck(stage, { frets: L.frets, names: L.names !== false }), heard = [];
+    const B = neck(stage, { frets: L.frets, strs: L.strs, names: L.names !== false }), heard = [];
+    if (L.map) B.map(L.map === 'faint');
     if (L.bar) stage.insertAdjacentHTML('beforeend', '<div class="glen" aria-hidden="true"><i id="glen"></i></div><p class="cap" id="gfr">Mira quin tros de corda vibra.</p>');
     let k = 0, busy = false;
     const next = () => {
@@ -178,6 +186,7 @@ export function guitar(deps) {
     const seq = drill(L.set, L.n, Math.random);
     stage.innerHTML = '<p class="goal" id="goal"></p>';
     const B = neck(stage, { frets: L.frets, strs: L.strs, upto: L.upto, names: L.names !== false });
+    if (L.map) B.map(L.map === 'faint');
     stage.insertAdjacentHTML('beforeend', '<p class="cap" id="cnt"></p>');
     let k = 0, busy = false, found = new Set(), all = [];
     const count = () => { $('#cnt').textContent = `Nota ${k + 1} de ${seq.length}${L.all ? ` · en falten ${all.length - found.size}` : ''}`; };
@@ -211,13 +220,15 @@ export function guitar(deps) {
   function which({ t, L, stage, tip, slip, spark, win }) {
     const seq = drill(L.from.map((_, i) => i), L.n, Math.random);
     stage.innerHTML = '<p class="goal">Quina nota és? <span class="cap" id="cnt"></span></p>';
-    const B = neck(stage, { frets: L.frets, names: L.names !== false });
+    const B = neck(stage, { frets: L.frets, strs: L.strs, names: L.names !== false });
     stage.insertAdjacentHTML('beforeend', `${keyboard(L.sharps)}<button class="link" id="hear">Torna-la a sentir</button>`);
     const pad = stage.querySelector('.gkeys');
     let k = 0, busy = false;
     const cur = () => L.from[seq[k]];
     function ask() {
       busy = false; B.clear(); pad.querySelectorAll('.gkey').forEach(e => e.classList.remove('hint', 'ok', 'shake'));
+      // on a map, the note asked is the one missing from it: its neighbours say what it is
+      if (L.map) { B.map(L.map === 'faint'); B.unput(...cur(), 'map'); }
       B.put(...cur(), 'ask'); B.sound(...cur()); $('#cnt').textContent = `· ${k + 1} de ${seq.length}`;
     }
     B.onTap((s, f) => { const [a, b] = cur(); if (!busy && t.on && s === a && f === b) B.sound(s, f); });
@@ -242,6 +253,7 @@ export function guitar(deps) {
     const tune = L.tune;
     stage.innerHTML = `<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
     const B = neck(stage, { frets: L.frets, strs: L.strs, upto: L.frets });
+    if (L.map) B.map(L.map === 'faint');
     if (!exam) stage.insertAdjacentHTML('beforeend', '<button class="link" id="hear">Escolta la cançó</button>');
     const notes = [...stage.querySelectorAll('#gtune .gn')];
     let k = 0, busy = false, playing = false;
@@ -280,5 +292,41 @@ export function guitar(deps) {
     return () => { if (busy || playing) return ''; B.put(...tune[k], 'hint'); return `El ${nameAt(...tune[k])} és ${aPlace(...tune[k])}. El seu lloc fa pampallugues.`; };
   }
 
-  return { walk, fret, which, riff };
+  /* ladder: the keys of the keyboard of colours one after the other, while a staircase grows over it, each step as high as the half
+     steps it climbs. A tap on another key only sounds. At the end the steps between two pure notes side by side (Mi-Fa, Si-Do) light up */
+  function ladder({ t, L, stage, tip, spark, win }) {
+    const steps = L.steps, nameOf = u => u === 12 ? 'Do agut' : PCS[u % 12];
+    stage.innerHTML = `<p class="goal" id="goal"></p>
+      <div class="gstairs" aria-hidden="true">${steps.map(u => { const { a, b } = fill(u % 12); return `<span class="gstep${isSharp(u % 12) ? ' sh' : ''}" style="--u:${u};--a:${a};--b:${b}">${PCS[u % 12]}</span>`; }).join('')}</div>
+      ${keyboard(L.sharps)}`;
+    const cols = [...stage.querySelectorAll('.gstep')], pad = stage.querySelector('.gkeys');
+    let k = 0, busy = false;
+    const next = () => {
+      pad.querySelectorAll('.gkey').forEach(e => e.classList.toggle('hint', +e.dataset.pc === steps[k] % 12));
+      cols.forEach((c, i) => c.classList.toggle('next', i === k));
+      $('#goal').innerHTML = `Toca la tecla que fa pampallugues <span class="cap">· ${k + 1} de ${steps.length}</span>`;
+    };
+    pad.onclick = async e => {
+      const b = e.target.closest('.gkey'); if (!b || busy || !t.on) return;
+      const pc = +b.dataset.pc, u = steps[k];
+      if (pc !== u % 12) { deps.pluck(hz(60 + pc), 1, 0.36); return tip(`Aquesta tecla és el ${PCS[pc]}. Ara toca la que fa pampallugues.`); }
+      deps.pluck(hz(60 + u), 1.2, 0.4);
+      cols[k].classList.add('on'); cols[k].classList.remove('next'); spark(cols[k], fill(u % 12).a);
+      const small = k > 0 && u - steps[k - 1] === 1 && !isSharp(u % 12) && !isSharp(steps[k - 1] % 12);
+      tip(k === 0 ? `${nameOf(u)}: el primer graó.` : small ? `${nameOf(u)}: un graó petit! Entre el ${PCS[steps[k - 1] % 12]} i el ${PCS[u % 12]} no hi ha cap sostingut.` : `${nameOf(u)}.`);
+      if (++k < steps.length) return next();
+      busy = true; next(); $('#goal').textContent = 'Fet!';
+      cols.forEach((c, i) => c.classList.toggle('half', i > 0 && steps[i] - steps[i - 1] === 1 && !isSharp(steps[i] % 12) && !isSharp(steps[i - 1] % 12)));
+      await sleep(900); if (!t.on) return;
+      tip(L.done, 'go');
+      // the whole staircase once more, up, a note to each step
+      steps.forEach((u, i) => deps.pluck(hz(60 + u), 0.5, 0.32, i * 0.28));
+      await sleep(steps.length * 280 + 1200); if (!t.on) return;
+      win(steps.map(u => PCS[u % 12]).join(' · '));
+    };
+    next(); tip(L.say);
+    return () => '';
+  }
+
+  return { walk, fret, which, riff, ladder };
 }
