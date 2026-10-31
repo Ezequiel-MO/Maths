@@ -34,7 +34,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 /* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
 .map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
-.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; }
+.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; } .ring.r3 { --rh: 32; }
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 26px; height: 26px; }
@@ -317,4 +317,52 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @media (max-width: 480px) { .frog { width: 56px; height: 52px; } .coach { gap: 12px; } }
 /* a phone upright: the map has no big title (the exam buttons need that height; the kicker and the bar stay) */
 @media (max-width: 699px) { #app:not(.wide) h1 { display: none; } }
-@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on { animation: none; } .xp-bar i { transition: none; } }
+/* the guitar: the neck (an SVG drawn by guitarra.js), the marks on it, the keyboard of colours and the row of notes of a tune.
+   A long neck scrolls sideways on a phone rather than making its frets too narrow to press */
+.gneck { width: 100%; max-width: 720px; overflow-x: auto; overflow-y: hidden; border-radius: 18px; touch-action: manipulation; scrollbar-width: thin; }
+.gneck svg { display: block; width: 100%; height: auto; }
+.gneck.long svg { min-width: 640px; }
+.gneck text { font: 800 13px var(--display); text-anchor: middle; fill: #0B1A22; pointer-events: none; }
+.gneck text.lt { fill: #fff; font-size: 11.5px; }
+.gneck text.q { font-size: 19px; }
+.gneck text.num { fill: var(--muted); font-size: 11px; }
+.gneck text.fn { fill: var(--muted); font-size: 12px; }
+.gneck text.fn.mk { fill: var(--sun); }
+.gcell { fill: transparent; cursor: pointer; }
+.gcell:hover { fill: rgb(255 255 255 / 0.07); }
+.gdots, .gbuzz { pointer-events: none; }
+.gdot { transform-box: fill-box; transform-origin: center; animation: pop 0.25s ease-out; }
+.gdot.ghost { opacity: 0.55; }
+.gdot.bad { filter: drop-shadow(0 0 5px var(--bad)); }
+.gdot.bad circle:first-child { stroke: var(--bad); stroke-width: 3.5; }
+.gdot.ask { animation: gask 1.2s ease-in-out infinite; filter: drop-shadow(0 0 7px #fff); }
+.gdot.next { animation: gnext 1s ease-in-out infinite; }
+.gdot.hint { animation: gnext 0.8s ease-in-out infinite; filter: drop-shadow(0 0 6px var(--sun)); }
+.gvib { transform-box: fill-box; transform-origin: center; animation: gvib 1.2s ease-out forwards; }
+.gkeys { width: 100%; max-width: 560px; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px 4px; }
+.gkey { grid-row: 1; min-width: 0; height: 58px; padding: 0; border: 0; border-radius: 12px; font: 800 1.05rem/1 var(--display); color: #06220D; cursor: pointer;
+  background: linear-gradient(180deg, hsl(var(--a) 92% 70%), hsl(var(--a) 80% 48%)); box-shadow: 0 4px 0 hsl(var(--a) 70% 26%), 0 0 14px hsl(var(--a) 90% 55% / 0.35); }
+.gkeys.sh .gkey { grid-row: 2; }
+.gkeys.sh .gkey.blk { grid-row: 1; height: 48px; font-size: 0.95rem; color: #fff; box-shadow: 0 4px 0 #0B0F1C;
+  background: linear-gradient(90deg, hsl(var(--a) 85% 60%) 0 7px, #1E2438 7px calc(100% - 7px), hsl(var(--b) 85% 60%) calc(100% - 7px)); }
+.gkey:active { transform: translateY(3px); }
+.gkey.ok { outline: 4px solid #fff; outline-offset: 2px; }
+.gkey.shake { animation: shake 0.4s; }
+.gkey.hint { outline: 3px solid var(--sun); outline-offset: 3px; animation: beacon 0.8s ease-in-out infinite; }
+.gn { display: inline-block; padding: 2px 10px; border-radius: 999px; font: 800 1.05rem/1.35 var(--display); color: #06220D; background: hsl(var(--a) 85% 64%); box-shadow: 0 0 10px hsl(var(--a) 90% 55% / 0.35); }
+.gn.sh { color: #fff; background: linear-gradient(90deg, hsl(var(--a) 85% 60%) 0 6px, #1E2438 6px calc(100% - 6px), hsl(var(--b) 85% 60%) calc(100% - 6px)); }
+.goal .gn { font-size: 1.35rem; }
+.gtune { width: 100%; max-width: 680px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; }
+.gtune.plain .gn { color: #0B1A22; background: #EAF8F4; box-shadow: none; }
+.gtune .gn { transition: opacity 0.2s, transform 0.2s; }
+.gtune .gn.cur { outline: 3px solid #fff; outline-offset: 2px; transform: scale(1.15); }
+.gtune .gn.done { opacity: 0.35; }
+.gtune .gn.shake { animation: shake 0.4s; }
+.gcut { width: 2px; height: 26px; margin: 0 4px; background: var(--edge); }
+.glen { width: 100%; max-width: 560px; height: 16px; display: flex; justify-content: flex-end; border-radius: 999px; background: repeating-linear-gradient(90deg, rgb(160 230 220 / 0.2) 0 6px, transparent 6px 10px); }
+.glen i { --h: 50; width: 100%; height: 100%; border-radius: 999px; background: hsl(var(--h) 85% 60%); box-shadow: 0 0 12px hsl(var(--h) 90% 55% / 0.6); transition: width 0.5s; }
+@keyframes gvib { 0% { transform: scaleY(1); opacity: 0.95; } 8% { transform: scaleY(0.45); } 16% { transform: scaleY(0.85); } 26% { transform: scaleY(0.35); } 38% { transform: scaleY(0.6); opacity: 0.75; } 100% { transform: scaleY(0); opacity: 0; } }
+@keyframes gnext { 50% { transform: scale(1.18); opacity: 0.55; } }
+@keyframes gask { 50% { transform: scale(1.1); } }
+
+@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on, .gdot.next, .gdot.hint, .gdot.ask, .gvib, .gkey.hint { animation: none; } .xp-bar i { transition: none; } }
