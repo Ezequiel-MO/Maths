@@ -379,15 +379,17 @@ export const SECTIONS = [
     riff('L\'escala de Do, amunt i avall', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 | 2:1 2:0 3:2 3:0 4:3 4:2 4:0 5:3', 1, 3,
       'L\'últim! Ara sense el cercle que et guia: a dalt hi ha el nom de cada nota, i al mànec les notes es veuen fluixes, per si et cal mirar-les.', { map: 'faint' })
   ] },
-  // Tunes to practise with their shadows, three times each, fewer shadows every time: the tunes of the guitar circle and others the child
-  // knows from the tubes. First the ones of the three thin strings, then the thick strings, the films and the sharps
+  // Tunes to practise with their shadows, three times each, fewer shadows every time: the tunes of the guitar circle, others the child
+  // knows from the tubes and a Christmas carol (in the place of the Oda, which the circle already has twice). First the ones of the three
+  // thin strings, then the thick strings, the films and the sharps
   { name: 'Cançons amb ombra', sub: 'Cada cançó tres cops: primer amb l\'ombra de les notes al mànec, i a cada volta en queden menys.', levels: [
     shade('Hot Cross Buns', '1:0 2:3 2:1 | 1:0 2:3 2:1 | 2:1 2:1 2:1 2:1 2:3 2:3 2:3 2:3 | 1:0 2:3 2:1', 3, 'Cada cançó es toca tres cops. A la primera volta, l\'ombra de cada nota és al mànec i la que toca brilla. A cada volta, les ombres van marxant.'),
     shade('A la clara lluna', '2:1 2:1 2:1 2:3 | 1:0 2:3 | 2:1 1:0 2:3 2:3 | 2:1', 3, 'Una cançó francesa molt tranquil·la, amb Do, Re i Mi. Mira les ombres: totes són a les dues cordes de dalt.'),
     shade('Super Mario', '1:0 1:0 1:0 2:1 1:0 1:3 | 3:0', 3, 'La música d\'en Mario! Acaba amb un Sol greu: la tercera corda a l\'aire.'),
     shade('Mary tenia un xai', '1:0 2:3 2:1 2:3 1:0 1:0 1:0 | 2:3 2:3 2:3 | 1:0 1:3 1:3 | 1:0 2:3 2:1 2:3 1:0 1:0 1:0 1:0 | 2:3 2:3 1:0 2:3 2:1', 3, 'Molts Mi i molts Re seguits. Quan una nota es repeteix, tornes a tocar el mateix lloc.'),
     shade('Frère Jacques', '3:0 3:2 2:0 3:0 | 3:0 3:2 2:0 3:0 | 2:0 2:1 2:3 | 2:0 2:1 2:3', 3, 'Comença a la tercera corda a l\'aire, un Sol. Sol, La, Si, Sol, dues vegades, i després Si, Do, Re.'),
-    shade('Oda a l\'alegria', '1:0 1:0 1:1 1:3 | 1:3 1:1 1:0 2:3 | 2:1 2:1 2:3 1:0 | 1:0 2:3 2:3', 3, 'La melodia de Beethoven de «Les cordes de la guitarra», ara amb ombres per practicar-la.'),
+    shade('We Wish You a Merry Christmas', '3:0 2:1 2:1 2:3 2:1 2:0 3:2 3:2 | 3:2 2:3 2:3 1:0 2:3 2:1 2:0 3:0 | 3:0 1:0 1:0 1:1 1:0 2:3 2:1 3:2 | 3:0 3:0 3:2 2:3 2:0 2:1 | 3:0 2:1 2:1 2:1 2:0 | 2:0 2:1 2:0 3:2 3:0 | 2:3 1:0 2:3 2:1 1:3 3:0 | 3:0 3:0 3:2 2:3 2:0 2:1', 3,
+      'Una cançó de Nadal, i llarga! Cada «We wish you a merry Christmas» arriba una nota més amunt que l\'anterior: al Re, al Mi i al Fa. A la tornada hi ha un salt del Sol de la primera corda al de la tercera.'),
     shade('Jingle Bells', '1:0 1:0 1:0 | 1:0 1:0 1:0 | 1:0 1:3 2:1 2:3 | 1:0 | 1:1 1:1 1:1 1:1 | 1:1 1:0 1:0 1:0 1:0 | 1:0 2:3 2:3 1:0 | 2:3 1:3', 3, 'Molts Mi seguits, a la primera corda a l\'aire. Compta\'ls bé!'),
     shade('Per molts anys', '3:0 3:0 3:2 3:0 2:1 2:0 | 3:0 3:0 3:2 3:0 2:3 2:1 | 3:0 3:0 1:3 1:0 2:1 2:0 3:2 | 1:1 1:1 1:0 2:1 2:3 2:1', 3, 'La cançó dels aniversaris. Té un salt gran: del Sol greu de la tercera corda al Sol agut de la primera.'),
     shade('When the Saints', '2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 1:0 2:1 1:0 2:3', 3, 'Do, Mi, Fa, Sol, tres vegades. La tercera continua i acaba en un Re.'),
