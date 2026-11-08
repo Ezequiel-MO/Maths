@@ -196,10 +196,21 @@ section('rebase', () => {
   P.pushed('xavi', 'a', 50); P.pushed('xavi', 'b', 60);
   check(P.rebase('u1') === false, 'rebase u1 the second time is false');   // contract: same account
   check(isMark(markOf('xavi:a'), 50, 50, false) && isMark(markOf('xavi:b'), 60, 60, false), 'rebase u1 again: nothing touched');   // contract: same account changes nothing
+  // contract from here: login obert (2026-11-08), each Google account has its own space on the device and never sees another's
   check(P.rebase('u2') === true, 'rebase u2 is true');   // contract: another account
-  check(isMark(markOf('xavi:a'), 50, null, true) && isMark(markOf('xavi:b'), 60, null, true), 'rebase u2: marks are exactly { 50 | 60, null, pending }');   // contract: all marks reset, same at
-  check(P.entries().length === 2, 'rebase u2: both entries still there');   // contract: the documents stay
+  check(P.entries().length === 0 && P.profiles().length === 0 && P.active() === null && !mem.has('xavi:a'), 'rebase u2: none of u1\'s players or documents is in the live space');
   check(mem.get('compte') === 'u2', 'rebase: compte holds the uid');   // contract: compte is the uid as a plain string
+  P.add('Nil'); P.choose('nil'); P.save('a', { n: 5 });
+  check(P.rebase('u1') === true && P.active() === 'xavi' && P.profiles().map(p => p.id).join() === 'xavi', 'back to u1: its players come back, with none of u2\'s');
+  check(isMark(markOf('xavi:a'), 50, 50, false) && isMark(markOf('xavi:b'), 60, 60, false) && !mem.has('nil:a') && !mem.has('espai/u1'), 'back to u1: its marks are as it left them, and nothing of it waits away any more');
+  check(P.leave() === true && mem.get('compte') === '-' && P.profiles().length === 0 && P.entries().length === 0, 'leave: the device is in nobody\'s space, empty');
+  P.add('Pau'); P.choose('pau'); P.save('a', { n: 1 });
+  check(P.rebase('u2') === true && P.active() === 'nil' && P.load('a').n === 5 && P.profiles().map(p => p.id).join() === 'nil', 'u2 after a sign-out: its own space, and what nobody played stays apart');
+  check(P.leave() === true && P.active() === 'pau' && P.load('a').n === 1, 'nobody\'s space comes back on the next sign-out');
+  check(P.leave() === false && P.rebase('-') === false, 'leave with nobody signed in, or a rebase to nobody, does nothing');
+  // a space that cannot be put away is not lost: nothing moves, and compte stays
+  globalThis.localStorage = { getItem: good.getItem, removeItem: good.removeItem, setItem: (k, v) => { if (k.startsWith('espai/')) throw new Error('refused'); good.setItem(k, v); } };
+  check(P.rebase('u3') === false && mem.get('compte') === '-' && P.active() === 'pau' && P.load('a').n === 1, 'a refused put-away leaves the space and compte as they were');
 });
 
 section('addProfiles', () => {

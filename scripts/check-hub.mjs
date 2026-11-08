@@ -36,9 +36,9 @@ class El {
   focus() { for (let e = this; e; e = e.parent) if (e.hidden || e.hasAttribute('inert')) return; D.focused = this; }   // as a browser: not into what is hidden or inert
 }
 function makeDoc() {
-  const byId = {}, hidden = new Set(['me', 'who', 'adder', 'bad']);   // hidden in index.html
-  for (const id of ['me', 'name', 'change', 'lead', 'who', 'profiles', 'open', 'adder', 'nom', 'bad']) { byId[id] = new El(); byId[id].hidden = hidden.has(id); }
-  for (const [p, ks] of Object.entries({ me: ['name', 'change'], who: ['profiles', 'open', 'adder'], adder: ['nom', 'bad'] })) for (const k of ks) byId[k].parent = byId[p];   // the tree of index.html
+  const byId = {}, hidden = new Set(['me', 'who', 'cap', 'adder', 'bad']);   // hidden in index.html
+  for (const id of ['me', 'name', 'change', 'lead', 'who', 'cap', 'profiles', 'open', 'adder', 'nom', 'bad']) { byId[id] = new El(); byId[id].hidden = hidden.has(id); }
+  for (const [p, ks] of Object.entries({ me: ['name', 'change'], who: ['cap', 'profiles', 'open', 'adder'], adder: ['nom', 'bad'] })) for (const k of ks) byId[k].parent = byId[p];   // the tree of index.html
   const list = new El(), main = new El();
   let first;   // whether cloud.js was already loaded when the hub first looked at the page
   list.hidden = true;

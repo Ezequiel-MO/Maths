@@ -213,18 +213,27 @@ await section('failures', async () => {
   check(!!game('xavi', 'a'), 'nor the games of the profile whose document was refused');
 });
 
-// ---- 7. another account on the same device
+// ---- 7. another account on the same device. contract: login obert (2026-11-08), each Google account has its own players on the
+// device (was: spec amendment «Canvi de compte», where U2 took U1's players and their progress was joined into U2's)
 await section('other account', async () => {
   reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('a', { n: 1, m: 9 }); await cloud.syncAll();
   check(synced(mark(A, 'xavi:a'), 5000), 'synced as U1');
   await cloud.signOut();
-  check(await cloud.session() === null && await cloud.syncAll() === false && A.getItem('compte') === 'U1', 'signed out: no session, no sync, compte kept');
-  C.docs.set('users/U2/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U2/profiles/xavi/games/a', { data: { n: 77 }, at: 100 }); C.docs.set('users/U2/profiles/nil', { name: 'Nil' });   // older than the device's save
+  check(await cloud.session() === null && await cloud.syncAll() === false && A.getItem('compte') === '-' && P.profiles().length === 0 && A.getItem('xavi:a') === null, "signed out: no session, no sync, and U1's players are put away");
+  C.docs.set('users/U2/profiles/xavi', { name: 'Xavi' }); C.docs.set('users/U2/profiles/xavi/games/a', { data: { n: 77 }, at: 100 }); C.docs.set('users/U2/profiles/nil', { name: 'Nil' });
+  const before = [...C.docs.keys()].filter(k => k.startsWith('users/U2/')).sort();
   auth.next = U('U2'); await cloud.signIn();
   const r = await cloud.syncAll();
-  check(A.getItem('compte') === 'U2', 'compte is the new account');   // contract: spec amendment «Canvi de compte»
-  check(A.getItem('xavi:a') === J({ n: 77, m: 9 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 77, m: 9 }, at: 5001 }) && synced(mark(A, 'xavi:a'), 5001), `the marks of U1 are void: the device's {n:1, m:9} and U2's {n:77} are joined and the join goes up with a new at, so U2 does not lose m (${A.getItem('xavi:a')} ${J(C.docs.get('users/U2/profiles/xavi/games/a'))})`);   // contract: spec amendment: all documents pending without a base; plan «El progrés no baixa mai», tasca 3: a pending document and a different cloud one are merged (was: the newer at went up); revisió de la tasca 3, Important 2: with the marks of U1 left as synced, the device would take {n:77} and lose m
-  check(r === true && P.profiles().some(p => p.id === 'nil'), 'the profile U2 has is added');
+  check(A.getItem('compte') === 'U2', 'compte is the new account');
+  check(A.getItem('xavi:a') === J({ n: 77 }) && J(C.docs.get('users/U2/profiles/xavi/games/a')) === J({ data: { n: 77 }, at: 100 }) && synced(mark(A, 'xavi:a'), 100), `U2 gets its own Xavi, and U1's {n:1, m:9} is neither joined in nor sent (${A.getItem('xavi:a')} ${J(C.docs.get('users/U2/profiles/xavi/games/a'))})`);
+  check(r === true && P.profiles().map(p => p.id).sort().join() === 'nil,xavi', 'the profiles U2 has come down');
+  check(J([...C.docs.keys()].filter(k => k.startsWith('users/U2/')).sort()) === J(before), 'nothing of U1 was written under U2');
+  // U2 plays, signs out, and U1 signs in again on this device: U1's space comes back as it left it, with nothing of U2
+  P.choose('nil', []); t = 6000; P.save('b', { n: 3 }); await cloud.push('nil', 'b');
+  check(J(C.docs.get('users/U2/profiles/nil/games/b')) === J({ data: { n: 3 }, at: 6000 }), "U2's own game goes up to U2");
+  await cloud.signOut(); auth.next = U('U1'); await cloud.signIn(); await cloud.syncAll();
+  check(A.getItem('xavi:a') === J({ n: 1, m: 9 }) && synced(mark(A, 'xavi:a'), 5000) && P.profiles().map(p => p.id).join() === 'xavi' && P.active() === 'xavi', `U1 back: its Xavi as it was, active, and no Nil (${A.getItem('xavi:a')} ${J(P.profiles())})`);
+  check(J(game('xavi', 'a')) === J({ data: { n: 1, m: 9 }, at: 5000 }) && !cd('profiles/nil'), `and U1's cloud has its Xavi untouched and no Nil (${J(game('xavi', 'a'))})`);
 });
 
 // ---- 8. odd cloud data
@@ -277,12 +286,18 @@ await section('out of order', async () => {
   check(await cloud.syncAll() === false && A.getItem('xavi:g') === J({ n: 2 }), 'the next syncAll pulls nothing');
 });
 
-// ---- m2: push rebases
+// ---- m2: a push under another account. contract: login obert (2026-11-08), the space of the account in compte is put away first
+// and none of it is sent (was: fix round 1, m2, the marks were reset and the document went up under the new account)
 await section('push rebase', async () => {
   reset('U1'); P.add('Xavi'); P.choose('xavi', []); t = 5000; P.save('g', { n: 1 });
   A.setItem('compte', 'OTHER'); A.setItem('sync', J({ 'xavi:g': { at: 5000, base: 5, pending: true } }));
   await cloud.push('xavi', 'g');
-  check(A.getItem('compte') === 'U1' && synced(mark(A, 'xavi:g'), 5000), `push under a new account resets the marks first (${A.getItem('compte')}, ${J(mark(A, 'xavi:g'))})`);   // contract: fix round 1, m2
+  check(A.getItem('compte') === 'U1' && !game('xavi', 'g') && A.getItem('xavi:g') === null && JSON.parse(A.getItem('espai/OTHER')).docs['xavi:g'] === J({ n: 1 }), `push under a new account puts the other account's space away and sends none of it (${A.getItem('compte')}, ${J(game('xavi', 'g'))})`);
+  // a space that cannot be put away stays where it is, and nothing of it goes up under the new account
+  reset('U1'); P.add('Xavi'); P.choose('xavi', []); P.save('g', { n: 1 }); A.setItem('compte', 'OTHER');
+  const put = A.setItem; A.setItem = (k, v) => { if (!k.startsWith('espai/')) put(k, v); };
+  try { await cloud.push('xavi', 'g'); await cloud.syncAll(); } finally { A.setItem = put; }
+  check(A.getItem('compte') === 'OTHER' && sets().length === 0 && A.getItem('xavi:g') === J({ n: 1 }), `a refused put-away: compte stays, the space stays, nothing is written (${A.getItem('compte')}, ${J(sets())})`);
 });
 
 // ---- a document that is not pending and that the cloud lacks is still sent: settle says 'push' for device present, cloud absent
