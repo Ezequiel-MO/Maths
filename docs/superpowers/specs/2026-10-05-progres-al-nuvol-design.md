@@ -23,6 +23,13 @@ Fora d'aquest canvi: esborrar o canviar el nom d'un perfil, fusionar el progrés
 > - **També, abans d'encendre el núvol:** un dispositiu que no ha tingut mai sessió no carrega Firebase (ni a la portada, fins que l'adult toca el botó, ni en desar des d'un joc); cada petició al núvol té un límit de 15 s, i passat el límit el document es queda pendent; la portada té una comprovació que n'executa el codi.
 > - **Acceptat per l'Oliver:** entrar amb un altre compte de Google en un dispositiu copia el progrés del dispositiu al compte nou; i on el navegador nega `localStorage` el lloc no es pot fer servir.
 
+> **Esmena (2026-11-08, l'Oliver obre el joc a tothom): cada compte de Google té els seus jugadors, també al dispositiu.** Substitueix la primera meitat de l'«Acceptat per l'Oliver» de sobre.
+>
+> - **Per què:** qualsevol persona pot entrar amb el seu Gmail, crear el seu jugador i desar el progrés. Al núvol, les regles ja separen cada compte; el que calia era que en un mateix dispositiu els jugadors d'un compte (en Xavi i la Laia) no es mostrin, no es barregin ni s'enviïn a un altre compte.
+> - **La regla:** el que hi ha al dispositiu (`perfils`, `perfil`, `sync` i els documents) és l'espai del compte que diu `compte`. Quan hi entra un altre compte, aquest espai es desa sencer a `espai/<uid>` i el compte nou recupera el seu (o comença buit). Tancar la sessió fa el mateix i deixa el dispositiu en l'espai de ningú (`compte` és `-`). Si l'espai no es pot desar a part, no es mou res i no s'envia res.
+> - **El primer compte d'un dispositiu** es queda el que s'hi havia jugat abans, com fins ara (així un nen que ha jugat sense desar ho pot guardar). En un dispositiu on ja s'ha tancat una sessió, el que es juga sense compte queda a part i no passa a cap compte.
+> - **La portada** ja no posa en Xavi i la Laia a cada dispositiu: baixen del núvol quan entra el compte de la família. Sense jugadors, «Qui juga?» diu que se n'afegeixi un.
+
 ## Perfils
 
 - La portada pregunta «Qui juga?» i mostra els perfils del dispositiu i «Afegeix un jugador». Un perfil és un nom d'1 a 12 caràcters.

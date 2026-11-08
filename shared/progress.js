@@ -3,7 +3,7 @@
 // as ever, blind to the profile. Next to each document sits a sync mark { at, base, pending } (all in the one key `sync`)
 // that says whether the cloud copy is behind: at is when it was last written here, base the cloud's at when last synced.
 // The device is always what the games read; the cloud copy is fed from the marks. `compte` holds the uid of the account
-// those marks belong to. Nothing in here throws: a store that fails reads as empty and writes nothing.
+// the live space belongs to (see rebase). Nothing in here throws: a store that fails reads as empty and writes nothing.
 import { slug, merge } from './sync.js';
 
 // localStorage access that never throws; a missing or failing store reads as null and a write that did not stick is false
@@ -158,23 +158,83 @@ export function pushed(profile, game, at) {
   if (v && v.at === at) setMark(key, { at, base: at, pending: false });
   else if (v && v.pending === true && number(v.at) && v.at > at && !(number(v.base) && v.base >= at)) setMark(key, { at: v.at, base: at, pending: true });
 }
-// the uid of the account the marks belong to, or null when none has signed in here
+// One space per Google account. The live keys (perfils, perfil, sync and the documents) are the space of `compte`: a uid, NOBODY
+// (no account, on a device where one signed out) or nothing (no account ever signed in here). Every other space waits whole in
+// one key, espai/<owner>, until its owner signs in again, so the players and progress of one account are never on screen, mixed
+// or sent while another account (or nobody) is signed in. A profile id is [a-z0-9-] and never '-', so no key here is a document.
+const NOBODY = '-';
+const SPACE = ['perfils', 'perfil', 'sync'];
+const away = owner => 'espai/' + owner;
+// every document of the live space: those with a mark, and those of its profiles found by walking the store where it can be walked
+function docKeys() {
+  const ids = new Set(profiles().map(p => p.id));
+  const keys = new Set(Object.keys(marks()));
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i), j = text(k) ? k.indexOf(':') : -1;
+      if (j > 0 && ids.has(k.slice(0, j))) keys.add(k);
+    }
+  } catch (e) {}
+  return [...keys];
+}
+// puts the live space away under owner and empties it; false (and nothing removed) when it could not be put away
+function pack(owner) {
+  const s = { docs: {} };
+  for (const k of docKeys()) { const v = get(k); if (v !== null) s.docs[k] = v; }
+  for (const k of SPACE) s[k] = get(k);
+  if (!set(away(owner), JSON.stringify(s))) return false;
+  for (const k of [...SPACE, ...Object.keys(s.docs)]) del(k);
+  return true;
+}
+// brings back the space owner left (none: the live space stays empty); what was put away is only dropped once all of it is back
+function unpack(owner) {
+  const s = json(away(owner));
+  if (!s || typeof s !== 'object') { del(away(owner)); return; }
+  let ok = true;
+  const docs = s.docs && typeof s.docs === 'object' ? s.docs : {};
+  for (const k of Object.keys(docs)) if (text(docs[k])) ok = set(k, docs[k]) && ok;
+  for (const k of SPACE) if (text(s[k])) ok = set(k, s[k]) && ok;
+  if (ok) del(away(owner));
+}
+// the space of `was` goes away and that of `to` comes in; compte is written before anything comes in, so a failure never
+// leaves one account's space under another's name
+function swap(was, to) {
+  if (!pack(was)) return false;
+  if (!set('compte', to)) { unpack(was); return false; }
+  unpack(to);
+  return true;
+}
+
+// the uid of the account the live space belongs to, NOBODY after a sign-out, or null when none has signed in here
 export function account() { return get('compte'); }
-// a different account on this device: nothing is known to be in its cloud, so every document is pending without a base
+// the account uid signs in here. The first account on a device takes what was played on it before: nothing is known to be in its
+// cloud, so every document is pending without a base. After that, each account has its own space: a different one (or nobody)
+// is put away whole and uid gets back its own. True when the account changed
 export function rebase(uid) {
-  if (!text(uid) || !uid || get('compte') === uid) return false;
+  if (!text(uid) || !uid || uid === NOBODY) return false;
+  const was = get('compte');
+  if (was === uid) return false;
+  if (was !== null) return swap(was, uid);
   const m = marks();
   for (const key of Object.keys(m)) if (m[key] && typeof m[key] === 'object') m[key] = { at: m[key].at, base: null, pending: true };
-  if (!set('sync', JSON.stringify(m))) return false;   // the uid is only kept once the marks carry no base of the other account
+  if (!set('sync', JSON.stringify(m))) return false;   // the uid is only kept once the marks carry no base of another account
   return set('compte', uid);
+}
+// the account signed out: its space is put away and the device goes back to the space of nobody. True when it moved
+export function leave() {
+  const was = get('compte');
+  if (was === null || was === NOBODY) return false;
+  return swap(was, NOBODY);
 }
 
 // A game page (no data-hub) remembers the profile active when it loaded, to tell later that it has gone stale. The hub itself
 // has no owner: there load and save follow active().
-let owner = null;
-const stale = () => owner !== null && active() !== owner;
+// It remembers the account too: another account's space can have a profile with the same id. A page loaded before any account
+// (null) is not stale when the first one signs in, because that account takes the same space
+let owner = null, ownerAccount = null;
+const stale = () => owner !== null && (active() !== owner || (ownerAccount !== null && account() !== ownerAccount));
 if (typeof window !== 'undefined' && !document.documentElement.hasAttribute('data-hub')) {
-  owner = active();
+  owner = active(); ownerAccount = account();
   // a page restored from the back/forward cache keeps its state, so the player may have changed meanwhile
   if (owner !== null) window.addEventListener('pageshow', e => { if (e.persisted && stale()) location.replace('index.html'); });
 }

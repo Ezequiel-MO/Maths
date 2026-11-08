@@ -4,7 +4,7 @@
 // signIn() is called. Nothing in here throws or rejects: a network error leaves the document pending.
 import config from './firebase-config.js';
 import { slug, settle, merge, same } from './sync.js';
-import { profiles, addProfiles, entries, pulled, merged, pushed, rebase, account } from './progress.js';
+import { profiles, addProfiles, entries, pulled, merged, pushed, rebase, leave, account } from './progress.js';
 
 export const enabled = !!config;
 const number = n => (typeof n === 'number' && isFinite(n));
@@ -59,9 +59,11 @@ export function signIn() {
   })().finally(() => { popup = null; }));
 }
 
+// signs out and puts the account's players and progress away on this device (they come back when it signs in again); a sign-out
+// that failed leaves them where they are
 export async function signOut() {
   if (!enabled) return;
-  try { const f = await restored(); await f.A.signOut(f.auth); } catch (e) {}
+  try { const f = await restored(); await f.A.signOut(f.auth); leave(); } catch (e) {}
 }
 
 // Every document send goes through this one chain, and each send reads the entry when its turn comes, so two sends of one
@@ -76,7 +78,8 @@ const send = (uid, profile, game, force) => chain = chain.then(async () => {
     const s = await current();
     if (!s || s.uid !== uid) return;
     const f = await boot();
-    if (!force) rebase(uid);   // a push may come before any syncAll: marks of another account must not say synced
+    if (!force) rebase(uid);   // a push may come before any syncAll: the space of another account must not go up under this one
+    if (account() !== uid) return;   // it could not be put away: nothing of it is sent
     const find = () => entries().find(x => x.profile === profile && x.game === game);
     let e = find();
     if (!e || (!force && !e.pending)) return;
@@ -118,13 +121,14 @@ async function run() {
     const s = await current();
     if (!s) return false;
     const { F, db } = await boot();
-    rebase(s.uid);   // before any entries(): after a different account the marks must already be reset
+    changed = rebase(s.uid);   // before any entries(): the space of a different account must already be put away (the device changed)
+    if (account() !== s.uid) return false;   // it could not be: nothing of it is sent or mixed
     const base = ['users', s.uid, 'profiles'];
     const snap = await within(F.getDocs(F.collection(db, ...base)));
     // a cloud profile counts only when its id is the slug of its name, so a name is never shown under a foreign id
     const cloud = [];
     snap.forEach(d => { const n = d.data().name; if (typeof n === 'string' && slug(n) === d.id) cloud.push({ id: d.id, name: n.trim() }); });
-    changed = addProfiles(cloud);
+    if (addProfiles(cloud)) changed = true;
     for (const p of profiles()) if (!cloud.some(c => c.id === p.id)) { try { await within(F.setDoc(F.doc(db, ...base, p.id), { name: p.name })); } catch (e) {} }   // a refused one skips nothing else
     for (const { id } of profiles()) {
       try {

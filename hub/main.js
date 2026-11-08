@@ -56,6 +56,7 @@ function render(sync) {
     return;
   }
   list.replaceChildren();
+  $('cap').hidden = profiles().length > 0;   // a new account, or a device with nobody yet: say what to do
   $('profiles').replaceChildren(...profiles().map(p => {
     const li = document.createElement('li'), b = document.createElement('button');
     b.type = 'button'; b.className = 'btn soft'; b.textContent = p.name;
@@ -92,13 +93,15 @@ $('adder').onsubmit = e => {
 // button exists only when there is a Firebase config. who is the account name, or null with no session
 let cloud = null, who = null, busy = 0, tail = Promise.resolve();
 let btn, acct, err, stat, foot;
-// The gate: on a device with no session the hub asks first for the family account, once, because without it the progress stays
-// on that device alone. «Juga sense desar» lets a child through until the browser is closed. known: the session has answered;
-// before that a device that never had a session is taken as having none, and one that had is let through (it is being restored)
+// The gate: on a device with no session the hub asks first for an account (any Google account: each has its own players),
+// because without it the progress stays on that device alone. «Juga sense desar» lets a child through until the browser is
+// closed. known: the session has answered; before that a device that never had a session is taken as having none, and one that
+// had is let through (it is being restored)
 const gateEl = $('gate');
 let known = false, skipped = false;
 try { skipped = sessionStorage.getItem('sense-desar') === '1'; } catch (e) {}
-const gated = () => !!gateEl && !!config && !skipped && (known ? who === null : account() === null);
+// before the session answers, a device that never had one, or that signed out (account() is '-'), is taken as having none
+const gated = () => !!gateEl && !!config && !skipped && (known ? who === null : account() === null || account() === '-');
 
 // the button is disabled while anything is in flight; its label follows the session
 function paint() {
@@ -138,10 +141,15 @@ function mount() {
       if (who === null) {
         const ok = await cloud.signIn();
         if (ok) await refresh();
-        if (ok && who !== null) await sync(); else err.hidden = false;
+        // another account brings its own players: «Qui juga?» shows them at once, before the sync
+        if (ok && who !== null) { render(true); await sync(); } else err.hidden = false;
       } else {
-        await cloud.signOut();   // nothing on the device is erased
+        await cloud.signOut();   // nothing on the device is erased: the account's players are put away until it signs in again
         await refresh();
+        if (who === null) {   // the next one at this device starts at the gate, with none of those players on screen
+          skipped = false; try { sessionStorage.removeItem('sense-desar'); } catch (e) {}
+          adding = bad = false; render(true);
+        }
       }
     } catch (e) {}
     busy--; paint();
@@ -167,8 +175,6 @@ async function start() {
   } catch (e) {}
 }
 
-// the children of the house (the names index.html lists in data-seed) are on every device from the first visit, so a new one
-// only has to tap a name; with a session open their progress then comes down from the cloud
-for (const n of ($('profiles').dataset?.seed || '').split(',')) add(n);
+// no player is on a device from the start: each account brings its own from the cloud, and anyone can add one
 render();
 start();
