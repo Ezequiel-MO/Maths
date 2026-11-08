@@ -47,7 +47,17 @@ h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter:
 .what { font-size: 1rem; }
 .rec { margin-top: 4px; font-weight: 800; font-size: 0.9rem; color: var(--sun); font-variant-numeric: tabular-nums; }
 .rec:empty { display: none; }
+/* the star of the pond: L'hotel de l'estany leads the page, as wide as the grid, in the velvet and brass of its lobby */
+.games li:has(> .star) { grid-column: 1 / -1; }
+.game.star { background: radial-gradient(120% 120% at 20% 0%, #15504A, #0F3B36 55%, #0A2C28); border: 2px solid #D9A441;
+  box-shadow: inset 0 0 0 4px #0F3B36, inset 0 0 0 5px rgb(217 164 65 / 0.45), 0 18px 50px rgb(0 0 0 / 0.45), 0 0 40px rgb(255 138 194 / 0.18); }
+.game.star:hover { border-color: #F6D788; }
+.game.star .tag { color: #F6D788; }
+.game.star b { font-size: 1.9rem; color: #FFF4DF; text-shadow: 0 0 18px rgb(255 138 194 / 0.45); }
 @media (min-width: 760px) {
+  .game.star { grid-template-columns: 150px 1fr; justify-items: start; text-align: left; align-items: center; }
+  .game.star svg { width: 150px; height: 150px; }
+  .game.star .txt { align-items: flex-start; }
   body { padding-block: 56px; }
   .games { grid-template-columns: repeat(2, 1fr); }
   .game { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 24px 18px; gap: 12px; align-content: start; }
