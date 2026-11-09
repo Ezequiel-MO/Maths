@@ -1,20 +1,37 @@
-/* Layout: the pond at night, like the other games. One centred column: the map of the cursus (a band for each circle, a lily pad for
-   each project), or a level with its operation, its picture and a keypad of big keys on one glass card, so nothing needs the phone's keyboard. Two fixed canvases
-   paint the sky behind and the sparks in front. The rules are written for a phone held upright; the media queries at the end add
-   what a wider screen needs. */
+/* Salts de Granota: the pond is the 3D picture behind the page (#world, games/salts-de-granota/world.js); the page is a panel of glass
+   over it, as in the hotel. On a wide screen the panel stands on the right and the pond fills the rest; on a phone or a tablet held
+   upright the pond is on top (.view keeps its place free) and the panel under it. Without WebGL there is no pond: the dusk of the page
+   stays, and the pictures of the tricks are drawn inside the panel. The letters and the greens are the pond's, as ever. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
-:root { --mint: #7CF5B0; --sky: #6FE3FF; --flower: #FF8FD0; --dim: rgb(160 230 220 / 0.2); }
-#app { max-width: 680px; min-height: calc(100dvh - 38px); }
+:root { --mint: #7CF5B0; --sky: #6FE3FF; --flower: #FF8FD0; --dim: rgb(160 230 220 / 0.2); --glass: rgb(7 28 40 / 0.8); }
+html { background: #0B1636; }
+body {
+  padding: 0; overflow-x: hidden;
+  background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed;
+}
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+/* the page lets the taps through to the pond wherever it has nothing of its own */
+#app { width: min(100%, 640px); padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+.top, #joc > :not(.view) { pointer-events: auto; }
 h1, h2, .big, .btn, .chip, .key { font-family: var(--display); }
-
-/* the links stay at the top; whatever height is left over is shared above and below the game */
-.top { margin-bottom: auto; }
+.top { position: relative; z-index: 2; }
+.top .link { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+header { text-align: center; }
+header .kicker { text-shadow: 0 1px 8px rgb(0 0 0 / 0.6); color: var(--ink); }
 h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
-/* inside a level the section's name is the title */
-#app.in h1 { display: none; }
-#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
+body.playing header { display: none; }
+#joc { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+/* the room the pond is seen through, above the panel */
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+/* the panel: dark glass over the pond */
+.sheet {
+  position: relative; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 14px 12px 18px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
+}
 .lead { color: var(--muted); max-width: 44ch; text-wrap: pretty; }
 .btn { min-height: 44px; padding: 0.3em 1.3em; font-size: 1.25rem; }
 .btn.glow { outline: 2px solid var(--sun); animation: beacon 1s ease-in-out infinite; }
@@ -254,3 +271,18 @@ h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
 .nlb .nlf .frog-s { transform-origin: 50% 100%; }
 .nlb.hand { cursor: grab; border-radius: 18px; }
 .nlb.hand:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+/* a picture drawn on the pond: what it says under it, and the place the keyboard moves the frog from */
+.hand3d { font-weight: 800; font-size: 0.95rem; color: var(--sun); border-radius: 12px; padding: 2px 10px; }
+.hand3d:focus-visible { outline: 3px solid var(--sun); }
+body:not(.nogl) #viz:empty { display: none; }
+
+/* inside the panel a level is not a card of its own */
+.sheet .play { background: none; border: 0; box-shadow: none; padding: 0; -webkit-backdrop-filter: none; backdrop-filter: none; max-width: none; }
+.sheet .map { max-width: none; }
+
+/* wide screens: the panel on the right and the pond on the left */
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  #app { width: 480px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
