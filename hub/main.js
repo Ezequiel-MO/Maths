@@ -29,7 +29,7 @@ function hold(g, ms) {
 
 // one card per game, with what this player has won in it when there is something saved
 function cards() {
-  list.innerHTML = GAMES.map(g => `<li><a class="game${g.star ? ' star' : ''}" href="${g.href.replace(/(?=#|$)/, OBERT)}">
+  list.innerHTML = GAMES.map(g => `<li><a class="game${g.star ? ' star' : ''}${g.theme ? ' ' + g.theme : ''}" href="${g.href.replace(/(?=#|$)/, OBERT)}">
   ${g.icon}
   <span class="txt"><span class="tag">${g.tag}</span><b>${g.title}</b><span class="what">${g.what}</span><span class="rec">${g.record(load(g.store) || {}, g.total)}</span></span></a></li>`).join('');
 }
