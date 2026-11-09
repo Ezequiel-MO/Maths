@@ -287,6 +287,32 @@ for (const i of process.env.NOGL ? [] : [7, 18]) await section(`recta a l'estany
   same(`the save after a level made by hand, with a slip`, await stored(page), bank(levelIn(clean(HANDS), i, 1, n - fast).prog, fast, topOf(done)));
 });
 
+/* ---------- the other pictures on the pond: each trick makes the steps its captions tell ---------- */
+// Projects 0 to 4 at level 2 («Amb dibuix»): the first operation is read from the screen and worked out by logic.js (make); «Pista» plays the
+// picture one step at a time, and after the last one the pond must show what the last caption says: ten flowers when adding to 10, the
+// flowers left when taking away, both rows of a double lit, one bar more and no loose cube after ten cubes stick, the cubes left after a bar breaks.
+const STEPS = { so: false, piscina: true, lv: lvOf((i, k) => i <= 4 && k === 0 ? 3 : 0), exams: [false, false, false, false, false, false], fulls: 0, rapid: 0, ratxa: 0, mosques: 0 };
+if (!process.env.NOGL) await section('dibuixos a l\'estany: projectes 0 a 4', async () => {
+  for (let i = 0; i <= 4; i++) {
+    const page = await open(STEPS);
+    await tap(page, `.proj[data-p="${i}"]`);
+    await page.waitForSelector('#ans');
+    const lhs = await page.evaluate(() => document.querySelector('#lhs').textContent), type = PROJECTS[i].type;
+    const [a, b] = lhs.replace(/−/g, '-').match(/\d+/g).map(Number), q = type === 1 ? make(1, a) : make(type, a, b);
+    // contract: the captions (q.caps) tell one step each after the first: frame 1, twin 1 or 2, blocks 2
+    const n = q.viz === 'frame' ? 1 : q.viz === 'twin' ? (q.a === q.b ? 1 : 2) : 2;
+    check(q.caps.length - 1 >= n, `project ${i}: ${n} steps and ${q.caps.length} captions`);
+    const want = q.viz === 'frame' ? { flors: q.sub ? q.ans : 10 } : q.viz === 'twin' ? { fila: [q.a, q.b] }
+      : q.sub ? { barres: q.a / 10 - 1, cubets: 10 - q.b } : { barres: (q.a - q.a % 10) / 10 + 1, cubets: 0 };
+    const idle = () => wait(page, () => document.querySelector('#world').dataset.ocupat === '0' && document.querySelector('#world').dataset.dibuix);
+    await idle();
+    for (let k = q.pre ? 1 : 0; k < n; k++) { await page.waitForTimeout(150); await tap(page, '#hintb'); await page.waitForTimeout(150); await idle(); }
+    await page.waitForTimeout(1500);
+    same(`project ${i} (${lhs.trim()}) after its ${n} steps`, JSON.parse(await page.evaluate(() => document.querySelector('#world').dataset.dibuix)), want);
+    await page.context().close();
+  }
+});
+
 await browser.close();
 if (process.env.ONLY && !ran) { console.error(`flow-salts: no section matches ONLY=${process.env.ONLY}`); process.exit(1); }
 console.log(fails ? `flow-salts: ${fails} FAIL` : `flow-salts: ${ran} sections OK${process.env.NOGL ? ' (without WebGL)' : ''}`);

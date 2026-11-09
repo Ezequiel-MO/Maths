@@ -6,7 +6,7 @@
 // Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL pond() gives the same calls doing nothing.
 import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, label, SPH, CONE, V } from '../../shared/diorama.js';
 import { RM } from '../../shared/util.js';
-import { num } from './logic.js';
+import { num, bar, cub } from './logic.js';
 
 /* ---------- the measures of the pond ---------- */
 // the block: x from X0 to X1 (the cut side), z from Z0 (back) to Z1 (front), the grass at 0, the bottom of the pond at BY and of the block at YB
@@ -42,7 +42,7 @@ const C = {
 
 /* ---------- the frog ---------- */
 // the turn of an eyelid: open (over the top of the eye) and shut (over its front)
-const LID = [-0.55, 1.5];
+const LID = [-1.45, 1.5];
 // about one unit tall, looking at +z; lids that blink, a throat that breathes and a tongue
 function makeFrog() {
   const g = new THREE.Group(), body = new THREE.Group(), k = { body: mat(C.frog), dark: mat(0x3C9A50), belly: mat(C.belly) };
@@ -237,7 +237,7 @@ function build(canvas) {
   const padM = std(C.pad, { roughness: 0.6, side: THREE.DoubleSide }), veinM = std(C.padDark, { roughness: 0.6 });
   const petalM = std(C.petal, { roughness: 0.5, emissive: 0xFF5FA8, emissiveIntensity: 0.12 }), petal2M = std(C.petal2, { roughness: 0.5 }), heartM = std(C.heart, { emissive: 0xB07A10, emissiveIntensity: 0.4 });
   const budM = std(0xD96FA0, { roughness: 0.6 });
-  const PETAL = new THREE.SphereGeometry(1, 10, 6).scale(0.07, 0.03, 0.17).translate(0, 0, 0.15);
+  const PETAL = new THREE.SphereGeometry(1, 10, 6).scale(0.07, 0.03, 0.17).translate(0, 0, 0.15); PETAL.userData.shared = true;
   function flower(s = 1) {
     const f = new THREE.Group(), open = new THREE.Group(), bud = new THREE.Group();
     for (let i = 0; i < 8; i++) { const p = new THREE.Mesh(PETAL, i % 2 ? petal2M : petalM); p.rotation.set(-0.5, i / 8 * Math.PI * 2, 0, 'YXZ'); p.castShadow = true; open.add(p); }
@@ -348,7 +348,7 @@ function build(canvas) {
   }
   const homeAt = () => V(HOME[0], WY + 0.03, HOME[1]);
   // a ring that spreads on the water where something falls in, and the drops it throws
-  const RIPPLE = new THREE.RingGeometry(0.11, 0.16, 36).rotateX(-Math.PI / 2);
+  const RIPPLE = new THREE.RingGeometry(0.11, 0.16, 36).rotateX(-Math.PI / 2); RIPPLE.userData.shared = true;
   const bubbles = (at, n = 8) => D.sparkle(at.clone().add(V(0, 0.3, 0)), n, 0xDFF8FF, 0.15, 0.55, -2.2);
   function splash(at, big = 1) {
     if (RM) return;
@@ -368,11 +368,12 @@ function build(canvas) {
   const ink = { line: '#EAF8F4', q: '#F7C64E', fwd: '#6FE3FF', back: '#F7C64E', zero: '#B7A8FF' };
   const tagS = (text, color, h = 0.46) => label(text, { ink: color, edge: 'rgba(4,19,28,0.9)', h });
   const LM = new Map(), lineM = c => { if (!LM.has(c)) LM.set(c, new THREE.MeshBasicMaterial({ color: c, toneMapped: false })); return LM.get(c); };
-  function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && x.geometry !== RIPPLE) x.geometry.dispose(); }); }
+  // takes away a thing of a picture and gives back what it holds, but for the shapes many things share
+  function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && !x.geometry.userData.shared) x.geometry.dispose(); }); }
   function clear() {
     if (!pic) return;
     pic.alive = false; drop(pic.g); pic.cleanup?.(); pic = null; aim = null;
-    canvas.dataset.granota = ''; canvas.dataset.ocupat = '0';
+    canvas.dataset.granota = ''; canvas.dataset.ocupat = '0'; canvas.dataset.dibuix = '';
     frog.position.copy(homeAt()); frog.userData.face = 0.2; frog.userData.sq = 0; frog.scale.setScalar(FROG);
     if (D.view !== base) D.go(base);
   }
@@ -540,8 +541,179 @@ function build(canvas) {
     P.later(async () => { reset(); const s = frog.position.clone(); frog.position.copy(from); await leapTo(s, { dur: 520 }); });
     return { n: p.jumps.length, jump: (i, mask) => P.later(() => jump(i, mask)), reset: () => P.later(reset), reveal: () => P.later(reveal), hand };
   }
+  /* ---------- the other pictures: ten lily pads, the raft of bars and cubes, two rows of flowers ---------- */
+  // They are drawn in the middle of the pond, with the frog on its pad watching; each says what is on show in canvas.dataset.dibuix
+  const MID = { x: 1.0, z: 0.25 };
+  const said = o => { canvas.dataset.dibuix = JSON.stringify(o); };
+  // a flower that opens (k 1) or is a bud (k 0)
+  const bloom = (f, k) => { const u = f.userData; u.k = k; u.open.scale.setScalar(Math.max(0.001, k)); u.open.rotation.y = (1 - k) * 1.5; u.bud.scale.setScalar(Math.max(0.001, 1 - k)); };
+  // what every picture of the middle does first: the frog leaps to its pad to watch
+  function middle(host, view) {
+    const from = frog.position.clone(), P = newPic(host);
+    D.go(view);
+    P.start = reset => P.later(async () => { reset(); frog.position.copy(from); await leapTo(homeAt(), { dur: 520 }); });
+    return P;
+  }
+  const numTag = (t, c = ink.line) => tagS(t, c, 0.42);
+
+  // Adding fills the empty pads with new flowers; taking away starts with ten flowers and some fly away
+  function frameViz(host, p) {
+    const P = middle(host, { t: [MID.x, 0, MID.z + 0.1], dir: [0, 1.3, 1], R: 2.4 }), g = P.g;
+    const keep = p.sub ? p.ans : p.a, first = i => p.sub || i < keep;
+    const cells = Array.from({ length: 10 }, (_, i) => {
+      const x = MID.x + (i % 5 - 2) * 0.82, z = MID.z + (i < 5 ? -0.42 : 0.42), pad = lilyPad(0.33), f = flower(1.05);
+      pad.position.set(x, WY + 0.02, z); pad.rotation.y = i * 2.3; f.position.set(x, WY + 0.03, z); g.add(pad); g.add(f);
+      return { x, z, f, lab: null };
+    });
+    const count = () => said({ flors: cells.filter(c => c.f.visible && c.f.userData.k > 0.5).length });
+    function reset() {
+      cells.forEach((c, i) => { bloom(c.f, first(i) ? 1 : 0); c.f.visible = true; c.f.position.set(c.x, WY + 0.03, c.z); c.f.rotation.set(0, 0, 0); c.f.scale.setScalar(1.05); if (c.lab) { drop(c.lab); c.lab = null; } });
+      count();
+    }
+    async function jump() {
+      for (let i = keep; i < 10 && P.on(); i++) {
+        const c = cells[i];
+        sound.tone(sound.noteAt(i), 0, 0.12, 0.05);
+        if (p.sub) {
+          // the flower lifts off the pad and flies away, turning
+          const dx = (Math.random() - 0.5) * 1.5;
+          tween(RM ? 0 : 900, k => { c.f.position.set(c.x + dx * k, WY + 0.03 + k * 2.2, c.z - k * 0.8); c.f.rotation.set(k * 2, k * 3, 0); c.f.scale.setScalar(1.05 * (1 - k * 0.7)); }, k => k).then(() => { c.f.visible = false; count(); });
+          D.sparkle(V(c.x, WY + 0.3, c.z), 4, 0xFFB3D9, 0.25, 1, 1);
+        } else {
+          tween(RM ? 0 : 260, k => bloom(c.f, k), k => 1 - (1 - k) ** 3).then(count);
+          D.sparkle(V(c.x, WY + 0.25, c.z), 5, 0xFFE08A, 0.25, 1.2, 2.5);
+        }
+        await new Promise(r => setTimeout(r, RM ? 0 : 240));
+      }
+      if (p.sub) await new Promise(r => setTimeout(r, RM ? 0 : 700));
+      count();
+    }
+    // counts the flowers that make the result: the new ones when adding, the ones left when taking away
+    function reveal() {
+      cells.forEach((c, i) => { const k = p.sub ? (i < keep ? i + 1 : 0) : i - keep + 1; if (k > 0 && !c.lab) { c.lab = numTag(String(k), ink.q); c.lab.position.set(c.x, WY + 0.75, c.z); g.add(c.lab); } });
+    }
+    P.start(reset);
+    return { n: 1, jump: () => P.later(jump), reset: () => P.later(reset), reveal: () => P.later(reveal) };
+  }
+
+  // Tens as bars, units as cubes, of wood on a raft: ten loose cubes stick into a new bar, or a bar breaks into ten cubes to take some away
+  const CUBE = 0.19, STEP = 0.205, CUBEG = new THREE.BoxGeometry(CUBE, CUBE, CUBE);
+  const BARG = mergeAll(Array.from({ length: 10 }, (_, k) => new THREE.BoxGeometry(CUBE, CUBE, CUBE).translate(0, k * STEP + CUBE / 2, 0)));
+  CUBEG.userData.shared = BARG.userData.shared = true;
+  const woodCube = mat(0xC9955E, { roughness: 0.7 }), newCube = mat(0xFF8FD0, { roughness: 0.6, emissive: 0xFF5FA8, emissiveIntensity: 0.25 }), barM = mat(0x4FB562, { roughness: 0.7 });
+  function blockViz(host, p) {
+    const P = middle(host, { t: [MID.x, WY + 0.9, MID.z], dir: [0, 0.5, 1], R: 2.5 }), g = P.g;
+    const u = p.a % 10, t = (p.a - u) / 10, Y = WY + 0.14;
+    // the raft and the names of its two sides
+    for (let i = 0; i < 6; i++) g.add(mesh(boxG(4.3, 0.12, 0.2, MID.x, WY + 0.06, MID.z - 0.55 + i * 0.22), i % 2 ? woodM : wood2));
+    const tens = tagS('Desenes', ink.line, 0.3), ones = tagS('Unitats', ink.line, 0.3);
+    const BX = i => MID.x - 1.85 + i * 0.3, UX = MID.x + 1.45;
+    tens.position.set(MID.x - 0.6, Y + 2.35, MID.z); ones.position.set(UX, Y + 2.35, MID.z); g.add(tens); g.add(ones);
+    host.insertAdjacentHTML('beforeend', '<p class="split"></p>');
+    const sp = host.querySelector('.split');
+    const what = p.sub ? `${bar(t - 1)} i ${cub(10 - p.b)}` : bar(t + 1);
+    let bars = [], cubes = [], end = false;
+    const count = () => said({ barres: bars.length, cubets: cubes.length });
+    const total = mask => { end = true; sp.innerHTML = `<b>${what}</b> = ${mask ? '<b class="q">?</b>' : p.ans}`; };
+    const addBar = (fresh) => { const b = mesh(BARG, fresh ? newCube : barM); b.position.set(BX(bars.length), Y, MID.z); g.add(b); bars.push(b); return b; };
+    const addCube = (fresh) => { const c = mesh(CUBEG, fresh ? newCube : woodCube); c.position.set(UX, Y + cubes.length * STEP + CUBE / 2, MID.z); g.add(c); cubes.push(c); return c; };
+    function reset() {
+      for (const o of [...bars, ...cubes]) g.remove(o);
+      bars = []; cubes = []; end = false;
+      for (let i = 0; i < t; i++) addBar();
+      for (let i = 0; i < u; i++) addCube();
+      sp.innerHTML = `${bar(t)} i ${cub(u)}`; count();
+    }
+    const pause = ms => new Promise(r => setTimeout(r, RM ? 0 : ms));
+    // a thing glows for a moment: the bar about to break, the ten cubes about to stick
+    const glowOn = (os, ms) => { const gl = os.map(o => { const s = glow(o.position.x, o.position.y + (o.geometry === BARG ? 1 : 0), o.position.z + 0.2, o.geometry === BARG ? 2.6 : 0.7, 0xFFD36B); g.add(s); return s; }); return pause(ms).then(() => gl.forEach(s => { g.remove(s); s.material.dispose(); })); };
+    async function jump(i, mask) {
+      if (p.sub) {
+        if (i === 0) {
+          // the last bar breaks into ten cubes, that go to the units
+          const b = bars[bars.length - 1]; await glowOn([b], 600); if (!P.on()) return;
+          g.remove(b); bars.pop(); sound.tone(330, 0, 0.2, 0.08);
+          const bx = b.position.x, made = Array.from({ length: 10 }, () => addCube(true));
+          await Promise.all(made.map((c, k) => { const to = c.position.clone(), from = V(bx, Y + k * STEP + CUBE / 2, MID.z); c.position.copy(from); return tween(RM ? 0 : 600 + k * 30, q => { c.position.lerpVectors(from, to, q); c.position.y += Math.sin(q * Math.PI) * 0.4; }); }));
+          sp.innerHTML = `${bar(t - 1)} i <b>10 cubets</b>`; count();
+          return;
+        }
+        // b of them leave, from the top, and fall in the water
+        for (let k = 0; k < p.b && P.on(); k++) {
+          const c = cubes.pop(), from = c.position.clone(), to = V(UX + 0.9 + k * 0.08, WY - 0.1, MID.z + 0.6);
+          sound.tone(sound.noteAt(9 - k), 0, 0.12, 0.05);
+          tween(RM ? 0 : 420, q => { c.position.lerpVectors(from, to, q); c.position.y += Math.sin(q * Math.PI) * 0.6; }, q => q).then(() => { g.remove(c); splash(to, 0.5); });
+          count(); await pause(200);
+        }
+        total(mask); count();
+        return;
+      }
+      if (i === 0) {
+        // the cubes that are missing come, one by one
+        for (let k = 0; k < p.b && P.on(); k++) {
+          const c = addCube(true), to = c.position.clone(), from = to.clone().add(V(0.6, 1.4, 0.3));
+          sound.tone(sound.noteAt(u + k), 0, 0.12, 0.05);
+          tween(RM ? 0 : 260, q => c.position.lerpVectors(from, to, q), q => 1 - (1 - q) ** 2);
+          count(); await pause(200);
+        }
+        sp.innerHTML = `${bar(t)} i <b>${u} + ${p.b} = 10 cubets</b>`;
+        return;
+      }
+      // the ten loose cubes stick into a bar, that goes with the others
+      await glowOn([{ position: V(UX, Y, MID.z), geometry: BARG }], 600); if (!P.on()) return;
+      const nb = addBar(true), to = nb.position.clone(), from = V(UX, Y, MID.z);
+      for (const c of cubes) g.remove(c);
+      cubes = []; nb.position.copy(from);
+      await tween(RM ? 0 : 700, q => { nb.position.lerpVectors(from, to, q); nb.position.y += Math.sin(q * Math.PI) * 0.5; });
+      sound.tone(523, 0, 0.25, 0.08); D.sparkle(to.clone().add(V(0, 1, 0.2)), 8, 0xFFD36B);
+      total(mask); count();
+    }
+    P.start(reset);
+    return { n: 2, jump: (i, mask) => P.later(() => jump(i, mask)), reset: () => P.later(reset), reveal: () => P.later(() => { if (end) total(false); }) };
+  }
+
+  // A double is two equal rows of flowers; a near double has one flower more in the second row, with a ring of gold round it
+  function twinViz(host, p) {
+    const a = p.a, twin = p.b === a, s = Math.min(0.62, 7.4 / p.b), x0 = MID.x - (p.b - 1) * s / 2;
+    const P = middle(host, { t: [MID.x, 0, MID.z + 0.1], dir: [0, 1.25, 1], R: Math.max(2.1, p.b * s / 2 + 0.55), fit: 'w' }), g = P.g;
+    const rows = [a, p.b].map((n, r) => Array.from({ length: n }, (_, k) => {
+      const x = x0 + k * s, z = MID.z + (r ? 0.4 : -0.4), pad = lilyPad(s * 0.42), f = flower(s * 1.5);
+      pad.position.set(x, WY + 0.02, z); pad.rotation.y = k * 1.9 + r; f.position.set(x, WY + 0.03, z); g.add(pad); g.add(f);
+      if (k >= a) { const ring = new THREE.Mesh(new THREE.TorusGeometry(s * 0.47, 0.025, 6, 28).rotateX(Math.PI / 2), lineM(0xF7C64E)); ring.position.set(x, WY + 0.05, z); g.add(ring); }
+      return f;
+    }));
+    host.insertAdjacentHTML('beforeend', '<p class="split"></p>');
+    const sp = host.querySelector('.split');
+    let end = false;
+    const count = () => said({ fila: rows.map(r => r.filter(f => f.userData.k > 0.5).length) });
+    const total = mask => { end = true; sp.innerHTML = `${twin ? `<b>${a} + ${a}</b>` : `<b>${2 * a} + 1</b>`} = ${mask ? '<b class="q">?</b>' : p.ans}`; };
+    function reset() { rows.flat().forEach(f => bloom(f, 0)); end = false; sp.innerHTML = `${a} i ${p.b}`; count(); }
+    async function jump(i, mask) {
+      if (i === 0) {
+        // the two rows open in pairs
+        const opening = [];
+        for (let k = 0; k < a && P.on(); k++) {
+          for (const r of rows) { const f = r[k]; opening.push(tween(RM ? 0 : 220, q => bloom(f, q), q => 1 - (1 - q) ** 3)); }
+          sound.tone(sound.noteAt(k), 0, 0.12, 0.05);
+          await new Promise(r => setTimeout(r, RM ? 0 : 150));
+        }
+        await Promise.all(opening);
+        if (twin) total(mask); else sp.innerHTML = `<b>${a} + ${a} = ${2 * a}</b> i 1 més`;
+        count();
+        return;
+      }
+      const f = rows[1][a];
+      sound.tone(sound.noteAt(a + 2), 0, 0.2, 0.07);
+      await tween(RM ? 0 : 300, q => bloom(f, q), q => 1 - (1 - q) ** 3);
+      D.sparkle(f.position.clone().add(V(0, 0.25, 0)), 8, 0xFFD36B);
+      total(mask); count();
+    }
+    P.start(reset);
+    return { n: twin ? 1 : 2, jump: (i, mask) => P.later(() => jump(i, mask)), reset: () => P.later(reset), reveal: () => P.later(() => { if (end) total(false); }) };
+  }
+
   // the kinds of picture drawn on the pond; the others are drawn in the panel (viz.js)
-  const PICS = { line: lineViz };
+  const PICS = { line: lineViz, frame: frameViz, blocks: blockViz, twin: twinViz };
   function viz(host, p) { return PICS[p.viz](host, p); }
 
   // the taps on the pond while a picture takes them

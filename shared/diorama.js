@@ -28,6 +28,8 @@ export function mesh(g, m, o = {}) {
   return x;
 }
 export const SPH = new THREE.SphereGeometry(1, 20, 14), CONE = new THREE.ConeGeometry(1, 1, 16), CYL = new THREE.CylinderGeometry(1, 1, 1, 20);
+// shapes many things share: a picture that goes away never gives them back
+for (const g of [SPH, CONE, CYL]) g.userData.shared = true;
 export function part(g, m, s, p, r) { const x = new THREE.Mesh(g, m); x.scale.set(...s); x.position.set(...p); if (r) x.rotation.set(...r); x.castShadow = true; return x; }
 // one material per colour and finish, shared
 const MAT = new Map();
