@@ -21,7 +21,7 @@ if (!CORE || !existsSync(CORE + '/playwright-core')) { console.error('flow-salts
 if (!existsSync(CHROME)) { console.error(`flow-salts: no browser at ${CHROME}; set CHROME to a Chrome or Chromium binary`); process.exit(1); }
 const { chromium } = createRequire(CORE + '/')('playwright-core');
 const L = await import('../games/salts-de-granota/logic.js');
-const { clean, noteOf, VALID, PROJECTS, CIRCLES, levelIn, poolIn, fliesIn, streakIn, rapidIn, examIn, sheetIn } = L;
+const { clean, noteOf, VALID, PROJECTS, CIRCLES, PLAN, make, levelIn, poolIn, fliesIn, streakIn, rapidIn, examIn, sheetIn } = L;
 const KEY = 'salts-de-granota';
 
 let fails = 0;
@@ -241,6 +241,50 @@ await section("caça l'errada", async () => {
   }
   await page.waitForSelector('#bk', { timeout: 30000 });
   same('the save after a sheet', await stored(page), sheetIn(clean(MID), marks).prog);
+});
+
+/* ---------- the number line on the pond: the child makes the hops by touching where the frog lands ---------- */
+// The operation is read from the screen and its hops worked out by logic.js (make). Each hop is a tap on the place of the pond where the
+// next one lands (the pond says where a number is on the screen); the frog must land on that number. In the second operation a tap on a
+// wrong place comes first: it is a slip, as dragging the frog to a wrong place was, so that operation is not at the first try any more.
+const HANDS = { so: false, piscina: true, lv: lvOf((i, k) => (i === 7 || i === 18) && k === 0 ? 3 : 0), exams: [false, false, false, false, false, false], fulls: 0, rapid: 0, ratxa: 0, mosques: 0 };
+for (const i of process.env.NOGL ? [] : [7, 18]) await section(`recta a l'estany: projecte ${i}`, async () => {
+  const page = await open(HANDS);
+  await tap(page, `.proj[data-p="${i}"]`);
+  await page.waitForSelector('#ans');
+  same('the level that opens', await page.evaluate(() => +document.querySelector('.levels [aria-current]').dataset.n), 1);
+  const type = PROJECTS[i].type, n = PLAN[1].n, done = [];
+  const frogOn = v => wait(page, v => document.querySelector('#world').dataset.granota === String(v) && document.querySelector('#world').dataset.ocupat === '0', v);
+  const tapOn = async v => { const c = await page.evaluate(v => window.__estany.where(v), v); await page.mouse.move(c.x, c.y); await page.mouse.down(); await page.mouse.up(); };
+  for (let k = 0; ; k++) {
+    const what = await wait(page, () => { const a = document.querySelector('#ans'); if (a && !a.__seen && a.className !== 'good') return 'q'; return document.querySelector('#nx') ? 'end' : false; });
+    if (await what.jsonValue() === 'end') break;
+    const lhs = await page.evaluate(() => { document.querySelector('#ans').__seen = true; return document.querySelector('#lhs').textContent; });
+    const [a, b] = lhs.replace(/−/g, '-').match(/-?\d+/g).map(Number), q = make(type, a, type === 22 ? b : Math.abs(b));
+    const pts = [q.from ?? q.a, ...q.jumps.map(j => j.to)], m = Math.max(1, Math.round((Math.max(...pts) - Math.min(...pts)) * 0.05)), lo = Math.min(...pts) - m, hi = Math.max(...pts) + m;
+    let at = q.pre ? pts[1] : pts[0];
+    await frogOn(at);
+    const slip = k === 1;
+    for (let j = q.pre ? 1 : 0; j < q.jumps.length; j++) {
+      const to = q.jumps[j].to;
+      if (slip && j === (q.pre ? 1 : 0)) {
+        const bad = [to - 1, to + 1, to - 2, to + 2].find(v => v !== at && v >= lo && v <= hi);
+        await tapOn(bad);
+        await wait(page, () => /no arriba/.test(document.querySelector('#msg')?.textContent || ''));
+        await frogOn(at);
+      }
+      await tapOn(to);
+      await frogOn(to);   // contract: plan task 2, the hops fall on the numbers of p.jumps
+      at = to;
+    }
+    done.push({ ans: q.ans, wrong: slip });
+    await page.keyboard.type(q.ans < 0 ? '-' + -q.ans : String(q.ans));
+  }
+  // the operation with the slip comes back once at the end; it is not counted
+  same('operations of the level (the one with a slip comes back)', done.length, n + 1);
+  done[n].re = true;
+  const fast = done.slice(0, n).filter(d => !d.wrong).length;
+  same(`the save after a level made by hand, with a slip`, await stored(page), bank(levelIn(clean(HANDS), i, 1, n - fast).prog, fast, topOf(done)));
 });
 
 await browser.close();

@@ -14,8 +14,7 @@ body {
 #world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
 /* the page lets the taps through to the pond wherever it has nothing of its own */
 #app { width: min(100%, 640px); padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
-#app > * { pointer-events: auto; }
-#app > header { pointer-events: none; }
+.top, #joc > :not(.view) { pointer-events: auto; }
 h1, h2, .big, .btn, .chip, .key { font-family: var(--display); }
 .top { position: relative; z-index: 2; }
 .top .link { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
@@ -272,6 +271,11 @@ body.nogl .view { display: none; }
 .nlb .nlf .frog-s { transform-origin: 50% 100%; }
 .nlb.hand { cursor: grab; border-radius: 18px; }
 .nlb.hand:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+/* a picture drawn on the pond: what it says under it, and the place the keyboard moves the frog from */
+.hand3d { font-weight: 800; font-size: 0.95rem; color: var(--sun); border-radius: 12px; padding: 2px 10px; }
+.hand3d:focus-visible { outline: 3px solid var(--sun); }
+body:not(.nogl) #viz:empty { display: none; }
 
 /* inside the panel a level is not a card of its own */
 .sheet .play { background: none; border: 0; box-shadow: none; padding: 0; -webkit-backdrop-filter: none; backdrop-filter: none; max-width: none; }

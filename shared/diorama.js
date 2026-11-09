@@ -182,6 +182,10 @@ export function diorama(canvas, cfg) {
     const dir = V(...v.dir).normalize(), t = V(...v.t);
     return { t, p: t.clone().add(dir.multiplyScalar(d)), ox: lay.kind === 'right' ? lay.px / 2 : 0, oy: lay.kind === 'bottom' ? H1 * lay.f / 2 : 0 };
   }
+  // the part of the screen the panel leaves free, in pixels
+  const size = () => ({ w: lay.kind === 'right' ? W0 - lay.px : W0, h: lay.kind === 'bottom' ? H1 * (1 - lay.f) : H1 });
+  // how many pixels of the screen a unit of the world takes at the place view v looks at
+  const ppu = v => H1 / (2 * place(v).p.distanceTo(V(...v.t)) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   let flight = null;
   // to view name (a name of cfg.views, or a view itself); resolves on arriving. o.instant, o.dur
   function go(name, o = {}) {
@@ -269,6 +273,6 @@ export function diorama(canvas, cfg) {
   resize(); go(cfg.start || 'map', { instant: true });
 
   return { THREE, renderer, scene, camera, sun, hemi, rim, glow, burst, sparkle, celebrate, shake, go, layout, tween, wake, pick, onScreen,
-    every: f => every.push(f), get view() { return cam.name; }, get target() { return cam.t; }, views: VIEWS, place,
+    every: f => every.push(f), get view() { return cam.name; }, get target() { return cam.t; }, views: VIEWS, place, ppu, size,
     pause(on) { paused = on; if (!on) wake(); } };
 }

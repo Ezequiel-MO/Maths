@@ -37,7 +37,9 @@ window.__estany = W;
 const FX = { ring() {}, burst() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1) };
 // the pond as the progress has it: a flower open for each project validated, a star for each exam passed
 const pondState = () => W.state({ piscina: prog.piscina || OPEN, valid: OPEN ? PROJECTS.map((_, i) => i) : validated(prog), stars: prog.exams.filter(Boolean).length });
-hear({ tone, noteAt, FX });
+hear({ tone, noteAt, FX }); W.hear({ tone, noteAt });
+// the picture of a trick: on the pond when it can draw it there, in the panel otherwise (viz.js)
+const Pic = (host, p) => W.draws(p.viz) ? W.viz(host, p) : Viz(host, p);
 const buzz = () => tone(150, 0, 0.45, 0.16, 'triangle');
 const fanfare = () => chime([523, 659, 784, 1047, 1319]);
 // right answers in a row at the first try, and the longest run since the page opened
@@ -91,7 +93,7 @@ WIDE.addEventListener?.('change', () => frame3d());
 function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
 function show(kicker, playing) {
   document.body.classList.toggle('playing', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  root.onclick = null; W.highlight(null);
+  root.onclick = null; W.highlight(null); W.clear();
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -205,6 +207,7 @@ function play(o) {
     cur.on = false; cur = { on: true };
     if (i >= qs.length) return finish();
     const me = cur, alive = () => me.on && t.on && !over, p = qs[i];
+    if (!o.pic) W.clear();
     // shown counts the moves of the picture already played; clean stays true while no hint and no miss
     let v = null, shown = 0, clean = true, miss = 0, busy = false, done = false;
     o.chip?.(p.re ? 'Repàs' : o.secs ? hits(st.hits) : `Operació ${st.res.length + 1} de ${n}`, st);
@@ -218,7 +221,7 @@ function play(o) {
       hopped: () => { shown++; if (alive()) kp.auto(); },
       missed: () => { if (!alive()) return; clean = false; streak = 0; drawCombo(); say('Aquest salt no arriba on toca. Torna-ho a provar.', 'bad'); if (++miss >= 2) hb?.classList.add('glow'); } });
     if (o.pic) {
-      v = Viz($('#viz'), p); hand();
+      v = Pic($('#viz'), p); hand();
       // an answer typed while the first leap is being drawn is checked when it lands
       if (p.pre) { busy = true; shown = 1; v.jump(0).then(() => { if (alive()) { busy = false; kp.auto(); } }); }
     }
@@ -227,7 +230,7 @@ function play(o) {
     if (hb) hb.onclick = async () => {
       if (busy || done) return;
       busy = true; clean = false; hb.classList.remove('glow'); say(''); hb.blur();
-      if (!v) { $('#viz').hidden = false; v = Viz($('#viz'), p); hand(); }
+      if (!v) { $('#viz').hidden = false; v = Pic($('#viz'), p); hand(); }
       if (shown < v.n) { await v.jump(shown, shown === v.n - 1); shown++; }
       else v.reveal();
       if (alive()) { busy = false; kp.auto(); }
@@ -312,7 +315,7 @@ function nivell(i, idx) {
     async function tell() {
       cur.on = false; cur = { on: true }; const me = cur, p = make(S.type, ...S.demo[n]);
       $('#big').innerHTML = `${p.lhs} <b class="q">?</b> ${p.rhs}`;
-      if (await demo(p, Viz($('#viz'), p), $('#cap'), { get on() { return me.on && t.on; } })) $('#big').textContent = p.eq;
+      if (await demo(p, Pic($('#viz'), p), $('#cap'), { get on() { return me.on && t.on; } })) $('#big').textContent = p.eq;
     }
     $('#again').onclick = tell;
     $('#other').onclick = () => { n = (n + 1) % S.demo.length; tell(); };

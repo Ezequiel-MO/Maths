@@ -4,8 +4,9 @@
 // little lantern, when its project is validated, and every exam passed lights a star of a frog in the sky. Around the water: reeds, a
 // jetty with a blackboard (the Piscina and «Caça l'errada») and a rock where a heron watches the exams.
 // Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL pond() gives the same calls doing nothing.
-import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, SPH, CONE, CYL, V } from '../../shared/diorama.js';
+import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, label, SPH, CONE, V } from '../../shared/diorama.js';
 import { RM } from '../../shared/util.js';
+import { num } from './logic.js';
 
 /* ---------- the measures of the pond ---------- */
 // the block: x from X0 to X1 (the cut side), z from Z0 (back) to Z1 (front), the grass at 0, the bottom of the pond at BY and of the block at YB
@@ -30,6 +31,8 @@ export const PADS = [
 ];
 const GROUPS = [[0, 1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12, 13], [14, 15, 16, 17], [18, 19, 20, 21, 22]];
 // where the frog waits on the map, the end of the jetty, the pad by the heron's rock, the gauge of the water (the number line below zero)
+// the size of the frog on the pond
+const FROG = 0.55;
 const HOME = [1.2, 2.1], JETTY = { x: -1.5, z0: 5.7, z1: 2.75 }, ROCK = [-2.6, -4.7], GAUGE = [X1 - 0.45, 0.35];
 
 const C = {
@@ -84,7 +87,7 @@ export function pond(canvas) {
 // the same calls, doing nothing
 export function none() {
   const p = () => Promise.resolve();
-  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {} };
+  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, draws: () => false, clear() {}, hear() {}, where() {} };
 }
 
 function build(canvas) {
@@ -288,7 +291,7 @@ function build(canvas) {
   });
 
   /* ---------- the frog ---------- */
-  const frog = makeFrog(); frog.scale.setScalar(0.55); frog.position.set(HOME[0], WY + 0.03, HOME[1]); frog.rotation.y = 0.2; scene.add(frog);
+  const frog = makeFrog(); frog.scale.setScalar(FROG); frog.position.set(HOME[0], WY + 0.03, HOME[1]); frog.rotation.y = 0.2; scene.add(frog);
 
   /* ---------- fireflies ---------- */
   const NFL = RM ? 0 : 22, flies = Array.from({ length: NFL }, (_, i) => ({ p: Math.random() * 7, x: -7 + Math.random() * 15, z: -3.5 + Math.random() * 7.5, y: 0.5 + Math.random() * 1.2 }));
@@ -330,14 +333,239 @@ function build(canvas) {
     D.wake();
   }
 
+  /* ---------- the frog moves ---------- */
+  // sq: how much the frog is stretched by a leap (0 sitting, 1 in the air); face: where it turns to, slowly
+  frog.userData.sq = 0; frog.userData.face = 0.2;
+  const facing = (x, z) => Math.atan2(D.camera.position.x - x, D.camera.position.z - z);
+  // the frog leaps from where it is to b: an arc h high, in dur ms; it turns to where it goes and, landed, to the camera
+  function leapTo(b, o = {}) {
+    const a = frog.position.clone(), d = a.distanceTo(b), h = o.h ?? Math.min(2.4, 0.35 + d * 0.22), dur = o.dur ?? Math.min(950, 360 + d * 55);
+    if (d < 0.01) return Promise.resolve();
+    frog.userData.face = Math.atan2(b.x - a.x, b.z - a.z);
+    if (Math.abs(b.x - a.x) + Math.abs(b.z - a.z) < 0.05) frog.userData.face = facing(b.x, b.z);
+    return tween(dur, k => { frog.position.lerpVectors(a, b, k); frog.position.y += Math.sin(k * Math.PI) * h; frog.userData.sq = Math.sin(k * Math.PI); }, k => k)
+      .then(() => { frog.userData.sq = 0; if (o.turn !== false) frog.userData.face = facing(b.x, b.z); });
+  }
+  const homeAt = () => V(HOME[0], WY + 0.03, HOME[1]);
+  // a ring that spreads on the water where something falls in, and the drops it throws
+  const RIPPLE = new THREE.RingGeometry(0.11, 0.16, 36).rotateX(-Math.PI / 2);
+  const bubbles = (at, n = 8) => D.sparkle(at.clone().add(V(0, 0.3, 0)), n, 0xDFF8FF, 0.15, 0.55, -2.2);
+  function splash(at, big = 1) {
+    if (RM) return;
+    const m = new THREE.Mesh(RIPPLE, new THREE.MeshBasicMaterial({ color: 0xCFF6FF, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
+    m.position.set(at.x, Math.max(at.y, WY) + 0.02, at.z); scene.add(m);
+    tween(750, k => { m.scale.setScalar(1 + k * 5 * big); m.material.opacity = 0.85 * (1 - k); }, k => k).then(() => { scene.remove(m); m.material.dispose(); });
+    D.sparkle(V(at.x, Math.max(at.y, WY) + 0.05, at.z), Math.round(8 * big), 0xCFF6FF, 0.2, 1.3 * big, 7);
+  }
+
+  /* ---------- the pictures of the tricks ---------- */
+  // The same calls as the pictures of viz.js: { n, jump(i, mask), reveal(), reset(), hand(h) }. Each draws on the pond and flies the camera
+  // to it; host is the place in the panel for the line under the picture (the hops added up) and for the keyboard of hand().
+  // A new picture takes the place of the one before; clear() takes it away and gives the camera back to the view main.js asked for last.
+  let sound = { tone() {}, noteAt: () => 440 };
+  let pic = null, base = 'map';
+  const LINE = { x0: -4.6, x1: 6.6, z: 0.75 }, GX = X1 - 0.3, GZ = GAUGE[1];
+  const ink = { line: '#EAF8F4', q: '#F7C64E', fwd: '#6FE3FF', back: '#F7C64E', zero: '#B7A8FF' };
+  const tagS = (text, color, h = 0.46) => label(text, { ink: color, edge: 'rgba(4,19,28,0.9)', h });
+  const LM = new Map(), lineM = c => { if (!LM.has(c)) LM.set(c, new THREE.MeshBasicMaterial({ color: c, toneMapped: false })); return LM.get(c); };
+  function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && x.geometry !== RIPPLE) x.geometry.dispose(); }); }
+  function clear() {
+    if (!pic) return;
+    pic.alive = false; drop(pic.g); pic.cleanup?.(); pic = null; aim = null;
+    canvas.dataset.granota = ''; canvas.dataset.ocupat = '0';
+    frog.position.copy(homeAt()); frog.userData.face = 0.2; frog.userData.sq = 0; frog.scale.setScalar(FROG);
+    if (D.view !== base) D.go(base);
+  }
+  // a new picture: its group on the pond, its queue of moves (each waits for the one before) and whether it is still the one on show
+  function newPic(host) {
+    clear();
+    const P = { g: new THREE.Group(), alive: true, host, busy: 0 };
+    scene.add(P.g); pic = P;
+    P.on = () => pic === P && P.alive;
+    P.queue = Promise.resolve();
+    P.later = f => (P.queue = P.queue.then(async () => { if (!P.on()) return; P.busy++; canvas.dataset.ocupat = '1'; try { return await f(); } finally { P.busy--; if (P.on()) canvas.dataset.ocupat = P.busy ? '1' : '0'; } }));
+    return P;
+  }
+
+  /* ---------- the number line: lily pads on the water, or the gauge of the cut side below zero ---------- */
+  // The way of the frog from p.from (or p.a) through p.jumps. A pad where it starts and one for each ten, with their numbers; small pads for
+  // the units when the stretch is short. Where the frog lands a pad comes up with its number, "?" when it is the result and mask is on.
+  // When the numbers go below zero the line is the gauge on the cut side of the pond: the surface is the 0, and the frog dives under it.
+  function lineViz(host, p) {
+    const from = frog.position.clone(), P = newPic(host), g = P.g;
+    const pts = [p.from ?? p.a, ...p.jumps.map(j => j.to)], min = Math.min(...pts), max = Math.max(...pts), low = min < 0;
+    const m = Math.max(1, Math.round((max - min) * 0.05)), lo = min - m, hi = max + m, wide = hi - lo;
+    const every = wide <= 46 ? 1 : wide <= 120 ? 5 : 10, named = wide <= 24 ? 5 : wide <= 70 ? 10 : 20;
+    // a narrow screen gets a shorter line, so its numbers have more room
+    const len = D.size().w < 640 ? 8.6 : LINE.x1 - LINE.x0, x0 = (LINE.x0 + LINE.x1 - len) / 2, S = Math.min(0.42, 3.2 / Math.max(1, -lo), hi > 0 ? 4.4 / hi : 9);
+    const at3 = low ? n => V(GX, WY + n * S, GZ) : n => V(x0 + (n - lo) / wide * len, WY + 0.035, LINE.z);
+    // where the number of a place goes: in front of the line, or on the right of the gauge as the camera sees it
+    const tagAt = (n, up = 0) => low ? at3(n).add(V(0.32, 0.02 + up, -0.5 * big)) : at3(n).add(V(0, 0.02 + up, 0.55 * big));
+    const view = low ? { t: [X1 - 0.2, WY + (lo + hi) / 2 * S, GZ], dir: [1, 0.12, 0.34], R: wide * S / 2 + 0.9, fit: 'h' }
+      : { t: [(LINE.x0 + LINE.x1) / 2, 0.1, LINE.z + 0.35], dir: [0, 1.05, 1], R: len / 2 + 0.75, fit: 'w' };
+    D.go(view);
+    // on a small screen the numbers and the frog grow, so the label of a number is never much less than 28 pixels tall
+    const big = Math.max(1, Math.min(2.4, 28 / (0.42 * D.ppu(view)))), tag = (t, c, h) => tagS(t, c, h * big);
+    frog.scale.setScalar(FROG * Math.min(big, 1.45));
+    const flat = (r, c) => mesh(new THREE.CircleGeometry(r, 24, 0.25, Math.PI * 2 - 0.35).rotateX(-Math.PI / 2), mat(c, { roughness: 0.6 }), { cast: false });
+    const ledge = (r, n) => mesh(new THREE.CylinderGeometry(r, r * 0.9, 0.06, 20), mat(n < 0 ? 0x6F7F78 : n === 0 ? 0x4FA65A : C.wood, { roughness: 0.8 }), { cast: false });
+    // a place of the line: a pad on the water, a ledge on the gauge
+    const spot = (n, r) => { const o = low ? ledge(r * 0.85, n) : flat(r, n % 10 === 0 ? C.pad : 0x5FB86A); o.position.copy(at3(n)).add(V(0, low ? -0.03 : -0.02, 0)); return o; };
+    const named$ = [];
+    if (!low) {
+      // the strip of light water the line runs on
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(len + 1.0, 0.62 * big).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x9FEFFF, transparent: true, opacity: 0.16, depthWrite: false }));
+      strip.position.set((LINE.x0 + LINE.x1) / 2, WY + 0.008, LINE.z); g.add(strip);
+    } else {
+      // the gauge: a pole of red and white, a mark for each unit, the 0 at the surface and «sota zero» under it
+      const tex = canvasTex(32, 256, (c, w, h) => { const k = Math.min(64, wide); for (let i = 0; i < k; i++) { c.fillStyle = i % 2 ? '#F4F1E6' : '#D9474F'; c.fillRect(0, h - (i + 1) * h / k, w, h / k + 1); } });
+      const pole = mesh(new THREE.CylinderGeometry(0.07, 0.07, wide * S + 0.3, 12), std(0xffffff, { map: tex, roughness: 0.6 }));
+      pole.position.set(GX - 0.24, WY + (lo + hi) / 2 * S, GZ); g.add(pole);
+      const zl = tag('sota zero', ink.zero, 0.36); zl.position.set(X1 + 0.3, WY + Math.max(lo * S / 2, -1.6), GZ + 0.9); g.add(zl);
+      g.add(mesh(boxG(0.05, 0.05, 1.5, X1 + 0.03, WY, GZ), lineM(0xF7C64E), { cast: false }));
+    }
+    for (let n = Math.ceil(lo / every) * every; n <= hi; n += every) {
+      const ten = n % 10 === 0;
+      if (ten || (every === 1 && wide <= 30)) g.add(spot(n, ten ? 0.17 : 0.08));
+      else g.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 6).translate(0, 0.07, 0), lineM(0xBFEFF5), { cast: false, at: at3(n).toArray() }));
+      if (n % named === 0) { const t = tag(num(n), n === 0 && low ? ink.q : ink.line, 0.42); t.position.copy(tagAt(n)); g.add(t); named$.push({ n, t }); }
+    }
+    // what each hop leaves: its arc, its label, the pad where it lands; reset() takes them away
+    let dyn = [], landed = [], hid = null, at = pts[0];
+    const sp = p.gap ? (host.insertAdjacentHTML('beforeend', '<p class="split">&nbsp;</p>'), host.querySelector('.split')) : null;
+    const added = mask => { sp.innerHTML = `<b>${p.jumps.map(j => j.lab.slice(1)).join(' + ')}</b> = ${mask ? '<b class="q">?</b>' : p.ans}`; };
+    const keep = o => { g.add(o); dyn.push(o); return o; };
+    function land(n, mask) {
+      const x = at3(n);
+      named$.forEach(L => { L.t.visible = L.t.visible && x.distanceTo(at3(L.n)) >= 0.5 * big; });
+      landed = landed.filter(L => { if (x.distanceTo(L.x) < 0.5 * big) { L.lab.visible = false; return false; } return true; });
+      keep(spot(n, 0.27));
+      const lab = keep(tag(mask ? '?' : num(n), mask ? ink.q : ink.line, 0.56)); lab.position.copy(tagAt(n, 0.02));
+      landed.push({ x, lab });
+      if (mask) hid = () => { const t = keep(tag(num(n), ink.line, 0.56)); t.position.copy(lab.position); lab.visible = false; };
+    }
+    const show = () => { canvas.dataset.granota = String(at); };
+    function reset() {
+      dyn.forEach(drop); dyn = []; landed = []; hid = null; named$.forEach(L => { L.t.visible = true; });
+      if (sp) sp.innerHTML = '&nbsp;';
+      at = pts[0]; frog.position.copy(at3(at)); frog.userData.face = facing(frog.position.x, frog.position.z); land(at); show();
+    }
+    // the hop from pts[i] to pts[i + 1]: the frog flies along its arc and the arc is drawn behind it; its label on top, a pad where it lands
+    async function jump(i, mask) {
+      const a = at3(pts[i]), b = at3(pts[i + 1]), back = pts[i + 1] < pts[i], end = i === p.jumps.length - 1;
+      const d = a.distanceTo(b), h = Math.min(low ? 1.1 : 2.2, 0.4 + d * (low ? 0.12 : 0.16));
+      const bulge = low ? V(0, 0, 1) : V(0, 1, 0), behind = low ? V(-0.02, 0.04, 0) : V(0, 0.05, -0.3);
+      const top = a.clone().add(b).multiplyScalar(0.5).addScaledVector(bulge, 2 * h);
+      const way = new THREE.QuadraticBezierCurve3(a, top, b), trail = new THREE.QuadraticBezierCurve3(a.clone().add(behind), top.clone().add(behind), b.clone().add(behind));
+      const tube = keep(new THREE.Mesh(new THREE.TubeGeometry(trail, 40, 0.045, 6, false), lineM(back ? 0xF7C64E : 0x6FE3FF))), total = tube.geometry.index.count;
+      tube.geometry.setDrawRange(0, 0);
+      sound.tone(back ? 330 : 440, 0, 0.14, 0.06);
+      frog.userData.face = low ? facing(b.x, b.z) : Math.atan2(b.x - a.x, 0.6);
+      const under = pts[i] >= 0 && pts[i + 1] < 0;
+      await tween(RM ? 0 : Math.min(1000, 430 + d * (low ? 110 : 75)), k => {
+        tube.geometry.setDrawRange(0, Math.floor(total * k / 36) * 36); frog.position.copy(way.getPoint(k)); frog.userData.sq = Math.sin(Math.PI * k);
+      }, k => k);
+      if (!P.on()) return;
+      frog.userData.sq = 0; frog.userData.face = facing(b.x, b.z);
+      // a single hop that is the whole answer keeps its size secret
+      const secret = mask && p.gap && p.jumps.length === 1;
+      const lab = keep(tag(secret ? '?' : p.jumps[i].lab, secret || back ? ink.back : ink.fwd, 0.5));
+      lab.position.copy(way.getPoint(0.5)).add(low ? V(0.1, 0, 0.42) : V(0, 0.36, 0));
+      at = pts[i + 1]; show();
+      land(at, mask && !p.gap && at === p.ans);
+      if (p.gap && end) { added(mask); if (mask) hid = () => { const t = keep(tag(p.jumps[i].lab, back ? ink.back : ink.fwd, 0.5)); t.position.copy(lab.position); lab.visible = false; added(false); }; }
+      // the frog lands with a splash; under the water it lands with bubbles, and it splashes at the surface on its way down
+      if (low && at < 0) bubbles(b, 10); else splash(b);
+      if (under) splash(V(b.x, WY, b.z), 1.2);
+      sound.tone(back ? 494 : 659, 0, 0.2, 0.07);
+    }
+    function reveal() { if (hid) { hid(); hid = null; } }
+
+    // The child makes the hops by touching the place where the frog has to land (or moving it with the arrows of the keyboard). h is what
+    // main.js says and hears, as with the picture of viz.js: can(), next(), hopped(), missed(), hold(on). A hop to the right place is drawn
+    // as a hint draws it; to any other place the frog jumps there, falls in the water and swims back.
+    function hand(h) {
+      P.later(() => {
+        const hit = new THREE.Mesh(low ? new THREE.PlaneGeometry(2.4, wide * S + 0.9).rotateY(Math.PI / 2) : new THREE.PlaneGeometry(len + 1.2, 1.8).rotateX(-Math.PI / 2),
+          new THREE.MeshBasicMaterial({ visible: false }));
+        hit.position.copy(low ? V(X1, WY + (lo + hi) / 2 * S, GZ) : V(x0 + len / 2, WY + 0.04, LINE.z)); g.add(hit);
+        const mark = new THREE.Group(), ringM = new THREE.MeshBasicMaterial({ color: 0xF7C64E, transparent: true, opacity: 0.9, toneMapped: false, depthTest: false });
+        mark.add(new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 8, 32).rotateX(low ? 0 : Math.PI / 2).rotateY(low ? Math.PI / 2 : 0), ringM)); mark.renderOrder = 6; mark.visible = false; g.add(mark);
+        let markTag = null, kn = null, wait = 0;
+        const num$ = e => { const q = D.pick(e.clientX, e.clientY, [hit])[0]; if (!q) return null; const n = low ? (q.point.y - WY) / S : lo + (q.point.x - x0) / len * wide; return Math.max(lo, Math.min(hi, Math.round(n))); };
+        const showAt = n => {
+          aim.n = n; mark.visible = true; mark.position.copy(at3(n)).add(V(low ? 0.05 : 0, 0.02, 0));
+          if (markTag?.userData.n !== n) { if (markTag) drop(markTag); markTag = tag(num(n), ink.q, 0.5); markTag.userData.n = n; markTag.position.copy(at3(n)).add(low ? V(0.2, 0.45, 0.5) : V(0, 0.75, 0)); g.add(markTag); }
+          markTag.visible = true; slider.setAttribute('aria-valuenow', n); D.wake();
+        };
+        const hideMark = () => { mark.visible = false; if (markTag) markTag.visible = false; D.wake(); };
+        // the frog lands on n: the next hop is drawn, or it falls in the water and comes back
+        async function dropAt(n) {
+          const i = h.next();
+          hideMark();
+          if (n === at || !h.can() || i >= p.jumps.length) return;
+          h.hold(true);
+          if (n === pts[i + 1]) { await P.later(() => jump(i, i === p.jumps.length - 1)); if (!P.on()) return; h.hold(false); return h.hopped(); }
+          await P.later(async () => {
+            const back = frog.position.clone(), to = at3(n);
+            sound.tone(196, 0, 0.18, 0.05);
+            await leapTo(low ? to : to.clone().add(V(0, -0.12, 0)), { h: 0.6, dur: 420, turn: false });
+            splash(to, 0.8);
+            await tween(RM ? 0 : 420, k => { frog.position.lerpVectors(to, back, k); frog.position.y += Math.sin(k * Math.PI) * 0.25; }, k => k);
+            frog.position.copy(back); frog.userData.face = facing(back.x, back.z);
+          });
+          if (!P.on()) return;
+          h.hold(false); h.missed();
+        }
+        aim = { num: num$, show: showAt, hide: hideMark, drop: dropAt, can: () => h.can(), n: null, down: false };
+        canvas.style.touchAction = 'none';
+        // the keyboard: the place for it is in the panel
+        host.insertAdjacentHTML('beforeend', `<p class="hand3d" tabindex="0" role="slider" aria-valuemin="${lo}" aria-valuemax="${hi}" aria-valuenow="${at}"
+          aria-label="La granota a la recta numèrica, de ${num(lo)} a ${num(hi)}. Toca a l'estany el lloc on ha de saltar, o mou-la amb les fletxes.">👆 Toca a l'estany on ha de saltar la granota</p>`);
+        const slider = host.querySelector('.hand3d');
+        slider.addEventListener('keydown', e => {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+          e.preventDefault(); e.stopPropagation();
+          if (!h.can()) return;
+          const up = e.key === 'ArrowRight' || e.key === 'ArrowUp';
+          kn = Math.max(lo, Math.min(hi, (kn ?? at) + (up ? 1 : -1) * (e.shiftKey ? 10 : 1)));
+          showAt(kn); clearTimeout(wait);
+          wait = setTimeout(() => { const n = kn; kn = null; dropAt(n); }, 750);
+        });
+        P.cleanup = () => { canvas.style.touchAction = ''; clearTimeout(wait); };
+      });
+    }
+    P.where = n => D.onScreen(at3(n));
+    // the frog leaps to where the line starts
+    P.later(async () => { reset(); const s = frog.position.clone(); frog.position.copy(from); await leapTo(s, { dur: 520 }); });
+    return { n: p.jumps.length, jump: (i, mask) => P.later(() => jump(i, mask)), reset: () => P.later(reset), reveal: () => P.later(reveal), hand };
+  }
+  // the kinds of picture drawn on the pond; the others are drawn in the panel (viz.js)
+  const PICS = { line: lineViz };
+  function viz(host, p) { return PICS[p.viz](host, p); }
+
+  // the taps on the pond while a picture takes them
+  let aim = null;
+  canvas.addEventListener('pointerdown', e => { if (!aim || !aim.can()) return; const n = aim.num(e); if (n == null) return; aim.down = true; canvas.setPointerCapture?.(e.pointerId); aim.show(n); e.preventDefault(); });
+  canvas.addEventListener('pointermove', e => { if (!aim) return; const n = aim.num(e); if (aim.down) { if (n != null) aim.show(n); } else if (e.pointerType === 'mouse' && aim.can()) { if (n == null) aim.hide(); else aim.show(n); } });
+  canvas.addEventListener('pointerup', e => { if (!aim || !aim.down) return; aim.down = false; const n = aim.num(e) ?? aim.n; if (n != null) aim.drop(n); else aim.hide(); });
+  canvas.addEventListener('pointercancel', () => { if (aim) { aim.down = false; aim.hide(); } });
+  canvas.addEventListener('pointerleave', e => { if (aim && !aim.down && e.pointerType === 'mouse') aim.hide(); });
+
   /* ---------- what moves by itself ---------- */
   const wp = new THREE.Vector3();
   D.every((dt, now) => {
     let busy = false;
     // the frog breathes and blinks
     const u = frog.userData; u.t += dt;
+    // the frog turns, slowly, to where it goes or to the camera
+    const dd = Math.atan2(Math.sin(u.face - frog.rotation.y), Math.cos(u.face - frog.rotation.y));
+    if (Math.abs(dd) > 0.003) { frog.rotation.y += RM ? dd : dd * Math.min(1, dt * 9); busy = true; }
     if (!RM) {
-      u.body.scale.set(1 + Math.sin(u.t * 2.2) * 0.02, 1 + Math.sin(u.t * 2.2) * 0.03, 1);
+      const sq = u.sq || 0;
+      u.body.scale.set((1 + Math.sin(u.t * 2.2) * 0.02) * (1 - 0.12 * sq), (1 + Math.sin(u.t * 2.2) * 0.03) * (1 + 0.24 * sq), 1 - 0.12 * sq);
+      // under the water the frog lets out a bubble now and then
+      if (frog.position.y < WY - 0.15) { u.bub = (u.bub || 0) - dt; if (u.bub <= 0) { u.bub = 0.4; bubbles(frog.position.clone().add(V(0.05, 0.25, 0.05)), 2); } busy = true; }
       u.throat.scale.set(0.26 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.25), 0.12 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.4), 0.12);
       u.blink -= dt;
       const b = u.blink < 0.16 && u.blink > 0 ? Math.sin((0.16 - u.blink) / 0.16 * Math.PI) : 0;
@@ -356,7 +584,8 @@ function build(canvas) {
     return busy;
   });
 
-  return { ok: true, layout: D.layout, go: (v, o) => D.go(v, o), state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
+  return { ok: true, layout: D.layout, go: (v, o) => { base = v; return D.go(v, o); }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
+    viz, draws: kind => !!PICS[kind], clear, hear: o => { sound = { ...sound, ...o }; }, where: n => pic?.where?.(n),
     _: { D, frog, pads, stars, writeBoard, heron, head, tween, setFlower, piscina: () => piscinaOn } };
 }
 
