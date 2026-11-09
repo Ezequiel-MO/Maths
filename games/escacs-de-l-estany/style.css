@@ -1,34 +1,55 @@
-/* Layout: the night of the other games, laid out as a cursus. The map is a band for each circle, a piece for each project.
-   A level is one centred column: the lane on top (a pawn walking to its crown), then the field (the board, as big as it fits) and the
-   desk (the counter of the two changes of a move, the square being typed and the keys: a row of letters and a row of numbers).
-   Two fixed canvases paint the sky behind and the sparks in front. The rules are written for a phone held upright; the media
-   queries at the end put field and desk side by side. */
+/* Els escacs de l'estany: the terrace of the board is the 3D picture behind the page (#world, games/escacs-de-l-estany/world.js); the page is
+   a panel of glass over it, as in Salts de Granota. On a wide screen the panel stands on the right and the terrace fills the rest; on a phone
+   or a tablet held upright the terrace is on top (.view keeps its place free) and the panel under it. Without WebGL there is no terrace:
+   the dusk of the page stays, and the board is drawn inside the panel, next to the desk (the counter of the two changes of a move, the
+   square being typed and the keys: a row of letters and a row of numbers). */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
-:root { --mint: #7CF5B0; --light: #4FA3AC; --dark: #1B5A6A; }
-#app { max-width: 620px; min-height: calc(100dvh - 38px); }
-#app.wide { max-width: 1040px; }
-#app.wide h1 { display: none; }
+:root { --mint: #7CF5B0; --sky: #6FE3FF; --light: #4FA3AC; --dark: #1B5A6A; --glass: rgb(7 28 40 / 0.8); }
+html { background: #0B1636; }
+body {
+  padding: 0; overflow-x: hidden;
+  background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed;
+}
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+/* the page lets the taps through to the terrace wherever it has nothing of its own */
+#app { width: min(100%, 640px); padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+.top, #game > :not(.view) { pointer-events: auto; }
 h1, h2, .btn, .chip, .status, .key, .ask, .calc, .combo, .claim, .lot { font-family: var(--display); }
-
-/* the level and the XP live in the row at the top: always in view, and no screen is taller for it */
-.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
-.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
-.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
-.top { flex-wrap: nowrap; }
+.top { position: relative; z-index: 2; flex-wrap: nowrap; }
+.top .link { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
 .top > span { flex: none; }
-
-#game, #board { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
-#game { margin-bottom: auto; }
+header { text-align: center; }
+header .kicker { text-shadow: 0 1px 8px rgb(0 0 0 / 0.6); color: var(--ink); }
+h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); }
+body.playing header { display: none; }
+#game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+/* the room the terrace is seen through, above the panel */
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+/* the panel: dark glass over the terrace */
+.sheet {
+  position: relative; display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 14px 12px 18px; border-radius: 26px;
+  background: var(--glass); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
+}
+.lead { color: var(--muted); max-width: 44ch; text-wrap: pretty; }
+.lead.go { color: var(--mint); font-weight: 800; }
+.btn { min-height: 44px; padding: 0.3em 1.3em; font-size: 1.25rem; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .hud.mid { justify-content: center; }
 #st { flex: none; overflow: visible; color: var(--sun); letter-spacing: 0.1em; }
 .hud .link { flex: none; white-space: nowrap; }
 .sun { color: var(--sun); }
 
-/* the pieces: white ones are cream with a dark edge, black ones are night with a pink edge */
+/* the level and the XP live in the row at the top: always in view, and no screen is taller for it */
+.xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
+.xp-n { flex: none; font: 800 0.85rem/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-bar { flex: 1 1 0; min-width: 16px; height: 10px; border-radius: 999px; background: rgb(160 230 220 / 0.18); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
+
+/* the pieces drawn on the page: white ones are cream with a dark edge, black ones are night with a pink edge */
 .pc .body { stroke-width: 3.5px; stroke-linejoin: round; }
 .pc .dt { fill: none; stroke-width: 3px; stroke-linecap: round; }
 .pc.w .body { fill: #F6FBF4; stroke: #0A2A3A; } .pc.w .dt { stroke: #0A2A3A; } .pc.w circle.dt { fill: #0A2A3A; }
@@ -37,7 +58,8 @@ svg.ico { display: inline-block; width: 1.5em; height: 1.5em; vertical-align: mi
 svg.ico .star path { fill: var(--sun); }
 
 /* the map: a band for each circle; a closed one says what it lacks and its buttons are disabled */
-.map { width: 100%; max-width: 580px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.map { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: linear-gradient(160deg, hsl(var(--rh) 60% 30% / 0.25), transparent 60%) var(--glass); }
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
@@ -70,15 +92,14 @@ svg.ico .star path { fill: var(--sun); }
 .proj.exam.ok { border-color: var(--mint); }
 .proj:disabled, .proj.exam:disabled { background: transparent; border-style: dashed; border-color: rgb(77 116 134 / 0.6); box-shadow: none; cursor: not-allowed; }
 .proj:disabled b, .proj:disabled .mk { color: var(--muted); }
-/* around the bands: what to do now (above them), the two extra games and the badges, the earned ones lit */
-.next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
+/* around the bands: the two extra games and the badges, the earned ones lit */
 .extra { width: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; }
 .extra .btn { min-height: 40px; font-size: 1rem; padding: 0.3em 1em; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
 .badges li { padding: 2px 8px; border-radius: 99px; border: 1px dashed rgb(77 116 134 / 0.6); font-size: 0.72rem; font-weight: 700; color: var(--muted); }
 .badges li.on { border: 1px solid var(--sun); color: var(--sun); background: rgb(247 198 78 / 0.1); }
-.intro { width: min(100%, 440px); display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 20px 16px; border-radius: 26px; background: var(--glass); border: 1px solid var(--edge); }
+.intro { width: min(100%, 440px); display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 8px 4px; }
 .intro h2 { margin: 0; font-size: 1.8rem; line-height: 1.1; }
 
 /* the lane: --p is the share of the level done; a pawn walks along it towards the queen it will become */
@@ -93,17 +114,19 @@ svg.ico .star path { fill: var(--sun); }
 /* the queen that crosses the screen when a level is done */
 .launch { position: fixed; left: 50%; bottom: -150px; z-index: 6; width: 130px; height: 130px; margin-left: -65px; pointer-events: none; filter: drop-shadow(0 0 26px rgb(255 200 110 / 0.9)); animation: launch 1.5s cubic-bezier(0.55, 0, 0.9, 0.5) forwards; }
 /* a lightning round has a fuse that burns down instead of a lane */
-.fuse { width: 100%; max-width: 560px; height: 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); overflow: hidden; }
+.fuse { width: 100%; max-width: 560px; height: 16px; border-radius: 999px; background: rgb(160 230 220 / 0.1); border: 1px solid var(--edge); overflow: hidden; }
 .fuse i { display: block; width: 100%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--bad), var(--sun) 40%, var(--mint)); background-size: 560px 100%; }
+#board { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 #board .status.tip:empty { display: none; }
-.status.tip { min-height: 4.05em; }
+.status.tip { min-height: 2.7em; }
 
 .split { position: relative; width: 100%; display: flex; flex-direction: column; gap: 14px 24px; justify-content: center; align-items: center; }
-/* the run of right answers, pinned to the top of the field */
-.combo { position: absolute; z-index: 2; top: -10px; left: 50%; transform: translateX(-50%); padding: 1px 12px; border-radius: 999px; background: linear-gradient(90deg, #FF8A3C, var(--sun)); color: #2A1C00; font-weight: 800; font-size: 0.95rem; box-shadow: 0 0 18px rgb(247 198 78 / 0.7); white-space: nowrap; }
+/* the run of right answers, pinned to the top of the desk */
+.combo { position: absolute; z-index: 2; top: -12px; right: 14px; padding: 1px 12px; border-radius: 999px; background: linear-gradient(90deg, #FF8A3C, var(--sun)); color: #2A1C00; font-weight: 800; font-size: 0.95rem; box-shadow: 0 0 18px rgb(247 198 78 / 0.7); white-space: nowrap; }
 .combo.pop { animation: combo 0.4s cubic-bezier(0.2, 1.8, 0.4, 1); }
 
-/* the field holds the board, as big as the screen lets it */
+/* the field holds the board drawn on the page, as big as the screen lets it; with the terrace the board is on it, not here */
+body:not(.nogl) .field { display: none; }
 .field { width: min(100%, 600px); padding: 8px 10px 4px 2px; border-radius: 26px; border: 1px solid var(--edge); display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: radial-gradient(120% 90% at 50% 110%, rgb(90 80 200 / 0.22), transparent 70%), linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
 svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: visible; }
@@ -134,7 +157,7 @@ svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: 
 .bd .rock .sh { fill: none; stroke: #A9BCC6; stroke-width: 4px; stroke-linecap: round; }
 
 /* the desk: the counter of the move, the square being typed, and the keys */
-.desk { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border-radius: 24px; background: var(--glass); border: 1px solid var(--edge); }
+.desk { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
 /* the counter: how much the letter and the number change from where the piece is to where it would go, next to the rule of the piece */
 .calc { width: 100%; display: grid; gap: 4px; padding: 8px 12px; border-radius: 16px; background: rgb(4 19 28 / 0.55); border: 1px dashed var(--edge); text-align: left; }
 .calc .rule { font: 700 0.92rem/1.3 var(--body); color: var(--muted); text-wrap: pretty; }
@@ -185,8 +208,7 @@ svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: 
 .pilot { flex: none; width: 64px; height: 64px; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.4)); }
 .coach.go .pilot { animation: hop 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .coach.oops .pilot { animation: shake 0.4s; }
-.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center; background: var(--glass); border: 1px solid var(--edge); }
-.coach .status.tip::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg); background: #0B2A38; border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+.coach .status.tip { position: relative; flex: 1; min-height: 58px; max-width: none; margin: 0; padding: 10px 14px; border-radius: 18px; text-align: left; display: flex; align-items: center; background: rgb(160 230 220 / 0.08); border: 1px solid var(--edge); }
 .stage { position: relative; width: 100%; min-height: 220px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 /* the sheet is paper: dark ink on cream, slightly askew */
 .paper { width: min(100%, 440px); padding: 18px 16px; border-radius: 6px 18px 6px 18px; display: flex; flex-direction: column; gap: 14px; align-items: center; transform: rotate(-1deg);
@@ -208,31 +230,42 @@ svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: 
 @keyframes march { to { stroke-dashoffset: -27; } }
 @keyframes twirl { 50% { transform: scale(1.14) rotate(12deg); } }
 @keyframes crown { from { transform: scale(0.3) rotate(-25deg); } }
-/* a tablet or a laptop: the board and the desk side by side */
-@media (min-width: 760px), (min-width: 600px) and (orientation: landscape) {
-  .status.tip { font-size: 1.1rem; min-height: 2.8em; max-width: 70ch; }
-  .split { flex-direction: row; align-items: flex-start; }
-  .field { flex: 1.5 1 0; max-width: min(600px, max(340px, 100dvh - 300px)); }   /* the whole board in view under the lane and the tip */
-  .desk { flex: 1 1 0; max-width: 380px; padding: 14px; }
-  .combo { left: 30%; }
-}
-/* a phone held upright: the whole desk stays at the bottom of the screen while the board scrolls above it, so it is kept short:
-   no lane, no rule, and the two changes of the counter side by side */
+@keyframes combo { from { transform: scale(0.4); } }
+
+/* inside the panel the map is not a card of its own */
+.sheet .map { max-width: none; }
+/* a phone held upright: the panel is kept short, so the board above it and the keys are in view together: no lane, no rule, and the two
+   changes of the counter side by side */
 @media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
   .lane, .calc .rule { display: none; }
-  .status.tip { min-height: 0; }
-  .desk { position: sticky; bottom: 0; z-index: 2; gap: 6px; padding: 8px 8px 10px; border-radius: 20px 20px 0 0; background: #0A2633; }
+  .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body.playing #app { padding-bottom: 6px; gap: 6px; }
+  .sheet .levels button { width: 38px; height: 38px; }
+  .hud { row-gap: 4px; }
+  .status.tip { min-height: 0; font-size: 0.95rem; }
+  .desk { gap: 6px; }
   .calc { grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 10px; }
   .calc .row { grid-template-columns: auto 1fr auto; gap: 6px; font-size: 1.05rem; }
   .calc .row span { font-size: 0.7rem; } .calc .row i { font-size: 1.2rem; }
   .ask { min-height: 44px; } .in { height: 42px; }
   .key { height: 46px; font-size: 1.35rem; }
 }
-@media (min-width: 760px) and (min-height: 900px) { #app.wide h1 { display: block; } }
-@media (max-width: 759px) { #app:not(.wide) h1 { display: none; } }
 /* a phone: the name of the level takes a row of its own, over the stars and the hint */
-@media (max-width: 520px) { .hud { flex-wrap: wrap; justify-content: space-around; } .hud .chip:first-child { flex: 1 1 100%; text-align: center; } .key { height: 48px; font-size: 1.35rem; } }
+@media (max-width: 520px) { .hud { flex-wrap: wrap; justify-content: space-around; } .hud .chip:first-child { flex: 1 1 100%; text-align: center; } }
 @media (max-width: 420px) { .proj { grid-template-columns: 36px minmax(0, 1fr); column-gap: 6px; } .orb { width: 34px; height: 34px; } .orb svg.ico { width: 28px; height: 28px; } .pilot { width: 52px; height: 52px; } }
+
+/* wide screens: the panel on the right and the terrace on the left */
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app { width: 480px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+/* without WebGL, a tablet or a laptop: the board and the desk side by side, as before the terrace */
+@media (min-width: 760px), (min-width: 600px) and (orientation: landscape) {
+  body.nogl #app.wide { width: min(100%, 1040px); }
+  body.nogl .split { flex-direction: row; align-items: flex-start; }
+  body.nogl .field { flex: 1.5 1 0; max-width: min(600px, max(340px, 100dvh - 300px)); }
+  body.nogl .desk { flex: 1 1 0; max-width: 380px; }
+}
 @media (prefers-reduced-motion: reduce) {
   h1, .panel, .panel .won i.on, .lane.won .goal, .combo.pop, .bd .m, .bd .star > g, .bd .pc.crown .pi, .coach .pilot, .keys[data-next="x"] .key.ok { animation: none; }
   .fuel, .rk, .xp-bar i, .bd .pc, .bd .pi { transition: none; }
