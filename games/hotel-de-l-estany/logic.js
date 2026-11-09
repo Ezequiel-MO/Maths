@@ -16,10 +16,10 @@ import { curs, POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle, whole, within,
 
 /* ---------- words ---------- */
 export const GUESTS = [
-  { sp: 'anec', one: "l'ànec", many: 'ànecs', fam: 'la família Ànec' },
-  { sp: 'tortuga', one: 'la tortuga', many: 'tortugues', fam: 'la família Tortuga' },
-  { sp: 'lludriga', one: 'la llúdriga', many: 'llúdrigues', fam: 'la família Llúdriga' },
-  { sp: 'granota', one: 'la granota', many: 'granotes', fam: 'la família Granota' }
+  { sp: 'excursionista', one: "l'excursionista", many: 'excursionistes', fam: 'la família Puig' },
+  { sp: 'ciclista', one: 'la ciclista', many: 'ciclistes', fam: 'la família Soler' },
+  { sp: 'turista', one: 'el turista', many: 'turistes', fam: 'la família Vila' },
+  { sp: 'avi', one: "l'àvia", many: 'avis', fam: 'la família Riera' }
 ];
 export const WEEK = ['dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte', 'diumenge'];
 export const DAYS5 = ['dl', 'dt', 'dc', 'dj', 'dv'];
@@ -28,6 +28,8 @@ const MONTHS = [
   { name: 'setembre', de: 'de setembre', len: 30 }, { name: 'octubre', de: "d'octubre", len: 31 }
 ];
 export const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// «a» before a guest: «al turista», «a la ciclista», «a l'àvia»
+const toWho = g => g.one.startsWith('el ') ? 'al ' + g.one.slice(3) : 'a ' + g.one;
 export const euros = n => `${String(n).replace('.', ',')} €`;
 const pickOf = (a, rnd) => a[at(a.length, rnd)];
 const who = rnd => pickOf(GUESTS, rnd);
@@ -115,7 +117,7 @@ const count = rnd => {
 const doorSeq = rnd => {
   const kind = at(3, rnd), f = int(rnd, 2, 9);
   if (kind === 0) { const s = 2 * int(rnd, 0, 3) + 1, it = [0, 1, 2, 3].map(i => room(f, s + 2 * i)); return Num({ k: 'seq', items: [...it, null] }, "Al Gran Hotel, les portes del costat del llac són senars. Quina ve després?", room(f, s + 8), 'Les senars van de 2 en 2: 1, 3, 5, 7, 9, 11...', `${it.join(', ')}, ${room(f, s + 8)}.`); }
-  if (kind === 1) { const s = 2 * int(rnd, 6, 9), it = [0, 1, 2, 3].map(i => room(f, s - 2 * i)); return Num({ k: 'seq', items: [...it, null] }, 'Al passadís de les parells, la granota grum compta cap enrere. Quina ve després?', room(f, s - 8), 'Cada porta té 2 menys que l\'anterior.', `${it.join(', ')}, ${room(f, s - 8)}.`); }
+  if (kind === 1) { const s = 2 * int(rnd, 6, 9), it = [0, 1, 2, 3].map(i => room(f, s - 2 * i)); return Num({ k: 'seq', items: [...it, null] }, 'Al passadís de les parells, el grum compta cap enrere. Quina ve després?', room(f, s - 8), 'Cada porta té 2 menys que l\'anterior.', `${it.join(', ')}, ${room(f, s - 8)}.`); }
   const d = int(rnd, 1, 9), it = [1, 2, 3, 4].map(i => room(i, d));
   return Num({ k: 'seq', items: [...it, null] }, 'Aquestes habitacions són una just a sobre de l\'altra. Quina ve després?', room(5, d), 'Cada planta més amunt suma 100.', `${it.join(', ')}, ${room(5, d)}.`);
 };
@@ -162,7 +164,7 @@ const twice = rnd => {
     `Primer puja: ${s} + ${u} = ${s + u}. Després baixa ${d} des de la ${s + u}.`, `${s} + ${u} − ${d} = ${s + u - d}.`, { neg: true });
 };
 const load = [rnd => {
-  const kg = pickOf([30, 35, 40, 25], rnd), n = int(rnd, 3, 5), w = pickOf([20, 15, 10], rnd), g = pickOf(GUESTS.slice(1, 3), rnd);
+  const kg = pickOf([60, 65, 70, 55], rnd), n = int(rnd, 3, 5), w = pickOf([20, 15, 10], rnd), g = pickOf(GUESTS.slice(1, 3), rnd);
   return Num({ k: 'load', max: 300, items: [{ sp: g.sp, kg }, { suit: true, kg: w, n }] }, `${cap(g.one)} pesa ${kg} kg i porta ${n} maletes de ${w} kg. Quants kg porta l'ascensor?`, kg + n * w,
     `Les maletes: ${n} × ${w} = ${n * w} kg. Suma-hi ${g.one}.`, `${kg} + ${n * w} = ${kg + n * w} kg.`, { unit: 'kg', sp: g.sp });
 }, rnd => {
@@ -230,7 +232,7 @@ const wait = [rnd => {
     `De les ${hhmm(13, m)} a les 14:00 falten els minuts que li queden a l'hora: 60 − ${m}.`, `60 − ${m} = ${60 - m} minuts.`, { sp: g.sp, unit: 'min' });
 }, rnd => {
   const m = pickOf([5, 15, 25, 35, 40], rnd), g = who(rnd);
-  return Num({ k: 'clocks', a: [11, m], b: [12, 0], la: 'Ara', lb: 'Sortida' }, `Cal deixar l'habitació a les 12:00 i són les ${hhmm(11, m)}. Quants minuts li queden a ${g.one}?`, 60 - m,
+  return Num({ k: 'clocks', a: [11, m], b: [12, 0], la: 'Ara', lb: 'Sortida' }, `Cal deixar l'habitació a les 12:00 i són les ${hhmm(11, m)}. Quants minuts li queden ${toWho(g)}?`, 60 - m,
     `Fins a les 12:00 falten 60 − ${m} minuts.`, `${60 - m} minuts per fer la maleta.`, { sp: g.sp, unit: 'min' });
 }];
 const longWait = rnd => {
@@ -512,7 +514,7 @@ const pict = rnd => {
 };
 const table = rnd => {
   const sp = shuffle(GUESTS.slice(), rnd).slice(0, 3), rows = sp.map(() => [int(rnd, 2, 9), int(rnd, 2, 9), int(rnd, 2, 9)]), i = at(3, rnd);
-  return Num({ k: 'table', heads: ['dv', 'ds', 'dg'], rows: sp.map((g, j) => [cap(g.many), ...rows[j]]) }, `${sp[i].sp === 'anec' ? 'Quants' : 'Quantes'} ${sp[i].many} van venir en total, aquest cap de setmana?`,
+  return Num({ k: 'table', heads: ['dv', 'ds', 'dg'], rows: sp.map((g, j) => [cap(g.many), ...rows[j]]) }, `Quants ${sp[i].many} van venir en total, aquest cap de setmana?`,
     rows[i].reduce((s, n) => s + n, 0), `Suma els tres números de la fila «${cap(sp[i].many)}».`, `${rows[i].join(' + ')} = ${rows[i].reduce((s, n) => s + n, 0)}.`);
 };
 const tally = rnd => {
@@ -656,9 +658,9 @@ export const { circleOf, noteOf, reached, validated, xpOf, levelText, isOpen, ex
 export { POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle };
 // the Piscina, at the pool of the hotel: a key, the lift and a first bill
 export const POOL = [
-  Tap(rack({ tags: true }), 'Toca la clau de la planta 2, porta 3.', '2-3', 'Busca la fila de la planta 2 i, en aquesta fila, la columna 3.', 'La 203: planta 2, porta 3!', { sp: 'anec', room: 203 }),
-  Lift(liftCard(0, 'buttons'), 'Porta la tortuga a la planta 3.', 3, 'Prem el botó del 3.', 'Planta 3!', { sp: 'tortuga', free: true }),
-  Num(bill([line('Habitació', 2, 30, 'nits', false)], { blank: 0 }), '2 nits a 30 € la nit. Quant fa?', 60, '30 + 30.', '2 × 30 = 60 €.', { unit: '€', sp: 'lludriga' })
+  Tap(rack({ tags: true }), 'Toca la clau de la planta 2, porta 3.', '2-3', 'Busca la fila de la planta 2 i, en aquesta fila, la columna 3.', 'La 203: planta 2, porta 3!', { sp: 'excursionista', room: 203 }),
+  Lift(liftCard(0, 'buttons'), 'Porta la ciclista a la planta 3.', 3, 'Prem el botó del 3.', 'Planta 3!', { sp: 'ciclista', free: true }),
+  Num(bill([line('Habitació', 2, 30, 'nits', false)], { blank: 0 }), '2 nits a 30 € la nit. Quant fa?', 60, '30 + 30.', '2 × 30 = 60 €.', { unit: '€', sp: 'turista' })
 ];
 
 // What is saved is facts only: { so, lv[90], piscina, exams[3], fulls, clients }. clients counts every guest served right in a level (it
