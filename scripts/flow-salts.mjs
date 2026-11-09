@@ -143,6 +143,8 @@ for (const [name, save] of Object.entries(SAVES)) {
     same(`${name}: record on the map`, p.rapid ? +(seen.rapid.match(/rècord (\d+)/) || [])[1] : /rècord/.test(seen.rapid), p.rapid || false);
     // opening the map writes nothing
     same(`${name}: the save after the map`, await stored(page), save);
+    // a phone held upright: the panel goes under the pond and nothing scrolls sideways
+    same(`${name}: sideways scroll on a phone`, await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), 0);
   });
 }
 
@@ -175,6 +177,7 @@ await section('nivell sense errades', async () => {
   await tap(page, '.proj[data-p="3"]');
   await page.waitForSelector('#ans');
   same('the level that opens', await page.evaluate(() => +document.querySelector('.levels [aria-current]').dataset.n), 4);
+  same('sideways scroll on a phone, in a level', await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), 0);
   const done = await board(page);
   same('operations', done.length, 5);
   same('the save after a level with no mistake', await stored(page), bank(levelIn(clean(MID), 3, 4, 0).prog, 5, 5));
@@ -291,6 +294,18 @@ for (const i of process.env.NOGL ? [] : [7, 18]) await section(`recta a l'estany
   done[n].re = true;
   const fast = done.slice(0, n).filter(d => !d.wrong).length;
   same(`the save after a level made by hand, with a slip`, await stored(page), bank(levelIn(clean(HANDS), i, 1, n - fast).prog, fast, topOf(done)));
+});
+
+/* ---------- without WebGL: a whole level with the pictures drawn in the panel, as before ---------- */
+if (process.env.NOGL) await section('nivell amb dibuix sense WebGL', async () => {
+  const save = { so: false, piscina: true, lv: lvOf((i, k) => i === 3 && k === 0 ? 3 : 0), exams: [false, false, false, false, false, false], fulls: 0, rapid: 0, ratxa: 0, mosques: 0 };
+  const page = await open(save);
+  await tap(page, '.proj[data-p="3"]');
+  await page.waitForSelector('#ans');
+  check(await page.$('#viz .blocks'), 'without WebGL the bars and cubes are drawn in the panel');
+  const done = await board(page), n = PLAN[1].n;
+  same('operations', done.length, n);
+  same('the save after a level with pictures, without WebGL', await stored(page), bank(levelIn(clean(save), 3, 1, 0).prog, n, n));
 });
 
 /* ---------- the other pictures on the pond: each trick makes the steps its captions tell ---------- */

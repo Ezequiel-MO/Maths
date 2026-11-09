@@ -26,6 +26,9 @@ let keyFn = null;
 const fresh = tokens(() => { keyFn = null; });
 
 const { tone, chime } = voice(() => prog.so);
+// the plain voice, for what clicks: a key, the croak of a right answer
+const { tone: snd } = voice(() => prog.so, false);
+const croak = () => { snd(150, 0, 0.07, 0.07, 'sawtooth'); snd(118, 0.09, 0.11, 0.07, 'sawtooth'); };
 // the longer the streak, the higher the note
 const noteAt = pentatonic(392);
 // the pond in 3D behind the panel; without WebGL its calls do nothing and the pictures of the tricks are drawn in the panel
@@ -37,7 +40,7 @@ window.__estany = W;
 const FX = { ring() {}, burst() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1) };
 // the pond as the progress has it: a flower open for each project validated, a star for each exam passed
 const pondState = () => W.state({ piscina: prog.piscina || OPEN, valid: OPEN ? PROJECTS.map((_, i) => i) : validated(prog), stars: prog.exams.filter(Boolean).length });
-hear({ tone, noteAt, FX }); W.hear({ tone, noteAt });
+hear({ tone, noteAt, FX }); W.hear({ tone, noteAt, snd });
 // the picture of a trick: on the pond when it can draw it there, in the panel otherwise (viz.js)
 const Pic = (host, p) => W.draws(p.viz) ? W.viz(host, p) : Viz(host, p);
 const buzz = () => tone(150, 0, 0.45, 0.16, 'triangle');
@@ -166,7 +169,7 @@ function keypad(p, submit, neg) {
     else v = k === 'del' ? v.slice(0, -1) : (v + k).slice(0, 3);
     if (k === 'del' && !v) minus = false;
     out.className = ''; out.textContent = (minus ? '−' : '') + v;
-    tone(k === 'del' ? 392 : 784, 0, 0.08, 0.05);
+    snd(k === 'del' ? 1300 : 1900, 0, 0.03, 0.03, 'square');
     if (k !== 'del') auto();
   };
   $('.keys').onclick = e => { const b = e.target.closest('button'); if (b && keyFn) keyFn(b.dataset.k); };
@@ -175,7 +178,7 @@ function keypad(p, submit, neg) {
     wrong() { v = ''; minus = false; out.textContent = ''; out.className = ''; void out.offsetWidth; out.className = 'shake'; buzz(); },
     // one try only: the right answer takes the place of the wrong one
     show() { keyFn = null; out.textContent = num(p.ans); out.className = ''; void out.offsetWidth; out.className = 'shake told'; buzz(); },
-    right(k = 0) { keyFn = null; out.className = 'good'; const c = mid(out); FX.burst(c.x, c.y, 140, 16 + 4 * Math.min(k, 6), 160 + 20 * Math.min(k, 6)); FX.ring(c.x, c.y, 140, c.w * 0.4, c.w * 1.2); chime([noteAt(k), noteAt(k + 2)]); }
+    right(k = 0) { keyFn = null; out.className = 'good'; croak(); const c = mid(out); FX.burst(c.x, c.y, 140, 16 + 4 * Math.min(k, 6), 160 + 20 * Math.min(k, 6)); FX.ring(c.x, c.y, 140, c.w * 0.4, c.w * 1.2); chime([noteAt(k), noteAt(k + 2)]); }
   };
 }
 

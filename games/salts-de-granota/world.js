@@ -250,6 +250,8 @@ function build(canvas) {
     for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(PETAL, petalM); p.scale.setScalar(0.7); p.rotation.set(-1.0, (i + 0.5) / 6 * Math.PI * 2, 0, 'YXZ'); open.add(p); }
     open.add(part(SPH, heartM, [0.06, 0.04, 0.06], [0, 0.03, 0]));
     bud.add(part(SPH, budM, [0.06, 0.11, 0.06], [0, 0.08, 0])); bud.add(part(CONE, mat(C.padDark), [0.06, 0.07, 0.06], [0, 0.0, 0]));
+    // the petals of a flower and its bud, merged: a few meshes each, so the pond stays light for a tablet
+    bake(open); bake(bud);
     open.position.y = 0.03; open.scale.setScalar(0.001); f.add(open); f.add(bud); f.scale.setScalar(s);
     f.userData = { open, bud, k: 0 };
     return f;
@@ -357,7 +359,11 @@ function build(canvas) {
   const homeAt = () => V(HOME[0], WY + 0.03, HOME[1]);
   // a ring that spreads on the water where something falls in, and the drops it throws
   const RIPPLE = new THREE.RingGeometry(0.11, 0.16, 36).rotateX(-Math.PI / 2); RIPPLE.userData.shared = true;
-  const bubbles = (at, n = 8) => D.sparkle(at.clone().add(V(0, 0.3, 0)), n, 0xDFF8FF, 0.15, 0.55, -2.2);
+  // bubbles that rise from under the water; loud: with the blips of their sound
+  const bubbles = (at, n = 8, loud = n > 4) => {
+    D.sparkle(at.clone().add(V(0, 0.3, 0)), n, 0xDFF8FF, 0.15, 0.55, -2.2);
+    if (loud) for (let i = 0; i < 4; i++) sound.tone(1100 + Math.random() * 700, i * 0.07, 0.05, 0.02);
+  };
   function splash(at, big = 1) {
     if (RM) return;
     const m = new THREE.Mesh(RIPPLE, new THREE.MeshBasicMaterial({ color: 0xCFF6FF, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
@@ -425,7 +431,7 @@ function build(canvas) {
       tg.visible = true; tg.lookAt(F.g.position); tg.getWorldPosition(base);
       const tip = F.g.position.clone(), len = base.distanceTo(tip) / (frog.scale.x * u.body.scale.z);
       await tween(RM ? 0 : 130, k => { tg.scale.z = Math.max(0.001, len * k); }, k => k);
-      sound.tone(880, 0, 0.08, 0.05);
+      sound.tone(620, 0, 0.05, 0.05); sound.tone(940, 0.04, 0.07, 0.05);
       await tween(RM ? 0 : 170, k => { tg.scale.z = Math.max(0.001, len * (1 - k)); F.g.position.lerpVectors(tip, base, k); F.g.scale.setScalar(1.4 * (1 - k * 0.8)); }, k => k);
       tg.visible = false; tg.scale.z = 0.001; gone(F); u.gulp = 1;
       if (up) { await tween(RM ? 0 : 360, k => { frog.position.y = start.y + up * Math.cos(k * Math.PI / 2); u.sq = k < 0.7 ? 0.4 : 0; }, k => k); frog.position.copy(start); u.sq = 0; splash(start, o.big ? 1.4 : 1); }
@@ -438,7 +444,7 @@ function build(canvas) {
     return act(async () => {
       const at = frog.position.clone(), u = frog.userData;
       if (at.y < WY - 0.1) { await tween(RM ? 0 : 420, k => { frog.rotation.z = Math.sin(k * Math.PI * 4) * 0.25 * (1 - k); }, k => k); frog.rotation.z = 0; return; }
-      sound.tone(210, 0, 0.12, 0.12); sound.tone(120, 0.06, 0.22, 0.1, 'triangle');
+      sound.tone(440, 0, 0.06, 0.1); sound.tone(190, 0.05, 0.18, 0.12, 'triangle');
       splash(at, 1.2);
       await tween(RM ? 0 : 320, k => { frog.position.y = at.y - 0.5 * k * k; }, k => k);
       bubbles(frog.position, 6);
