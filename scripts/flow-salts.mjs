@@ -49,7 +49,11 @@ let opened = [], pageErrors = [], ran = 0;
 async function section(name, fn) {
   if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
   ran++; const t0 = Date.now();
-  try { await fn(); } catch (e) { check(false, `${name}: stopped on ${String(e.message).split('\n')[0]}`); }
+  try { await fn(); } catch (e) {
+    check(false, `${name}: stopped on ${String(e.message).split('\n')[0]}`);
+    // what was on screen when it stopped
+    for (const c of opened) for (const pg of c.pages()) console.error('  on screen:', await pg.evaluate(() => ({ kick: document.querySelector('#kick')?.textContent, eq: document.querySelector('#big')?.textContent, ans: document.querySelector('#ans')?.className, msg: document.querySelector('#msg')?.textContent, pond: { ...document.querySelector('#world')?.dataset } })).catch(e => e.message));
+  }
   await new Promise(r => setTimeout(r, 300));
   check(pageErrors.length === 0, `${name}: page error: ${pageErrors[0]}`);
   pageErrors = [];

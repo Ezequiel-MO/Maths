@@ -93,15 +93,16 @@ WIDE.addEventListener?.('change', () => frame3d());
 function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
 function show(kicker, playing) {
   document.body.classList.toggle('playing', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  root.onclick = null; W.highlight(null); W.clear();
+  root.onclick = null; W.highlight(null); W.clear(); W.shoo();
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
 // the longest run goes in with whatever is being handed in: gives back the badges it earns
 function run() { const r = streakIn(prog, top); prog = r.prog; return r.news; }
 const drawCombo = () => combo(streak);
-// a big frog leaps across the whole screen
+// the frog hops for joy on the pond; without it, a big frog leaps across the whole screen
 function leap() {
+  if (W.ok) return W.joy();
   if (RM) return;
   const e = document.createElement('div'); e.className = 'leap'; e.innerHTML = `<span>${frog()}</span>`; document.body.append(e);
   [0, 0.12, 0.24].forEach((d, i) => tone(330 * 2 ** (i / 3), d, 0.3, 0.07));
@@ -125,7 +126,7 @@ const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, i
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('Càlcul mental · el mapa', false);
-  pondState(); W.go('map');
+  pondState(); W.go('map'); W.rest('home');
   panel3d('42vh', '');
   const sheet = $('#sheet');
   M.screen({ root: sheet, here, rings, ringAttr: c => ` style="--rh:${HUE[c]}"`, projAttr: (i, c) => ` style="--h:${HUE[c]}"`, icon: () => ORB, pp: true,
@@ -190,12 +191,16 @@ function keypad(p, submit, neg) {
 function play(o) {
   const { t, host, qs } = o, n = qs.length, st = { res: [], hits: 0, flies: 0, missed: [] };
   let i = 0, cur = { on: true }, over = false;
+  // the way through the board: a dot for each operation when the frog is on the pond, the row of lily pads otherwise
   host.innerHTML = `${o.secs ? '<div class="fuse" role="img" aria-label="El temps que queda"><i id="fuse"></i></div>'
+    : W.ok ? `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Una rodona per a cada operació">${'<i></i>'.repeat(n)}</span></div>`
     : `<div class="lane" style="--n:${n + 1};--k:0" role="img" aria-label="Un nenúfar per a cada operació">${pad().repeat(n + 1)}<span class="hopper">${frog()}</span></div>`}
     <div class="stage" id="stage"></div><span class="combo" id="cb" hidden></span>`;
-  const stage = $('#stage'), lane = $('.lane', host);
-  // the frog hops to the pad of the operation just answered
+  const stage = $('#stage'), lane = $('.lane', host), dots = [...host.querySelectorAll('#dots i')];
+  const here = () => dots.forEach((d, j) => d.classList.toggle('cur', j === st.res.length));
+  // the frog hops to the pad of the operation just answered (the dot of it takes its colour)
   function step(ok) {
+    if (dots.length) { dots[st.res.length - 1]?.classList.add(ok ? 'ok' : 'late'); here(); }
     if (!lane) return;
     const k = st.res.length, h = lane.lastChild;
     lane.style.setProperty('--k', k); lane.children[k].classList.add(ok ? 'ok' : 'slow');
@@ -215,6 +220,8 @@ function play(o) {
       ${o.hints ? '<div class="row"><button class="btn soft" id="hintb">Pista</button></div>' : ''}`;
     const hb = $('#hintb'), msg = $('#msg');
     const say = (txt, cls) => { msg.textContent = txt; msg.className = cls || ''; };
+    // a fly comes for each operation, and waits by the frog
+    W.fly(); here();
     // On a number line the child can make the hops herself, dragging the frog. A hop she lands right is her own work, not a hint;
     // one that lands anywhere else is a slip, as a wrong answer is (or she could find the result by trying every place)
     const hand = () => v.hand?.({ can: () => alive() && !busy && !done, next: () => shown, hold: on => { busy = on; },
@@ -239,14 +246,14 @@ function play(o) {
       if (busy || done) return;
       const ok = val === p.ans;
       if (!ok && !o.once) {
-        clean = false; streak = 0; drawCombo(); kp.wrong(); say('Encara no. Torna-ho a provar.', 'bad');
+        clean = false; streak = 0; drawCombo(); kp.wrong(); say('Encara no. Torna-ho a provar.', 'bad'); W.plof();
         // two misses in a row: the hint button lights up
         if (++miss >= 2) hb?.classList.add('glow');
         return;
       }
       done = true; hb?.classList.remove('glow');
       if (!ok) {
-        st.res.push(false); st.missed.push(p); streak = 0; drawCombo(); step(false); kp.show(); say(`Era ${num(p.ans)}.`, 'bad');
+        st.res.push(false); st.missed.push(p); streak = 0; drawCombo(); step(false); kp.show(); say(`Era ${num(p.ans)}.`, 'bad'); W.plof(); W.shoo();
         if (o.secs) { await sleep(1100); if (alive()) { i++; ask(); } return; }
         $('.keys', stage).outerHTML = '<button class="btn" id="go">Segueix</button>';
         $('#go').onclick = () => { if (alive()) { i++; ask(); } }; $('#go').focus({ preventScroll: true });
@@ -255,17 +262,19 @@ function play(o) {
       st.hits++;
       if (!p.re) {
         st.res.push(clean); step(clean);
-        if (clean) { st.flies++; streak++; top = Math.max(top, streak); catchFly($('#ans')); } else { streak = 0; if (o.redo) qs.push({ ...p, re: true }); }
+        if (clean) { st.flies++; streak++; top = Math.max(top, streak); if (!W.ok) catchFly($('#ans')); } else { streak = 0; if (o.redo) qs.push({ ...p, re: true }); }
         drawCombo();
       }
       kp.right(clean ? streak : 0); say(clean && streak >= 3 && streak % 5 === 0 ? `${streak} seguides!` : pick(BRAVO), 'good');
       if (clean && streak && streak % 5 === 0) FX.celebrate(3);
       o.chip?.(o.secs ? hits(st.hits) : null, st);
-      // with the picture on screen, the frog finishes the trick before the next operation
+      // the fly of an operation answered at the first try is caught (a big jump every five in a row); any other one flies away.
+      // With the picture on screen the frog finishes the trick first and catches it from the pad of the result; without it, it jumps up to it
+      const caught = clean && !p.re, big = caught && streak % 5 === 0;
       if (v) {
         for (; shown < v.n; shown++) { await v.jump(shown); if (!alive()) return; }
-        v.reveal(); await sleep(1200);
-      } else await sleep(o.secs ? 300 : 700);
+        v.reveal(); caught ? W.gulp({ big }) : W.shoo(); await sleep(1200);
+      } else { caught ? W.gulp({ leap: true, big }) : W.shoo(); await sleep(o.secs ? 300 : 700); }
       if (!alive()) return;
       i++; ask();
     }, o.neg);
@@ -294,7 +303,8 @@ function nivell(i, idx) {
   const t = fresh(), S = PROJECTS[i], L = PLAN[idx], c = circleOf(i);
   let cur = { on: true };
   show(`Cercle ${c} · ${S.name}`, true); here = i;
-  W.go('c' + c);
+  // the frog waits on the pad of this project, in its group of the pond
+  W.go(W.padView(i)); W.rest(i);
   panel3d('30vh', `${HUD(`Nivell ${idx + 1} · ${L.kind}`)}<nav class="levels" aria-label="Nivells"></nav><div class="play" id="play"></div>`);
   const card = $('#play'), nav = $('.levels', root);
   function levels() {
@@ -331,6 +341,8 @@ function nivell(i, idx) {
     prog = r.prog; const got = [...r.news, ...bank(st)]; save();
     levels(); $('#cnt').textContent = `${fast} de ${L.n} a la primera`;
     fanfare(); FX.celebrate(r.valid || end ? 16 : 8); if (r.n === 3 || r.valid) leap();
+    // a project validated: its flower opens on the pond, before the child's eyes
+    if (r.valid) W.bloom(i);
     card.innerHTML = `<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
       <p class="won" role="img" aria-label="${r.n} de 3 estrelles">${[1, 2, 3].map(k => `<i class="${k <= r.n ? 'on' : ''}" style="--i:${k}">${STAR}</i>`).join('')}</p>
       <p class="cap">${fast} de ${L.n} a la primera${st.flies ? ` · ${flies(st.flies)} més` : ''}${r.n < 3 ? '. Amb totes a la primera, tres estrelles!' : ''}</p>

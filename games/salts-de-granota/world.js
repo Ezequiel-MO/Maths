@@ -87,7 +87,8 @@ export function pond(canvas) {
 // the same calls, doing nothing
 export function none() {
   const p = () => Promise.resolve();
-  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, draws: () => false, clear() {}, hear() {}, where() {} };
+  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, draws: () => false, clear() {}, hear() {}, where() {},
+    rest() {}, fly: p, gulp: p, plof: p, shoo() {}, joy: p, bloom: p, padView: () => 'map' };
 }
 
 function build(canvas) {
@@ -358,6 +359,109 @@ function build(canvas) {
     D.sparkle(V(at.x, Math.max(at.y, WY) + 0.05, at.z), Math.round(8 * big), 0xCFF6FF, 0.2, 1.3 * big, 7);
   }
 
+  /* ---------- what the frog does: one thing after another ---------- */
+  // Its actions (a leap to its place, a catch, a «plof») wait for the one before, and the pictures wait for them too, so two things
+  // never move the frog at once. An action that fails says so in the console and lets the next one go.
+  let acts = Promise.resolve();
+  let actN = 0;
+  const act = f => { actN++; return (acts = acts.then(f).catch(e => console.error('estany:', e)).finally(() => { actN--; })); };
+  const pause = ms => new Promise(r => setTimeout(r, RM ? 0 : ms));
+  // where the frog waits when there is no picture: its pad on the map, the pad of the project, the jetty, the pad by the heron's rock
+  const EXAMPAD = [-1.25, -2.15];
+  const examPad = lilyPad(0.5); examPad.position.set(EXAMPAD[0], WY + 0.02, EXAMPAD[1]); examPad.rotation.y = 0.7; scene.add(examPad);
+  const SPOTS = { home: homeAt, jetty: () => V(JETTY.x, 0.18, JETTY.z1 + 0.4), rock: () => V(EXAMPAD[0], WY + 0.03, EXAMPAD[1]) };
+  let restAt = homeAt();
+  function rest(w) {
+    restAt = Number.isInteger(w) && PADS[w] ? V(PADS[w][0], WY + 0.03, PADS[w][1]) : (SPOTS[w] || SPOTS.home)();
+    if (!pic) act(() => leapTo(restAt));
+  }
+
+  /* ---------- the guest of each question: a fly ---------- */
+  const WING = new THREE.CircleGeometry(0.1, 12).scale(1, 0.5, 1); WING.userData.shared = true;
+  const wingM = new THREE.MeshBasicMaterial({ color: 0xDFF8FF, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false });
+  let fly = null;
+  const flying = [];
+  // where a fly hovers: by the frog, a bit up and towards the camera
+  const hoverAt = (t = 0) => { const k = frog.scale.x / FROG, c = D.camera.position.clone().sub(frog.position).setY(0).normalize(); return frog.position.clone().add(V(c.x * 0.45 * k + 0.35 * k, 0.95 * k + Math.sin(t * 2.3) * 0.08, c.z * 0.45 * k)).add(V(Math.sin(t * 1.7) * 0.1, 0, Math.cos(t * 1.3) * 0.08)); };
+  // a fly comes from far and hovers by the frog; the promise says when it is there
+  function newFly() {
+    if (fly) shoo();
+    const g = new THREE.Group();
+    g.add(part(SPH, mat(0x2A1C00), [0.06, 0.055, 0.06], [0.07, 0.01, 0]));
+    g.add(part(SPH, mat(0xF7C64E, { emissive: 0x7A5A00, emissiveIntensity: 0.4 }), [0.1, 0.07, 0.075], [-0.04, 0, 0]));
+    const wings = [-1, 1].map(s => { const w = new THREE.Mesh(WING, wingM); w.position.set(-0.03, 0.06, s * 0.06); g.add(w); return w; });
+    glow(0, 0, 0, 0.55, 0xFFE08A, true, g);
+    const from = frog.position.clone().add(V((Math.random() < 0.5 ? -1 : 1) * 4, 3, -1.5));
+    g.position.copy(from); g.scale.setScalar(1.4); scene.add(g);
+    const F = { g, wings, from, k: 0, t: Math.random() * 9, mode: 'come' }; flying.push(F);
+    F.arrived = new Promise(r => { F.done = r; });
+    if (RM) { F.mode = 'hover'; F.done(); }
+    fly = F; D.wake();
+    return F.arrived;
+  }
+  // the fly goes away, uncaught
+  function shoo() { const F = fly; fly = null; if (!F) return; F.mode = 'go'; F.k = 0; F.from = F.g.position.clone(); F.away = F.from.clone().add(V((Math.random() - 0.5) * 6, 3.5, -3)); F.done(); D.wake(); }
+  function gone(F) { scene.remove(F.g); F.g.traverse(x => { if (x.isSprite) x.material.dispose(); }); const i = flying.indexOf(F); if (i >= 0) flying.splice(i, 1); }
+  // The frog catches the fly with its tongue, from where it is; with leap it jumps up to it first (a level done in the head), and with big the
+  // jump is higher and the camera shakes (five right in a row)
+  function gulp(o = {}) {
+    const F = fly; if (!F) return Promise.resolve();
+    fly = null;
+    return act(async () => {
+      await Promise.race([F.arrived, pause(1200)]);
+      const u = frog.userData, start = frog.position.clone(), up = o.big ? 1.5 : o.leap ? 0.75 : 0;
+      F.mode = 'held';
+      u.face = Math.atan2(F.g.position.x - start.x, F.g.position.z - start.z);
+      if (up) { sound.tone(392, 0, 0.12, 0.06); await tween(RM ? 0 : 380, k => { frog.position.y = start.y + up * Math.sin(k * Math.PI / 2); u.sq = 1 - k; }, k => k); }
+      // the tongue to the fly, and back with it
+      const tg = u.tongue, base = new THREE.Vector3();
+      tg.visible = true; tg.lookAt(F.g.position); tg.getWorldPosition(base);
+      const tip = F.g.position.clone(), len = base.distanceTo(tip) / (frog.scale.x * u.body.scale.z);
+      await tween(RM ? 0 : 130, k => { tg.scale.z = Math.max(0.001, len * k); }, k => k);
+      sound.tone(880, 0, 0.08, 0.05);
+      await tween(RM ? 0 : 170, k => { tg.scale.z = Math.max(0.001, len * (1 - k)); F.g.position.lerpVectors(tip, base, k); F.g.scale.setScalar(1.4 * (1 - k * 0.8)); }, k => k);
+      tg.visible = false; tg.scale.z = 0.001; gone(F); u.gulp = 1;
+      if (up) { await tween(RM ? 0 : 360, k => { frog.position.y = start.y + up * Math.cos(k * Math.PI / 2); u.sq = k < 0.7 ? 0.4 : 0; }, k => k); frog.position.copy(start); u.sq = 0; splash(start, o.big ? 1.4 : 1); }
+      if (o.big) D.shake(0.12);
+      u.face = facing(start.x, start.z);
+    });
+  }
+  // a wrong answer: the frog falls in the water with a «plof» and climbs back; under the water it only shakes its head
+  function plof() {
+    return act(async () => {
+      const at = frog.position.clone(), u = frog.userData;
+      if (at.y < WY - 0.1) { await tween(RM ? 0 : 420, k => { frog.rotation.z = Math.sin(k * Math.PI * 4) * 0.25 * (1 - k); }, k => k); frog.rotation.z = 0; return; }
+      sound.tone(210, 0, 0.12, 0.12); sound.tone(120, 0.06, 0.22, 0.1, 'triangle');
+      splash(at, 1.2);
+      await tween(RM ? 0 : 320, k => { frog.position.y = at.y - 0.5 * k * k; }, k => k);
+      bubbles(frog.position, 6);
+      await pause(260);
+      await tween(RM ? 0 : 420, k => { frog.position.y = at.y - 0.5 * (1 - k) + Math.sin(k * Math.PI) * 0.35; u.sq = Math.sin(k * Math.PI) * 0.6; }, k => k);
+      frog.position.copy(at); u.sq = 0; splash(at, 0.6);
+    });
+  }
+  // the frog hops for joy, twice, where it is
+  function joy() {
+    return act(async () => {
+      const at = frog.position.clone(), u = frog.userData;
+      for (const h of [0.6, 0.9]) { await tween(RM ? 0 : 420, k => { frog.position.y = at.y + Math.sin(k * Math.PI) * h; u.sq = Math.sin(k * Math.PI); }, k => k); splash(at, 0.7); }
+      frog.position.copy(at); u.sq = 0;
+    });
+  }
+  // a project validated: the camera goes to its group of pads and its flower opens there, with its lantern
+  function bloom(i) {
+    const P = pads[i]; if (!P) return Promise.resolve();
+    const c = GROUPS.findIndex(g => g.includes(i));
+    return D.go('c' + c).then(async () => {
+      const at = P.f.position.clone();
+      sound.tone(523, 0, 0.3, 0.08); sound.tone(784, 0.15, 0.4, 0.08);
+      await tween(RM ? 0 : 1100, k => setFlower(P, k), k => 1 - (1 - k) ** 3);
+      P.open = true; canvas.dataset.flors = pads.filter(q => q.open).length;
+      D.sparkle(at.clone().add(V(0, 0.4, 0)), 18, 0xFFD36B, 0.4, 2);
+      D.celebrate(3, at.clone().add(V(0, 1.2, 0)));
+    });
+  }
+
   /* ---------- the pictures of the tricks ---------- */
   // The same calls as the pictures of viz.js: { n, jump(i, mask), reveal(), reset(), hand(h) }. Each draws on the pond and flies the camera
   // to it; host is the place in the panel for the line under the picture (the hops added up) and for the keyboard of hand().
@@ -370,21 +474,22 @@ function build(canvas) {
   const LM = new Map(), lineM = c => { if (!LM.has(c)) LM.set(c, new THREE.MeshBasicMaterial({ color: c, toneMapped: false })); return LM.get(c); };
   // takes away a thing of a picture and gives back what it holds, but for the shapes many things share
   function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && !x.geometry.userData.shared) x.geometry.dispose(); }); }
-  function clear() {
+  // leap: the frog goes back to its place (not when another picture comes at once)
+  function clear(leap = true) {
     if (!pic) return;
     pic.alive = false; drop(pic.g); pic.cleanup?.(); pic = null; aim = null;
     canvas.dataset.granota = ''; canvas.dataset.ocupat = '0'; canvas.dataset.dibuix = '';
-    frog.position.copy(homeAt()); frog.userData.face = 0.2; frog.userData.sq = 0; frog.scale.setScalar(FROG);
-    if (D.view !== base) D.go(base);
+    frog.userData.sq = 0; frog.scale.setScalar(FROG);
+    if (leap) { act(() => leapTo(restAt)); if (D.view !== base) D.go(base); }
   }
   // a new picture: its group on the pond, its queue of moves (each waits for the one before) and whether it is still the one on show
   function newPic(host) {
-    clear();
+    clear(false);
     const P = { g: new THREE.Group(), alive: true, host, busy: 0 };
     scene.add(P.g); pic = P;
     P.on = () => pic === P && P.alive;
     P.queue = Promise.resolve();
-    P.later = f => (P.queue = P.queue.then(async () => { if (!P.on()) return; P.busy++; canvas.dataset.ocupat = '1'; try { return await f(); } finally { P.busy--; if (P.on()) canvas.dataset.ocupat = P.busy ? '1' : '0'; } }));
+    P.later = f => (P.queue = P.queue.then(() => acts).then(async () => { if (!P.on()) return; P.busy++; canvas.dataset.ocupat = '1'; try { return await f(); } finally { P.busy--; if (P.on()) canvas.dataset.ocupat = P.busy ? '1' : '0'; } }));
     return P;
   }
 
@@ -393,7 +498,7 @@ function build(canvas) {
   // the units when the stretch is short. Where the frog lands a pad comes up with its number, "?" when it is the result and mask is on.
   // When the numbers go below zero the line is the gauge on the cut side of the pond: the surface is the 0, and the frog dives under it.
   function lineViz(host, p) {
-    const from = frog.position.clone(), P = newPic(host), g = P.g;
+    const P = newPic(host), g = P.g;
     const pts = [p.from ?? p.a, ...p.jumps.map(j => j.to)], min = Math.min(...pts), max = Math.max(...pts), low = min < 0;
     const m = Math.max(1, Math.round((max - min) * 0.05)), lo = min - m, hi = max + m, wide = hi - lo;
     const every = wide <= 46 ? 1 : wide <= 120 ? 5 : 10, named = wide <= 24 ? 5 : wide <= 70 ? 10 : 20;
@@ -538,7 +643,7 @@ function build(canvas) {
     }
     P.where = n => D.onScreen(at3(n));
     // the frog leaps to where the line starts
-    P.later(async () => { reset(); const s = frog.position.clone(); frog.position.copy(from); await leapTo(s, { dur: 520 }); });
+    P.later(async () => { const from = frog.position.clone(); reset(); const s = frog.position.clone(); frog.position.copy(from); await leapTo(s, { dur: 520 }); });
     return { n: p.jumps.length, jump: (i, mask) => P.later(() => jump(i, mask)), reset: () => P.later(reset), reveal: () => P.later(reveal), hand };
   }
   /* ---------- the other pictures: ten lily pads, the raft of bars and cubes, two rows of flowers ---------- */
@@ -546,12 +651,12 @@ function build(canvas) {
   const MID = { x: 1.0, z: 0.25 };
   const said = o => { canvas.dataset.dibuix = JSON.stringify(o); };
   // a flower that opens (k 1) or is a bud (k 0)
-  const bloom = (f, k) => { const u = f.userData; u.k = k; u.open.scale.setScalar(Math.max(0.001, k)); u.open.rotation.y = (1 - k) * 1.5; u.bud.scale.setScalar(Math.max(0.001, 1 - k)); };
+  const openFlower = (f, k) => { const u = f.userData; u.k = k; u.open.scale.setScalar(Math.max(0.001, k)); u.open.rotation.y = (1 - k) * 1.5; u.bud.scale.setScalar(Math.max(0.001, 1 - k)); };
   // what every picture of the middle does first: the frog leaps to its pad to watch
   function middle(host, view) {
-    const from = frog.position.clone(), P = newPic(host);
+    const P = newPic(host);
     D.go(view);
-    P.start = reset => P.later(async () => { reset(); frog.position.copy(from); await leapTo(homeAt(), { dur: 520 }); });
+    P.start = reset => P.later(async () => { reset(); await leapTo(homeAt(), { dur: 520 }); });
     return P;
   }
   const numTag = (t, c = ink.line) => tagS(t, c, 0.42);
@@ -567,7 +672,7 @@ function build(canvas) {
     });
     const count = () => said({ flors: cells.filter(c => c.f.visible && c.f.userData.k > 0.5).length });
     function reset() {
-      cells.forEach((c, i) => { bloom(c.f, first(i) ? 1 : 0); c.f.visible = true; c.f.position.set(c.x, WY + 0.03, c.z); c.f.rotation.set(0, 0, 0); c.f.scale.setScalar(1.05); if (c.lab) { drop(c.lab); c.lab = null; } });
+      cells.forEach((c, i) => { openFlower(c.f, first(i) ? 1 : 0); c.f.visible = true; c.f.position.set(c.x, WY + 0.03, c.z); c.f.rotation.set(0, 0, 0); c.f.scale.setScalar(1.05); if (c.lab) { drop(c.lab); c.lab = null; } });
       count();
     }
     async function jump() {
@@ -580,7 +685,7 @@ function build(canvas) {
           tween(RM ? 0 : 900, k => { c.f.position.set(c.x + dx * k, WY + 0.03 + k * 2.2, c.z - k * 0.8); c.f.rotation.set(k * 2, k * 3, 0); c.f.scale.setScalar(1.05 * (1 - k * 0.7)); }, k => k).then(() => { c.f.visible = false; count(); });
           D.sparkle(V(c.x, WY + 0.3, c.z), 4, 0xFFB3D9, 0.25, 1, 1);
         } else {
-          tween(RM ? 0 : 260, k => bloom(c.f, k), k => 1 - (1 - k) ** 3).then(count);
+          tween(RM ? 0 : 260, k => openFlower(c.f, k), k => 1 - (1 - k) ** 3).then(count);
           D.sparkle(V(c.x, WY + 0.25, c.z), 5, 0xFFE08A, 0.25, 1.2, 2.5);
         }
         await new Promise(r => setTimeout(r, RM ? 0 : 240));
@@ -687,13 +792,13 @@ function build(canvas) {
     let end = false;
     const count = () => said({ fila: rows.map(r => r.filter(f => f.userData.k > 0.5).length) });
     const total = mask => { end = true; sp.innerHTML = `${twin ? `<b>${a} + ${a}</b>` : `<b>${2 * a} + 1</b>`} = ${mask ? '<b class="q">?</b>' : p.ans}`; };
-    function reset() { rows.flat().forEach(f => bloom(f, 0)); end = false; sp.innerHTML = `${a} i ${p.b}`; count(); }
+    function reset() { rows.flat().forEach(f => openFlower(f, 0)); end = false; sp.innerHTML = `${a} i ${p.b}`; count(); }
     async function jump(i, mask) {
       if (i === 0) {
         // the two rows open in pairs
         const opening = [];
         for (let k = 0; k < a && P.on(); k++) {
-          for (const r of rows) { const f = r[k]; opening.push(tween(RM ? 0 : 220, q => bloom(f, q), q => 1 - (1 - q) ** 3)); }
+          for (const r of rows) { const f = r[k]; opening.push(tween(RM ? 0 : 220, q => openFlower(f, q), q => 1 - (1 - q) ** 3)); }
           sound.tone(sound.noteAt(k), 0, 0.12, 0.05);
           await new Promise(r => setTimeout(r, RM ? 0 : 150));
         }
@@ -704,7 +809,7 @@ function build(canvas) {
       }
       const f = rows[1][a];
       sound.tone(sound.noteAt(a + 2), 0, 0.2, 0.07);
-      await tween(RM ? 0 : 300, q => bloom(f, q), q => 1 - (1 - q) ** 3);
+      await tween(RM ? 0 : 300, q => openFlower(f, q), q => 1 - (1 - q) ** 3);
       D.sparkle(f.position.clone().add(V(0, 0.25, 0)), 8, 0xFFD36B);
       total(mask); count();
     }
@@ -726,10 +831,21 @@ function build(canvas) {
 
   /* ---------- what moves by itself ---------- */
   const wp = new THREE.Vector3();
-  D.every((dt, now) => {
+  D.every((dt, now, raw) => {
     let busy = false;
     // the frog breathes and blinks
     const u = frog.userData; u.t += dt;
+    // the flies: coming, hovering by the frog, going away; their wings beat
+    for (const F of flying.slice()) {
+      F.t += dt;
+      const flap = RM ? 0.5 : 0.3 + 0.6 * Math.abs(Math.sin(F.t * 38));
+      F.wings[0].rotation.x = -flap; F.wings[1].rotation.x = flap;
+      // the comings and goings follow the clock, not the frames, so a slow device does not make the child wait
+      if (F.mode === 'come') { F.k = Math.min(1, F.k + raw / 0.9); F.g.position.lerpVectors(F.from, hoverAt(F.t), 1 - (1 - F.k) ** 2); if (F.k >= 1) { F.mode = 'hover'; F.done(); } busy = true; }
+      else if (F.mode === 'hover' && !RM) F.g.position.lerp(hoverAt(F.t), Math.min(1, dt * 5));
+      else if (F.mode === 'go') { F.k += raw / 0.8; F.g.position.lerpVectors(F.from, F.away, Math.min(1, F.k)); F.g.scale.setScalar(Math.max(0.01, 1.4 * (1 - F.k))); if (F.k >= 1) gone(F); busy = true; }
+      if (F.mode !== 'held') F.g.rotation.y = Math.atan2(D.camera.position.x - F.g.position.x, D.camera.position.z - F.g.position.z) - Math.PI / 2;
+    }
     // the frog turns, slowly, to where it goes or to the camera
     const dd = Math.atan2(Math.sin(u.face - frog.rotation.y), Math.cos(u.face - frog.rotation.y));
     if (Math.abs(dd) > 0.003) { frog.rotation.y += RM ? dd : dd * Math.min(1, dt * 9); busy = true; }
@@ -738,7 +854,10 @@ function build(canvas) {
       u.body.scale.set((1 + Math.sin(u.t * 2.2) * 0.02) * (1 - 0.12 * sq), (1 + Math.sin(u.t * 2.2) * 0.03) * (1 + 0.24 * sq), 1 - 0.12 * sq);
       // under the water the frog lets out a bubble now and then
       if (frog.position.y < WY - 0.15) { u.bub = (u.bub || 0) - dt; if (u.bub <= 0) { u.bub = 0.4; bubbles(frog.position.clone().add(V(0.05, 0.25, 0.05)), 2); } busy = true; }
-      u.throat.scale.set(0.26 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.25), 0.12 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.4), 0.12);
+      // the throat breathes, and swells for a moment after a gulp
+      const gl = u.gulp > 0 ? (u.gulp = Math.max(0, u.gulp - dt * 1.8)) : 0;
+      u.throat.scale.set(0.26 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.25 + gl * 0.5), 0.12 * (1 + Math.max(0, Math.sin(u.t * 4.4)) * 0.4 + gl * 1.2), 0.12 * (1 + gl * 0.8));
+      if (gl) busy = true;
       u.blink -= dt;
       const b = u.blink < 0.16 && u.blink > 0 ? Math.sin((0.16 - u.blink) / 0.16 * Math.PI) : 0;
       for (const l of u.lids) l.rotation.x = LID[0] + (LID[1] - LID[0]) * b;
@@ -758,7 +877,10 @@ function build(canvas) {
 
   return { ok: true, layout: D.layout, go: (v, o) => { base = v; return D.go(v, o); }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
     viz, draws: kind => !!PICS[kind], clear, hear: o => { sound = { ...sound, ...o }; }, where: n => pic?.where?.(n),
-    _: { D, frog, pads, stars, writeBoard, heron, head, tween, setFlower, piscina: () => piscinaOn } };
+    rest, fly: newFly, gulp, plof, shoo, joy, bloom,
+    // the camera close to the pad of project i, where the frog plays a level in the head
+    padView: i => ({ t: [PADS[i][0], WY + 0.6, PADS[i][1]], dir: [0.12, 0.5, 1], R: 1.6 }),
+    _: { debug: () => ({ acts: actN, flying: flying.map(F => F.mode), fly: !!fly, pic: pic && { busy: pic.busy, on: pic.on() } }), D, frog, pads, stars, writeBoard, heron, head, tween, setFlower, piscina: () => piscinaOn } };
 }
 
 // many geometries into one, with their positions and normals only
