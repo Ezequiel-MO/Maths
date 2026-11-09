@@ -9,19 +9,31 @@ const T = (x, y, s, o = '') => `<text x="${x}" y="${y}" ${o}>${esc(s)}</text>`;
 const INK = '#23302D', BRASS = '#D9A441', CREAM = '#FFF8EA';
 
 /* ---------- the guests, small ---------- */
+// A guest's face, the size of a token: the four kinds of logic.js by what they wear on the head (a woolly hat, a helmet, a straw hat,
+// white hair with a bun and glasses). Skin and hair change with the place on the card, so a card always looks the same.
+const SKIN_C = ['#F6D2B5', '#EBB991', '#C98E63', '#9A6440', '#6B4328'], HAIR_C = ['#2B1D16', '#5A3A22', '#8A5A2B', '#D9A55A', '#B0442A'];
 export function face(sp, x, y, r = 10) {
-  const eye = (dx, dy, s = 0.18) => `<circle cx="${x + dx * r}" cy="${y + dy * r}" r="${r * s}" fill="#fff"/><circle cx="${x + dx * r}" cy="${y + dy * r}" r="${r * s * 0.55}" fill="#111"/>`;
-  if (sp === 'anec') return `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#FBF7EC" stroke="#C9C2B0"/><path d="M${x - r * 0.35} ${y + r * 0.2}h${r * 0.7}l-${r * 0.35} ${r * 0.45}z" fill="#F2A23C"/>${eye(-0.38, -0.2, 0.14)}${eye(0.38, -0.2, 0.14)}</g>`;
-  if (sp === 'tortuga') return `<g><path d="M${x - r} ${y + r * 0.35}a${r} ${r * 0.95} 0 0 1 ${2 * r} 0z" fill="#4E8A4A"/><path d="M${x - r * 0.5} ${y - r * 0.3}l${r * 0.5} -${r * 0.3} ${r * 0.5} ${r * 0.3}M${x} ${y - r * 0.6}v${r * 0.9}" stroke="#3A6E3A" fill="none"/><circle cx="${x + r * 0.95}" cy="${y + r * 0.1}" r="${r * 0.38}" fill="#9CC77A"/>${eye(1.05, 0, 0.12)}</g>`;
-  if (sp === 'lludriga') return `<g><circle cx="${x - r * 0.62}" cy="${y - r * 0.72}" r="${r * 0.28}" fill="#8A5A3B"/><circle cx="${x + r * 0.62}" cy="${y - r * 0.72}" r="${r * 0.28}" fill="#8A5A3B"/><circle cx="${x}" cy="${y}" r="${r}" fill="#8A5A3B"/><ellipse cx="${x}" cy="${y + r * 0.35}" rx="${r * 0.5}" ry="${r * 0.35}" fill="#EED9B8"/><circle cx="${x}" cy="${y + r * 0.18}" r="${r * 0.13}" fill="#221511"/>${eye(-0.38, -0.25, 0.15)}${eye(0.38, -0.25, 0.15)}</g>`;
-  return `<g><circle cx="${x}" cy="${y + r * 0.1}" r="${r * 0.95}" fill="#5DBB63"/><circle cx="${x - r * 0.45}" cy="${y - r * 0.55}" r="${r * 0.38}" fill="#5DBB63"/><circle cx="${x + r * 0.45}" cy="${y - r * 0.55}" r="${r * 0.38}" fill="#5DBB63"/>${eye(-0.45, -0.55, 0.22)}${eye(0.45, -0.55, 0.22)}<path d="M${x - r * 0.4} ${y + r * 0.35}q${r * 0.4} ${r * 0.3} ${r * 0.8} 0" stroke="#2F6B33" fill="none" stroke-width="${r * 0.12}"/></g>`;
+  const v = Math.abs(Math.round(x * 7 + y * 3)), skin = SKIN_C[v % 5], hair = sp === 'avi' ? '#ECE8E0' : HAIR_C[Math.floor(v / 5) % 5];
+  const X = d => +(x + d * r).toFixed(2), Y = d => +(y + d * r).toFixed(2), R = d => +(d * r).toFixed(2);
+  const cap = (top, w, c) => `<path d="M${X(-w)} ${Y(top)}A${R(w)} ${R(w * 0.95)} 0 0 1 ${X(w)} ${Y(top)}Z" fill="${c}"/>`;
+  let s = `<circle cx="${x}" cy="${Y(0.08)}" r="${R(0.82)}" fill="${skin}"/>`;
+  s += `<path d="M${X(-0.84)} ${Y(0.1)}A${R(0.84)} ${R(0.84)} 0 0 1 ${X(0.84)} ${Y(0.1)}Q${X(0.3)} ${Y(-0.42)} ${X(-0.84)} ${Y(0.1)}Z" fill="${hair}"/>`;
+  s += [-1, 1].map(k => `<circle cx="${X(k * 0.3)}" cy="${Y(0.08)}" r="${R(0.1)}" fill="#1E1611"/><circle cx="${X(k * 0.5)}" cy="${Y(0.36)}" r="${R(0.13)}" fill="#F29A8C" opacity=".55"/>`).join('');
+  s += `<path d="M${X(-0.26)} ${Y(0.36)}Q${x} ${Y(0.6)} ${X(0.26)} ${Y(0.36)}" stroke="#8A3A2E" stroke-width="${R(0.09)}" fill="none" stroke-linecap="round"/>`;
+  if (sp === 'excursionista') s += cap(-0.12, 0.88, '#F28C28') + `<rect x="${X(-0.92)}" y="${Y(-0.26)}" width="${R(1.84)}" height="${R(0.26)}" rx="${R(0.12)}" fill="#C9661A"/><circle cx="${x}" cy="${Y(-1)}" r="${R(0.2)}" fill="#FFF3DD"/>`;
+  else if (sp === 'ciclista') s += cap(-0.08, 0.94, '#D9474F') + `<path d="M${x} ${Y(-0.96)}V${Y(-0.1)}" stroke="#FFFDF6" stroke-width="${R(0.2)}"/>`;
+  else if (sp === 'turista') s += `<rect x="${X(-0.55)}" y="${Y(-0.95)}" width="${R(1.1)}" height="${R(0.72)}" rx="${R(0.2)}" fill="#E8CF8A"/><rect x="${X(-0.55)}" y="${Y(-0.48)}" width="${R(1.1)}" height="${R(0.18)}" fill="#2F7A6C"/><ellipse cx="${x}" cy="${Y(-0.3)}" rx="${R(1.2)}" ry="${R(0.24)}" fill="#E8CF8A" stroke="#C9AE6A" stroke-width="${R(0.05)}"/>`;
+  else if (sp === 'avi') s += `<circle cx="${x}" cy="${Y(-0.92)}" r="${R(0.3)}" fill="${hair}"/>` + [-1, 1].map(k => `<circle cx="${X(k * 0.3)}" cy="${Y(0.08)}" r="${R(0.21)}" fill="none" stroke="#B5852E" stroke-width="${R(0.07)}"/>`).join('') + `<path d="M${X(-0.09)} ${Y(0.06)}H${X(0.09)}" stroke="#B5852E" stroke-width="${R(0.07)}"/>`;
+  return `<g>${s}</g>`;
 }
 // the bellhop of the reception, for the coach
 export const GRUM = `<svg viewBox="-30 -34 60 62" aria-hidden="true" class="grum">
-  <ellipse cx="0" cy="8" rx="25" ry="19" fill="#5DBB63"/><ellipse cx="0" cy="13" rx="15" ry="10" fill="#CFEAB0"/>
-  <circle cx="-12" cy="-8" r="9.5" fill="#5DBB63"/><circle cx="12" cy="-8" r="9.5" fill="#5DBB63"/>
-  <circle cx="-12" cy="-8" r="6" fill="#fff"/><circle cx="12" cy="-8" r="6" fill="#fff"/><circle class="pupil" cx="-11" cy="-7.5" r="3.2" fill="#111"/><circle class="pupil" cx="13" cy="-7.5" r="3.2" fill="#111"/>
-  <path d="M-10 9q10 8 20 0" stroke="#2F6B33" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M-24 28q0-17 24-17t24 17Z" fill="#D9474F"/><path d="M-6 11l6 7 6-7Z" fill="#FFF8EA"/><circle cx="0" cy="22" r="1.8" fill="#E0A93E"/>
+  <circle cx="0" cy="-5" r="15" fill="#EBB991"/><path d="M-15.4 -4A15.4 15.4 0 0 1 15.4 -4Q6 -14 -15.4 -4Z" fill="#5A3A22"/>
+  <circle cx="-15" cy="-3" r="3" fill="#EBB991"/><circle cx="15" cy="-3" r="3" fill="#EBB991"/>
+  <circle cx="-5.5" cy="-4" r="3.6" fill="#fff"/><circle cx="5.5" cy="-4" r="3.6" fill="#fff"/><circle class="pupil" cx="-5" cy="-3.6" r="2.1" fill="#1E1611"/><circle class="pupil" cx="6" cy="-3.6" r="2.1" fill="#1E1611"/>
+  <circle cx="-9.5" cy="2.5" r="2.4" fill="#F29A8C" opacity=".6"/><circle cx="9.5" cy="2.5" r="2.4" fill="#F29A8C" opacity=".6"/>
+  <path d="M-5 3q5 4.5 10 0" stroke="#8A3A2E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
   <rect x="-9" y="-29" width="18" height="10" rx="2" fill="#D9474F"/><rect x="-10" y="-21" width="20" height="3.5" rx="1.5" fill="#E0A93E"/><circle cx="0" cy="-30" r="2.2" fill="#E0A93E"/></svg>`;
 
 /* ---------- small pictures ---------- */
@@ -78,7 +90,7 @@ const K = {
   },
   load(c) {
     let s = `<rect x="6" y="6" width="${c.items ? 300 : 300}" height="96" rx="10" fill="${CREAM}" stroke="${BRASS}" stroke-width="3"/><rect x="16" y="16" width="80" height="76" rx="8" fill="#0F3B36"/>${T(56, 46, 'Màxim', 'class="tiny gold"')}${T(56, 74, '300 kg', 'class="mid gold"')}`;
-    if (c.used) s += `${ICON.suit(140, 52, 1.4)}${ICON.suit(172, 56, 1.2)}${face('anec', 206, 50, 14)}${T(250, 58, `${c.used} kg`, 'class="mid"')}`;
+    if (c.used) s += `${ICON.suit(140, 52, 1.4)}${ICON.suit(172, 56, 1.2)}${face('excursionista', 206, 50, 14)}${T(250, 58, `${c.used} kg`, 'class="mid"')}`;
     else c.items.forEach((it, i) => { const x = 136 + i * 92; s += it.suit ? `${Array.from({ length: Math.min(it.n, 5) }, (_, j) => ICON.suit(x + (j % 3) * 18, 40 + Math.floor(j / 3) * 22, 0.9)).join('')}${T(x + 18, 92, `${it.n > 1 ? it.n + ' × ' : ''}${it.kg} kg`, 'class="tiny"')}` : `${face(it.sp, x + 14, 48, 18)}${T(x + 14, 92, `${it.kg} kg`, 'class="tiny"')}`; });
     return svg(312, 108, s, 'load');
   },
@@ -185,7 +197,7 @@ const K = {
     c.cols.forEach((col, j) => { s += T(8 + (j + 0.5) * cw, 48, heads[j], 'class="tiny red"'); col.forEach((d, i) => { s += `<g class="dish" data-k="${j}-${i}"><rect x="${12 + j * cw}" y="${56 + i * 34}" width="${cw - 8}" height="28" rx="8"/>${T(8 + (j + 0.5) * cw, 75 + i * 34, d)}</g>`; }); });
     return svg(c.cols.length * cw + 12, rows * 34 + 64, s, 'menu');
   },
-  parts(c) { const per = 12; return svg(340, Math.ceil(c.n / per) * 27 + 6, Array.from({ length: c.n }, (_, i) => face(['anec', 'tortuga', 'lludriga', 'granota'][i % 4], 14 + (i % per) * 27, 15 + Math.floor(i / per) * 27, 10)).join(''), 'parts'); },
+  parts(c) { const per = 12; return svg(340, Math.ceil(c.n / per) * 27 + 6, Array.from({ length: c.n }, (_, i) => face(['excursionista', 'ciclista', 'turista', 'avi'][i % 4], 14 + (i % per) * 27, 15 + Math.floor(i / per) * 27, 10)).join(''), 'parts'); },
   jug(c) {
     const n = 1000 / c.ml; return svg(300, 110, `<path d="M30 20h30v10l10 14v58h-50v-58l10 -14z" fill="#DFF2F7" stroke="#7BB5C6" stroke-width="2"/><rect x="21" y="52" width="48" height="48" fill="#BFE6F2"/>${T(45, 84, '1 litre', 'class="tiny"')}
       ${Array.from({ length: Math.min(n, 5) }, (_, i) => ICON.glass(110 + i * 34, 70, 1.4)).join('')}${T(200, 104, `gots de ${c.ml} ml`, 'class="tiny"')}`, 'jug');

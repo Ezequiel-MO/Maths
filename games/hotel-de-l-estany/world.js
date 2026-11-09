@@ -4,7 +4,7 @@
 // lights a part, and every exam passed lights a star of the sign.
 //
 // The camera flies to the place of each project (go). A floor seen from inside opens like a doll's house: its front fades away. The
-// guests are pond animals made of round shapes that walk, wait and hop for joy. Everything is drawn here and only here; main.js tells
+// guests are people made of round shapes that walk, wait and hop for joy. Everything is drawn here and only here; main.js tells
 // it what happens. Without WebGL hotel() gives the same calls doing nothing, and the game is played on the cards alone.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -89,12 +89,22 @@ function label(text, tex = null) {
 }
 
 /* ---------- the guests ---------- */
-const SKIN = {
-  granota: { body: 0x5DBB63, belly: 0xCFEAB0 }, anec: { body: 0xFBF7EC, belly: 0xFFFFFF }, tortuga: { body: 0x9CC77A, belly: 0x4E8A4A }, lludriga: { body: 0x8A5A3B, belly: 0xEED9B8 }
+// The guests are people of four kinds, each in its own clothes: walkers with a woolly hat and a rucksack, cyclists with a helmet,
+// tourists with a straw hat and a camera, and grannies with a bun and glasses; and the bellhop of the desk, in red with his cap. Skin and
+// hair change from one guest to the next.
+const SKINS = [0xF6D2B5, 0xEBB991, 0xC98E63, 0x9A6440, 0x6B4328], HAIRS = [0x2B1D16, 0x5A3A22, 0x8A5A2B, 0xD9A55A, 0xB0442A, 0x161616];
+const LOOK = {
+  excursionista: { top: 0x3F8F5A, legs: 0x6B5844, hat: 0xF28C28, band: 0xC9661A, pack: 0x2E6FA8 },
+  ciclista: { top: 0xF2C230, legs: 0x26282E, shin: true, hat: 0xD9474F },
+  turista: { top: 0xF07A6A, legs: 0xE9DCBC, shin: true, hat: 0xE8CF8A, band: 0x2F7A6C },
+  avi: { top: 0x9B7BC4, legs: 0x4E5378, hair: 0xE9E5DC, skirt: 0x4E5378 },
+  grum: { top: C.cherry, legs: 0x2A2F3A }
 };
 const MAT = new Map();
 const mat = (c, o) => { const k = c + JSON.stringify(o || {}); if (!MAT.has(k)) MAT.set(k, std(c, { roughness: 0.55, ...o })); return MAT.get(k); };
 const SPH = new THREE.SphereGeometry(1, 20, 14), CONE = new THREE.ConeGeometry(1, 1, 16), CYL = new THREE.CylinderGeometry(1, 1, 1, 20);
+const DOME = new THREE.SphereGeometry(1, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), BOX = new THREE.BoxGeometry(1, 1, 1);
+const RING = new THREE.TorusGeometry(1, 0.2, 6, 14), SMILE = new THREE.TorusGeometry(1, 0.22, 5, 10, Math.PI).rotateZ(Math.PI);
 function part(g, m, s, p, r) { const x = new THREE.Mesh(g, m); x.scale.set(...s); x.position.set(...p); if (r) x.rotation.set(...r); x.castShadow = true; return x; }
 function eyes(body, y, z, dx, r = 0.075) {
   for (const s of [-1, 1]) {
@@ -102,48 +112,78 @@ function eyes(body, y, z, dx, r = 0.075) {
     body.add(part(SPH, mat(0x111111, { roughness: 0.2 }), [r * 0.55, r * 0.55, r * 0.55], [s * dx, y, z + r * 0.6]));
   }
 }
-// a guest of species sp, about one unit tall, looking at +z. bell: the cap of the bellhop
-export function makeGuest(sp, bell = false) {
-  const g = new THREE.Group(), body = new THREE.Group(), k = SKIN[sp] || SKIN.granota;
+const pick = a => a[Math.floor(Math.random() * a.length)];
+// a guest of kind sp, about one unit tall, looking at +z. o.sit: sat on a chair, with the legs forward; o.still: it will not walk, so the
+// legs are drawn with the rest (fewer draws). Otherwise the legs are kept apart (userData.legs) to swing as it walks.
+export function makeGuest(sp, o = {}) {
+  const g = new THREE.Group(), body = new THREE.Group(), L = LOOK[sp] || LOOK.excursionista, fixed = o.sit || o.still;
+  const skin = mat(pick(SKINS)), hair = mat(L.hair ?? pick(HAIRS)), top = mat(L.top), brass = mat(C.brass, { metalness: 0.8, roughness: 0.3 });
   g.add(body);
-  if (sp === 'anec') {
-    body.add(part(SPH, mat(k.body), [0.42, 0.34, 0.5], [0, 0.36, 0]));
-    body.add(part(SPH, mat(k.body), [0.25, 0.25, 0.25], [0, 0.82, 0.14]));
-    body.add(part(CONE, mat(0xF2A23C), [0.09, 0.22, 0.06], [0, 0.78, 0.42], [Math.PI / 2, 0, 0]));
-    body.add(part(CONE, mat(k.body), [0.12, 0.25, 0.12], [0, 0.48, -0.45], [-1.1, 0, 0]));
-    for (const s of [-1, 1]) body.add(part(SPH, mat(0xF2A23C), [0.1, 0.04, 0.15], [s * 0.16, 0.03, 0.1]));
-    eyes(body, 0.9, 0.32, 0.11, 0.05);
-  } else if (sp === 'tortuga') {
-    body.add(part(SPH, mat(k.belly, { roughness: 0.4 }), [0.46, 0.34, 0.5], [0, 0.3, -0.05]));
-    body.add(part(CYL, mat(0x3A6E3A), [0.47, 0.06, 0.51], [0, 0.3, -0.05]));
-    body.add(part(SPH, mat(k.body), [0.2, 0.19, 0.22], [0, 0.42, 0.5]));
-    for (const [x, z] of [[-0.3, 0.25], [0.3, 0.25], [-0.3, -0.3], [0.3, -0.3]]) body.add(part(SPH, mat(k.body), [0.12, 0.12, 0.14], [x, 0.1, z]));
-    eyes(body, 0.5, 0.64, 0.09, 0.05);
-  } else if (sp === 'lludriga') {
-    body.add(part(SPH, mat(k.body), [0.3, 0.42, 0.28], [0, 0.48, 0]));
-    body.add(part(SPH, mat(k.belly), [0.2, 0.3, 0.12], [0, 0.45, 0.2]));
-    body.add(part(SPH, mat(k.body), [0.24, 0.22, 0.22], [0, 0.98, 0.03]));
-    body.add(part(SPH, mat(k.belly), [0.12, 0.08, 0.08], [0, 0.92, 0.22]));
-    body.add(part(SPH, mat(0x221511), [0.04, 0.03, 0.03], [0, 0.96, 0.3]));
-    for (const s of [-1, 1]) body.add(part(SPH, mat(k.body), [0.06, 0.06, 0.04], [s * 0.17, 1.16, 0]));
-    body.add(part(SPH, mat(k.body), [0.08, 0.08, 0.32], [0, 0.18, -0.38], [0.4, 0, 0]));
-    eyes(body, 1.03, 0.2, 0.09, 0.045);
-  } else {
-    body.add(part(SPH, mat(k.body), [0.42, 0.33, 0.38], [0, 0.34, 0]));
-    body.add(part(SPH, mat(k.belly), [0.3, 0.22, 0.1], [0, 0.3, 0.3]));
-    for (const s of [-1, 1]) {
-      body.add(part(SPH, mat(k.body), [0.15, 0.15, 0.15], [s * 0.2, 0.66, 0.12]));
-      body.add(part(SPH, mat(k.body), [0.16, 0.06, 0.22], [s * 0.28, 0.05, 0.12]));
-    }
-    eyes(body, 0.71, 0.24, 0.2, 0.085);
-    if (bell) {
-      body.add(part(CYL, mat(C.cherry), [0.16, 0.14, 0.16], [0, 0.78, -0.05]));
-      body.add(part(CYL, mat(C.brass, { metalness: 0.8, roughness: 0.3 }), [0.165, 0.03, 0.165], [0, 0.73, -0.05]));
-      body.add(part(SPH, mat(C.brass, { metalness: 0.8, roughness: 0.3 }), [0.03, 0.03, 0.03], [0, 0.89, -0.05]));
-    }
+  // the legs, from the hip down to the shoe; trousers, or shorts and bare legs
+  const legs = [-1, 1].map(s => {
+    const leg = new THREE.Group(); leg.position.set(s * 0.09, 0.27, 0);
+    leg.add(part(CYL, mat(L.legs), [0.068, L.shin ? 0.12 : 0.22, 0.068], [0, L.shin ? -0.06 : -0.11, 0]));
+    if (L.shin) leg.add(part(CYL, skin, [0.056, 0.11, 0.056], [0, -0.165, 0]));
+    leg.add(part(SPH, mat(0x2A1D17), [0.075, 0.05, 0.11], [0, -0.23, 0.03]));
+    if (o.sit) leg.rotation.x = -Math.PI / 2;
+    if (!fixed) { bake(leg); leg.userData.keep = true; }
+    body.add(leg); return leg;
+  });
+  if (L.skirt) body.add(part(CONE, mat(L.skirt), [0.22, 0.26, 0.2], [0, 0.32, 0]));
+  // the trunk, the arms and the hands
+  body.add(part(SPH, top, [0.23, 0.26, 0.19], [0, 0.46, 0]));
+  for (const s of [-1, 1]) {
+    body.add(part(SPH, top, [0.065, 0.18, 0.065], [s * 0.245, 0.46, 0], [0, 0, s * 0.22]));
+    body.add(part(SPH, skin, [0.055, 0.055, 0.055], [s * 0.285, 0.29, 0.01]));
+  }
+  // the head: eyes, cheeks and a smile; the hair on top and at the back
+  body.add(part(SPH, skin, [0.21, 0.2, 0.2], [0, 0.86, 0]));
+  for (const s of [-1, 1]) {
+    body.add(part(SPH, mat(0x1E1611, { roughness: 0.25 }), [0.028, 0.034, 0.02], [s * 0.075, 0.88, 0.185]));
+    body.add(part(SPH, mat(0xF29A8C), [0.034, 0.02, 0.012], [s * 0.125, 0.81, 0.155]));
+  }
+  body.add(part(SMILE, mat(0x8A3A2E), [0.045, 0.045, 0.045], [0, 0.815, 0.193]));
+  body.add(part(DOME, hair, [0.222, 0.17, 0.215], [0, 0.93, -0.01]));
+  body.add(part(SPH, hair, [0.2, 0.2, 0.17], [0, 0.88, -0.06]));
+  if (sp === 'excursionista') {
+    body.add(part(DOME, mat(L.hat), [0.235, 0.2, 0.23], [0, 0.94, -0.005]));
+    body.add(part(CYL, mat(L.band), [0.238, 0.06, 0.232], [0, 0.95, -0.005]));
+    body.add(part(SPH, mat(0xFFF3DD), [0.065, 0.065, 0.065], [0, 1.15, -0.01]));
+    body.add(part(SPH, mat(L.pack), [0.16, 0.18, 0.09], [0, 0.5, -0.19]));
+  } else if (sp === 'ciclista') {
+    body.add(part(DOME, mat(L.hat), [0.245, 0.2, 0.255], [0, 0.91, -0.01]));
+    body.add(part(DOME, mat(0xFFFDF6), [0.06, 0.205, 0.262], [0, 0.91, -0.01]));
+  } else if (sp === 'turista') {
+    body.add(part(CYL, mat(L.hat), [0.34, 0.02, 0.34], [0, 0.98, 0]));
+    body.add(part(CYL, mat(L.hat), [0.19, 0.12, 0.19], [0, 1.05, 0]));
+    body.add(part(CYL, mat(L.band), [0.195, 0.035, 0.195], [0, 1.01, 0]));
+    body.add(part(BOX, mat(0x22252B), [0.12, 0.08, 0.05], [0, 0.55, 0.2]));
+    body.add(part(CYL, mat(0x8E96A0), [0.03, 0.04, 0.03], [0, 0.55, 0.235], [Math.PI / 2, 0, 0]));
+  } else if (sp === 'avi') {
+    body.add(part(SPH, hair, [0.09, 0.08, 0.09], [0, 1.1, -0.05]));
+    for (const s of [-1, 1]) body.add(part(RING, brass, [0.048, 0.048, 0.048], [s * 0.075, 0.88, 0.205]));
+  } else if (sp === 'grum') {
+    body.add(part(CYL, mat(C.cherry), [0.13, 0.12, 0.13], [0, 1.15, 0.01]));
+    body.add(part(CYL, brass, [0.135, 0.035, 0.135], [0, 1.1, 0.01]));
+    body.add(part(SPH, brass, [0.03, 0.03, 0.03], [0, 1.22, 0.01]));
+    for (const y of [0.52, 0.42]) body.add(part(SPH, brass, [0.022, 0.022, 0.022], [0, y, 0.186]));
   }
   bake(body);
-  g.userData = { body, path: [], speed: 1.7, t: Math.random() * 10, hop: 0, done: null, face: null };
+  g.userData = { body, legs: fixed ? null : legs, path: [], speed: 1.7, t: Math.random() * 10, hop: 0, done: null, face: null };
+  return g;
+}
+// the little frog on a lily pad of the pond: it is part of the garden, not a guest
+function makeFrog() {
+  const g = new THREE.Group(), body = new THREE.Group(), skin = mat(0x5DBB63);
+  g.add(body);
+  body.add(part(SPH, skin, [0.42, 0.33, 0.38], [0, 0.34, 0]));
+  body.add(part(SPH, mat(0xCFEAB0), [0.3, 0.22, 0.1], [0, 0.3, 0.3]));
+  for (const s of [-1, 1]) {
+    body.add(part(SPH, skin, [0.15, 0.15, 0.15], [s * 0.2, 0.66, 0.12]));
+    body.add(part(SPH, skin, [0.16, 0.06, 0.22], [s * 0.28, 0.05, 0.12]));
+  }
+  eyes(body, 0.71, 0.24, 0.2, 0.085);
+  bake(body);
   return g;
 }
 
@@ -259,7 +299,7 @@ function build(canvas) {
     const pd = mesh(new THREE.CircleGeometry(r, 20, 0.3, Math.PI * 2 - 0.4).rotateX(-Math.PI / 2), padM, { cast: false, at: [x, 0.07, z] }); pd.userData.keep = true; garden.add(pd); pads.push(pd);
   }
   garden.add(part(SPH, mat(0xF7A8C8), [0.12, 0.1, 0.12], [-7.2, 0.15, 7.1]));
-  const lilyFrog = makeGuest('granota'); lilyFrog.scale.setScalar(0.42); lilyFrog.position.set(-9.4, 0.07, 5.6); lilyFrog.rotation.y = 0.5; lilyFrog.userData.keep = true; garden.add(lilyFrog);
+  const lilyFrog = makeFrog(); lilyFrog.scale.setScalar(0.42); lilyFrog.position.set(-9.4, 0.07, 5.6); lilyFrog.rotation.y = 0.5; lilyFrog.userData.keep = true; garden.add(lilyFrog);
   const reedM = std(0x3E7F47);
   for (let i = 0; i < 14; i++) { const a = 2.2 + i * 0.16, x = -8.2 + Math.cos(a) * 3.2, z = 6.2 + Math.sin(a) * 2.2; garden.add(mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.9 + (i % 3) * 0.25, 5).translate(x, 0.5, z), reedM)); }
   // the pool, with two deck chairs and a sunshade
@@ -391,7 +431,7 @@ function build(canvas) {
   const keyLit = glow(0, -10, 0, 0.7, 0xFFE08A, false); lobby.add(keyLit);
   const bell = new THREE.Group(); bell.add(mesh(new THREE.SphereGeometry(0.16, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), brassM)); bell.add(mesh(boxG(0.36, 0.03, 0.36, 0, 0, 0), std(0x2A2F3A)));
   const bellBtn = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.08, 8).translate(0, 0.19, 0), brassM); bell.add(bellBtn); bell.position.set(3.8, 1.23, -0.75); bell.userData.keep = true; lobby.add(bell);
-  const grum = makeGuest('granota', true); grum.position.set(2.3, 0.62, -1.55); grum.userData.keep = true; lobby.add(grum);
+  const grum = makeGuest('grum', { still: true }); grum.position.set(2.3, 0.62, -1.55); grum.userData.keep = true; lobby.add(grum);
   lobby.add(mesh(boxG(0.9, 0.45, 0.7, 2.3, 0.4, -1.55), std(0x5A3A24)));
   // the restaurant: tables with their cloths and chairs, the buffet and the lamps
   const tables = [];
@@ -561,7 +601,7 @@ function build(canvas) {
     shoo();
     if (!sp) return Promise.resolve();
     if (where === 'lift') {
-      const a = makeGuest(sp); a.scale.setScalar(0.85); a.position.set(-0.1, 0.12, 0.1); a.rotation.y = 0.9; cabin.add(a); actors.push(a); guestNow = a; a.userData.cabin = true;
+      const a = makeGuest(sp, { still: true }); a.scale.setScalar(0.85); a.position.set(-0.1, 0.12, 0.1); a.rotation.y = 0.9; cabin.add(a); actors.push(a); guestNow = a; a.userData.cabin = true;
       return pop(a);
     }
     const S = SPOTS[where]; if (!S) return Promise.resolve();
@@ -601,9 +641,9 @@ function build(canvas) {
   const crowdList = [];
   function seat(kind, i, n, sp, k = 2) {
     const spots = [];
-    if (kind === 'table') { const t = tables[i]; if (!t) return; for (let j = 0; j < n; j++) { const a = j / Math.max(4, n) * Math.PI * 2 + Math.PI / 4; spots.push([t.position.x + Math.cos(a) * 0.85, 0.42, t.position.z + Math.sin(a) * 0.85, Math.atan2(-Math.cos(a), -Math.sin(a))]); } }
+    if (kind === 'table') { const t = tables[i]; if (!t) return; for (let j = 0; j < n; j++) { const a = j / Math.max(4, n) * Math.PI * 2 + Math.PI / 4; spots.push([t.position.x + Math.cos(a) * 0.85, 0.46, t.position.z + Math.sin(a) * 0.85, Math.atan2(-Math.cos(a), -Math.sin(a))]); } }
     else { const r = rooms[k]?.[i]; if (!r) return; for (let j = 0; j < n; j++) spots.push([r.r.position.x + (j % 2 ? 0.3 : -0.3), r.r.position.y + 0.15, 0.15 + Math.floor(j / 2) * 0.6, 0]); setRoom(k, i, true); }
-    spots.forEach(([x, y, z, ry], j) => { const a = makeGuest(sp); a.scale.setScalar(0.62); a.position.set(x, y, z); a.rotation.y = ry; scene.add(a); crowdList.push(a); actors.push(a); setTimeout(() => pop(a), j * 90); });
+    spots.forEach(([x, y, z, ry], j) => { const a = makeGuest(sp, kind === 'table' ? { sit: true } : { still: true }); a.scale.setScalar(0.62); a.position.set(x, y, z); a.rotation.y = ry; scene.add(a); crowdList.push(a); actors.push(a); setTimeout(() => pop(a), j * 90); });
     wake();
   }
   function crowd() { for (const a of crowdList.splice(0)) remove(a); for (let k = 1; k <= NF; k++) rooms[k].forEach((_, i) => setRoom(k, i, false)); }
@@ -724,11 +764,13 @@ function build(canvas) {
         const step = u.speed * dt;
         if (d.length() <= step) { a.position.x = p.x; a.position.z = p.z; a.position.y = p.y; u.path.shift(); if (!u.path.length) { const r = u.done; u.done = null; r?.(); } }
         else { d.normalize(); a.position.addScaledVector(d, step); a.position.y += (p.y - a.position.y) * Math.min(1, dt * 6); const want = Math.atan2(d.x, d.z); a.rotation.y += Math.atan2(Math.sin(want - a.rotation.y), Math.cos(want - a.rotation.y)) * Math.min(1, dt * 10); }
-        u.body.position.y = Math.abs(Math.sin(u.t * 11)) * 0.07; u.body.rotation.z = Math.sin(u.t * 11) * 0.09;
+        u.body.position.y = Math.abs(Math.cos(u.t * 11)) * 0.04; u.body.rotation.z = Math.sin(u.t * 11) * 0.05;
+        if (u.legs) { const w = Math.sin(u.t * 11) * 0.6; u.legs[0].rotation.x = w; u.legs[1].rotation.x = -w; }
       } else if (u.face) {
         const want = Math.atan2(u.face.x - a.position.x, u.face.z - a.position.z), dd = Math.atan2(Math.sin(want - a.rotation.y), Math.cos(want - a.rotation.y));
         a.rotation.y += dd * Math.min(1, dt * 6); if (Math.abs(dd) < 0.01) u.face = null; else busy = true; u.body.rotation.z *= 0.8;
       }
+      if (!u.path.length && u.legs && Math.abs(u.legs[0].rotation.x) > 0.01) { for (const l of u.legs) l.rotation.x *= 0.8; busy = true; }
       if (!u.path.length && !RM) { u.body.scale.y = u.body.scale.y * 0.8 + (1 + Math.sin(u.t * 2.4) * 0.025) * 0.2; }
     }
     // the bellhop at the desk breathes and looks about
