@@ -202,6 +202,8 @@ await section('examen', async () => {
   const res = done.map(d => !d.wrong), r = examIn(clean(MID), 0, [], res);
   check(r.good, 'five of six with the circle validated passes the exam');
   same('the save after the exam', await stored(page), bank(r.prog, 5, topOf(done)));
+  // the first time an exam is passed a star of the frog in the sky comes on
+  if (!process.env.NOGL) { await wait(page, () => document.querySelector('#world').dataset.estrelles === '1'); }
 });
 
 await section('repte llampec', async () => {

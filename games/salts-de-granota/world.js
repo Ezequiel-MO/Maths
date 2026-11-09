@@ -88,7 +88,8 @@ export function pond(canvas) {
 export function none() {
   const p = () => Promise.resolve();
   return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, draws: () => false, clear() {}, hear() {}, where() {},
-    rest() {}, fly: p, gulp: p, plof: p, shoo() {}, joy: p, bloom: p, padView: () => 'map' };
+    rest() {}, fly: p, gulp: p, plof: p, shoo() {}, joy: p, bloom: p, padView: () => 'map',
+    open: p, judge() {}, star: p, dusk() {}, chalk() {} };
 }
 
 function build(canvas) {
@@ -98,7 +99,9 @@ function build(canvas) {
     gauge: { t: [X1, -1, GAUGE[1]], dir: [1, 0.12, 0.38], R: 4.4, fit: 'h' },
     jetty: { t: [JETTY.x - 0.6, 0.6, 4.4], dir: [0.35, 0.42, 1], R: 3.0 },
     rock: { t: [ROCK[0] + 0.6, 0.5, ROCK[1] + 1.6], dir: [0.25, 0.4, 1], R: 3.0 },
-    sky: { t: [3, 6, -6], dir: [-0.2, 0.15, 1], R: 9 }
+    sky: { t: [-2.6, 5.4, -13], dir: [0.15, -0.05, 1], R: 4.6 },
+    rapid: { t: [HOME[0], 0.9, HOME[1]], dir: [0.12, 0.3, 1], R: 3.2 },
+    board: { t: [JETTY.x - 1.15, 1.0, 5.3], dir: [0.34, 0.2, 0.94], R: 1.6 }
   };
   // one view per circle: its group of lily pads
   GROUPS.forEach((ps, c) => {
@@ -206,7 +209,7 @@ function build(canvas) {
     g.fillStyle = '#1F3B33'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${0.02 + Math.random() * 0.03})`; g.fillRect(Math.random() * w, Math.random() * h, 40 + Math.random() * 80, 3); }
     g.fillStyle = '#F4F1E6'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    lines.forEach((t, i) => { g.font = `800 ${i ? 64 : 84}px "Baloo 2", system-ui, sans-serif`; g.fillText(t, w / 2, h / 2 + (i - (lines.length - 1) / 2) * 96); });
+    lines.forEach((t, i) => { const L = typeof t === 'string' ? { t } : t; g.fillStyle = L.c || '#F4F1E6'; g.font = `800 ${L.s || (i ? 64 : 84)}px "Baloo 2", system-ui, sans-serif`; g.fillText(L.t, w / 2, h / 2 + (i - (lines.length - 1) / 2) * 96); });
     chalk.needsUpdate = true;
   };
   writeBoard([]);
@@ -224,9 +227,11 @@ function build(canvas) {
   heron.add(part(SPH, grey, [0.32, 0.3, 0.55], [0, 1.15, 0], [0.35, 0, 0]));
   heron.add(part(CONE, dark, [0.18, 0.45, 0.06], [0, 1.08, -0.55], [-1.9, 0, 0]));
   for (const s of [-1, 1]) heron.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.85, 6).translate(s * 0.1, 0.43, -0.02), mat(0xC9A86A)));
-  const neck = new THREE.Group(); neck.position.set(0, 1.3, 0.35); heron.add(neck);
-  neck.add(mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.7, 8).translate(0, 0.35, 0).rotateX(-0.25), white));
-  const head = new THREE.Group(); head.position.set(0, 0.68, 0.16); neck.add(head);
+  // the neck bends like an S, forward, back and forward again under the head
+  const neck = new THREE.Group(); neck.position.set(0, 1.28, 0.32); heron.add(neck);
+  const S = new THREE.CatmullRomCurve3([V(0, 0, 0), V(0, 0.2, 0.16), V(0, 0.42, 0.04), V(0, 0.6, -0.02), V(0, 0.74, 0.08)]);
+  neck.add(mesh(new THREE.TubeGeometry(S, 24, 0.065, 8, false), white));
+  const head = new THREE.Group(); head.position.set(0, 0.78, 0.12); neck.add(head);
   head.add(part(SPH, white, [0.13, 0.12, 0.17], [0, 0, 0]));
   head.add(part(CONE, beakM, [0.045, 0.5, 0.045], [0, -0.02, 0.36], [Math.PI / 2, 0, 0]));
   head.add(part(CONE, dark, [0.03, 0.35, 0.03], [0, 0.05, -0.24], [-Math.PI / 2 - 0.4, 0, 0]));
@@ -330,6 +335,8 @@ function build(canvas) {
     stars.forEach((s, i) => { s.on = i < n; s.m.material.color.setHex(s.on ? 0xFFD36B : 0x4A4870); s.gl.material.opacity = s.on ? 0.75 : 0; });
     lines.forEach(L => { L.l.material.opacity = stars[L.a].on && stars[L.b].on ? 0.55 : 0.08; });
     jettyLamp.material.color.setHex(piscina ? 0xFFE6A0 : 0x8A8170); jettyGlow.material.opacity = piscina ? 1 : 0;
+    // before the Piscina the pond is shut: no fireflies, a dimmer dusk
+    flyPts.visible = piscina; flyPts.material.opacity = 1; D.hemi.intensity = piscina ? 0.7 : 0.55;
     canvas.dataset.flors = pads.filter(P => P.open).length; canvas.dataset.estrelles = stars.filter(s => s.on).length;
     D.wake();
   }
@@ -369,7 +376,7 @@ function build(canvas) {
   // where the frog waits when there is no picture: its pad on the map, the pad of the project, the jetty, the pad by the heron's rock
   const EXAMPAD = [-1.25, -2.15];
   const examPad = lilyPad(0.5); examPad.position.set(EXAMPAD[0], WY + 0.02, EXAMPAD[1]); examPad.rotation.y = 0.7; scene.add(examPad);
-  const SPOTS = { home: homeAt, jetty: () => V(JETTY.x, 0.18, JETTY.z1 + 0.4), rock: () => V(EXAMPAD[0], WY + 0.03, EXAMPAD[1]) };
+  const SPOTS = { board: () => V(JETTY.x - 0.45, 0.18, 5.1), home: homeAt, jetty: () => V(JETTY.x, 0.18, JETTY.z1 + 0.4), rock: () => V(EXAMPAD[0], WY + 0.03, EXAMPAD[1]) };
   let restAt = homeAt();
   function rest(w) {
     restAt = Number.isInteger(w) && PADS[w] ? V(PADS[w][0], WY + 0.03, PADS[w][1]) : (SPOTS[w] || SPOTS.home)();
@@ -461,6 +468,63 @@ function build(canvas) {
       D.celebrate(3, at.clone().add(V(0, 1.2, 0)));
     });
   }
+
+  /* ---------- the places of the modes ---------- */
+  // The Piscina: the pond is shut until it is done (no fireflies, a dimmer dusk); open() lights it before the child's eyes
+  function open() {
+    piscinaOn = true;
+    jettyLamp.material.color.setHex(0xFFE6A0);
+    return D.go('map').then(async () => {
+      sound.tone(523, 0, 0.3, 0.07); sound.tone(659, 0.12, 0.3, 0.07); sound.tone(784, 0.24, 0.5, 0.08);
+      flyPts.visible = true;
+      await tween(RM ? 0 : 1600, k => { jettyGlow.material.opacity = k; flyPts.material.opacity = k; D.hemi.intensity = 0.55 + 0.15 * k; }, k => k);
+      D.celebrate(3, V(0, 2, 0)); joy();
+    });
+  }
+  // The exam: the heron on its rock judges each answer; it nods to a right one and shakes its head at a wrong one
+  let heronDo = null;
+  function judge(ok) {
+    heronDo = { ok, t: 0 }; D.wake();
+  }
+  // a star of the frog in the sky comes on: the camera goes up to it and back
+  function star(i) {
+    const s = stars[i]; if (!s) return Promise.resolve();
+    const back = D.view;
+    return D.go('sky').then(async () => {
+      sound.tone(988, 0, 0.5, 0.07); sound.tone(1319, 0.2, 0.6, 0.06);
+      await tween(RM ? 0 : 900, k => { s.m.material.color.setHex(0x4A4870).lerp(new THREE.Color(0xFFD36B), k); s.gl.material.opacity = 0.75 * k; s.m.scale.setScalar(1 + Math.sin(k * Math.PI) * 0.8); }, k => k);
+      s.on = true; lines.forEach(L => { L.l.material.opacity = stars[L.a].on && stars[L.b].on ? 0.55 : 0.08; });
+      canvas.dataset.estrelles = stars.filter(q => q.on).length;
+      D.sparkle(s.m.position.clone(), 16, 0xFFD36B, 0.6, 2.5, 1);
+      await pause(1100);
+      if (back) D.go(back);
+    });
+  }
+  // The lightning round: the sun sets while the minute lasts (k from 0 to 1), with a swarm of flies about the frog; dusk(null) gives the
+  // evening back
+  const sunBall = mesh(new THREE.SphereGeometry(2.4, 32, 16), new THREE.MeshBasicMaterial({ color: 0xFFC27A, toneMapped: false, fog: false }), { cast: false, at: [2, 5, -30] });
+  sunBall.visible = false; scene.add(sunBall);
+  const sunGlow = glow(2, 5, -29.5, 16, 0xFF9E5E, false);
+  const SWARM = 16, swarm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2A1C00 }), SWARM);
+  swarm.visible = false; swarm.frustumCulled = false; scene.add(swarm);
+  const swarmP = Array.from({ length: SWARM }, () => ({ a: Math.random() * 7, b: Math.random() * 7, r: 0.5 + Math.random() * 0.9, h: 0.6 + Math.random() * 0.9 }));
+  const LIGHT = { sun: D.sun.intensity, hemi: 0.7, sunC: D.sun.color.clone() };
+  function dusk(k) {
+    if (k == null) {
+      sunBall.visible = false; sunGlow.material.opacity = 0; swarm.visible = false;
+      D.sun.intensity = LIGHT.sun; D.sun.color.copy(LIGHT.sunC); D.hemi.intensity = piscinaOn ? LIGHT.hemi : 0.55; D.wake(); return;
+    }
+    k = Math.max(0, Math.min(1, k));
+    sunBall.visible = true; swarm.visible = true;
+    const y = 5.5 - 10 * k;
+    sunBall.position.y = y; sunGlow.position.y = y; sunGlow.material.opacity = 0.9 * (1 - k * 0.7);
+    sunBall.material.color.setHex(0xFFC27A).lerp(new THREE.Color(0xE8463C), k);
+    D.sun.intensity = LIGHT.sun * (1 - 0.65 * k); D.sun.color.copy(LIGHT.sunC).lerp(new THREE.Color(0xFF6A4A), k);
+    D.hemi.intensity = LIGHT.hemi * (1 - 0.45 * k);
+    D.wake();
+  }
+  // «Caça l'errada»: what the sheet says is written in chalk on the blackboard of the jetty
+  const writeChalk = lines => { writeBoard(lines); D.wake(); };
 
   /* ---------- the pictures of the tricks ---------- */
   // The same calls as the pictures of viz.js: { n, jump(i, mask), reveal(), reset(), hand(h) }. Each draws on the pond and flies the camera
@@ -867,7 +931,19 @@ function build(canvas) {
       fish.forEach((f, i) => { const q = f.userData; q.p += dt * 0.25; const z = q.z + Math.sin(q.p) * 1.6, x = X1 - 1.2 - (1 + Math.cos(q.p * 0.7)) * 1.2; f.position.set(x, q.y + Math.sin(q.p * 2) * 0.15, z); f.rotation.y = Math.cos(q.p) > 0 ? -Math.PI / 2 : Math.PI / 2; });
       flies.forEach((q, i) => { q.p += dt; flyPos[i * 3] = q.x + Math.sin(q.p * 0.7) * 0.8; flyPos[i * 3 + 1] = q.y + Math.sin(q.p * 1.3) * 0.35; flyPos[i * 3 + 2] = q.z + Math.cos(q.p * 0.5) * 0.6; const k = 0.3 + 0.7 * Math.sin(q.p * 2.1) ** 2; flyCol[i * 3] = 0.85 * k; flyCol[i * 3 + 1] = k; flyCol[i * 3 + 2] = 0.55 * k; });
       if (NFL) { flyGeo.attributes.position.needsUpdate = true; flyGeo.attributes.color.needsUpdate = true; }
-      head.rotation.y = Math.sin(now * 0.0004) * 0.5;
+      // the heron looks about; judging, it nods or shakes its head
+      if (heronDo) {
+        const h = heronDo; h.t += raw; const k = Math.min(1, h.t / 0.9);
+        if (h.ok) neck.rotation.x = Math.sin(k * Math.PI * 2) * 0.28 * (1 - k); else head.rotation.y = Math.sin(k * Math.PI * 4) * 0.6 * (1 - k);
+        if (k >= 1) { heronDo = null; neck.rotation.x = 0; }
+        busy = true;
+      } else head.rotation.y = Math.sin(now * 0.0004) * 0.5;
+      // the swarm of the lightning round buzzes round the frog
+      if (swarm.visible) {
+        const m = new THREE.Matrix4();
+        swarmP.forEach((q, i) => { q.a += raw * (2.2 + i % 3); q.b += raw * 3.1; m.makeTranslation(frog.position.x + Math.cos(q.a) * q.r, frog.position.y + q.h + Math.sin(q.b) * 0.25, frog.position.z + Math.sin(q.a) * q.r * 0.7); swarm.setMatrixAt(i, m); });
+        swarm.instanceMatrix.needsUpdate = true; busy = true;
+      }
       stars.forEach((s, i) => { if (s.on) s.gl.material.opacity = 0.6 + Math.sin(now * 0.002 + i) * 0.15; });
       if (hlOn >= 0) { const p = Math.sin(now * 0.006); ring.material.opacity = 0.7 + p * 0.25; ring.scale.setScalar(1 + p * 0.05); ringGlow.material.opacity = 0.55 + p * 0.2; busy = true; }
     }
@@ -879,6 +955,7 @@ function build(canvas) {
     viz, draws: kind => !!PICS[kind], clear, hear: o => { sound = { ...sound, ...o }; }, where: n => pic?.where?.(n),
     rest, fly: newFly, gulp, plof, shoo, joy, bloom,
     // the camera close to the pad of project i, where the frog plays a level in the head
+    open, judge, star, dusk, chalk: writeChalk,
     padView: i => ({ t: [PADS[i][0], WY + 0.6, PADS[i][1]], dir: [0.12, 0.5, 1], R: 1.6 }),
     _: { debug: () => ({ acts: actN, flying: flying.map(F => F.mode), fly: !!fly, pic: pic && { busy: pic.busy, on: pic.on() } }), D, frog, pads, stars, writeBoard, heron, head, tween, setFlower, piscina: () => piscinaOn } };
 }

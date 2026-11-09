@@ -93,7 +93,7 @@ WIDE.addEventListener?.('change', () => frame3d());
 function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
 function show(kicker, playing) {
   document.body.classList.toggle('playing', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  root.onclick = null; W.highlight(null); W.clear(); W.shoo();
+  root.onclick = null; W.highlight(null); W.clear(); W.shoo(); W.dusk(null); W.chalk([]);
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -126,7 +126,7 @@ const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, i
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
   fresh(); show('Càlcul mental · el mapa', false);
-  pondState(); W.go('map'); W.rest('home');
+  pondState(); W.go('map'); W.rest('home'); W.chalk(['Salts de', 'Granota']);
   panel3d('42vh', '');
   const sheet = $('#sheet');
   M.screen({ root: sheet, here, rings, ringAttr: c => ` style="--rh:${HUE[c]}"`, projAttr: (i, c) => ` style="--h:${HUE[c]}"`, icon: () => ORB, pp: true,
@@ -246,14 +246,14 @@ function play(o) {
       if (busy || done) return;
       const ok = val === p.ans;
       if (!ok && !o.once) {
-        clean = false; streak = 0; drawCombo(); kp.wrong(); say('Encara no. Torna-ho a provar.', 'bad'); W.plof();
+        clean = false; streak = 0; drawCombo(); kp.wrong(); say('Encara no. Torna-ho a provar.', 'bad'); W.plof(); W.judge(false);
         // two misses in a row: the hint button lights up
         if (++miss >= 2) hb?.classList.add('glow');
         return;
       }
       done = true; hb?.classList.remove('glow');
       if (!ok) {
-        st.res.push(false); st.missed.push(p); streak = 0; drawCombo(); step(false); kp.show(); say(`Era ${num(p.ans)}.`, 'bad'); W.plof(); W.shoo();
+        st.res.push(false); st.missed.push(p); streak = 0; drawCombo(); step(false); kp.show(); say(`Era ${num(p.ans)}.`, 'bad'); W.plof(); W.shoo(); W.judge(false);
         if (o.secs) { await sleep(1100); if (alive()) { i++; ask(); } return; }
         $('.keys', stage).outerHTML = '<button class="btn" id="go">Segueix</button>';
         $('#go').onclick = () => { if (alive()) { i++; ask(); } }; $('#go').focus({ preventScroll: true });
@@ -271,6 +271,7 @@ function play(o) {
       // the fly of an operation answered at the first try is caught (a big jump every five in a row); any other one flies away.
       // With the picture on screen the frog finishes the trick first and catches it from the pad of the result; without it, it jumps up to it
       const caught = clean && !p.re, big = caught && streak % 5 === 0;
+      W.judge(true);
       if (v) {
         for (; shown < v.n; shown++) { await v.jump(shown); if (!alive()) return; }
         v.reveal(); caught ? W.gulp({ big }) : W.shoo(); await sleep(1200);
@@ -284,7 +285,7 @@ function play(o) {
     const t0 = performance.now(), iv = setInterval(() => {
       const left = o.secs - (performance.now() - t0) / 1000;
       if (!t.on || over) return clearInterval(iv);
-      $('#fuse').style.width = Math.max(0, left / o.secs * 100) + '%';
+      $('#fuse').style.width = Math.max(0, left / o.secs * 100) + '%'; o.tick?.(1 - left / o.secs);
       if (left <= 0) { clearInterval(iv); finish(); }
     }, 100);
   }
@@ -361,11 +362,13 @@ function nivell(i, idx) {
 // out is the page of all games.
 function piscina() {
   const t = fresh(); show('La Piscina', true); $('#toM').hidden = true; $('#toG').hidden = !HUB;
-  W.go('jetty');
+  // the frog waits at the end of the jetty; the pond is still shut
+  pondState(); W.go('jetty'); W.rest('jetty');
   panel3d('30vh', `${HUD("Tres salts per entrar a l'estany")}<div class="play" id="play"></div>`);
   play({ t, host: $('#play'), qs: pool(), pic: true, hints: true, chip, onEnd: st => {
     const r = poolIn(prog); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
-    fanfare(); leap(); FX.celebrate(16);
+    // saved: now the pond opens, its lanterns and fireflies come on
+    fanfare(); if (W.ok) { W.clear(); W.rest('home'); W.open(); } else { leap(); FX.celebrate(16); }
     $('#play').innerHTML = `<h2>Piscina acabada!</h2><p class="lead go">+50 XP · ja ets dins del cursus de càlcul mental</p>${news(got)}
       <p class="lead">Al mapa hi ha sis cercles de nenúfars. Cada nenúfar és un truc per calcular de cap: valida els d'un cercle i supera'n l'examen per obrir el següent.</p>
       <div class="row"><button class="btn" id="nx">Obre el mapa</button></div>`;
@@ -376,11 +379,13 @@ function piscina() {
 /* ---------- the exam of a circle: six new operations of its projects, one try each, no hints, saved after the sixth ---------- */
 function examen(c) {
   const t = fresh(), qs = exam(c); show(`Examen del cercle ${c}`, true);
-  W.go('rock');
+  W.go('rock'); W.rest('rock');
   panel3d('30vh', `${HUD('Sis operacions · un sol intent')}<div class="play" id="play"></div>`);
   play({ t, host: $('#play'), qs, once: true, neg: c === NEG, chip, onEnd: st => {
     const first = !prog.exams[c], r = examIn(prog, c, qs, st.res); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
     r.good ? (fanfare(), leap(), FX.celebrate(16)) : tone(196, 0, 0.5, 0.12, 'triangle');
+    // passed for the first time: a star more of the frog in the sky
+    if (r.good && first) W.star(prog.exams.filter(Boolean).length - 1);
     $('#cnt').textContent = `${r.score} de 6`;
     $('#play').innerHTML = `<h2>${r.good ? 'Examen superat!' : 'Encara no!'}</h2><p class="score">${r.score} de 6</p>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? "Molt bé! Però l'examen només compta amb tots els projectes del cercle validats." : `Per superar l'examen calen ${EXAM_PASS} de 6.`}</p>
@@ -394,14 +399,16 @@ function examen(c) {
 /* ---------- the lightning round: as many operations as fit in a minute, one try each; only the record is kept ---------- */
 function llampec() {
   const t = fresh(); show('Repte llampec', true);
-  W.go('home');
+  W.go('rapid'); W.rest('home');
   panel3d('30vh', `<div class="play intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons d'operacions amb els trucs que ja coneixes, un sol intent per a cada una. Escriu el resultat i ja està: no cal prémer ✓. Quantes n'encertaràs?</p>
     ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<div class="row"><button class="btn" id="go">Comença!</button></div></div>`);
   $('#go').focus({ preventScroll: true });
   $('#go').onclick = () => {
     if (!t.on) return;
     panel3d('30vh', `${HUD('Repte llampec', false)}<div class="play" id="play"></div>`);
-    play({ t, host: $('#play'), qs: sprint(prog), once: true, secs: RAPID, chip, onEnd: st => {
+    // the sun sets while the minute lasts, and a swarm of flies comes round the frog
+    W.dusk(0);
+    play({ t, host: $('#play'), qs: sprint(prog), once: true, secs: RAPID, chip, tick: k => W.dusk(k), onEnd: st => {
       const r = rapidIn(prog, st.hits); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
       fanfare(); if (r.best) { FX.celebrate(16); leap(); }
       $('#play').innerHTML = `<h2>Temps!</h2><p class="score">${hits(st.hits)}</p><p class="lead${r.best ? ' go' : ''}">${r.best ? 'Rècord nou!' : `El teu rècord: ${prog.rapid}`}</p>${news(got)}
@@ -416,7 +423,7 @@ function llampec() {
 // makes it true, with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
 function full() {
   const t = fresh(); show("Caça l'errada", true);
-  W.go('jetty');
+  W.go('board'); W.rest('board');
   const cs = sheet(prog, OPEN), marks = [];
   panel3d('30vh', `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres operacions">${'<i></i>'.repeat(cs.length)}</span></div>
     <div class="play"><div class="coach" id="coach">${frog('pilot')}<p class="tipb" id="tip" role="status" aria-live="polite"></p></div><div class="sheetbox" id="stage"></div><div class="tail" id="tail"></div></div>`);
@@ -427,6 +434,8 @@ function full() {
     k++; C = cs[k]; busy = false; openAt = performance.now() + SETTLE;
     dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     stage.innerHTML = `<div class="paper"><p class="claim">${C.q.lhs} <b>${num(C.says)}</b> ${C.q.rhs}</p></div>`;
+    // what the sheet says is on the blackboard too, in chalk
+    W.chalk([`${C.q.lhs} ${num(C.says)} ${C.q.rhs}`.trim(), { t: `${k + 1} de ${cs.length}`, s: 44, c: '#9EC3C0' }]);
     tail.innerHTML = '<div class="row"><button class="btn" id="yes">És correcte</button><button class="btn soft" id="no">No és correcte</button></div>';
     say('Mira-ho bé: és veritat, el que diu el full?');
   }
@@ -435,7 +444,8 @@ function full() {
     busy = true; marks[k] = ok; dots[k].classList.add(ok ? 'ok' : 'late');
     if (last) { res = sheetIn(prog, marks); prog = res.prog; save(); }
     for (const b of tail.querySelectorAll('button')) b.disabled = true;
-    if (ok) { say(txt, 'go'); chime([523, 659, 784]); FX.celebrate(4); } else { say(txt, 'oops'); buzz(); }
+    if (ok) { say(txt, 'go'); chime([523, 659, 784]); FX.celebrate(4); W.joy(); } else { say(txt, 'oops'); buzz(); W.plof(); }
+    W.chalk([C.q.eq, ok ? { t: '✓', c: '#7CF5B0', s: 90 } : { t: '✗', c: '#FF6B5E', s: 90 }]);
     await sleep(ok ? 1200 : 2600); if (!t.on) return;
     last ? finish() : arm();
   }
@@ -444,6 +454,7 @@ function full() {
     tail.innerHTML = '';
     r.good ? (fanfare(), leap()) : tone(196, 0, 0.5, 0.12, 'triangle');
     say(r.good ? 'Full perfecte!' : 'Full acabat.', r.good ? 'go' : '');
+    W.chalk([r.good ? 'Full perfecte!' : 'Full acabat', { t: `${cs.length - r.missed.length} de ${cs.length}`, s: 64 }]);
     stage.innerHTML = `<p class="score">${cs.length - r.missed.length} de ${cs.length}</p>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? (r.gain ? `Full perfecte ✓ · +${r.gain} XP` : 'Full perfecte ✓ · 0 XP: valida més projectes per sumar-ne.') : 'Per sumar XP cal encertar els tres.'}</p>
       <p class="lead">${bad.length ? `${bad.length > 1 ? 'Tenien' : 'Tenia'} una errada: ${list(bad)}.` : 'Tots tres eren correctes.'}</p>${news(r.news)}
