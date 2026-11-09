@@ -89,7 +89,7 @@ export function terrace(canvas) {
 export function none() {
   const p = () => Promise.resolve();
   return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {}, tauler: () => null, spark() {},
-    bring: p, frog: p, walk: p, rest() {}, topple: p, validate: p, open: p, judge() {}, star: p, clock() {}, sheet() {} };
+    bring: p, frog: p, walk: p, rest() {}, topple: p, validate: p, open: p, judge() {}, star: p, clock() {}, sheet() {}, launch: p };
 }
 
 function build(canvas) {
@@ -753,6 +753,19 @@ function build(canvas) {
   }
   writeSheet([]);
 
+  /* ---------- a level done: a queen of gold rises from the board, leaving sparks ---------- */
+  const queenGold = std(C.gold, { metalness: 0.6, roughness: 0.3, emissive: 0x6A4A00, emissiveIntensity: 0.5 });
+  function launch() {
+    if (RM) return Promise.resolve();
+    const m = new THREE.Mesh(geoOf('Q'), queenGold); m.scale.setScalar(1.6); m.position.set(0, TY, 0.3); scene.add(m);
+    [0, 0.1, 0.2, 0.3, 0.4].forEach((d, i) => sound.tone(196 * 2 ** (i / 4), d, 0.5, 0.05, 'triangle'));
+    let last = 0;
+    return tween(1500, k => {
+      m.position.y = TY + k * k * 7; m.rotation.y = k * 6; m.scale.setScalar(1.6 * (1 - k * 0.4));
+      if (k - last > 0.06) { last = k; D.sparkle(m.position.clone().add(V(0, 0.2, 0)), 4, 0xFFD36B, 0.3, 0.6, 3); }
+    }, k => k).then(() => { scene.remove(m); });
+  }
+
   /* ---------- check and mate ---------- */
   // the king mated falls on its side
   function topple(s) {
@@ -780,7 +793,7 @@ function build(canvas) {
 
   let sound = { tone() {} };
   return { ok: true, layout, go, get view() { return viewName; }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
-    tauler: () => B, spark, bring, frog: frogOn, walk, rest, topple, validate, open, judge, star, clock, sheet: writeSheet,
+    tauler: () => B, spark, bring, frog: frogOn, walk, rest, topple, validate, open, judge, star, clock, sheet: writeSheet, launch,
     hear: o => { sound = { ...sound, ...o }; }, lamps: hue => { lampHue = hue; paintLamps(); },
     // for the checks (scripts/flow-escacs.mjs): the pieces still in the scene, the ones falling to the water too
     _: { D, statues, stars, signs, TEX, boardM, tween, setStatue, pieces: () => things.children.filter(m => m.userData.p).length,

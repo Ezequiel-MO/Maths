@@ -1,4 +1,4 @@
-import { $, RM, sleep, pick, mid, OBERT } from '../../shared/util.js';
+import { $, RM, sleep, pick, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
 import { levelRow, wireLevels, panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
@@ -132,8 +132,9 @@ const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classLis
 const nextKey = (buf, len) => { const k = $('.keys'); if (k) k.dataset.next = buf.length >= len ? 'x' : buf.length % 2 ? 'n' : 'l'; };
 // the longest run goes in with whatever is being handed in: gives back the badges it earns
 function run() { const r = streakIn(prog, top); prog = r.prog; return r.news; }
-// a crowned queen crosses the whole screen from the bottom, leaving sparks behind
+// a crowned queen rises from the board of the terrace leaving sparks; without it, it crosses the whole screen from the bottom
 function launch() {
+  if (W.ok) return W.launch();
   if (RM) return;
   const e = document.createElement('div'); e.className = 'launch'; e.innerHTML = ico('Q'); document.body.append(e);
   [0, 0.1, 0.2, 0.3, 0.4].forEach((d, i) => tone(196 * 2 ** (i / 4), d, 0.5, 0.05, 'triangle'));
@@ -502,7 +503,9 @@ function board(o) {
       return;
     }
     ding(); if (how !== 'rapid') tip(streak && streak % 5 === 0 ? `${streak} seguides! ${pick(BRAVO)}` : pick(BRAVO), 'go');
-    { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 18 + 3 * Math.min(streak, 8), 170); if (streak && streak % 5 === 0) FX.celebrate(3); }
+    // sparkles over the square answered, on the terrace; confetti every five in a row
+    if (!q.opts) W.spark(ans, 150);
+    if (streak && streak % 5 === 0) FX.celebrate(3);
     // the frog of a question of steps makes them before the next question
     await Promise.all([sleep(how === 'rapid' ? 350 : 1100), q.kind === 'step' ? W.walk(q.from, ...q.d) : null]); if (t.on && !over) next();
   }

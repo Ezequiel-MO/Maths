@@ -70,9 +70,10 @@ async function section(name, fn) {
   console.log(`  ${name} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 // a page of the game with this save under a new player; first is what must be on screen before going on
-// slow: the page draws one frame a second, as a tired tablet might (what decides the game must go on with the clock)
-async function open(save, first = '.map', w = 390, h = 844, q = '', slow = false) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage();
+// slow: the page draws one frame a second, as a tired tablet might (what decides the game must go on with the clock); still: the
+// browser asks for reduced motion
+async function open(save, first = '.map', w = 390, h = 844, q = '', slow = false, still = false) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, reducedMotion: still ? 'reduce' : 'no-preference' }), page = await ctx.newPage();
   opened.push(ctx);
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_|favicon|firestore|firebase/i.test(m.text())) pageErrors.push('console: ' + m.text()); });
@@ -280,6 +281,9 @@ if (!NOGL) await section('tauler 3D: el contracte', async () => {
 await section('nivell de caselles sense errades', async () => {
   const page = await open(MID);
   await tap(page, '.proj[data-p="0"]');
+  // with the terrace the board is on it, and the board of the page is hidden; without WebGL the board of the page is played
+  await wait(page, () => window.__escacs.what === 'nivell');
+  same('the board of the page on screen', await page.evaluate(() => { const e = document.querySelector('#field svg.bd'); return !!e && e.getBoundingClientRect().height > 200; }), NOGL);
   const done = await level(page, 0, 0);
   same('answers', done.length, 3);
   same('sideways scroll on a phone, in a level', await sideways(page), 0);
@@ -332,6 +336,21 @@ await section('nivell que valida un projecte', async () => {
   }
 });
 
+// With reduced motion nothing moves (the firefly, the frog, the garden opening, the king falling are instant), and the game is the same
+await section('moviment reduït', async () => {
+  let page = await open(null, '#ask', 390, 844, '', false, true);
+  check(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches), 'the page asks for reduced motion');
+  const done = await quick(page);
+  same('questions of the Piscina, with reduced motion', done.length, 3);
+  await after(page, 'the save after the Piscina, with reduced motion', null, poolIn(clean(null)).prog);
+  if (!NOGL) same('where the frog is after the steps, with reduced motion', await page.evaluate(() => document.querySelector('#world').dataset.granota), wantQ(done[2].q));
+  await page.context().close();
+  page = await open(MATE, '.map', 390, 844, '', false, true);
+  await tap(page, '.proj[data-p="8"]');
+  await level(page, 8, 3);
+  await after(page, 'the save after a mate, with reduced motion', MATE, levelIn(streakIn(clean(MATE), 1).prog, 8, 3, 0).prog);
+});
+
 /* ---------- the boards of quick questions ---------- */
 await section('partida buida: la Piscina', async () => {
   const page = await open(null, '#ask');
@@ -360,6 +379,7 @@ await section('examen', async () => {
   }
   const done = await quick(page, { wrong: k => k === 2 });
   same('questions of an exam', done.length, 6);
+  same('sideways scroll on a phone, in an exam', await sideways(page), 0);
   const r = examIn(streakIn(clean(MID), topOf(done)).prog, 1, done.map(d => d.q), done.map(d => !d.wrong));
   check(r.good, 'five of six with the circle validated passes the exam');
   await after(page, 'the save after the exam', MID, r.prog);
