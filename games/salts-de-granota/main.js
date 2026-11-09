@@ -1,12 +1,12 @@
 import { $, RM, sleep, mid, OBERT } from '../../shared/util.js';
 import { voice, pentatonic } from '../../shared/audio.js';
-import { pond } from '../../shared/fx.js';
 import { load, save as store } from '../../shared/progress.js';
 import { pick, num, make, sums, PROJECTS, PLAN, CIRCLES, NEG, VALID, EXAM_PASS, RAPID, pool, clean, noteOf, reached, validated, levelText, isOpen, examOpen,
   circleOf, BADGES, badges, levelIn, poolIn, streakIn, rapidIn, fliesIn, exam, examIn, sprint, sheet, sheetIn } from './logic.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, xpBar, soundButton, list, news, combo, tokens } from '../../shared/shell.js';
 import { FROG, Viz, hear } from './viz.js';
+import { pond } from './world.js';
 
 const KEY = 'salts-de-granota';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -28,7 +28,15 @@ const fresh = tokens(() => { keyFn = null; });
 const { tone, chime } = voice(() => prog.so);
 // the longer the streak, the higher the note
 const noteAt = pentatonic(392);
-const FX = pond(tone);
+// the pond in 3D behind the panel; without WebGL its calls do nothing and the pictures of the tricks are drawn in the panel
+const W = pond($('#world'));
+document.body.classList.toggle('nogl', !W.ok);
+// for the checks in the browser (scripts/flow-salts.mjs): the pond, to ask it where things are
+window.__estany = W;
+// the sparks of the page are the pond's now: confetti over the place on show (nothing without WebGL)
+const FX = { ring() {}, burst() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1) };
+// the pond as the progress has it: a flower open for each project validated, a star for each exam passed
+const pondState = () => W.state({ piscina: prog.piscina || OPEN, valid: OPEN ? PROJECTS.map((_, i) => i) : validated(prog), stars: prog.exams.filter(Boolean).length });
 hear({ tone, noteAt, FX });
 const buzz = () => tone(150, 0, 0.45, 0.16, 'triangle');
 const fanfare = () => chime([523, 659, 784, 1047, 1319]);
@@ -72,9 +80,18 @@ const hits = n => n === 1 ? '1 encert' : `${n} encerts`;
 /* ---------- the page around every screen ---------- */
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
 const HUB = ownPage('salts-de-granota');
-function show(kicker, playing, hue) {
-  $('#app').classList.toggle('in', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  root.onclick = null; FX.mood(hue);
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+// the pond is framed in the part of the screen the panel leaves free: on the left of it when the screen is wide, above it otherwise
+function frame3d() {
+  if (WIDE.matches) W.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('.view'); W.layout('bottom', v ? Math.max(0.3, 1 - v.getBoundingClientRect().bottom / innerHeight) : 0.55); }
+}
+WIDE.addEventListener?.('change', () => frame3d());
+// a screen: the room the pond is seen through (h tall on a narrow screen) and the panel under it
+function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
+function show(kicker, playing) {
+  document.body.classList.toggle('playing', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
+  root.onclick = null; W.highlight(null);
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -105,13 +122,19 @@ const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4]
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, what: 'Sis operacions', skipShut: true });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
-  fresh(); show('Càlcul mental · el mapa', false, 165);
-  M.screen({ root, here, rings, ringAttr: c => ` style="--rh:${HUE[c]}"`, projAttr: (i, c) => ` style="--h:${HUE[c]}"`, icon: () => ORB, pp: true,
+  fresh(); show('Càlcul mental · el mapa', false);
+  pondState(); W.go('map');
+  panel3d('42vh', '');
+  const sheet = $('#sheet');
+  M.screen({ root: sheet, here, rings, ringAttr: c => ` style="--rh:${HUE[c]}"`, projAttr: (i, c) => ` style="--h:${HUE[c]}"`, icon: () => ORB, pp: true,
     top: `\n    <p class="stats"><span>${FLY}<b>${prog.mosques}</b> ${prog.mosques === 1 ? 'mosca' : 'mosques'}</span><span>🔥 Ratxa més llarga: <b>${prog.ratxa}</b></span></p>\n    `,
     foot: got => `\n    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
       <button class="btn soft" id="full"${OPEN || prog.lv.some(Boolean) ? '' : ' disabled title="Fes un nivell per obrir-lo"'}>🔍 Caça l'errada</button>
       ${badgeList(BADGES, got)}</div>`,
     open: i => { tone(523, 0, 0.2); nivell(i, M.nextLevel(i)); }, exam: examen, on: [['#full:not(:disabled)', full], ['#rapid', llampec]] });
+  // a project under the finger, or with the focus, lights its lily pad on the pond
+  const lit = e => { const b = e.target.closest?.('.proj[data-p]'); W.highlight(b ? +b.dataset.p : null); };
+  sheet.onpointerover = lit; sheet.onfocusin = lit; sheet.onpointerleave = () => W.highlight(null);
   here = -1;
 }
 
@@ -267,8 +290,9 @@ function bank(st) { const f = fliesIn(prog, st.flies); prog = f.prog; return [..
 function nivell(i, idx) {
   const t = fresh(), S = PROJECTS[i], L = PLAN[idx], c = circleOf(i);
   let cur = { on: true };
-  show(`Cercle ${c} · ${S.name}`, true, HUE[c]); here = i;
-  root.innerHTML = `${HUD(`Nivell ${idx + 1} · ${L.kind}`)}<nav class="levels" aria-label="Nivells"></nav><div class="play" id="play"></div>`;
+  show(`Cercle ${c} · ${S.name}`, true); here = i;
+  W.go('c' + c);
+  panel3d('30vh', `${HUD(`Nivell ${idx + 1} · ${L.kind}`)}<nav class="levels" aria-label="Nivells"></nav><div class="play" id="play"></div>`);
   const card = $('#play'), nav = $('.levels', root);
   function levels() {
     const open = OPEN ? 9 : reached(prog, i);
@@ -321,8 +345,9 @@ function nivell(i, idx) {
 // The third one saves piscina and opens the map. There is no «← Mapa» here: the map would have every circle shut, so the way
 // out is the page of all games.
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 190); $('#toM').hidden = true; $('#toG').hidden = !HUB;
-  root.innerHTML = `${HUD("Tres salts per entrar a l'estany")}<div class="play" id="play"></div>`;
+  const t = fresh(); show('La Piscina', true); $('#toM').hidden = true; $('#toG').hidden = !HUB;
+  W.go('jetty');
+  panel3d('30vh', `${HUD("Tres salts per entrar a l'estany")}<div class="play" id="play"></div>`);
   play({ t, host: $('#play'), qs: pool(), pic: true, hints: true, chip, onEnd: st => {
     const r = poolIn(prog); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
     fanfare(); leap(); FX.celebrate(16);
@@ -335,8 +360,9 @@ function piscina() {
 
 /* ---------- the exam of a circle: six new operations of its projects, one try each, no hints, saved after the sixth ---------- */
 function examen(c) {
-  const t = fresh(), qs = exam(c); show(`Examen del cercle ${c}`, true, HUE[c]);
-  root.innerHTML = `${HUD('Sis operacions · un sol intent')}<div class="play" id="play"></div>`;
+  const t = fresh(), qs = exam(c); show(`Examen del cercle ${c}`, true);
+  W.go('rock');
+  panel3d('30vh', `${HUD('Sis operacions · un sol intent')}<div class="play" id="play"></div>`);
   play({ t, host: $('#play'), qs, once: true, neg: c === NEG, chip, onEnd: st => {
     const first = !prog.exams[c], r = examIn(prog, c, qs, st.res); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
     r.good ? (fanfare(), leap(), FX.celebrate(16)) : tone(196, 0, 0.5, 0.12, 'triangle');
@@ -352,13 +378,14 @@ function examen(c) {
 
 /* ---------- the lightning round: as many operations as fit in a minute, one try each; only the record is kept ---------- */
 function llampec() {
-  const t = fresh(); show('Repte llampec', true, 48);
-  root.innerHTML = `<div class="play intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons d'operacions amb els trucs que ja coneixes, un sol intent per a cada una. Escriu el resultat i ja està: no cal prémer ✓. Quantes n'encertaràs?</p>
-    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<div class="row"><button class="btn" id="go">Comença!</button></div></div>`;
+  const t = fresh(); show('Repte llampec', true);
+  W.go('home');
+  panel3d('30vh', `<div class="play intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons d'operacions amb els trucs que ja coneixes, un sol intent per a cada una. Escriu el resultat i ja està: no cal prémer ✓. Quantes n'encertaràs?</p>
+    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<div class="row"><button class="btn" id="go">Comença!</button></div></div>`);
   $('#go').focus({ preventScroll: true });
   $('#go').onclick = () => {
     if (!t.on) return;
-    root.innerHTML = `${HUD('Repte llampec', false)}<div class="play" id="play"></div>`;
+    panel3d('30vh', `${HUD('Repte llampec', false)}<div class="play" id="play"></div>`);
     play({ t, host: $('#play'), qs: sprint(prog), once: true, secs: RAPID, chip, onEnd: st => {
       const r = rapidIn(prog, st.hits); prog = r.prog; const got = [...r.news, ...bank(st)]; save();
       fanfare(); if (r.best) { FX.celebrate(16); leap(); }
@@ -373,10 +400,11 @@ function llampec() {
 // «És correcte» of a wrong one, or «No és correcte» of a right one, is a miss; «No és correcte» of a wrong one asks for the answer that
 // makes it true, with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
 function full() {
-  const t = fresh(); show("Caça l'errada", true, 40);
+  const t = fresh(); show("Caça l'errada", true);
+  W.go('jetty');
   const cs = sheet(prog, OPEN), marks = [];
-  root.innerHTML = `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres operacions">${'<i></i>'.repeat(cs.length)}</span></div>
-    <div class="play"><div class="coach" id="coach">${frog('pilot')}<p class="tipb" id="tip" role="status" aria-live="polite"></p></div><div class="sheetbox" id="stage"></div><div class="tail" id="tail"></div></div>`;
+  panel3d('30vh', `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres operacions">${'<i></i>'.repeat(cs.length)}</span></div>
+    <div class="play"><div class="coach" id="coach">${frog('pilot')}<p class="tipb" id="tip" role="status" aria-live="polite"></p></div><div class="sheetbox" id="stage"></div><div class="tail" id="tail"></div></div>`);
   const stage = $('#stage'), tail = $('#tail'), dots = [...$('#dots').children];
   const say = (txt, cls = '') => { $('#tip').textContent = txt; const c = $('#coach'); c.className = 'coach'; void c.offsetWidth; c.className = 'coach ' + cls; };
   let k = -1, C, busy, openAt = 0, res = null;

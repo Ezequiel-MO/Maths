@@ -57,7 +57,7 @@ async function section(name, fn) {
   console.log(`  ${name} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 // a page of the game with this save under a new player; first is what must be on screen before going on
-async function open(save, first = '.map', w = 390, h = 844) {
+async function open(save, first = '.map', w = 390, h = 844, q = '') {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage();
   opened.push(ctx);
   page.on('pageerror', e => pageErrors.push(e.message));
@@ -69,7 +69,7 @@ async function open(save, first = '.map', w = 390, h = 844) {
   });
   await page.goto(BASE + '/index.html');
   await page.evaluate(async ([key, save]) => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load(key); if (save) P.save(key, save); }, [KEY, save]);
-  await page.goto(BASE + '/salts-de-granota.html');
+  await page.goto(BASE + '/salts-de-granota.html' + q);
   await page.waitForSelector(first, { timeout: 30000 });
   return page;
 }
@@ -141,6 +141,18 @@ for (const [name, save] of Object.entries(SAVES)) {
     same(`${name}: the save after the map`, await stored(page), save);
   });
 }
+
+/* ---------- the pond: a flower open for each project validated, a star lit for each exam passed ---------- */
+if (!process.env.NOGL) await section('estany: flors i estrelles', async () => {
+  for (const [name, save, q] of [['mig', { ...MID, exams: [true, false, true, false, false, false] }, ''], ['acabada', SAVES.acabada, ''], ['secs', SAVES.secs, ''], ['mig amb ?obert', MID, '?obert']]) {
+    const page = await open(save, '.map', 390, 844, q), p = clean(save);
+    await wait(page, () => document.querySelector('#world').dataset.flors !== undefined);
+    const got = await page.evaluate(() => ({ ...document.querySelector('#world').dataset }));
+    same(`${name}: open flowers`, +got.flors, q ? PROJECTS.length : L.validated(p).length);
+    same(`${name}: lit stars`, +got.estrelles, p.exams.filter(Boolean).length);
+    await page.context().close();
+  }
+});
 
 /* ---------- the boards ---------- */
 await section('partida buida: la Piscina', async () => {
