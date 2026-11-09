@@ -7,7 +7,8 @@
 //     works the answer out in Node with logic.js. After each, the saved document must be exactly what the functions of logic.js give for
 //     those right and wrong answers (levelIn, poolIn, examIn, rapidIn, sheetIn and streakIn, in the order main.js calls them).
 // It is not part of `npm run check` (it needs a browser). Not a dependency: playwright-core and Chrome come from outside.
-// Run (the dev server must be up: `npx vite --port 5232`; do not edit files while it runs, Vite reloads the page):
+// Run (the dev server must be up: `npx vite --port 5232`; do not edit files while it runs, Vite reloads the page. When the network of the
+// machine changes, a container starting, Vite's live reload reloads the page too: a server with `server: { hmr: false }` avoids it):
 //   PLAYWRIGHT_CORE=/home/olive/projects/AIlearn/node_modules BASE=http://localhost:5232 node scripts/flow-escacs.mjs
 //   CHROME   a Chrome or Chromium binary (default /usr/bin/google-chrome)
 //   NOGL=1   Chrome without WebGL: the game must be played the same with the board of the page
@@ -69,28 +70,30 @@ async function section(name, fn) {
   console.log(`  ${name} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 // a page of the game with this save under a new player; first is what must be on screen before going on
-async function open(save, first = '.map', w = 390, h = 844, q = '') {
+// slow: the page draws one frame a second, as a tired tablet might (what decides the game must go on with the clock)
+async function open(save, first = '.map', w = 390, h = 844, q = '', slow = false) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true }), page = await ctx.newPage();
   opened.push(ctx);
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_|favicon|firestore|firebase/i.test(m.text())) pageErrors.push('console: ' + m.text()); });
-  await page.addInitScript(() => {
+  await page.addInitScript(slow => {
     const now = performance.now.bind(performance), st = window.setTimeout.bind(window);
     window.__skew = 0; performance.now = () => now() + window.__skew;
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
-  });
+    if (slow) { const raf = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = f => st(() => raf(f), 1000); }
+  }, slow);
   // When the machine's network changes (a container starting), Chrome drops what it was loading, even from localhost: the page is loaded
   // again, up to three times. Only that is tried again; any other error stops the section
   for (let n = 1; ; n++) {
     try {
-      await page.goto(BASE + '/index.html');
+      await page.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
       await page.evaluate(async ([key, save]) => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load(key); if (save) P.save(key, save); }, [KEY, save]);
-      await page.goto(BASE + '/escacs-de-l-estany.html' + q);
+      await page.goto(BASE + '/escacs-de-l-estany.html' + q, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector(first, { timeout: 30000 });
       return page;
     } catch (e) {
-      if (n >= 3 || !/ERR_NETWORK_CHANGED|Failed to fetch dynamically imported module|net::ERR_/.test(e.message + pageErrors.join())) throw e;
-      console.log(`  (the network changed while loading; again, ${n + 1} of 3)`);
+      if (n >= 3 || !/ERR_NETWORK_CHANGED|Failed to fetch dynamically imported module|net::ERR_|page.goto: Timeout/.test(e.message + pageErrors.join())) throw e;
+      console.log(`  (the network changed while loading: ${e.message.split("\n")[0]}; again, ${n + 1} of 3)`);
       pageErrors = pageErrors.filter(m => !/ERR_NETWORK_CHANGED|Failed to fetch|net::ERR_/.test(m));
     }
   }
@@ -268,6 +271,8 @@ if (!NOGL) await section('tauler 3D: el contracte', async () => {
       await wait(page, () => document.querySelector('#world').dataset.ocupat === '0');
       same(`level ${p}.${i}: pieces on the terrace at the end`, await page.evaluate(() => window.__terrassa._.pieces()), Object.keys(pos.at).length);
     }
+    // a page left open goes on drawing: closed before the next one, which builds its terrace on the same processor
+    await page.context().close();
   }
 });
 
@@ -332,26 +337,41 @@ await section('partida buida: la Piscina', async () => {
   const page = await open(null, '#ask');
   same('the first screen of an empty save', await page.evaluate(() => document.querySelector('#kick').textContent), 'La Piscina');
   check(!(await page.$('.map')), 'an empty save shows no map');
+  // the garden is shut until the Piscina is done
+  if (!NOGL) same('the garden during the Piscina', await page.evaluate(() => document.querySelector('#world').dataset.jardi), 'tancat');
   const done = await quick(page, { wrong: k => k === 1 });
   same('questions of the Piscina', done.length, 3);
   // the third is «Surt de b2 i fes…»: the frog has made the steps to the answer
   if (!NOGL) same('where the frog is after the steps', await page.evaluate(() => document.querySelector('#world').dataset.granota), wantQ(done[2].q));
   await after(page, 'the save after the Piscina', null, poolIn(clean(null)).prog);
+  // saved, the garden opens: its statues come up and its lanterns light
+  if (!NOGL) await wait(page, () => document.querySelector('#world').dataset.jardi === 'obert' && window.__terrassa.view === 'map');
   await tap(page, '#nx'); await page.waitForSelector('.map');
 });
 
 await section('examen', async () => {
   const page = await open(MID);
   await tap(page, '.proj.exam[data-x="1"]');
+  if (!NOGL) {
+    // the owl watches from its branch, in the part of the screen the panel leaves free and under the bar at the top
+    await wait(page, () => window.__escacs.what === 'pregunta'); await page.evaluate(() => window.__terrassa.go('exam'));
+    const o = await page.evaluate(() => ({ p: window.__terrassa._.owl(), top: document.querySelector('.top').getBoundingClientRect().bottom, bottom: document.querySelector('#sheet').getBoundingClientRect().top }));
+    check(o.p.x > 0 && o.p.x < 390 && o.p.y > o.top && o.p.y < o.bottom, `the owl on screen: ${JSON.stringify(o)}`);
+  }
   const done = await quick(page, { wrong: k => k === 2 });
   same('questions of an exam', done.length, 6);
   const r = examIn(streakIn(clean(MID), topOf(done)).prog, 1, done.map(d => d.q), done.map(d => !d.wrong));
   check(r.good, 'five of six with the circle validated passes the exam');
   await after(page, 'the save after the exam', MID, r.prog);
+  // passed for the first time: a star more of the knight in the sky
+  if (!NOGL) await wait(page, n => document.querySelector('#world').dataset.estrelles === String(n), r.prog.exams.filter(Boolean).length);
 });
 
-await section('repte llampec', async () => {
-  const page = await open(MID);
+// The lightning round, at sixty frames a second and at one: the minute ends with the clock of the page, and the chess clock of the
+// terrace drops its flag
+for (const slow of NOGL ? [false] : [false, true]) await section(`repte llampec${slow ? ' a 1 fps' : ''}`, async () => {
+  const page = await open(MID, '.map', 390, 844, '', slow);
+  if (slow) check(await page.evaluate(() => new Promise(r => { let n = 0; const t0 = Date.now(); (function f() { n++; if (Date.now() - t0 < 2500) requestAnimationFrame(f); else r(n); })(); })) <= 4, 'one frame a second');
   await tap(page, '#rapid');
   await page.waitForSelector('#go'); await tap(page, '#go');
   const done = await quick(page, { wrong: k => k === 4, stop: k => k === 7 });
@@ -361,11 +381,13 @@ await section('repte llampec', async () => {
   const hits = done.filter(d => !d.wrong).length;
   same('right answers of the round', hits, 6);
   await after(page, 'the save after the lightning round', MID, rapidIn(streakIn(clean(MID), topOf(done)).prog, hits).prog);
+  if (!NOGL) same('the chess clock at the end', await page.evaluate(() => document.querySelector('#world').dataset.rellotge), 'temps');
 });
 
 await section("caça l'errada", async () => {
   const page = await open(MID);
   await tap(page, '#full');
+  if (!NOGL) await wait(page, () => window.__terrassa.view === 'lectern');
   const marks = [];
   for (let k = 0; k < 3; k++) {
     await wait(page, k => { const e = window.__escacs; return e.what === 'full' && e.k === k && e.ready && document.querySelector('#yes'); }, k);

@@ -89,7 +89,7 @@ export function terrace(canvas) {
 export function none() {
   const p = () => Promise.resolve();
   return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {}, tauler: () => null, spark() {},
-    bring: p, frog: p, walk: p, rest() {}, topple: p, validate: p };
+    bring: p, frog: p, walk: p, rest() {}, topple: p, validate: p, open: p, judge() {}, star: p, clock() {}, sheet() {} };
 }
 
 function build(canvas) {
@@ -309,7 +309,8 @@ function build(canvas) {
     stars.forEach((s, i) => { s.on = i < n; s.m.material.color.setHex(s.on ? 0xFFD36B : 0x4A4870); s.gl.material.opacity = s.on ? 0.75 : 0; });
     paintLines();
     // before the Piscina the garden is shut: no statues, no fireflies, the lanterns off, a dimmer dusk
-    garden.visible = piscina; statues.forEach(S => { S.fig.visible = piscina; });
+    garden.visible = piscina; statues.forEach((S, i) => { S.fig.visible = piscina; S.fig.scale.setScalar(FIG[i] === '*' ? 1.5 : 1.55); });
+    canvas.dataset.jardi = piscina ? 'obert' : 'tancat';
     flyPts.visible = piscina; D.hemi.intensity = piscina ? 0.7 : 0.55; paintLamps();
     canvas.dataset.estatues = statues.filter(S => S.lit).length; canvas.dataset.estrelles = stars.filter(s => s.on).length;
     D.wake();
@@ -327,6 +328,13 @@ function build(canvas) {
       // the frog breathes; the wings of the fireflies beat
       if (frog.visible) { busy = true; frog.userData.t += dt; const sq = frog.userData.sq; frog.userData.body.scale.set((1 + Math.sin(frog.userData.t * 2.2) * 0.02) * (1 - 0.12 * sq), (1 + Math.sin(frog.userData.t * 2.2) * 0.03) * (1 + 0.24 * sq), 1 - 0.12 * sq); }
       for (const f of fireflies) { const a = 0.3 + 0.6 * Math.abs(Math.sin(now * 0.04)); f.userData.wings[0].rotation.x = -a; f.userData.wings[1].rotation.x = a; busy = true; }
+      // the owl looks about; judging, it nods or shakes its head (on the clock, not the frames)
+      if (owlDo) {
+        const h = owlDo; h.t += raw; const k = Math.min(1, h.t / 0.9);
+        if (h.ok) owlHead.rotation.x = Math.sin(k * Math.PI * 2) * 0.3 * (1 - k); else owlHead.rotation.y = Math.sin(k * Math.PI * 4) * 0.6 * (1 - k);
+        if (k >= 1) { owlDo = null; owlHead.rotation.x = 0; }
+        busy = true;
+      } else owlHead.rotation.y = Math.sin(now * 0.0005) * 0.6;
       for (const g of marks.children) if (g.userData.cls === 'sel' || g.userData.cls === 'risk') { const k = 0.65 + 0.35 * Math.sin(now * 0.006); g.children.forEach(x => { x.material.opacity = (g.userData.cls === 'sel' ? 0.95 : 0.5) * k; }); }
       if (stars3.size || marks.children.some(g => g.userData.cls === 'sel' || g.userData.cls === 'risk')) busy = true;
       if (hlOn >= 0) { const p = Math.sin(now * 0.006); ring.material.opacity = 0.7 + p * 0.25; ring.scale.setScalar(1 + p * 0.05); ringGlow.material.opacity = 0.55 + p * 0.2; busy = true; }
@@ -442,6 +450,7 @@ function build(canvas) {
     for (const dx of [-1.95, 1.95]) t.add(mesh(boxG(0.05, 0.12, 0.95, dx, 0.06, TRAYZ), wood2));
     bake(t); scene.add(t);
   }
+  let trayBack = 'board';
   VIEWS.tray = { t: [0, 0.6, TRAYZ - 0.2], dir: [0, 0.9, 1], R: 2.4 };
   function lot(ps, vals) {
     for (const o of tray.children.slice()) drop(o);
@@ -450,7 +459,7 @@ function build(canvas) {
       const tag = label(vals ? String(vals[i]) : '?', { ink: vals ? '#F7C64E' : '#EAF8F4', edge: 'rgba(4,19,28,0.9)', h: 0.5 }); tag.position.set(x, 1.6, TRAYZ); tray.add(tag);
       if (vals) D.sparkle(V(x, 1.45, TRAYZ), 8, 0xFFD36B, 0.3, 1.2, 2);
     });
-    if (viewName !== 'tray') go('tray', { dur: 900 });
+    if (viewName !== 'tray') { trayBack = viewName || 'board'; go('tray', { dur: 900 }); }
     D.wake();
   }
 
@@ -527,7 +536,7 @@ function build(canvas) {
       for (const m of Object.values(signs)) m.visible = !o.blind;
       if (o.sel?.length) mark('sel', o.sel);
       if (o.ask?.length) mark('ask', o.ask);
-      if (viewName === 'tray') go('board', { dur: 900 });
+      if (viewName === 'tray') go(trayBack, { dur: 900 });
       D.wake();
     },
     set: setThings,
@@ -616,7 +625,133 @@ function build(canvas) {
     moving--; still(); D.wake();
   }
   // the guests go away (another screen)
-  function rest() { frogOn(null); for (const x of guests.children.slice()) drop(x); }
+  function rest() { frogOn(null); for (const x of guests.children.slice()) drop(x); clock(0); writeSheet([]); }
+
+  /* ---------- the places of the modes ---------- */
+  // The Piscina: the garden is shut until it is done (no statues, the lanterns off, no fireflies); open() lights it before the child's eyes
+  function open() {
+    piscinaOn = true;
+    return go('map').then(async () => {
+      sound.tone(523, 0, 0.3, 0.07); sound.tone(659, 0.12, 0.3, 0.07); sound.tone(784, 0.24, 0.5, 0.08);
+      garden.visible = true; flyPts.visible = true; flyPts.material.opacity = 0;
+      const ys = statues.map(S => S.fig.position.y);
+      statues.forEach(S => { S.fig.visible = true; S.fig.scale.multiplyScalar(0.001); });
+      paintLamps(true);
+      lamps.forEach(L => { L.gl.material.opacity = 0; });
+      await tween(RM ? 0 : 1800, k => {
+        statues.forEach((S, i) => { const q = Math.max(0, Math.min(1, k * 1.6 - i * 0.07)); S.fig.scale.setScalar((FIG[i] === '*' ? 1.5 : 1.55) * Math.max(0.001, 1 - (1 - q) ** 3)); S.fig.position.y = ys[i] - (1 - q) * 0.6; });
+        lamps.forEach(L => { L.gl.material.opacity = 0.95 * k; }); flyPts.material.opacity = k; D.hemi.intensity = 0.55 + 0.15 * k;
+      }, k => k);
+      canvas.dataset.jardi = 'obert';
+      D.celebrate(3, V(0, 2, 0));
+    });
+  }
+
+  // The exam: an owl watches from the branch of a tree behind the board; it nods to a right answer and shakes its head at a wrong one
+  VIEWS.exam = { t: [-0.2, 0.2, -1.6], dir: [0, 1.45, 1], R: 5.5 };
+  const owl = new THREE.Group(), owlHead = new THREE.Group();
+  {
+    const tx = -3.9, tz = -6.9;
+    const branch = new THREE.Group();
+    branch.add(mesh(new THREE.CylinderGeometry(0.16, 0.24, 2.6, 8).translate(tx, GY + 1.3, tz), trunkM));
+    branch.add(mesh(new THREE.CylinderGeometry(0.05, 0.08, 1.4, 6).rotateX(Math.PI / 2 - 0.2).translate(tx, GY + 1.3, tz + 0.65), trunkM));
+    for (let i = 0; i < 3; i++) branch.add(part(new THREE.IcosahedronGeometry(1, 1), std(C.leaf[i], { flatShading: true, roughness: 0.8 }), [0.9, 0.7, 0.9], [tx + (i - 1) * 0.55, GY + 2.9 + (i % 2) * 0.3, tz - 0.2]));
+    bake(branch); scene.add(branch);
+    const brown = mat(0x8A6A4A), light = mat(0xE8D6B8), dark = mat(0x2A1C10), yellow = mat(0xF7C64E, { emissive: 0x6A4A00, emissiveIntensity: 0.4 });
+    owl.add(part(SPH, brown, [0.26, 0.32, 0.24], [0, 0.32, 0]));
+    owl.add(part(SPH, light, [0.17, 0.22, 0.1], [0, 0.28, 0.16]));
+    for (const s of [-1, 1]) owl.add(part(SPH, brown, [0.08, 0.2, 0.16], [s * 0.24, 0.32, -0.02], [0, 0, s * 0.2]));
+    owlHead.position.set(0, 0.66, 0); owl.add(owlHead);
+    owlHead.add(part(SPH, brown, [0.24, 0.21, 0.21], [0, 0, 0]));
+    for (const s of [-1, 1]) {
+      owlHead.add(part(SPH, light, [0.1, 0.1, 0.04], [s * 0.1, 0.02, 0.18]));
+      owlHead.add(part(SPH, yellow, [0.062, 0.062, 0.03], [s * 0.1, 0.02, 0.21]));
+      owlHead.add(part(SPH, dark, [0.034, 0.034, 0.02], [s * 0.1, 0.02, 0.235]));
+      owlHead.add(part(new THREE.ConeGeometry(1, 1, 6), brown, [0.05, 0.14, 0.05], [s * 0.15, 0.2, 0], [0, 0, -s * 0.35]));
+    }
+    owlHead.add(part(new THREE.ConeGeometry(1, 1, 6), mat(0xD9A441), [0.03, 0.07, 0.03], [0, -0.06, 0.22], [Math.PI, 0, 0]));
+    bake(owlHead); owlHead.userData.own = true; bake(owl);
+    owl.position.set(tx, GY + 1.33, tz + 1.3); owl.scale.setScalar(1.15); scene.add(owl);
+  }
+  let owlDo = null;
+  function judge(ok) { owlDo = { ok, t: 0 }; D.wake(); }
+  // a star of the knight in the sky comes on: the camera goes up to it and back
+  function star(i) {
+    const s = stars[i]; if (!s) return Promise.resolve();
+    const back = viewName;
+    return go('sky').then(async () => {
+      sound.tone(988, 0, 0.5, 0.07); sound.tone(1319, 0.2, 0.6, 0.06);
+      await tween(RM ? 0 : 900, k => { s.m.material.color.setHex(0x4A4870).lerp(new THREE.Color(0xFFD36B), k); s.gl.material.opacity = 0.75 * k; s.m.scale.setScalar(1 + Math.sin(k * Math.PI) * 0.8); }, k => k);
+      s.on = true; paintLines(); canvas.dataset.estrelles = stars.filter(q => q.on).length;
+      D.sparkle(s.m.position.clone(), 16, 0xFFD36B, 0.6, 2.5, 1);
+      await new Promise(r => setTimeout(r, RM ? 0 : 1100));
+      if (back) go(back);
+    });
+  }
+
+  // The lightning round: a chess clock at the front of the terrace counts the minute (k from 0 to 1); its flag falls when it is over
+  VIEWS.rapid = { t: [0.5, 0.3, 1.0], dir: [0, 1.5, 1], R: 5.6 };
+  const CLK = { x: 4.0, z: 5.7 };
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.17, 0.02).translate(0, 0.075, 0), mat(0x1A1A1A)), flag = new THREE.Group();
+  {
+    const c = new THREE.Group(), woodC = std(0x6B3E22, { roughness: 0.5 }), face = mat(0xF4EEDF, { roughness: 0.4 });
+    c.add(mesh(boxG(1.25, 0.5, 0.42, 0, 0.25, 0), woodC));
+    c.add(mesh(boxG(1.3, 0.06, 0.48, 0, 0.53, 0), woodC));
+    for (const s of [-1, 1]) {
+      c.add(mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 28).rotateX(Math.PI / 2).translate(s * 0.3, 0.27, 0.22), face));
+      c.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.1, 12).translate(s * 0.3, 0.61, 0), s < 0 ? mat(0xD9474F) : mat(0x2A2F3A)));
+    }
+    const clk = new THREE.Group(); clk.position.set(CLK.x, 0, CLK.z); clk.scale.setScalar(1.4); clk.rotation.y = -0.25; scene.add(clk);
+    bake(c); clk.add(c);
+    // the hand of the left dial, and its red flag at the twelve
+    hand.position.set(-0.3, 0.27, 0.255); hand.userData.keep = true; clk.add(hand);
+    flag.add(new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([V2(0, 0), V2(0.09, 0.03), V2(0, 0.07)])), mat(0xD9474F, { side: THREE.DoubleSide })));
+    flag.position.set(-0.3, 0.44, 0.25); clk.add(flag);
+  }
+  let clockSec = -1;
+  function clock(k) {
+    k = Math.max(0, Math.min(1, k || 0));
+    hand.rotation.z = -k * Math.PI * 2;
+    // a soft tick each second; at the end the flag falls
+    const sec = Math.floor(k * 60);
+    if (k > 0 && k < 1 && sec !== clockSec) sound.tone(1250, 0, 0.02, 0.025, 'square');
+    clockSec = sec;
+    if (k >= 1 && flag.rotation.z === 0) { tween(RM ? 0 : 500, q => { flag.rotation.z = -q * 2.2; }, q => q * q); sound.tone(220, 0, 0.3, 0.1, 'triangle'); }
+    if (k < 1) flag.rotation.z = 0;
+    canvas.dataset.rellotge = k >= 1 ? 'temps' : sec;
+    D.wake();
+  }
+
+  // «Caça l'errada»: a lectern at the front of the terrace with the sheet on it; what the sheet says is written on its paper
+  VIEWS.lectern = { t: [-4.1, 1.05, 5.7], dir: [0.2, 0.42, 1], R: 1.45 };
+  const paper = canvasTex(512, 384, () => {});
+  function writeSheet(lines = []) {
+    const c = paper.image, g = c.getContext('2d'), w = c.width, h = c.height;
+    g.fillStyle = '#FFF8E1'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#E4D9B6'; for (let y = 46; y < h; y += 46) g.fillRect(0, y, w, 2);
+    let y = 70;
+    for (const L0 of lines) {
+      const L = typeof L0 === 'string' ? { t: L0 } : L0;
+      g.font = `800 ${L.s || 50}px "Baloo 2", system-ui, sans-serif`; g.fillStyle = L.c || '#2A2416'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      // the words wrapped to the width of the sheet
+      const words = L.t.split(' '); let row = '';
+      for (const wd of words) { const next = row ? row + ' ' + wd : wd; if (g.measureText(next).width > w - 50 && row) { g.fillText(row, w / 2, y); y += (L.s || 50) * 1.15; row = wd; } else row = next; }
+      if (row) { g.fillText(row, w / 2, y); y += (L.s || 50) * 1.3; }
+    }
+    paper.needsUpdate = true; D.wake();
+  }
+  {
+    const l = new THREE.Group(), woodL = std(C.wood, { roughness: 0.6 });
+    l.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.0, 8).translate(0, 0.5, 0), woodL));
+    l.add(mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.06, 12).translate(0, 0.03, 0), woodL));
+    const desk = new THREE.Group(); desk.position.set(0, 1.05, 0); desk.rotation.x = 0.55; l.add(desk);
+    desk.add(mesh(boxG(1.3, 0.05, 1.0, 0, 0, 0), woodL));
+    desk.add(mesh(boxG(1.3, 0.08, 0.05, 0, 0.04, 0.5), woodL));
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 0.87).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: paper, roughness: 0.9 }));
+    sheet.position.y = 0.03; sheet.userData.keep = true; desk.add(sheet);
+    bake(l); l.position.set(-4.1, 0, 5.7); scene.add(l);
+  }
+  writeSheet([]);
 
   /* ---------- check and mate ---------- */
   // the king mated falls on its side
@@ -645,11 +780,11 @@ function build(canvas) {
 
   let sound = { tone() {} };
   return { ok: true, layout, go, get view() { return viewName; }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
-    tauler: () => B, spark, bring, frog: frogOn, walk, rest, topple, validate,
+    tauler: () => B, spark, bring, frog: frogOn, walk, rest, topple, validate, open, judge, star, clock, sheet: writeSheet,
     hear: o => { sound = { ...sound, ...o }; }, lamps: hue => { lampHue = hue; paintLamps(); },
     // for the checks (scripts/flow-escacs.mjs): the pieces still in the scene, the ones falling to the water too
     _: { D, statues, stars, signs, TEX, boardM, tween, setStatue, pieces: () => things.children.filter(m => m.userData.p).length,
-      marks: () => marks.children.map(g => g.userData.cls) } };
+      marks: () => marks.children.map(g => g.userData.cls), owl: () => D.onScreen(owlHead.getWorldPosition(V(0, 0, 0))) } };
 }
 
 /* ---------- the frog of the steps: Salts de Granota's, a bit simpler ---------- */

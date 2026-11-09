@@ -490,6 +490,8 @@ function board(o) {
       return;
     }
     busy = true; st.marks[k] = ok ? 'ok' : 'bad';
+    // the owl of the exam judges each answer from its branch
+    if (how === 'exam') W.judge(ok);
     if (ok) { st.hits++; streak = help ? 0 : streak + 1; top = Math.max(top, streak); } else { st.missed.push(q); streak = 0; }
     if (last) o.onLast?.(st);
     drawCombo(); o.chip?.(st); reveal(); $('#lane')?.style.setProperty('--p', (k + 1) / qs.length);
@@ -534,7 +536,7 @@ function board(o) {
     const t0 = performance.now(), iv = setInterval(() => {
       const left = o.secs - (performance.now() - t0) / 1000;
       if (!t.on || over) return clearInterval(iv);
-      $('#fuse').style.width = Math.max(0, left / o.secs * 100) + '%';
+      $('#fuse').style.width = Math.max(0, left / o.secs * 100) + '%'; o.tick?.(1 - left / o.secs);
       if (left <= 0) { clearInterval(iv); over = true; keyFn = null; ctl.innerHTML = ''; o.onEnd(st); }
     }, 100);
   }
@@ -552,7 +554,8 @@ function piscina() {
   board({ t, qs: POOL, how: 'pool', hue: 205,
     onLast: () => { const r = poolIn(prog); prog = r.prog; got = r.news; save(); },
     onEnd: () => {
-      chime([523, 659, 784, 1047, 1319]); launch(); FX.celebrate(16);
+      // saved: now the garden opens, its statues come up and its lanterns light
+      chime([523, 659, 784, 1047, 1319]); if (W.ok) W.open(); else { launch(); FX.celebrate(16); }
       curtain(`<h2>Piscina acabada!</h2><p class="lead go">+50 XP · ja ets dins del cursus d'escacs</p>${news(got)}
         <p class="lead">Al mapa hi ha quatre cercles. Valida els projectes d'un cercle i supera'n l'examen per obrir el següent. Aquí les peces només es mouen escrivint la casella!</p><button class="btn" id="nx">Obre el mapa</button>`);
       $('#nx').onclick = () => mapa();
@@ -564,12 +567,14 @@ function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]);
   const qs = exam(c, Math.random);
   let r;
-  garden(); W.go('board');
+  garden(); W.go('exam');
   panel3d(BOARD_VIEW, '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>');
   board({ t, qs, how: 'exam', hue: RING[c], chip: st => { $('#st').textContent = `${st.hits} de ${qs.length}`; },
     onLast: st => { const got = run(), first = !prog.exams[c]; r = examIn(prog, c, qs, qs.map((_, i) => st.marks[i] === 'ok')); r.news = [...got, ...r.news]; r.first = r.good && first; prog = r.prog; save(); },
     onEnd: () => {
       r.good ? (chime([523, 659, 784, 1047, 1319]), launch(), FX.celebrate(16)) : tone(196, 0, 0.5, 0.12, 'triangle');
+      // passed for the first time: a star more of the knight in the sky
+      if (r.first) W.star(prog.exams.filter(Boolean).length - 1);
       curtain(`<h2>${r.good ? 'Examen superat!' : 'Encara no!'}</h2><p class="score">${r.score} de ${qs.length}</p>
         <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? "Molt bé! Però l'examen només compta amb tots els projectes del cercle validats." : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
         ${r.first ? `<p class="lead go">${c < CIRCLES.length - 1 ? `S'ha obert el cercle ${c + 1}: ${CIRCLES[c + 1].name}.` : "Has acabat el cursus d'escacs!"}</p>` : ''}
@@ -582,16 +587,17 @@ function examen(c) {
 /* ---------- the lightning round: as many squares named as fit in a minute, one try each; only the record is kept ---------- */
 function llampec() {
   const t = fresh(); show('Repte llampec', true, 48);
-  garden(); W.go('board');
+  garden(); W.go('rapid');
   panel3d(BOARD_VIEW, `<div class="intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons per posar nom a tantes caselles com puguis, un sol intent per a cada una. Escriu la lletra i el número i ja està: no cal prémer ✓.</p>
     ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button></div>`);
   $('#go').focus({ preventScroll: true });
   $('#go').onclick = () => {
     if (!t.on) return;
     panel3d(BOARD_VIEW, '<div class="hud"><span class="chip">Repte llampec</span><span class="chip" id="st"></span></div><div id="board"></div>');
-    board({ t, qs: sprint(Math.random), how: 'rapid', secs: RAPID, chip: st => { $('#st').textContent = `${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}`; },
+    // the chess clock of the terrace counts the minute; its flag falls at the end
+    board({ t, qs: sprint(Math.random), how: 'rapid', secs: RAPID, tick: k => W.clock(k), chip: st => { $('#st').textContent = `${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}`; },
       onEnd: st => {
-        const got = run(), r = rapidIn(prog, st.hits); prog = r.prog; save();
+        const got = run(), r = rapidIn(prog, st.hits); prog = r.prog; save(); W.clock(1);
         chime([523, 659, 784, 1047, 1319]); if (r.best) FX.celebrate(16);
         curtain(`<h2>Temps!</h2><p class="score">${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}</p><p class="lead${r.best ? ' go' : ''}">${r.best ? 'Rècord nou!' : `El teu rècord: ${prog.rapid}`}</p>${news([...got, ...r.news])}
           <button class="btn" id="rp">Torna-hi</button><button class="link" id="bk">Torna al mapa</button>`);
@@ -614,7 +620,9 @@ const CLAIMS = {
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
   const cs = sheet(Math.random), marks = [];
-  garden(); W.go('board');
+  garden(); W.go('lectern');
+  // what the sheet says is on the paper of the lectern too
+  const plain = html => html.replace(/<[^>]+>/g, '');
   panel3d(BOARD_VIEW, `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
     <div class="coach" id="coach"><span class="pilot">${ico('N')}</span><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>
     <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`);
@@ -628,6 +636,7 @@ function full() {
     stage.innerHTML = `<div class="paper">${D.pic}<p class="claim">${D.txt}</p></div>`;
     tail.innerHTML = '<div class="opts"><button class="btn" id="yes">És correcte</button><button class="btn soft" id="no">No és correcte</button></div>';
     say('Mira-ho bé: és veritat, el que diu el full?');
+    W.sheet([{ t: `${k + 1} de ${cs.length}`, s: 30, c: '#8A7A50' }, plain(D.txt)]);
   }
   async function answer(ok, txt) {
     const last = k === cs.length - 1;
@@ -635,6 +644,7 @@ function full() {
     if (last) { res = sheetIn(prog, marks); prog = res.prog; save(); }
     for (const b of tail.querySelectorAll('button')) b.disabled = true;
     if (ok) { say(txt, 'go'); chime([523, 659, 784]); FX.celebrate(6); } else { say(txt, 'oops'); buzz(); }
+    W.sheet([{ t: `${k + 1} de ${cs.length}`, s: 30, c: '#8A7A50' }, plain(D.txt), ok ? { t: '✓', s: 96, c: '#2E8B57' } : { t: '✗', s: 96, c: '#B3261E' }]);
     await sleep(ok ? 1200 : 2600); if (!t.on) return;
     last ? finish() : arm();
   }
@@ -643,6 +653,7 @@ function full() {
     stage.innerHTML = tail.innerHTML = '';
     r.good ? chime([523, 659, 784, 1047, 1319]) : tone(196, 0, 0.5, 0.12, 'triangle');
     say(r.good ? 'Full perfecte!' : 'Full acabat.', r.good ? 'go' : '');
+    W.sheet([{ t: r.good ? 'Full perfecte!' : 'Full acabat', s: 56 }, { t: `${cs.length - r.missed.length} de ${cs.length}`, s: 72, c: r.good ? '#2E8B57' : '#2A2416' }]);
     panel(stage, `<h2>${cs.length - r.missed.length} de ${cs.length}</h2>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? (r.gain ? `Full perfecte ✓ · +${r.gain} XP` : 'Full perfecte ✓ · 0 XP: valida més projectes per sumar-ne.') : 'Per sumar XP cal encertar els tres.'}</p>
       <p class="lead">${bad.length ? `Tenien una errada: ${list(bad)}.` : 'Tots tres eren correctes.'}</p>${news(r.news)}
