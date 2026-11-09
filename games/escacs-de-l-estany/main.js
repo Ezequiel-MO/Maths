@@ -143,7 +143,7 @@ function launch() {
   }, 50);
 }
 // how tall the room of the terrace is over the panel, on a narrow screen: the map shows the garden, a level and a board the whole board
-const LEVEL_VIEW = '46vh', BOARD_VIEW = '46vh';
+const LEVEL_VIEW = '41vh', BOARD_VIEW = '41vh';
 const laneHtml = hue => `<div class="lane" id="lane" style="--p:0;--ph:${hue}" aria-hidden="true"><i class="fuel"></i><span class="rk">${ico('P')}</span><span class="goal">${ico('Q')}</span></div>`;
 
 /* ---------- the map: a band for each circle, a piece for each project and the exam of the circle at the end ---------- */
@@ -187,7 +187,8 @@ function mission(sec, idx) {
     <div class="split" id="split"><div class="field" id="field"></div><div class="desk">
       <div class="calc" id="calc"${sqs ? ' hidden' : ''}><p class="rule" id="rule"></p><p class="row"><span>Lletra</span><b id="cf"></b><i id="df"></i></p><p class="row"><span>Número</span><b id="cn"></b><i id="dn"></i></p></div>
       <p class="ask" id="ask"></p>${KEYS}</div><span class="combo" id="cb" hidden></span></div>`);
-  const B = tauler($('#field')), lane = $('#lane');
+  // the board: the terrace when it can be drawn in 3D, the drawing in the panel otherwise; both take the same calls
+  const B = W.tauler() || tauler($('#field')), lane = $('#lane');
   // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((e, i) => e.classList.toggle('done', prog.lv[sec * 10 + i] > 0));
   wireLevels(root, i => mission(sec, i));
@@ -197,7 +198,8 @@ function mission(sec, idx) {
   // where the move starts and what is typed of where it ends
   const src = () => sqs ? (L.asks[k][0] === 'step' ? L.asks[k][1] : '') : two ? (buf.length >= 2 ? buf.slice(0, 2) : '') : mine()[0];
   const dst = () => two ? buf.slice(2) : buf;
-  const burst = (s, h = 48) => { const p = B.point(s); FX.burst(p.x, p.y, h, 22, 170); FX.ring(p.x, p.y, h, 8, p.w * 0.9); };
+  // sparkles over a square of the terrace (none without it)
+  const burst = (s, h = 48) => W.spark(s, h);
 
   // what is typed so far, shown on the board, in the box and in the counter of the two changes
   function paint() {
@@ -435,12 +437,14 @@ function board(o) {
   host.innerHTML = `${o.secs ? '<div class="fuse" role="img" aria-label="El temps que queda"><i id="fuse"></i></div>' : laneHtml(o.hue)}
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
     <div class="split" id="split"><div class="field" id="field"></div><div class="desk"><p class="ask" id="ask"></p><div id="ctl"></div></div><span class="combo" id="cb" hidden></span></div>`;
-  const field = $('#field'), ctl = $('#ctl'), B = tauler(field);
+  const field = $('#field'), ctl = $('#ctl'), B = W.tauler() || tauler(field);
   const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
 
   // the figure of the question; lab shows the answer on it
   function drawField() {
-    if (q.kind === 'val') { field.innerHTML = `<div class="lot">${q.ps.map(p => `<span>${ico(p)}<b>${lab ? VALUE[p] : '?'}</b></span>`).join('')}</div>`; return; }
+    // the pieces of a question of points: on the tray of the terrace, or in a row in the panel
+    if (q.kind === 'val' && B.lot) { B.set({ at: {}, stars: [], rocks: [] }); B.clear(); B.preview(''); B.lot(q.ps, lab ? q.ps.map(p => VALUE[p]) : null); return; }
+    if (q.kind === 'val') { field.innerHTML =`<div class="lot">${q.ps.map(p => `<span>${ico(p)}<b>${lab ? VALUE[p] : '?'}</b></span>`).join('')}</div>`; return; }
     const pos = q.kind === 'name' ? { at: {}, rocks: [], stars: [q.want] } : parse(q.kind === 'count' ? q.t + q.s : q.pos || '');
     B.draw(pos, { plain: q.kind === 'tone' && !lab, sel: q.kind === 'step' || q.kind === 'mate' ? [q.from] : q.kind === 'tone' ? [q.s] : [] });
     if (lab && q.kind === 'count') B.mark('dot', reach(pos, q.s));

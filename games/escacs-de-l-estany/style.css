@@ -125,7 +125,8 @@ svg.ico .star path { fill: var(--sun); }
 .combo { position: absolute; z-index: 2; top: -12px; right: 14px; padding: 1px 12px; border-radius: 999px; background: linear-gradient(90deg, #FF8A3C, var(--sun)); color: #2A1C00; font-weight: 800; font-size: 0.95rem; box-shadow: 0 0 18px rgb(247 198 78 / 0.7); white-space: nowrap; }
 .combo.pop { animation: combo 0.4s cubic-bezier(0.2, 1.8, 0.4, 1); }
 
-/* the field holds the board drawn on the page, as big as the screen lets it */
+/* the field holds the board drawn on the page, as big as the screen lets it; with the terrace the board is on it, not here */
+body:not(.nogl) .field { display: none; }
 .field { width: min(100%, 600px); padding: 8px 10px 4px 2px; border-radius: 26px; border: 1px solid var(--edge); display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: radial-gradient(120% 90% at 50% 110%, rgb(90 80 200 / 0.22), transparent 70%), linear-gradient(160deg, rgb(20 70 86 / 0.55), rgb(6 24 34 / 0.75)); box-shadow: 0 24px 60px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.12); }
 svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: visible; }
@@ -238,6 +239,9 @@ svg.bd { display: block; width: 100%; height: auto; max-height: 76vh; overflow: 
 @media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
   .lane, .calc .rule { display: none; }
   .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body.playing #app { padding-bottom: 6px; gap: 6px; }
+  .sheet .levels button { width: 38px; height: 38px; }
+  .hud { row-gap: 4px; }
   .status.tip { min-height: 0; font-size: 0.95rem; }
   .desk { gap: 6px; }
   .calc { grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 10px; }

@@ -6,10 +6,10 @@
 // as the map of the page. A project validated turns its statue to gold, with a little lantern; every exam passed lights a star of a
 // constellation in the shape of a knight's jump.
 // Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL terrace() gives the same calls doing nothing.
-import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, SPH, V } from '../../shared/diorama.js';
+import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, label, glowTex, ease, SPH, V } from '../../shared/diorama.js';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { RM } from '../../shared/util.js';
-import { FILES, fr, dark, CIRCLES } from './logic.js';
+import { FILES, fr, dark, white, CIRCLES } from './logic.js';
 import { SHAPE } from './viz.js';
 
 /* ---------- the measures of the world ---------- */
@@ -88,7 +88,7 @@ export function terrace(canvas) {
 // the same calls, doing nothing
 export function none() {
   const p = () => Promise.resolve();
-  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {} };
+  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {}, tauler: () => null, spark() {} };
 }
 
 function build(canvas) {
@@ -322,16 +322,225 @@ function build(canvas) {
       if (NFL) { flyGeo.attributes.position.needsUpdate = true; flyGeo.attributes.color.needsUpdate = true; }
       stars.forEach((s, i) => { if (s.on) s.gl.material.opacity = 0.6 + Math.sin(now * 0.002 + i) * 0.15; });
       statues[0].fig.rotation.y = 0.3 + Math.sin(now * 0.0005) * 0.6;
+      for (const g of stars3.values()) { const b = g.userData.bob; g.rotation.y = Math.sin(now * 0.0016 + b) * 0.55; g.position.y = TY + 0.52 + Math.sin(now * 0.002 + b) * 0.06; if (g.scale.x < 1.05) g.scale.setScalar(1 + Math.sin(now * 0.0026 + b) * 0.04); }
+      for (const g of marks.children) if (g.userData.cls === 'sel' || g.userData.cls === 'risk') { const k = 0.65 + 0.35 * Math.sin(now * 0.006); g.children.forEach(x => { x.material.opacity = (g.userData.cls === 'sel' ? 0.95 : 0.5) * k; }); }
+      if (stars3.size || marks.children.some(g => g.userData.cls === 'sel' || g.userData.cls === 'risk')) busy = true;
       if (hlOn >= 0) { const p = Math.sin(now * 0.006); ring.material.opacity = 0.7 + p * 0.25; ring.scale.setScalar(1 + p * 0.05); ringGlow.material.opacity = 0.55 + p * 0.2; busy = true; }
     }
     if (hlOn < 0) { ring.material.opacity = 0; ringGlow.material.opacity = 0; } else if (RM) { ring.material.opacity = 0.9; ringGlow.material.opacity = 0.6; }
     return busy;
   });
 
+  /* ---------- the board of the game: the pieces, the stars and the pebbles main.js puts on it ---------- */
+  // Each thing is its own mesh (a piece is one geometry already, a single draw), kept by its square. The board says what it shows in
+  // canvas.dataset.pos, keyed as logic.js keys a position (square and piece, by square), with the stars and the pebbles after it
+  const ivoryM = std(C.ivory, { roughness: 0.32, envMapIntensity: 0.9 }), ebonyM = std(C.ebony, { roughness: 0.38, envMapIntensity: 0.8 });
+  const PS = 1.05;
+  const things = new THREE.Group(); scene.add(things);
+  const pcs = new Map(), stars3 = new Map(), rocks3 = new Map();
+  const STARG = starGeo(0.3, 0.1); STARG.userData.shared = true;
+  const starM = std(0xF7C64E, { emissive: 0xB07A10, emissiveIntensity: 0.7, metalness: 0.4, roughness: 0.3 });
+  const PEBBLE = new THREE.IcosahedronGeometry(1, 1); PEBBLE.userData.shared = true;
+  const rockM = std(0x8C877C, { roughness: 0.9, flatShading: true }), GLOWT = glowTex();
+  // takes away a thing and gives back what it holds, but for the shapes many things share
+  function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && !x.geometry.userData.shared) x.geometry.dispose(); if (x.isSprite) x.material.dispose(); }); }
+  const keyNow = () => [...pcs.keys()].sort().map(s => s + pcs.get(s).userData.p).join() + '|' + [...stars3.keys()].sort().join() + '|' + [...rocks3.keys()].sort().join();
+  const said = () => { canvas.dataset.pos = keyNow(); };
+  const hash = s => (s.charCodeAt(0) * 7 + s.charCodeAt(1) * 13) % 10 / 10;
+  // a white knight looks to the left of the screen, a black one to the right: both show their side to the camera
+  function newPiece(p, s) {
+    const m = new THREE.Mesh(geoOf(p), white(p) ? ivoryM : ebonyM); m.castShadow = true; m.receiveShadow = true;
+    m.scale.setScalar(PS); m.position.copy(at3(s)); m.rotation.y = p === 'n' ? Math.PI : 0;
+    m.userData.p = p; things.add(m); pcs.set(s, m); return m;
+  }
+  function newStar(s) {
+    const g = new THREE.Group(), m = new THREE.Mesh(STARG, starM); m.castShadow = true; g.add(m);
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOWT, color: 0xFFD36B, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+    gl.scale.setScalar(1.4); g.add(gl);
+    // leaning back, so its face looks up at the camera; it rocks from side to side (a star that spun round would show its edge)
+    g.rotation.order = 'YXZ'; g.rotation.x = -0.85;
+    g.position.copy(at3(s)).add(V(0, 0.52, 0)); g.userData.bob = hash(s) * 6; things.add(g); stars3.set(s, g); return g;
+  }
+  // a pebble of the pond
+  function newRock(s) {
+    const m = part(PEBBLE, rockM, [0.36, 0.2, 0.31], at3(s).add(V(0, 0.1, 0)).toArray(), [0, hash(s) * 3, 0.1]); m.receiveShadow = true;
+    things.add(m); rocks3.set(s, m); return m;
+  }
+  // gen counts the positions put on the board: a move still running stops when a new one comes
+  let gen = 0, moving = 0;
+  const still = () => { canvas.dataset.ocupat = moving ? '1' : '0'; };
+  function setThings(pos) {
+    gen++;
+    for (const m of [...pcs.values(), ...stars3.values(), ...rocks3.values()]) drop(m);
+    pcs.clear(); stars3.clear(); rocks3.clear();
+    for (const s of Object.keys(pos.at)) newPiece(pos.at[s], s);
+    pos.stars.forEach(newStar); pos.rocks.forEach(newRock);
+    said(); D.wake();
+  }
+
+  // the marks: tiles of light a little above the squares, never painted on them (the squares are one picture)
+  const marks = new THREE.Group(); scene.add(marks);
+  const TILE = new THREE.PlaneGeometry(0.9, 0.9).rotateX(-Math.PI / 2), DOT = new THREE.CircleGeometry(0.17, 24).rotateX(-Math.PI / 2);
+  // a square ring: outer half side 0.47, inner 0.39
+  const FRAMEG = new THREE.RingGeometry(0.39 * Math.SQRT2, 0.47 * Math.SQRT2, 4, 1).rotateZ(Math.PI / 4).rotateX(-Math.PI / 2);
+  for (const g of [TILE, DOT, FRAMEG]) g.userData.shared = true;
+  // the light of a mark: plain colour, so it still shows on the light stone; add for the strips of light that glow over the board
+  const glowM = (c, o = 0.5, add = false) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, toneMapped: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending });
+  const MARK = { ok: [0x7CF5B0, 0.55], bad: [0xFF5A4A, 0.7], sel: [0xF7C64E, 0.9], dot: [0x7CF5B0, 0.9], risk: [0xFF5A4A, 0.5], ask: [0xFFFFFF, 0.9] };
+  function mark(cls, list) {
+    const [c, o] = MARK[cls] || [0xFFFFFF, 0.6];
+    for (const s of list) {
+      const g = new THREE.Group(); g.position.copy(at3(s)).add(V(0, 0.012 + (marks.children.length % 8) * 0.0005, 0)); g.userData.cls = cls;
+      const ring = cls === 'sel' || cls === 'ask';
+      if (!ring) g.add(new THREE.Mesh(cls === 'dot' ? DOT : TILE, glowM(c, o)));
+      if (ring || cls === 'ok' || cls === 'bad' || cls === 'risk') g.add(new THREE.Mesh(FRAMEG, glowM(c, ring ? o : 0.9)));
+      g.children.forEach(m => { m.renderOrder = 3; });
+      marks.add(g);
+      if (cls === 'ok' || cls === 'dot') tween(RM ? 0 : 260, k => g.scale.setScalar(0.3 + 0.7 * k), k => 1 - (1 - k) ** 3);
+    }
+    D.wake();
+  }
+  function clear(cls) { for (const g of marks.children.slice()) if (!cls || g.userData.cls === cls) { g.traverse(x => x.material?.dispose()); marks.remove(g); } D.wake(); }
+
+  // what is typed: a letter raises a strip of light along its column and lights its letter on the frame; the number does the same with its
+  // row, and the square where they cross shines
+  const fadeTex = canvasTex(8, 64, (g, w, h) => { const r = g.createLinearGradient(0, h, 0, 0); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); });
+  function beam(along) {
+    const g = new THREE.Group(), wall = new THREE.MeshBasicMaterial({ map: fadeTex, color: 0xF7C64E, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    g.add(new THREE.Mesh(new THREE.PlaneGeometry(along ? 8 : 1, along ? 1 : 8).rotateX(-Math.PI / 2), glowM(0xF7C64E, 0.3, true)));
+    for (const d of [-0.5, 0.5]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(8, 0.45), wall); w.position.y = 0.225; if (along) w.position.z = d; else { w.rotation.y = Math.PI / 2; w.position.x = d; } g.add(w); }
+    g.children.forEach(x => { x.renderOrder = 2; });
+    g.position.y = TY + 0.008; g.visible = false; scene.add(g); return g;
+  }
+  const colBeam = beam(false), rowBeam = beam(true);
+  const cell = new THREE.Group();
+  cell.add(new THREE.Mesh(TILE, glowM(0xF7C64E, 0.45))); cell.add(new THREE.Mesh(FRAMEG, glowM(0xFFE08A, 1)));
+  cell.children.forEach(x => { x.renderOrder = 3; }); cell.visible = false; scene.add(cell);
+  let lit = '';
+  function preview(part = '') {
+    const f = FILES.indexOf(part[0] || '?'), r = part[1] ? +part[1] - 1 : -1, now = (f >= 0 ? part[0] : '') + (r >= 0 ? part[1] : '');
+    if (now === lit) return;
+    const rise = b => { b.scale.y = 0.01; tween(RM ? 0 : 200, k => { b.scale.y = Math.max(0.01, k); }, k => 1 - (1 - k) ** 2); };
+    if (f >= 0 && (!colBeam.visible || colBeam.position.x !== f - 3.5)) { colBeam.position.x = f - 3.5; rise(colBeam); }
+    if (r >= 0 && (!rowBeam.visible || rowBeam.position.z !== 3.5 - r)) { rowBeam.position.z = 3.5 - r; rise(rowBeam); }
+    colBeam.visible = f >= 0; rowBeam.visible = r >= 0;
+    cell.visible = f >= 0 && r >= 0;
+    if (cell.visible) { cell.position.copy(at3(part)).add(V(0, 0.02, 0)); D.sparkle(cell.position.clone().add(V(0, 0.2, 0)), 6, 0xFFE08A, 0.22, 0.8, 1.5); }
+    for (const [k, m] of Object.entries(signs)) { const on = k === part[0] || k === part[1]; m.material.color.setHex(on ? LIT : INK); m.scale.setScalar(on ? 1.3 : 1); }
+    lit = now; canvas.dataset.llum = now; D.wake();
+  }
+
+  // the tray at the front of the terrace, for the questions of points: the pieces wait in a row, and their values come out when shown
+  const TRAYZ = 5.62, tray = new THREE.Group(); scene.add(tray);
+  {
+    const t = new THREE.Group(); t.add(mesh(boxG(3.9, 0.06, 0.95, 0, 0.03, TRAYZ), woodM));
+    for (const dz of [-0.47, 0.47]) t.add(mesh(boxG(3.9, 0.12, 0.05, 0, 0.06, TRAYZ + dz), wood2));
+    for (const dx of [-1.95, 1.95]) t.add(mesh(boxG(0.05, 0.12, 0.95, dx, 0.06, TRAYZ), wood2));
+    bake(t); scene.add(t);
+  }
+  VIEWS.tray = { t: [0, 0.6, TRAYZ - 0.2], dir: [0, 0.9, 1], R: 2.4 };
+  function lot(ps, vals) {
+    for (const o of tray.children.slice()) drop(o);
+    ps.forEach((p, i) => {
+      const x = (i - (ps.length - 1) / 2) * 1.2, m = new THREE.Mesh(geoOf(p), white(p) ? ivoryM : ebonyM); m.castShadow = true; m.scale.setScalar(1.1); m.position.set(x, 0.06, TRAYZ); tray.add(m);
+      const tag = label(vals ? String(vals[i]) : '?', { ink: vals ? '#F7C64E' : '#EAF8F4', edge: 'rgba(4,19,28,0.9)', h: 0.5 }); tag.position.set(x, 1.6, TRAYZ); tray.add(tag);
+      if (vals) D.sparkle(V(x, 1.45, TRAYZ), 8, 0xFFD36B, 0.3, 1.2, 2);
+    });
+    if (viewName !== 'tray') go('tray', { dur: 900 });
+    D.wake();
+  }
+
+  // the sounds of the wood and of the water
+  const toc = () => { sound.tone(196, 0, 0.07, 0.09, 'triangle'); sound.tone(392, 0.01, 0.05, 0.04, 'triangle'); };
+  const plof = () => { sound.tone(440, 0, 0.06, 0.09); sound.tone(170, 0.05, 0.2, 0.12, 'triangle'); };
+  const RIPPLE = new THREE.RingGeometry(0.11, 0.16, 36).rotateX(-Math.PI / 2); RIPPLE.userData.shared = true;
+  function splash(at, big = 1) {
+    D.sparkle(V(at.x, WY + 0.05, at.z), Math.round(10 * big), 0xCFF6FF, 0.22, 1.4 * big, 7);
+    if (RM) return;
+    const m = new THREE.Mesh(RIPPLE, new THREE.MeshBasicMaterial({ color: 0xCFF6FF, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
+    m.position.set(at.x, WY + 0.02, at.z); scene.add(m);
+    tween(750, k => { m.scale.setScalar(1 + k * 6 * big); m.material.opacity = 0.85 * (1 - k); }, k => k).then(() => { scene.remove(m); m.material.dispose(); });
+  }
+  // a piece captured flies off the board and falls in the pond with a «plof»
+  function toWater(m, from) {
+    moving++; still();
+    const a = m.position.clone(), b = V(Math.max(-7, Math.min(7, from.x * 1.4 + (Math.random() - 0.5) * 3)), WY - 0.1, -8.6 - Math.random() * 1.6), spin = (Math.random() - 0.5) * 8;
+    return tween(RM ? 0 : 1100, k => { m.position.lerpVectors(a, b, k); m.position.y += Math.sin(k * Math.PI) * 3.2; m.rotation.x = k * spin; m.rotation.z = k * 2; }, k => k)
+      .then(() => { splash(b, 1.2); plof(); drop(m); moving--; still(); D.wake(); });
+  }
+  // a column of light where a pawn becomes a queen
+  function column(at) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 4, 24, 1, true).translate(0, 2, 0), new THREE.MeshBasicMaterial({ map: fadeTex, color: 0xFFC94A, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    m.position.copy(at); scene.add(m);
+    sound.tone(523, 0, 0.3, 0.06); sound.tone(784, 0.12, 0.4, 0.06); sound.tone(1047, 0.24, 0.5, 0.06);
+    D.sparkle(at.clone().add(V(0, 0.6, 0)), 22, 0xFFE08A, 0.35, 1.8, 0.5);
+    return tween(RM ? 0 : 1100, k => { m.material.opacity = Math.min(1, Math.sin(k * Math.PI) * 1.6); m.scale.set(1 - k * 0.3, 0.6 + k * 0.6, 1 - k * 0.3); }, k => k).then(() => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+  }
+  // A move: the piece slides over the board, the knight jumps over everything; what it lands on is taken. It resolves when the piece is
+  // on its square (and a pawn is a queen); the piece taken goes on falling to the water, and ocupat says so
+  async function goMove(from, to, pos) {
+    const m = pcs.get(from), my = gen;
+    if (!m) { setThings(pos); return; }
+    moving++; still();
+    const victim = pcs.get(to), star = stars3.get(to);
+    pcs.delete(from); pcs.set(to, m);
+    if (star) stars3.delete(to);
+    said();
+    const a = at3(from), b = at3(to), d = a.distanceTo(b), jump = m.userData.p.toUpperCase() === 'N';
+    sound.tone(330, 0, 0.12, 0.06, 'triangle');
+    const dur = jump ? 620 : Math.min(820, 300 + d * 75), h = jump ? 1.25 : 0.16;
+    let hit = false;
+    await tween(RM ? 0 : dur, k => {
+      if (my !== gen) return;
+      m.position.lerpVectors(a, b, k); m.position.y = TY + Math.sin(k * Math.PI) * h;
+      // the piece in the way of the one that arrives is knocked off a little before
+      if (!hit && victim && k > 0.82) { hit = true; toWater(victim, b); }
+    }, jump ? k => k : ease);
+    if (my !== gen) { moving--; still(); return; }
+    if (victim && !hit) toWater(victim, b);
+    m.position.copy(b); toc();
+    if (star) {
+      const at = star.position.clone();
+      star.traverse(x => { if (x.material && !x.isSprite) { x.material = x.material.clone(); x.material.transparent = true; } });
+      tween(RM ? 0 : 380, k => { star.scale.setScalar(1 + k); star.traverse(x => { if (x.material) x.material.opacity = 1 - k; }); }, k => k).then(() => { star.traverse(x => { if (x.material && !x.isSprite) x.material.dispose(); }); drop(star); });
+      D.sparkle(at, 20, 0xFFD36B, 0.4, 2.2, 2);
+    }
+    // a pawn at the end of the board becomes a queen inside a column of light
+    if (pos.at[to] && pos.at[to] !== m.userData.p) {
+      const c = column(b);
+      await new Promise(r => setTimeout(r, RM ? 0 : 420));
+      if (my === gen) { m.geometry = geoOf(pos.at[to]); m.userData.p = pos.at[to]; said(); }
+      await c;
+    }
+    moving--; still(); D.wake();
+  }
+  // the board of the game, with the same calls as tauler() of viz.js, and lot() for the pieces of a question of points
+  const B = {
+    draw(pos, o = {}) {
+      clear(); for (const x of tray.children.slice()) drop(x);
+      preview(''); setThings(pos);
+      boardM.map = o.plain ? TEX.plain : TEX.board;
+      for (const m of Object.values(signs)) m.visible = !o.blind;
+      if (o.sel?.length) mark('sel', o.sel);
+      if (o.ask?.length) mark('ask', o.ask);
+      if (viewName === 'tray') go('board', { dur: 900 });
+      D.wake();
+    },
+    set: setThings,
+    go: goMove,
+    mark, clear, preview, lot,
+    point(s) { const c = D.onScreen(at3(s)), e = D.onScreen(at3(s).add(V(0.5, 0, 0))); return { x: c.x, y: c.y, w: 2 * Math.abs(e.x - c.x), bottom: c.y }; }
+  };
+  canvas.dataset.ocupat = '0'; canvas.dataset.pos = ''; canvas.dataset.llum = '';
+  // sparkles over a square, of the hue of the old sparks of the page
+  const spark = (s, hue = 48) => D.sparkle(at3(s).add(V(0, 0.35, 0)), 16, new THREE.Color().setHSL(hue / 360, 0.95, 0.65).getHex(), 0.32, 1.8, 2.2);
+
   let sound = { tone() {} };
   return { ok: true, layout, go, get view() { return viewName; }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
+    tauler: () => B, spark,
     hear: o => { sound = { ...sound, ...o }; }, lamps: hue => { lampHue = hue; paintLamps(); },
-    _: { D, statues, stars, signs, TEX, boardM, tween, setStatue } };
+    // for the checks (scripts/flow-escacs.mjs): the pieces still in the scene, the ones falling to the water too
+    _: { D, statues, stars, signs, TEX, boardM, tween, setStatue, pieces: () => things.children.filter(m => m.userData.p).length } };
 }
 
 // many geometries into one, with their positions and normals only

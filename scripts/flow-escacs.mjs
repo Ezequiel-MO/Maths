@@ -215,6 +215,52 @@ if (!NOGL) await section('jardí: estàtues i estrelles', async () => {
   }
 });
 
+/* ---------- the board of the terrace: the same calls as the board of the page ---------- */
+// what the terrace says it shows (#world dataset.pos): the pieces by square as logic.js keys a position, then the stars and the pebbles
+const keyOf = pos => Object.keys(pos.at).sort().map(s => s + pos.at[s]).join() + '|' + [...pos.stars].sort().join() + '|' + [...pos.rocks].sort().join();
+const shown = page => page.evaluate(() => document.querySelector('#world').dataset.pos);
+if (!NOGL) await section('tauler 3D: el contracte', async () => {
+  for (const [w, h] of [[390, 844], [1280, 800], [820, 1180]]) {
+    const page = await open(MID, '.map', w, h);
+    await tap(page, '.proj[data-p="1"]');
+    await wait(page, () => window.__escacs.what === 'nivell' && window.__escacs.ready);
+    // the camera has arrived over the board
+    await page.evaluate(() => window.__terrassa.go('board'));
+    // every square, and the letters and numbers of the frame, in the part of the screen the panel leaves free
+    const fit = await page.evaluate(() => {
+      const D = window.__terrassa._.D, at = (x, z) => D.onScreen(D.target.clone().set(x, 0.06, z)), out = [];
+      for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) out.push(at(i - 4, j - 4));
+      for (let i = 0; i < 8; i++) out.push(at(i - 3.5, 4.43), at(-4.43, i - 3.5));
+      const sheet = document.querySelector('#sheet').getBoundingClientRect(), top = document.querySelector('.top').getBoundingClientRect().bottom;
+      const right = sheet.left > innerWidth / 2 ? sheet.left : innerWidth, bottom = sheet.left > innerWidth / 2 ? innerHeight : sheet.top;
+      return { out: out.filter(p => p.x < 0 || p.x > right || p.y < top || p.y > bottom).length, n: out.length, right, bottom, top };
+    });
+    same(`${w}×${h}: corners of squares and signs of the frame out of the free part`, fit.out, 0);
+    const pts = await page.evaluate(() => { const B = window.__terrassa.tauler(); return [B.point('a1'), B.point('h8')]; });
+    check(pts[0].x < pts[1].x && pts[0].y > pts[1].y, `${w}×${h}: a1 is at the bottom left of h8 (${JSON.stringify(pts)})`);
+    if (w !== 390) { await page.context().close(); continue; }
+    // the lights of what is typed
+    for (const part of ['c', 'c4', '']) same(`preview('${part}') lights`, await page.evaluate(p => { window.__terrassa.tauler().preview(p); return document.querySelector('#world').dataset.llum; }, part), part);
+    // every level: draw puts on the terrace exactly the pieces, the stars and the pebbles of parse(L.pos)
+    const all = PROJECTS.flatMap((P, i) => P.levels.map((Lv, k) => [`${i}.${k}`, parse(Lv.pos || '')]));
+    const got = await page.evaluate(all => { const B = window.__terrassa.tauler(); return all.map(([n, pos]) => { B.draw(pos, {}); return document.querySelector('#world').dataset.pos; }); }, all);
+    all.forEach(([n, pos], i) => same(`level ${n} on the terrace`, got[i], keyOf(pos)));
+    // two test games played with go(): captures that fall in the water, a pawn crowned, stars collected; each ends where move() says
+    for (const [p, i] of [[6, 9], [5, 7]]) {
+      const Lv = PROJECTS[p].levels[i];
+      let pos = parse(Lv.pos);
+      await page.evaluate(pos => window.__terrassa.tauler().draw(pos, {}), pos);
+      for (const [a, b] of route(Lv, pos, Lv.max)) {
+        pos = judge(pos, a, b, Lv.safe).pos;
+        await page.evaluate(([a, b, pos]) => window.__terrassa.tauler().go(a, b, pos), [a, b, pos]);
+        same(`level ${p}.${i}: after ${a}-${b}`, await shown(page), keyOf(pos));
+      }
+      await wait(page, () => document.querySelector('#world').dataset.ocupat === '0');
+      same(`level ${p}.${i}: pieces on the terrace at the end`, await page.evaluate(() => window.__terrassa._.pieces()), Object.keys(pos.at).length);
+    }
+  }
+});
+
 /* ---------- the levels ---------- */
 await section('nivell de caselles sense errades', async () => {
   const page = await open(MID);
