@@ -79,11 +79,21 @@ async function open(save, first = '.map', w = 390, h = 844, q = '') {
     window.__skew = 0; performance.now = () => now() + window.__skew;
     window.setTimeout = (f, d, ...a) => st(f, d >= 400 ? d / 10 : d, ...a);
   });
-  await page.goto(BASE + '/index.html');
-  await page.evaluate(async ([key, save]) => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load(key); if (save) P.save(key, save); }, [KEY, save]);
-  await page.goto(BASE + '/escacs-de-l-estany.html' + q);
-  await page.waitForSelector(first, { timeout: 30000 });
-  return page;
+  // When the machine's network changes (a container starting), Chrome drops what it was loading, even from localhost: the page is loaded
+  // again, up to three times. Only that is tried again; any other error stops the section
+  for (let n = 1; ; n++) {
+    try {
+      await page.goto(BASE + '/index.html');
+      await page.evaluate(async ([key, save]) => { const P = await import('/shared/progress.js'); const a = P.add('Prova'); P.choose(a?.id ?? a); P.load(key); if (save) P.save(key, save); }, [KEY, save]);
+      await page.goto(BASE + '/escacs-de-l-estany.html' + q);
+      await page.waitForSelector(first, { timeout: 30000 });
+      return page;
+    } catch (e) {
+      if (n >= 3 || !/ERR_NETWORK_CHANGED|Failed to fetch dynamically imported module|net::ERR_/.test(e.message + pageErrors.join())) throw e;
+      console.log(`  (the network changed while loading; again, ${n + 1} of 3)`);
+      pageErrors = pageErrors.filter(m => !/ERR_NETWORK_CHANGED|Failed to fetch|net::ERR_/.test(m));
+    }
+  }
 }
 const stored = page => page.evaluate(async key => { const P = await import('/shared/progress.js'); return P.load(key); }, KEY);
 const tap = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); if (!e) throw new Error('no ' + sel); e.click(); }, sel);
@@ -287,6 +297,36 @@ await section('mat en una', async () => {
   await after(page, 'the save after a mate', MATE, levelIn(streakIn(clean(MATE), 1).prog, 8, 3, 0).prog);
 });
 
+// A «Recull les estrelles» that runs out of moves starts again: on the terrace too the pieces go back to where they were. The rook of
+// b2 goes to a2 (a move it can make), and from there one move cannot collect b6 and f6
+const RESTART = { ...MID, lv: MID.lv.map((s, k) => k >= 10 && k < 13 ? 3 : s) };
+await section('recull les estrelles sense moviments', async () => {
+  const page = await open(RESTART);
+  await tap(page, '.proj[data-p="1"]');
+  await wait(page, () => window.__escacs.what === 'nivell' && window.__escacs.ready);
+  const Lv = PROJECTS[1].levels[3], st = await page.evaluate(() => ({ idx: window.__escacs.idx, pas: window.__escacs.pas }));
+  same('the level that opens', st.idx, 3);
+  await page.keyboard.type('a2'); await page.keyboard.press('Enter');
+  await wait(page, pas => window.__escacs.slips === 1 && window.__escacs.pas > pas && window.__escacs.ready, st.pas);
+  if (!NOGL) { await wait(page, () => document.querySelector('#world').dataset.ocupat === '0'); same('the terrace after starting again', await shown(page), keyOf(parse(Lv.pos))); }
+  const done = await level(page, 1, 3);
+  same('answers after starting again', done.length, 2);
+  await after(page, 'the save after starting again', RESTART, levelIn(streakIn(clean(RESTART), 2).prog, 1, 3, 1).prog);
+});
+
+// The level that validates a project: the camera goes back to the garden and its statue lights up
+const VALIDATE = { ...MID, lv: MID.lv.map((s, k) => k >= 10 && k < 17 ? 3 : s) };
+await section('nivell que valida un projecte', async () => {
+  const page = await open(VALIDATE);
+  await tap(page, '.proj[data-p="1"]');
+  const done = await level(page, 1, 7), want = levelIn(streakIn(clean(VALIDATE), topOf(done)).prog, 1, 7, 0);
+  check(want.valid && !L.validated(clean(VALIDATE)).includes(1), 'the level validates the rook');
+  await after(page, 'the save after validating a project', VALIDATE, want.prog);
+  if (!NOGL) {
+    await wait(page, n => document.querySelector('#world').dataset.estatues === String(n) && window.__terrassa.view === 'c0', L.validated(want.prog).length);
+  }
+});
+
 /* ---------- the boards of quick questions ---------- */
 await section('partida buida: la Piscina', async () => {
   const page = await open(null, '#ask');
@@ -294,6 +334,8 @@ await section('partida buida: la Piscina', async () => {
   check(!(await page.$('.map')), 'an empty save shows no map');
   const done = await quick(page, { wrong: k => k === 1 });
   same('questions of the Piscina', done.length, 3);
+  // the third is «Surt de b2 i fes…»: the frog has made the steps to the answer
+  if (!NOGL) same('where the frog is after the steps', await page.evaluate(() => document.querySelector('#world').dataset.granota), wantQ(done[2].q));
   await after(page, 'the save after the Piscina', null, poolIn(clean(null)).prog);
   await tap(page, '#nx'); await page.waitForSelector('.map');
 });

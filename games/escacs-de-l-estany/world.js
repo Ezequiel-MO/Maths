@@ -88,7 +88,8 @@ export function terrace(canvas) {
 // the same calls, doing nothing
 export function none() {
   const p = () => Promise.resolve();
-  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {}, tauler: () => null, spark() {} };
+  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {}, tauler: () => null, spark() {},
+    bring: p, frog: p, walk: p, rest() {}, topple: p, validate: p };
 }
 
 function build(canvas) {
@@ -322,7 +323,10 @@ function build(canvas) {
       if (NFL) { flyGeo.attributes.position.needsUpdate = true; flyGeo.attributes.color.needsUpdate = true; }
       stars.forEach((s, i) => { if (s.on) s.gl.material.opacity = 0.6 + Math.sin(now * 0.002 + i) * 0.15; });
       statues[0].fig.rotation.y = 0.3 + Math.sin(now * 0.0005) * 0.6;
-      for (const g of stars3.values()) { const b = g.userData.bob; g.rotation.y = Math.sin(now * 0.0016 + b) * 0.55; g.position.y = TY + 0.52 + Math.sin(now * 0.002 + b) * 0.06; if (g.scale.x < 1.05) g.scale.setScalar(1 + Math.sin(now * 0.0026 + b) * 0.04); }
+      for (const g of stars3.values()) { const b = g.userData.bob; g.rotation.y = Math.sin(now * 0.0016 + b) * 0.55; if (!g.userData.carried) g.position.y = TY + 0.52 + Math.sin(now * 0.002 + b) * 0.06; if (g.scale.x < 1.05) g.scale.setScalar(1 + Math.sin(now * 0.0026 + b) * 0.04); }
+      // the frog breathes; the wings of the fireflies beat
+      if (frog.visible) { busy = true; frog.userData.t += dt; const sq = frog.userData.sq; frog.userData.body.scale.set((1 + Math.sin(frog.userData.t * 2.2) * 0.02) * (1 - 0.12 * sq), (1 + Math.sin(frog.userData.t * 2.2) * 0.03) * (1 + 0.24 * sq), 1 - 0.12 * sq); }
+      for (const f of fireflies) { const a = 0.3 + 0.6 * Math.abs(Math.sin(now * 0.04)); f.userData.wings[0].rotation.x = -a; f.userData.wings[1].rotation.x = a; busy = true; }
       for (const g of marks.children) if (g.userData.cls === 'sel' || g.userData.cls === 'risk') { const k = 0.65 + 0.35 * Math.sin(now * 0.006); g.children.forEach(x => { x.material.opacity = (g.userData.cls === 'sel' ? 0.95 : 0.5) * k; }); }
       if (stars3.size || marks.children.some(g => g.userData.cls === 'sel' || g.userData.cls === 'risk')) busy = true;
       if (hlOn >= 0) { const p = Math.sin(now * 0.006); ring.material.opacity = 0.7 + p * 0.25; ring.scale.setScalar(1 + p * 0.05); ringGlow.material.opacity = 0.55 + p * 0.2; busy = true; }
@@ -517,7 +521,7 @@ function build(canvas) {
   // the board of the game, with the same calls as tauler() of viz.js, and lot() for the pieces of a question of points
   const B = {
     draw(pos, o = {}) {
-      clear(); for (const x of tray.children.slice()) drop(x);
+      clear(); for (const x of [...tray.children, ...guests.children]) drop(x);
       preview(''); setThings(pos);
       boardM.map = o.plain ? TEX.plain : TEX.board;
       for (const m of Object.values(signs)) m.visible = !o.blind;
@@ -531,16 +535,143 @@ function build(canvas) {
     mark, clear, preview, lot,
     point(s) { const c = D.onScreen(at3(s)), e = D.onScreen(at3(s).add(V(0.5, 0, 0))); return { x: c.x, y: c.y, w: 2 * Math.abs(e.x - c.x), bottom: c.y }; }
   };
-  canvas.dataset.ocupat = '0'; canvas.dataset.pos = ''; canvas.dataset.llum = '';
+  canvas.dataset.ocupat = '0'; canvas.dataset.pos = ''; canvas.dataset.llum = ''; canvas.dataset.granota = '';
+
+  /* ---------- a guest for each question ---------- */
+  // what a guest leaves on the board (the labels of the frog's steps): gone with the next position
+  const guests = new THREE.Group(); scene.add(guests);
+  const sg = n => n > 0 ? '+' + n : '−' + -n;
+  // The questions of a star: a firefly brings the star and leaves it on its square. dur is the flight, short in a lightning round
+  const fireflies = [];
+  function firefly() {
+    const g = new THREE.Group();
+    g.add(part(SPH, mat(0x2A2416), [0.07, 0.06, 0.12], [0, 0, 0.04]));
+    const tail = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOWT, color: 0xD8FF6A, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    tail.scale.setScalar(0.8); tail.position.set(0, -0.02, -0.1); g.add(tail);
+    const wingM = new THREE.MeshBasicMaterial({ color: 0xDFF8FF, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
+    g.userData.wings = [-1, 1].map(s => { const w = new THREE.Mesh(new THREE.CircleGeometry(0.11, 10).scale(1, 0.5, 1).rotateX(-Math.PI / 2).translate(s * 0.1, 0.05, 0.02), wingM); g.add(w); return w; });
+    g.scale.setScalar(1.3); scene.add(g); fireflies.push(g);
+    return g;
+  }
+  function bring(s, dur = 850) {
+    const st = stars3.get(s);
+    if (!st || RM) return Promise.resolve();
+    const end = st.position.clone(), from = end.clone().add(V(end.x < 0 ? 4.5 : -4.5, 3.4, -2.5)), f = firefly();
+    st.userData.carried = true; st.position.copy(from); moving++; still();
+    sound.tone(1320, 0, 0.06, 0.03); sound.tone(1760, 0.08, 0.08, 0.03);
+    return tween(dur, k => { const p = from.clone().lerp(end, k); p.y += Math.sin(k * Math.PI) * 0.9; if (st.parent) st.position.copy(p); f.position.copy(p).add(V(0, 0.42, 0)); f.rotation.y = Math.atan2(end.x - from.x, end.z - from.z); }, ease)
+      .then(() => {
+        st.userData.carried = false; D.sparkle(end, 6, 0xFFE08A, 0.2, 0.8, 1.5);
+        const a = f.position.clone(), b = a.clone().add(V(end.x < 0 ? -3 : 3, 3, -3));
+        return tween(RM ? 0 : 600, k => { f.position.lerpVectors(a, b, k); f.scale.setScalar(1.3 * (1 - k)); }, k => k);
+      })
+      .then(() => { fireflies.splice(fireflies.indexOf(f), 1); drop(f); moving--; still(); });
+  }
+  // The questions of steps («Surt de b2 i fes…»): the frog sits on the square it starts from and, when the answer is right, makes the
+  // steps: first the letters, then the numbers, with the label of each stretch
+  const frog = makeFrog(); frog.scale.setScalar(0.5); frog.visible = false; frog.userData.t = 0; frog.userData.sq = 0; scene.add(frog);
+  let frogAt = null;
+  const hop = (to, dur = 260, h = 0.4) => { const a = frog.position.clone(); return tween(RM ? 0 : dur, k => { frog.position.lerpVectors(a, to, k); frog.position.y += Math.sin(k * Math.PI) * h; frog.userData.sq = Math.sin(k * Math.PI); }, k => k).then(() => { frog.userData.sq = 0; }); };
+  // the frog on square s; null sends it away
+  function frogOn(s) {
+    frogAt = s || null; canvas.dataset.granota = frogAt || '';
+    if (!s) { frog.visible = false; D.wake(); return Promise.resolve(); }
+    const to = at3(s);
+    frog.rotation.y = 0;
+    if (!frog.visible) { frog.visible = true; frog.position.copy(to).add(V(0, 1.2, 0)); return hop(to, 320, 0); }
+    return hop(to, 360, 0.6);
+  }
+  // All the hops in one tween, so the steps end on the clock even when the frames are slow: hop i of the way goes from way[i] to way[i + 1]
+  async function walk(from, df, dr) {
+    if (frogAt !== from) await frogOn(from);
+    const [f0, r0] = fr(from), way = [from], legs = [];
+    for (const [d, along] of [[df, 'f'], [dr, 'r']]) {
+      if (!d) continue;
+      const [f, r] = fr(way[way.length - 1]);
+      legs.push({ at: way.length - 1, d, along, from: way[way.length - 1], to: along === 'f' ? FILES[f + d] + (r + 1) : FILES[f] + (r + 1 + d) });
+      for (let i = 1; i <= Math.abs(d); i++) way.push(along === 'f' ? FILES[f + i * Math.sign(d)] + (r + 1) : FILES[f] + (r + 1 + i * Math.sign(d)));
+    }
+    const n = way.length - 1, end = way[n];
+    if (!n || f0 < 0 || r0 < 0) return;
+    moving++; still();
+    const per = Math.max(110, Math.min(240, 1400 / n));
+    let at = -1;
+    await tween(RM ? 0 : n * per, k => {
+      const x = Math.min(n - 1e-6, k * n), i = Math.floor(x), q = x - i;
+      if (i !== at) {
+        at = i;
+        // a new stretch: its label, and the frog turns to where it goes
+        const L = legs.find(l => l.at === i);
+        if (L) {
+          const tag = label(sg(L.d), { ink: L.along === 'f' ? '#6FE3FF' : '#FF8FD0', edge: 'rgba(4,19,28,0.9)', h: 0.55 });
+          tag.position.copy(at3(L.from).add(at3(L.to)).multiplyScalar(0.5)).add(V(0, 1.15, 0)); guests.add(tag);
+          frog.rotation.y = L.along === 'f' ? (L.d > 0 ? Math.PI / 2 : -Math.PI / 2) : (L.d > 0 ? Math.PI : 0);
+        }
+        sound.tone(523 * 2 ** ((i % 8) / 12), 0, 0.08, 0.05);
+      }
+      frog.position.lerpVectors(at3(way[i]), at3(way[i + 1]), q); frog.position.y += Math.sin(q * Math.PI) * 0.35; frog.userData.sq = Math.sin(q * Math.PI);
+    }, k => k);
+    if (RM) { for (const L of legs) { const tag = label(sg(L.d), { ink: L.along === 'f' ? '#6FE3FF' : '#FF8FD0', edge: 'rgba(4,19,28,0.9)', h: 0.55 }); tag.position.copy(at3(L.from).add(at3(L.to)).multiplyScalar(0.5)).add(V(0, 1.15, 0)); guests.add(tag); } }
+    frog.position.copy(at3(end)); frog.userData.sq = 0; frog.rotation.y = 0; frogAt = end; canvas.dataset.granota = end;
+    moving--; still(); D.wake();
+  }
+  // the guests go away (another screen)
+  function rest() { frogOn(null); for (const x of guests.children.slice()) drop(x); }
+
+  /* ---------- check and mate ---------- */
+  // the king mated falls on its side
+  function topple(s) {
+    const m = pcs.get(s); if (!m) return Promise.resolve();
+    const p0 = m.position.clone(), my = gen;
+    return tween(RM ? 0 : 750, k => { if (my !== gen) return; m.rotation.z = -k * 1.42; m.position.x = p0.x + k * 0.15; m.position.y = p0.y + k * 0.3 * PS; }, k => k * k).then(() => { if (my === gen) { toc(); D.shake(0.06); } });
+  }
+
+  /* ---------- a project validated: the camera goes back to the garden and its statue turns to gold before the child's eyes ---------- */
+  function validate(i) {
+    const S = statues[i]; if (!S) return Promise.resolve();
+    const c = GROUPS.findIndex(g => g.includes(i)), gold = new THREE.Color(C.gold);
+    return go('c' + c).then(async () => {
+      S.fig.material = S.m; S.fig.visible = true;
+      sound.tone(523, 0, 0.3, 0.08); sound.tone(784, 0.15, 0.4, 0.08); sound.tone(1047, 0.3, 0.5, 0.07);
+      await tween(RM ? 0 : 1200, k => { S.m.color.lerpColors(S.base, gold, k); S.m.emissive.setHex(0x6A4A00).multiplyScalar(k); }, k => k);
+      S.m.color.copy(S.base); S.m.emissive.setHex(0); S.lit = true; setStatue(S, 1);
+      canvas.dataset.estatues = statues.filter(q => q.lit).length;
+      const top = S.fig.position.clone().add(V(0, 1.4, 0));
+      D.sparkle(top, 20, 0xFFD36B, 0.45, 2.2, 2); D.celebrate(3, top);
+    });
+  }
   // sparkles over a square, of the hue of the old sparks of the page
   const spark = (s, hue = 48) => D.sparkle(at3(s).add(V(0, 0.35, 0)), 16, new THREE.Color().setHSL(hue / 360, 0.95, 0.65).getHex(), 0.32, 1.8, 2.2);
 
   let sound = { tone() {} };
   return { ok: true, layout, go, get view() { return viewName; }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
-    tauler: () => B, spark,
+    tauler: () => B, spark, bring, frog: frogOn, walk, rest, topple, validate,
     hear: o => { sound = { ...sound, ...o }; }, lamps: hue => { lampHue = hue; paintLamps(); },
     // for the checks (scripts/flow-escacs.mjs): the pieces still in the scene, the ones falling to the water too
-    _: { D, statues, stars, signs, TEX, boardM, tween, setStatue, pieces: () => things.children.filter(m => m.userData.p).length } };
+    _: { D, statues, stars, signs, TEX, boardM, tween, setStatue, pieces: () => things.children.filter(m => m.userData.p).length,
+      marks: () => marks.children.map(g => g.userData.cls) } };
+}
+
+/* ---------- the frog of the steps: Salts de Granota's, a bit simpler ---------- */
+// about one unit tall, looking at +z; its body breathes (userData.body)
+function makeFrog() {
+  const g = new THREE.Group(), body = new THREE.Group(), k = { body: mat(0x5DBB63), dark: mat(0x3C9A50), belly: mat(0xD5F8C4) };
+  g.add(body);
+  body.add(part(SPH, k.body, [0.5, 0.36, 0.46], [0, 0.38, 0]));
+  body.add(part(SPH, k.belly, [0.34, 0.24, 0.12], [0, 0.32, 0.36]));
+  for (const s of [-1, 1]) {
+    body.add(part(SPH, k.dark, [0.2, 0.17, 0.34], [s * 0.42, 0.18, -0.05]));
+    body.add(part(SPH, k.dark, [0.17, 0.06, 0.26], [s * 0.46, 0.04, 0.18]));
+    body.add(part(SPH, k.dark, [0.09, 0.05, 0.13], [s * 0.2, 0.04, 0.38]));
+    body.add(part(SPH, k.body, [0.17, 0.17, 0.17], [s * 0.23, 0.68, 0.16]));
+    body.add(part(SPH, mat(0xffffff, { roughness: 0.3 }), [0.12, 0.12, 0.12], [s * 0.24, 0.72, 0.24]));
+    body.add(part(SPH, mat(0x06220D, { roughness: 0.15 }), [0.065, 0.075, 0.05], [s * 0.25, 0.73, 0.34]));
+    body.add(part(SPH, mat(0xFF8FD0, { roughness: 0.6 }), [0.07, 0.04, 0.02], [s * 0.3, 0.43, 0.37]));
+  }
+  body.add(new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.014, 6, 20, Math.PI * 0.7).rotateZ(Math.PI + Math.PI * 0.15).translate(0, 0.5, 0.41), mat(0x1F6030)));
+  bake(body);
+  g.userData.body = body;
+  return g;
 }
 
 // many geometries into one, with their positions and normals only

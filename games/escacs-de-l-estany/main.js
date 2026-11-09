@@ -112,7 +112,7 @@ function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${
 function show(kicker, playing, hue = null) {
   document.body.classList.toggle('playing', playing); $('#app').classList.toggle('wide', playing);
   $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  root.onclick = null; keyFn = null; W.highlight(null); W.lamps(hue);
+  root.onclick = null; keyFn = null; W.highlight(null); W.lamps(hue); W.rest();
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -235,6 +235,9 @@ function mission(sec, idx) {
       const a = L.asks[k], w = wantOf(a);
       pos = { at: {}, rocks: [], stars: a[0] === 'star' || a[0] === 'blind' ? [w] : [] };
       B.draw(pos, { blind: a[0] === 'blind', sel: a[0] === 'step' ? [a[1]] : [] });
+      // the guest of the question: a firefly brings the star, the frog sits where the steps start
+      if (pos.stars.length) W.bring(w);
+      W.frog(a[0] === 'step' ? a[1] : null);
     } else B.clear('dot');
     paint(); tip((said ? said + ' ' : k === 0 && used === 0 && L.tip ? L.tip + ' ' : '') + task(), said ? 'go' : '');
     // on a phone the board can be off screen: bring the tip and the board back
@@ -245,7 +248,7 @@ function mission(sec, idx) {
   // a wrong answer: what went wrong is said, and the square typed flashes on the board
   function wrong(msg, at) {
     slips++; help++; streak = 0; drawCombo(); stars(); buzz(); tip('Ui! ' + msg, 'oops'); buf = ''; paint(); shake($('#ask'));
-    if (at) { B.mark('bad', [at]); setTimeout(() => { if (t.on) B.clear('bad'); }, 900); }
+    if (at) { B.mark('bad', [at]); W.shake(0.1); setTimeout(() => { if (t.on) B.clear('bad'); }, 900); }
   }
 
   function answerSq(s) {
@@ -254,7 +257,8 @@ function mission(sec, idx) {
       : s[0] === w[0] ? `La columna ${s[0]} és bona, però la fila no.` : s[1] === w[1] ? `La fila ${s[1]} és bona, però la columna no.` : 'Ni la columna ni la fila. Torna-ho a mirar a poc a poc.', s);
     busy = true; good(); B.preview(''); B.mark('ok', [w]); burst(w, 150); k++; step();
     tip(a[0] === 'step' ? `${a[1]} → ${w}: lletra ${sg(a[2])}, número ${sg(a[3])}. ${pick(BRAVO)}` : `${w}: columna ${w[0]}, fila ${w[1]}. ${pick(BRAVO)}`, 'go');
-    setTimeout(() => { if (!t.on) return; if (k === total) return win(); busy = false; arm(); }, 1100);
+    // the frog makes the steps on the terrace; the next question waits for it
+    Promise.all([sleep(1100), a[0] === 'step' ? W.walk(a[1], a[2], a[3]) : null]).then(() => { if (!t.on) return; if (k === total) return win(); busy = false; arm(); });
   }
   function answerReach(f, s) {
     if (found.includes(s)) { tip("Aquesta ja la tens. Busca'n una altra!", 'oops'); buf = ''; paint(); return; }
@@ -298,7 +302,7 @@ function mission(sec, idx) {
   async function playMate(f, s, j) {
     const was = pos, kq = kingOf(pos, false);
     busy = true; buf = ''; paint(); await B.go(f, s, j.pos); if (!t.on) return;
-    if (mate(j.pos, false)) { good(); pos = j.pos; B.mark('risk', [kq]); burst(kq, 350); tip('Escac i mat! El rei està atacat i no té cap casella on anar.', 'go'); k = 1; step(); return win(); }
+    if (mate(j.pos, false)) { good(); pos = j.pos; B.mark('risk', [kq]); burst(kq, 350); W.topple(kq); tip('Escac i mat! El rei està atacat i no té cap casella on anar.', 'go'); k = 1; step(); return win(); }
     const out = all(j.pos, false), flee = out.filter(m => m[0] === kq).map(m => m[1]);
     B.mark('risk', flee);
     wrong(!inCheck(j.pos, false) ? 'Això no és escac: el rei negre no queda atacat.' : flee.length ? `És escac, però no és mat: el rei pot fugir a ${list(flee)}.`
@@ -359,6 +363,8 @@ function mission(sec, idx) {
   async function win() {
     const got = run(), r = levelIn(prog, sec, idx, slips), n = r.n, end = idx === 9;
     keyFn = null; prog = r.prog; save(); r.news = [...got, ...r.news];
+    // saved: a project validated lights its statue in the garden, before the child's eyes
+    if (r.valid) W.validate(sec);
     lane.classList.add('won'); chime([523, 659, 784, 1047, 1319]); launch(); FX.celebrate(end || r.valid ? 16 : 8);
     await sleep(1500); if (!t.on) return;
     curtain(`<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
@@ -438,6 +444,8 @@ function board(o) {
     <p class="status tip" id="tip" role="status" aria-live="polite"></p>
     <div class="split" id="split"><div class="field" id="field"></div><div class="desk"><p class="ask" id="ask"></p><div id="ctl"></div></div><span class="combo" id="cb" hidden></span></div>`;
   const field = $('#field'), ctl = $('#ctl'), B = W.tauler() || tauler(field);
+  // a square typed wrong flashes red on the terrace, and the camera shakes
+  const flash = s => { if (!W.ok) return; B.mark('bad', [s]); W.shake(0.1); setTimeout(() => { if (t.on) B.clear('bad'); }, 900); };
   const tip = (txt, cls) => { const e = $('#tip'); e.className = 'status tip' + (cls ? ' ' + cls : ''); e.textContent = txt; };
 
   // the figure of the question; lab shows the answer on it
@@ -466,6 +474,8 @@ function board(o) {
     q = qs[k]; buf = ''; help = 0; busy = false; lab = false; pas++; openAt = k && how !== 'rapid' ? performance.now() + SETTLE : 0;
     $('#lane')?.style.setProperty('--p', k / qs.length);
     drawField(); drawAsk(); drawCtl(); tip(how === 'rapid' ? '' : tipQ(q)); o.chip?.(st);
+    if (q.kind === 'name') W.bring(q.want, how === 'rapid' ? 320 : 850);
+    W.frog(q.kind === 'step' ? q.from : null);
     if ($('#tip').getBoundingClientRect().top < 0) $('#tip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
   }
   // the answer is shown on the figure and in the box
@@ -476,7 +486,7 @@ function board(o) {
     const ok = rightQ(q, ans), last = k === qs.length - 1;
     if (!ok && !once) {   // try again, with what went wrong said
       buzz(); shake($('#ask')); st.slips++; help++; streak = 0; drawCombo(); o.chip?.(st);
-      tip('Ui! ' + (help > 1 ? explainQ(q) : hintQ(q)), 'oops'); buf = ''; if (!q.opts) { B.preview(''); nextKey(buf, 2); } drawAsk();
+      tip('Ui! ' + (help > 1 ? explainQ(q) : hintQ(q)), 'oops'); buf = ''; if (!q.opts) { B.preview(''); nextKey(buf, 2); flash(ans); } drawAsk();
       return;
     }
     busy = true; st.marks[k] = ok ? 'ok' : 'bad';
@@ -484,14 +494,15 @@ function board(o) {
     if (last) o.onLast?.(st);
     drawCombo(); o.chip?.(st); reveal(); $('#lane')?.style.setProperty('--p', (k + 1) / qs.length);
     if (!ok) {   // one try only: show the right answer, and in an exam wait for the child to go on
-      buzz(); shake($('#ask')); tip('No. ' + explainQ(q), 'oops');
+      buzz(); shake($('#ask')); tip('No. ' + explainQ(q), 'oops'); if (!q.opts) flash(ans);
       if (how === 'rapid') { await sleep(1600); if (t.on && !over) next(); return; }
       ctl.innerHTML = '<button class="btn" id="go">Segueix</button>'; $('#go').focus({ preventScroll: true });
       return;
     }
     ding(); if (how !== 'rapid') tip(streak && streak % 5 === 0 ? `${streak} seguides! ${pick(BRAVO)}` : pick(BRAVO), 'go');
     { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 18 + 3 * Math.min(streak, 8), 170); if (streak && streak % 5 === 0) FX.celebrate(3); }
-    await sleep(how === 'rapid' ? 350 : 1100); if (t.on && !over) next();
+    // the frog of a question of steps makes them before the next question
+    await Promise.all([sleep(how === 'rapid' ? 350 : 1100), q.kind === 'step' ? W.walk(q.from, ...q.d) : null]); if (t.on && !over) next();
   }
   async function next() {
     k++;
