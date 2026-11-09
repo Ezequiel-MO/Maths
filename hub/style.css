@@ -54,6 +54,12 @@ h1 { font-family: var(--display); font-size: clamp(2.4rem, 9vw, 3.6rem); filter:
 .game.star:hover { border-color: #F6D788; }
 .game.star .tag { color: #F6D788; }
 .game.star b { font-size: 1.9rem; color: #FFF4DF; text-shadow: 0 0 18px rgb(255 138 194 / 0.45); }
+/* the park of the pond, the second star: midnight blue with a row of bulbs, like a fairground at night */
+.game.star.fira { background: radial-gradient(120% 120% at 20% 0%, #34298A, #221A5C 55%, #150F3B); border: 3px solid #F2B53A; outline: 3px dotted #FFE08A; outline-offset: -9px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.45), 0 0 40px rgb(255 211 107 / 0.25); }
+.game.star.fira:hover { border-color: #FFE08A; }
+.game.star.fira .tag { color: #FFE08A; }
+.game.star.fira b { text-shadow: 0 3px 0 #E5484D, 0 0 18px rgb(255 122 192 / 0.5); }
 @media (min-width: 760px) {
   .game.star { grid-template-columns: 150px 1fr; justify-items: start; text-align: left; align-items: center; }
   .game.star svg { width: 150px; height: 150px; }
