@@ -1,6 +1,5 @@
 import { $, RM, sleep, pick, mid, OBERT } from '../../shared/util.js';
 import { voice } from '../../shared/audio.js';
-import { pond } from '../../shared/fx.js';
 import { levelRow, wireLevels, panel } from '../../shared/sections.js';
 import { load, save as store } from '../../shared/progress.js';
 import { FILES, fr, dark, delta, white, VALUE, parse, reach, judge, all, mate, mates, gains, kingOf, attackerOf, inCheck, checks, route, done, goals, wantOf, starsFor,
@@ -9,6 +8,7 @@ import { FILES, fr, dark, delta, white, VALUE, parse, reach, judge, all, mate, m
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, curtain, combo } from '../../shared/shell.js';
 import { STAR, ico, svgOf, tauler, hear } from './viz.js';
+import { terrace } from './world.js';
 
 const KEY = 'escacs-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -25,13 +25,21 @@ const paintXp = () => xpBar(levelText(prog));
 const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so);
-const FX = pond(tone);
+// the terrace in 3D behind the panel; without WebGL its calls do nothing and the board is drawn in the panel (viz.js)
+const W = terrace($('#world'));
+document.body.classList.toggle('nogl', !W.ok);
+// for the checks in the browser (scripts/flow-escacs.mjs): the terrace, to ask it where things are
+window.__terrassa = W;
+// the sparks of the page are the terrace's now: confetti over the place on show (nothing without WebGL)
+const FX = { ring() {}, burst() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1) };
+// the garden as the progress has it: a statue lit for each project validated, a star for each exam passed
+const garden = () => W.state({ piscina: prog.piscina || OPEN, valid: OPEN ? PROJECTS.map((_, i) => i) : validated(prog), stars: prog.exams.filter(Boolean).length });
 const buzz = () => tone(150, 0, 0.45, 0.16, 'triangle');
 // right answers in a row at the first try, and the longest run since the page opened
 let streak = 0, top = 0;
 // the notes climb with the run
 const ding = () => { const f = 660 * 2 ** (Math.min(streak, 12) / 12); tone(f, 0, 0.14, 0.08); tone(f * 4 / 3, 0.09, 0.18, 0.07); };
-hear({ tone });
+hear({ tone }); W.hear({ tone, chime });
 // For the checks in the browser (scripts/flow-escacs.mjs): what is on screen. Each screen puts its own here; pos is a position written as
 // logic.js reads it (parse), pas counts the questions armed, ready says whether a key typed now is taken
 const posText = pos => [...Object.keys(pos.at).map(s => pos.at[s] + s), ...pos.stars.map(s => '*' + s), ...pos.rocks.map(s => '#' + s)].join(' ');
@@ -89,9 +97,22 @@ function why(pos, j, f, s) {
 
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
 const HUB = ownPage('escacs-de-l-estany');
-function show(kicker, playing, hue) {
-  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  $('#game').onclick = null; keyFn = null; FX.mood(hue);
+const root = $('#game');
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+// the terrace is framed in the part of the screen the panel leaves free: on the left of it when the screen is wide, above it otherwise
+function frame3d() {
+  if (WIDE.matches) W.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('.view'); W.layout('bottom', v ? Math.max(0.3, 1 - v.getBoundingClientRect().bottom / innerHeight) : 0.55); }
+}
+WIDE.addEventListener?.('change', () => frame3d());
+{ let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
+// a screen: the room the terrace is seen through (h tall on a narrow screen) and the panel under it
+function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
+// hue: the colour of the lanterns of the terrace, the one of the project on show
+function show(kicker, playing, hue = null) {
+  document.body.classList.toggle('playing', playing); $('#app').classList.toggle('wide', playing);
+  $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
+  root.onclick = null; keyFn = null; W.highlight(null); W.lamps(hue);
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -121,6 +142,8 @@ function launch() {
     if (performance.now() - t0 > 1500) { clearInterval(iv); e.remove(); }
   }, 50);
 }
+// how tall the room of the terrace is over the panel, on a narrow screen: the map shows the garden, a level and a board the whole board
+const LEVEL_VIEW = '46vh', BOARD_VIEW = '46vh';
 const laneHtml = hue => `<div class="lane" id="lane" style="--p:0;--ph:${hue}" aria-hidden="true"><i class="fuel"></i><span class="rk">${ico('P')}</span><span class="goal">${ico('Q')}</span></div>`;
 
 /* ---------- the map: a band for each circle, a piece for each project and the exam of the circle at the end ---------- */
@@ -130,20 +153,26 @@ const ICON = [`<svg class="ico" viewBox="0 0 100 100" aria-hidden="true"><g clas
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
-  fresh(); show('El mapa', false, 205); window.__escacs = { what: 'mapa' };
-  M.screen({ root: $('#game'), here, rings, ringAttr: c => ` style="--rh:${RING[c]}"`, projAttr: i => ` style="--h:${HUES[i]}"`,
+  fresh(); show('El mapa', false); window.__escacs = { what: 'mapa' };
+  garden(); W.go('map');
+  panel3d('42vh', '');
+  const sheet = $('#sheet');
+  M.screen({ root: sheet, here, rings, ringAttr: c => ` style="--rh:${RING[c]}"`, projAttr: i => ` style="--h:${HUES[i]}"`,
     icon: i => `<i class="orb" aria-hidden="true">${ICON[i]}</i>`, pp: true,
     foot: got => `\n    <div class="extra"><button class="btn soft" id="rapid">⚡ Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
       <button class="btn soft" id="full"${OPEN || validated(prog).length > 0 ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>🔍 Caça l'errada</button>
       ${badgeList(BADGES, got)}</div>`,
     open: i => mission(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full], ['#rapid', llampec]] });
+  // a project under the finger, or with the focus, lights its statue in the garden
+  const lit = e => { const b = e.target.closest?.('.proj[data-p]'); W.highlight(b ? +b.dataset.p : null); };
+  sheet.onpointerover = lit; sheet.onfocusin = lit; sheet.onpointerleave = () => W.highlight(null);
   here = -1;
 }
 
 /* ---------- one level: a board and what to do on it, always by typing squares ---------- */
 function mission(sec, idx) {
   const c = circleOf(sec), P = PROJECTS[sec], L = P.levels[idx], t = fresh(); show(`Cercle ${c} · ${P.name}`, true, HUES[sec]); here = sec;
-  const root = $('#game'), total = goals(L), start = parse(L.pos || ''), sqs = L.t === 'sq';
+  const total = goals(L), start = parse(L.pos || ''), sqs = L.t === 'sq';
   // with more than one white piece, the square the move starts from is typed too
   const two = !sqs && Object.values(start.at).filter(white).length > 1, len = two ? 4 : 2;
   let pos = start, used = 0, k = 0, slips = 0, help = 0, buf = '', busy = false;
@@ -151,12 +180,13 @@ function mission(sec, idx) {
   let pas = 0;
   window.__escacs = { what: 'nivell', sec, idx, get k() { return k; }, get pos() { return posText(pos); }, get used() { return used; }, get slips() { return slips; },
     get pas() { return pas; }, get ready() { return t.on && !busy && !!keyFn; } };
-  root.innerHTML = `${levelRow(P.levels, OPEN ? 10 : reached(prog, sec), idx)}
+  garden(); W.go('board');
+  panel3d(LEVEL_VIEW, `${levelRow(P.levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${KIND[L.t]}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     ${laneHtml(HUES[sec])}<p class="status tip" id="tip" role="status" aria-live="polite"></p>
     <div class="split" id="split"><div class="field" id="field"></div><div class="desk">
       <div class="calc" id="calc"${sqs ? ' hidden' : ''}><p class="rule" id="rule"></p><p class="row"><span>Lletra</span><b id="cf"></b><i id="df"></i></p><p class="row"><span>Número</span><b id="cn"></b><i id="dn"></i></p></div>
-      <p class="ask" id="ask"></p>${KEYS}</div><span class="combo" id="cb" hidden></span></div>`;
+      <p class="ask" id="ask"></p>${KEYS}</div><span class="combo" id="cb" hidden></span></div>`);
   const B = tauler($('#field')), lane = $('#lane');
   // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((e, i) => e.classList.toggle('done', prog.lv[sec * 10 + i] > 0));
@@ -502,7 +532,8 @@ function board(o) {
 function piscina() {
   const t = fresh(); show('La Piscina', true, 205); $('#toM').hidden = true; $('#toG').hidden = !HUB;
   let got = [];
-  $('#game').innerHTML = '<div class="hud mid"><span class="chip">Tres reptes per entrar al tauler</span></div><div id="board"></div>';
+  garden(); W.go('board');
+  panel3d(BOARD_VIEW, '<div class="hud mid"><span class="chip">Tres reptes per entrar al tauler</span></div><div id="board"></div>');
   board({ t, qs: POOL, how: 'pool', hue: 205,
     onLast: () => { const r = poolIn(prog); prog = r.prog; got = r.news; save(); },
     onEnd: () => {
@@ -518,7 +549,8 @@ function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]);
   const qs = exam(c, Math.random);
   let r;
-  $('#game').innerHTML = '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>';
+  garden(); W.go('board');
+  panel3d(BOARD_VIEW, '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>');
   board({ t, qs, how: 'exam', hue: RING[c], chip: st => { $('#st').textContent = `${st.hits} de ${qs.length}`; },
     onLast: st => { const got = run(), first = !prog.exams[c]; r = examIn(prog, c, qs, qs.map((_, i) => st.marks[i] === 'ok')); r.news = [...got, ...r.news]; r.first = r.good && first; prog = r.prog; save(); },
     onEnd: () => {
@@ -535,12 +567,13 @@ function examen(c) {
 /* ---------- the lightning round: as many squares named as fit in a minute, one try each; only the record is kept ---------- */
 function llampec() {
   const t = fresh(); show('Repte llampec', true, 48);
-  $('#game').innerHTML = `<div class="intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons per posar nom a tantes caselles com puguis, un sol intent per a cada una. Escriu la lletra i el número i ja està: no cal prémer ✓.</p>
-    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button></div>`;
+  garden(); W.go('board');
+  panel3d(BOARD_VIEW, `<div class="intro"><h2>⚡ Repte llampec</h2><p class="lead">${RAPID} segons per posar nom a tantes caselles com puguis, un sol intent per a cada una. Escriu la lletra i el número i ja està: no cal prémer ✓.</p>
+    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button></div>`);
   $('#go').focus({ preventScroll: true });
   $('#go').onclick = () => {
     if (!t.on) return;
-    $('#game').innerHTML = '<div class="hud"><span class="chip">Repte llampec</span><span class="chip" id="st"></span></div><div id="board"></div>';
+    panel3d(BOARD_VIEW, '<div class="hud"><span class="chip">Repte llampec</span><span class="chip" id="st"></span></div><div id="board"></div>');
     board({ t, qs: sprint(Math.random), how: 'rapid', secs: RAPID, chip: st => { $('#st').textContent = `${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}`; },
       onEnd: st => {
         const got = run(), r = rapidIn(prog, st.hits); prog = r.prog; save();
@@ -566,9 +599,10 @@ const CLAIMS = {
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
   const cs = sheet(Math.random), marks = [];
-  $('#game').innerHTML = `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
+  garden(); W.go('board');
+  panel3d(BOARD_VIEW, `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
     <div class="coach" id="coach"><span class="pilot">${ico('N')}</span><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>
-    <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`;
+    <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`);
   const stage = $('#stage'), tail = $('#tail'), dots = [...$('#dots').children];
   const say = (txt, cls = '') => { $('#tip').className = 'status tip ' + cls; $('#tip').textContent = txt; const c = $('#coach'); c.className = 'coach'; void c.offsetWidth; c.className = 'coach ' + cls; };
   let k = -1, C, D, busy, openAt = 0, res = null;

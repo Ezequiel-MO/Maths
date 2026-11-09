@@ -1,0 +1,347 @@
+// Els escacs de l'estany in 3D, built on shared/diorama.js: a stone terrace at the edge of the pond, at dusk, on a block of earth that floats
+// in the air. The floor of the terrace is the board, of light and dark stone in a wooden frame with the letters and the numbers carved on it;
+// white always plays from the side of the camera (a1 at the bottom left). Around it, the water with its lily pads and reeds, a jetty,
+// fireflies and the moon.
+// The map is the garden of the board: nine statues on their pedestals, in four groups round the terrace (one per circle), the same figures
+// as the map of the page. A project validated turns its statue to gold, with a little lantern; every exam passed lights a star of a
+// constellation in the shape of a knight's jump.
+// Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL terrace() gives the same calls doing nothing.
+import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, SPH, V } from '../../shared/diorama.js';
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
+import { RM } from '../../shared/util.js';
+import { FILES, fr, dark, CIRCLES } from './logic.js';
+import { SHAPE } from './viz.js';
+
+/* ---------- the measures of the world ---------- */
+// one unit is one square. The grass at GY, the top of the terrace at 0, the top of the board at TY; the block from YB up, x from X0 to X1
+// and z from Z0 (back) to Z1 (front); the water at WY over a bottom at BY
+const GY = -0.35, TY = 0.06, YB = -4.6, WY = -0.62, BY = -1.7, X0 = -11.6, X1 = 11.6, Z0 = -13.2, Z1 = 8.8;
+// the pond: an ellipse round PC with radii PR, at the back of the terrace
+const PC = [0.4, -9.7], PR = [10.2, 2.7];
+const wob = a => 1 + 0.03 * Math.sin(3 * a + 0.4) + 0.025 * Math.sin(5 * a + 1.3);
+const SHORE = Array.from({ length: 72 }, (_, i) => { const a = i / 72 * Math.PI * 2, k = wob(a); return [PC[0] + PR[0] * Math.cos(a) * k, PC[1] + PR[1] * Math.sin(a) * k]; });
+// the terrace of stone: x from -TX to TX, z from TZ0 to TZ1
+const TX = 6.2, TZ0 = -6.3, TZ1 = 6.4;
+// the middle of a square on top of the board: a1 at the front on the left, h8 at the back on the right
+export const at3 = s => { const [f, r] = fr(s); return V(f - 3.5, TY, 3.5 - r); };
+// the statue of each project, in the order of PROJECTS: four groups round the terrace, one per circle
+const STATUES = [[-8.9, 4.7], [-8.9, 1.9], [-9.4, -1.7], [-7.8, -4.8], [7.8, -4.8], [9.4, -3.0], [9.7, -0.7], [8.9, 2.0], [8.9, 4.8]];
+// what each statue shows: the star of the map of the board, then the pieces; the last two are black
+const FIG = ['*', 'R', 'B', 'Q', 'K', 'N', 'P', 'r', 'k'];
+const GROUPS = CIRCLES.map(c => c.projects);
+const PED = 0.62;   // the height of a pedestal
+
+const C = {
+  grass: 0x6DBB6A, grass2: 0x4F9C58, water: 0x2B8FA8, pad: 0x4FA65A, padDark: 0x2F7F40, wood: 0x8B5A3C, wood2: 0x6E4426, frame: 0x5A3420,
+  stone: 0xC9BFAE, stone2: 0xA89C88, ivory: 0xF3E8D2, ebony: 0x3D2617, gold: 0xF2C14E, leaf: [0x4E9F5B, 0x67B565, 0x3F8A4E]
+};
+
+/* ---------- the pieces ---------- */
+// Turned on a lathe from their profile, all of them but the knight, which is cut out of the drawing of the page (SHAPE.N) and given some
+// thickness. About one unit tall for the king; the base fits a square with room to spare. Built once and shared.
+const V2 = (x, y) => new THREE.Vector2(x, y);
+// a ball of radius r round height cy, from where its side is at radius x0 up to the top
+const ball = (cy, r, x0) => { const a0 = -Math.acos(Math.min(1, x0 / r)), out = []; for (let i = 0; i <= 8; i++) { const a = a0 + (Math.PI / 2 - a0) * i / 8; out.push([Math.max(0.0001, r * Math.cos(a)), cy + r * Math.sin(a)]); } return out; };
+const FOOTP = [[0.0001, 0], [0.34, 0], [0.345, 0.035], [0.335, 0.07], [0.3, 0.1], [0.25, 0.13]];
+const PROFILE = {
+  P: [...FOOTP, [0.2, 0.16], [0.15, 0.22], [0.12, 0.33], [0.11, 0.38], [0.19, 0.4], [0.19, 0.43], [0.1, 0.45], ...ball(0.54, 0.125, 0.1)],
+  R: [...FOOTP, [0.25, 0.16], [0.22, 0.2], [0.2, 0.5], [0.25, 0.53], [0.28, 0.56], [0.28, 0.66], [0.2, 0.66], [0.2, 0.62], [0.0001, 0.62]],
+  B: [...FOOTP, [0.22, 0.16], [0.18, 0.22], [0.13, 0.45], [0.21, 0.48], [0.21, 0.51], [0.12, 0.53], [0.15, 0.57], [0.18, 0.63], [0.17, 0.7], [0.12, 0.77], [0.05, 0.82], [0.035, 0.83], ...ball(0.865, 0.045, 0.035)],
+  Q: [...FOOTP, [0.24, 0.16], [0.2, 0.22], [0.14, 0.5], [0.23, 0.54], [0.23, 0.57], [0.14, 0.6], [0.16, 0.66], [0.22, 0.79], [0.24, 0.83], [0.16, 0.84], [0.1, 0.86], ...ball(0.91, 0.06, 0.05)],
+  K: [...FOOTP, [0.25, 0.16], [0.21, 0.22], [0.15, 0.52], [0.24, 0.56], [0.24, 0.59], [0.15, 0.62], [0.19, 0.77], [0.21, 0.82], [0.14, 0.86], [0.07, 0.88], [0.0001, 0.885]],
+  N: [...FOOTP, [0.25, 0.16], [0.24, 0.19], [0.0001, 0.19]]
+};
+const lathe = pts => new THREE.LatheGeometry(pts.map(([x, y]) => V2(x, y)), 32);
+const merge = gs => { const m = mergeAll(gs); m.computeBoundingSphere(); return m; };
+// the knight: the body of the drawing, from its 100 box to one unit, standing on its round base and looking to -x
+function knightGeo() {
+  const d = SHAPE.N.match(/class="body" d="([^"]+)"/)[1], s = 0.0098;
+  const paths = new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${d}"/></svg>`).paths;
+  const shapes = paths.flatMap(p => p.toShapes(true)).map(sh => new THREE.Shape(sh.getPoints(10).map(p => V2((p.x - 48) * s, (81 - p.y) * s + 0.17))));
+  const body = new THREE.ExtrudeGeometry(shapes, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.03, bevelSegments: 2, curveSegments: 10 }).translate(0, 0, -0.1);
+  return merge([lathe(PROFILE.N), body]);
+}
+function pieceGeo(t) {
+  if (t === 'N') return knightGeo();
+  const gs = [lathe(PROFILE[t])];
+  // the battlements of the rook, the crown of the queen, the cross of the king
+  if (t === 'R') for (let i = 0; i < 6; i++) gs.push(new THREE.BoxGeometry(0.11, 0.09, 0.12).translate(0.235, 0.705, 0).rotateY(i / 6 * Math.PI * 2));
+  if (t === 'Q') for (let i = 0; i < 9; i++) gs.push(new THREE.SphereGeometry(0.038, 10, 8).translate(0.225, 0.85, 0).rotateY(i / 9 * Math.PI * 2));
+  if (t === 'K') { gs.push(new THREE.BoxGeometry(0.065, 0.24, 0.065).translate(0, 0.99, 0)); gs.push(new THREE.BoxGeometry(0.19, 0.065, 0.065).translate(0, 1.01, 0)); }
+  return merge(gs);
+}
+const GEO = {};
+export const geoOf = t => { t = t.toUpperCase(); if (!GEO[t]) { GEO[t] = pieceGeo(t); GEO[t].userData.shared = true; } return GEO[t]; };
+// a star of five points standing up, for the statue of the map of the board
+function starGeo(r = 0.42, depth = 0.14) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.43 : r; i ? s.lineTo(Math.cos(a) * q, Math.sin(a) * q) : s.moveTo(Math.cos(a) * q, Math.sin(a) * q); }
+  s.closePath();
+  return new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 }).translate(0, 0, -depth / 2);
+}
+
+/* ---------- the world ---------- */
+export function terrace(canvas) {
+  if (!hasGL()) return none();
+  try { return build(canvas); } catch (e) { console.warn('escacs 3D:', e); return none(); }
+}
+// the same calls, doing nothing
+export function none() {
+  const p = () => Promise.resolve();
+  return { ok: false, layout() {}, go: p, state() {}, highlight() {}, pause() {}, celebrate() {}, shake() {}, hear() {}, lamps() {} };
+}
+
+function build(canvas) {
+  const VIEWS = {
+    map: { t: [0, -0.6, -1.6], dir: [0.3, 1.0, 1], R: 11.6 },
+    // the board from the side of white, high enough to count the rows at the back
+    board: { t: [0, 0, 0.3], dir: [0, 1.62, 1], R: 4.95 },
+    sky: { t: [-1.2, 9.6, -26], dir: [0.1, -0.08, 1], R: 4.2 }
+  };
+  // one view per circle: its group of statues
+  GROUPS.forEach((ps, c) => {
+    const xs = ps.map(i => STATUES[i][0]), zs = ps.map(i => STATUES[i][1]), x = (Math.min(...xs) + Math.max(...xs)) / 2, z = (Math.min(...zs) + Math.max(...zs)) / 2;
+    VIEWS['c' + c] = { t: [x, GY + 1.2, z], dir: [-x * 0.06, 0.55, 1], R: Math.max(2.3, Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)) / 2 + 1.3) };
+  });
+  const D = diorama(canvas, { views: VIEWS, start: 'map', sunAt: [-14, 18, 14], shadow: { left: -14, right: 14, top: 12, bottom: -14 }, floor: YB - 4, under: [0, YB - 2.5, -2, 34, 30] });
+  const { scene, glow, tween } = D;
+  const fixed = new THREE.Group(); scene.add(fixed);
+  // The view on show, by name. diorama's layout() flies the camera again with the view itself and forgets its name, and the sway of the
+  // map only comes with the name: so the name is kept here and given back after a layout
+  let viewName = 'map';
+  const go = (v, o) => { viewName = typeof v === 'string' ? v : null; return D.go(v, o); };
+  const layout = (kind, x) => { D.layout(kind, x); if (viewName && D.view !== viewName) D.go(viewName, { dur: 700 }); };
+
+  /* ---------- the block of earth, with the pond cut into its top ---------- */
+  const soilTex = canvasTex(256, 512, (g, w, h) => {
+    const bands = ['#6E9F4E', '#7A4E2D', '#8E5E36', '#6B4226', '#9A6B43', '#5C3820', '#7E5131'], hs = [10, 70, 60, 80, 70, 110, 120];
+    let y = 0; bands.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, y, w, hs[i]); y += hs[i]; });
+    for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${i % 3 ? '40,25,15' : '200,180,150'},${0.15 + Math.random() * 0.25})`; const r = 1 + Math.random() * 5; g.beginPath(); g.ellipse(Math.random() * w, 14 + Math.random() * (h - 14), r * 1.6, r, 0, 0, 7); g.fill(); }
+  });
+  soilTex.wrapS = soilTex.wrapT = THREE.RepeatWrapping;
+  const HB = GY - YB;
+  {
+    // the grass round the pond, down to the bottom of the water; the walls of the hole and of the block are earth
+    const s = new THREE.Shape();
+    s.moveTo(X0, -Z1); s.lineTo(X1, -Z1); s.lineTo(X1, -Z0); s.lineTo(X0, -Z0); s.closePath();
+    const hole = new THREE.Path(); SHORE.forEach(([x, z], i) => i ? hole.lineTo(x, -z) : hole.moveTo(x, -z)); hole.closePath(); s.holes.push(hole);
+    const g = new THREE.ExtrudeGeometry(s, { depth: GY - BY, bevelEnabled: false, curveSegments: 1 }).rotateX(-Math.PI / 2).translate(0, BY, 0);
+    const uv = g.attributes.uv, p = g.attributes.position;
+    for (let i = 0; i < uv.count; i++) uv.setY(i, 1 + (p.getY(i) - GY) / HB);
+    const wallTex = soilTex.clone(); wallTex.needsUpdate = true; wallTex.repeat.set(0.12, 1);
+    scene.add(mesh(g, [std(C.grass, { roughness: 0.9 }), std(0xffffff, { map: wallTex, roughness: 0.95 })], { cast: false }));
+    const bt = soilTex.clone(); bt.needsUpdate = true; bt.repeat.set(1.5, (BY - YB) / HB);
+    const side = std(0xffffff, { map: bt, roughness: 0.95 }), mud = std(0x4A3A26, { roughness: 1 }), dark = std(0x3A2617, { roughness: 1 });
+    scene.add(mesh(boxG(X1 - X0, BY - YB, Z1 - Z0, (X0 + X1) / 2, (BY + YB) / 2, (Z0 + Z1) / 2), [side, side, mud, dark, side, side], { cast: false }));
+  }
+  // the water, with lily pads and reeds round the shore
+  {
+    const sh = new THREE.Shape(); SHORE.forEach(([x, z], i) => i ? sh.lineTo(x, -z) : sh.moveTo(x, -z)); sh.closePath();
+    const water = mesh(new THREE.ShapeGeometry(sh, 4).rotateX(-Math.PI / 2).translate(0, WY, 0), std(C.water, { roughness: 0.1, metalness: 0.15, transparent: true, opacity: 0.88, envMapIntensity: 1.25, emissive: 0x0B3F52, emissiveIntensity: 0.35 }), { cast: false });
+    water.renderOrder = 1; scene.add(water);
+  }
+  const padM = std(C.pad, { roughness: 0.6, side: THREE.DoubleSide }), flowerM = std(0xFFB3D9, { emissive: 0xFF5FA8, emissiveIntensity: 0.15 });
+  for (const [x, z, r] of [[-6.2, -9.2, 0.42], [-5.4, -10.4, 0.34], [-3.6, -11.2, 0.5], [-1.2, -10.6, 0.36], [5.6, -10.8, 0.46], [6.8, -9.6, 0.38], [8.2, -10.4, 0.32], [1.4, -11.6, 0.4]]) {
+    fixed.add(mesh(new THREE.CircleGeometry(r, 24, 0.25, Math.PI * 2 - 0.35).rotateX(-Math.PI / 2).translate(x, WY + 0.02, z), padM, { cast: false }));
+    if (r > 0.4) fixed.add(part(SPH, flowerM, [0.12, 0.09, 0.12], [x + 0.08, WY + 0.08, z - 0.05]));
+  }
+  const IC = new THREE.IcosahedronGeometry(1, 0), stoneM = std(0xA69C8A, { roughness: 0.9, flatShading: true });
+  for (let i = 0; i < 48; i++) { const [x, z] = SHORE[(i * 3) % 72], s = 0.16 + (i * 37 % 10) / 40; fixed.add(part(IC, stoneM, [s, s * 0.55, s], [x, GY + 0.02, z])); }
+  const reedM = std(0x3E7F47), catM = std(0x6B4226, { roughness: 0.9 });
+  for (const [i0, n] of [[2, 6], [12, 5], [26, 6], [44, 5], [60, 6]]) for (let j = 0; j < n; j++) {
+    const [x, z] = SHORE[(i0 + j) % 72], h = 0.9 + (j % 3) * 0.3, dx = (x - PC[0]) * 0.02, dz = (z - PC[1]) * 0.06;
+    fixed.add(mesh(new THREE.CylinderGeometry(0.025, 0.035, h, 5).translate(x - dx, WY + h / 2, z - dz), reedM));
+    if (j % 2 === 0) fixed.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.26, 8).translate(x - dx, WY + h - 0.05, z - dz), catM));
+  }
+  // the jetty, from the back of the terrace into the water
+  const woodM = std(C.wood, { roughness: 0.7 }), wood2 = std(C.wood2, { roughness: 0.75 }), JX = 3.8;
+  for (let i = 0; i < 14; i++) fixed.add(mesh(boxG(1.3, 0.07, 0.24, JX + (i % 2 ? 0.02 : -0.02), GY + 0.05, TZ0 - 0.2 - i * 0.3), i % 3 ? woodM : wood2));
+  for (const dx of [-0.6, 0.6]) for (const z of [TZ0 - 1.4, TZ0 - 2.8, TZ0 - 4.2]) fixed.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, GY - BY + 0.3, 8).translate(JX + dx, (GY + BY) / 2 + 0.1, z), wood2));
+  // trees and bushes on the grass
+  const trunkM = std(0x7A5230);
+  const tree = (x, z, s) => {
+    fixed.add(mesh(new THREE.CylinderGeometry(0.12 * s, 0.17 * s, 1.4 * s, 7).translate(x, GY + 0.7 * s, z), trunkM));
+    for (let i = 0; i < 3; i++) fixed.add(part(new THREE.IcosahedronGeometry(1, 1), std(C.leaf[(i + Math.round(Math.abs(x))) % 3], { flatShading: true, roughness: 0.8 }), [0.8 * s, 0.75 * s, 0.8 * s], [x + (i - 1) * 0.45 * s, GY + (1.7 + (i % 2) * 0.35) * s, z + (i === 1 ? 0.2 : -0.1) * s]));
+  };
+  for (const [x, z, s] of [[-10.6, -6.6, 1.3], [10.4, -7.0, 1.2], [-10.7, 7.6, 0.9], [10.6, 7.8, 0.85], [-2.2, -12.6, 1.1], [6.4, -12.6, 0.9]]) tree(x, z, s);
+  const bushM = std(C.grass2, { flatShading: true });
+  for (const [x, z, s] of [[-10.8, 3.3, 0.5], [-10.9, -3.4, 0.45], [10.9, 0.6, 0.5], [10.8, -5.0, 0.45], [-6.9, 7.7, 0.45], [6.9, 7.8, 0.5], [-10.6, 0.2, 0.4]])
+    fixed.add(part(new THREE.IcosahedronGeometry(1, 1), bushM, [s, s * 0.75, s], [x, GY + s * 0.5, z]));
+  for (let i = 0; i < 26; i++) fixed.add(part(SPH, mat([0xFF8FD0, 0xFFE08A, 0xFFFFFF, 0xB79CFF][i % 4]), [0.06, 0.05, 0.06], [i % 2 ? -10.8 + (i * 13 % 30) / 10 : 7.8 + (i * 7 % 30) / 10, GY + 0.06, -5.5 + (i * 47 % 120) / 10]));
+
+  /* ---------- the terrace and the board ---------- */
+  const flagTex = canvasTex(512, 512, (g, w) => {
+    g.fillStyle = '#B8AD99'; g.fillRect(0, 0, w, w);
+    // flagstones of different sizes, with dark joints
+    for (let y = 0; y < w; y += 64) for (let x = (y / 64) % 2 ? -48 : 0; x < w; x += 96) {
+      const c = 170 + Math.floor(Math.random() * 30); g.fillStyle = `rgb(${c},${c - 8},${c - 22})`; g.fillRect(x + 3, y + 3, 90, 58);
+      for (let i = 0; i < 18; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '60,50,40' : '240,230,210'},0.12)`; g.fillRect(x + 3 + Math.random() * 86, y + 3 + Math.random() * 54, 3 + Math.random() * 8, 2 + Math.random() * 4); }
+    }
+  });
+  flagTex.wrapS = flagTex.wrapT = THREE.RepeatWrapping; flagTex.repeat.set(3, 3);
+  const flagM = std(0xffffff, { map: flagTex, roughness: 0.85 }), edgeM = std(C.stone2, { roughness: 0.85 });
+  scene.add(mesh(boxG(TX * 2, 0 - GY + 0.12, TZ1 - TZ0, 0, (0 + GY - 0.12) / 2, (TZ0 + TZ1) / 2), [edgeM, edgeM, flagM, edgeM, edgeM, edgeM], { cast: false }));
+  // a step of stone all round
+  scene.add(mesh(boxG(TX * 2 + 0.6, 0.14, TZ1 - TZ0 + 0.6, 0, GY + 0.05, (TZ0 + TZ1) / 2), edgeM, { cast: false }));
+  // the squares: one picture of the 64, and another of one stone only for the questions of colour (plain)
+  const boardTex = plain => canvasTex(1024, 1024, (g, w) => {
+    const q = w / 8;
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const d = !plain && dark(FILES[f] + (8 - r)), base = plain ? [168, 156, 136] : d ? [118, 96, 74] : [226, 214, 190];
+      g.fillStyle = `rgb(${base})`; g.fillRect(f * q, r * q, q, q);
+      // veins and grains of the stone
+      for (let i = 0; i < 26; i++) { const k = Math.random() < 0.5 ? -1 : 1; g.fillStyle = `rgba(${k > 0 ? '255,250,240' : '40,30,20'},${0.04 + Math.random() * 0.06})`; g.beginPath(); g.ellipse(f * q + Math.random() * q, r * q + Math.random() * q, 2 + Math.random() * 14, 1 + Math.random() * 4, Math.random() * 3, 0, 7); g.fill(); }
+      g.strokeStyle = 'rgba(30,20,10,0.35)'; g.lineWidth = 2; g.strokeRect(f * q + 1, r * q + 1, q - 2, q - 2);
+    }
+  });
+  const TEX = { board: boardTex(false), plain: boardTex(true) };
+  const boardM = std(0xffffff, { map: TEX.board, roughness: 0.55, envMapIntensity: 0.6 });
+  const top = mesh(new THREE.PlaneGeometry(8, 8).rotateX(-Math.PI / 2).translate(0, TY, 0), boardM, { cast: false });
+  top.userData.keep = true; scene.add(top);
+  scene.add(mesh(boxG(8, TY + 0.096, 8, 0, (TY - 0.104) / 2, 0), edgeM, { cast: false }));
+  // the wooden frame, a bit above the squares, with the letters at the front and the numbers on the left carved into it
+  const frameM = std(C.frame, { roughness: 0.55 });
+  const FR = 4.85, FW = FR - 4, FY = 0.1;
+  for (const [w, d, x, z] of [[FR * 2, FW, 0, 4 + FW / 2], [FR * 2, FW, 0, -4 - FW / 2], [FW, 8, -4 - FW / 2, 0], [FW, 8, 4 + FW / 2, 0]]) fixed.add(mesh(boxG(w, FY + 0.12, d, x, (FY - 0.12) / 2, z), frameM));
+  const glyphTex = ch => canvasTex(128, 128, (g, w) => { g.font = '800 104px "Baloo 2", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(ch, w / 2, w / 2 + 8); });
+  const GLYPH = new THREE.PlaneGeometry(0.62, 0.62).rotateX(-Math.PI / 2); GLYPH.userData.shared = true;
+  const INK = 0xE9D9B4, LIT = 0xFFD36B;
+  // the 16 signs of the frame, made once: a..h at the front, 1..8 on the left
+  const signs = {};
+  [...FILES].forEach((ch, f) => { const m = new THREE.Mesh(GLYPH, new THREE.MeshBasicMaterial({ map: glyphTex(ch), color: INK, transparent: true, depthWrite: false, toneMapped: false })); m.position.set(f - 3.5, FY + 0.005, 4 + FW / 2); signs[ch] = m; });
+  for (let r = 0; r < 8; r++) { const m = new THREE.Mesh(GLYPH, new THREE.MeshBasicMaterial({ map: glyphTex(String(r + 1)), color: INK, transparent: true, depthWrite: false, toneMapped: false })); m.position.set(-4 - FW / 2, FY + 0.005, 3.5 - r); signs[r + 1] = m; }
+  for (const m of Object.values(signs)) { m.renderOrder = 2; m.userData.keep = true; scene.add(m); }
+
+  // the four lanterns at the corners of the terrace: lit once the Piscina is done, in the colour of the project on show
+  const lamps = [[-TX + 0.45, TZ0 + 0.45], [TX - 0.45, TZ0 + 0.45], [-TX + 0.45, TZ1 - 0.45], [TX - 0.45, TZ1 - 0.45]].map(([x, z]) => {
+    fixed.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 8).translate(x, 0.75, z), std(0x2A2F3A, { metalness: 0.5, roughness: 0.4 })));
+    fixed.add(mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.06, 8).translate(x, 1.5, z), std(0x2A2F3A, { metalness: 0.5, roughness: 0.4 })));
+    const bulb = mesh(new THREE.SphereGeometry(0.13, 12, 8).translate(x, 1.66, z), new THREE.MeshBasicMaterial({ color: 0x8A8170, toneMapped: false }), { cast: false });
+    bulb.userData.keep = true; scene.add(bulb);
+    return { bulb, gl: glow(x, 1.66, z, 1.8, 0xFFC46A, false) };
+  });
+  let lampHue = null, piscinaOn = false;
+  function paintLamps(on = piscinaOn) {
+    const c = new THREE.Color(lampHue == null ? 0xFFE6A0 : new THREE.Color().setHSL(lampHue / 360, 0.85, 0.72));
+    for (const L of lamps) { L.bulb.material.color.copy(on ? c : new THREE.Color(0x8A8170)); L.gl.material.color.copy(c); L.gl.material.opacity = on ? 0.95 : 0; }
+    D.wake();
+  }
+
+  /* ---------- the garden: nine statues on their pedestals ---------- */
+  const garden = new THREE.Group(); scene.add(garden);
+  const pedM = std(0xBDB3A2, { roughness: 0.85 }), capM = std(0xD8CFBF, { roughness: 0.8 });
+  const stoneW = std(0xC6BFB2, { roughness: 0.6 }), stoneB = std(0x4E4C57, { roughness: 0.5 });
+  const goldM = () => std(C.gold, { metalness: 0.6, roughness: 0.3, emissive: 0x6A4A00, emissiveIntensity: 0.3 });
+  const statues = STATUES.map(([x, z], i) => {
+    const ped = new THREE.Group(); ped.position.set(x, GY, z); garden.add(ped);
+    ped.add(mesh(boxG(1.0, 0.12, 1.0, 0, 0.06, 0), capM));
+    ped.add(mesh(boxG(0.78, PED - 0.24, 0.78, 0, 0.12 + (PED - 0.24) / 2, 0), pedM));
+    ped.add(mesh(boxG(0.92, 0.12, 0.92, 0, PED - 0.06, 0), capM));
+    const black = FIG[i] === 'r' || FIG[i] === 'k', m = (black ? stoneB : stoneW).clone();
+    const fig = new THREE.Mesh(FIG[i] === '*' ? starGeo() : geoOf(FIG[i]), m); fig.castShadow = true; fig.userData.keep = true;
+    const s = FIG[i] === '*' ? 1.5 : 1.55;
+    fig.scale.setScalar(s); fig.position.set(x, GY + PED + (FIG[i] === '*' ? 0.62 : 0), z);
+    // the statues look at the terrace; the star turns slowly on its point
+    fig.rotation.y = FIG[i] === '*' ? 0.3 : Math.atan2(-x, -z) + (FIG[i] === 'N' ? Math.PI / 2 : 0);
+    scene.add(fig);
+    // the lantern beside it, on when the project is validated
+    const lx = x + (x < 0 ? 0.55 : -0.55), lz = z + 0.45;
+    const post = mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.9, 6).translate(lx, GY + 0.45, lz), mat(0x2A2F3A), { cast: false });
+    const lamp = mesh(new THREE.SphereGeometry(0.08, 10, 8).translate(lx, GY + 0.95, lz), new THREE.MeshBasicMaterial({ color: 0xFFE6A0, toneMapped: false }), { cast: false });
+    post.visible = lamp.visible = false; post.userData.keep = lamp.userData.keep = true; garden.add(post); garden.add(lamp);
+    return { x, z, fig, m, base: m.color.clone(), gold: goldM(), lamp, post, gl: glow(lx, GY + 0.95, lz, 1.0, 0xFFC46A, false), lit: false };
+  });
+  // a statue lit (k 1) or of stone (k 0)
+  function setStatue(S, k) {
+    S.fig.material = k > 0.5 ? S.gold : S.m;
+    S.lamp.visible = S.post.visible = k > 0.5; S.gl.material.opacity = k > 0.5 ? 0.8 : 0;
+  }
+
+  /* ---------- the sky: the moon and the knight of four stars ---------- */
+  const moon = mesh(new THREE.SphereGeometry(1.7, 32, 16), new THREE.MeshBasicMaterial({ color: 0xFFF4D6, toneMapped: false }), { cast: false, at: [-15, 8, -24] });
+  scene.add(moon); glow(-15, 8, -24, 9, 0xFFE9B8, true).material.opacity = 0.55;
+  // a knight's jump: two stars straight up, then one to the side
+  const SKY = [[0, 0], [0, 1.6], [0, 3.2], [1.6, 3.2]].map(([x, y]) => V(-2.0 + x, 7.8 + y, -26));
+  const starShape = (() => { const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.17 : 0.42; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); } s.closePath(); return s; })();
+  const stars = SKY.map(p => {
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(starShape), new THREE.MeshBasicMaterial({ color: 0x4A4870, toneMapped: false, transparent: true }));
+    m.position.copy(p); scene.add(m); return { m, gl: glow(p.x, p.y, p.z + 0.1, 3.2, 0xFFD36B, false), on: false };
+  });
+  const lines = [[0, 1], [1, 2], [2, 3]].map(([a, b]) => {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([SKY[a], SKY[b]]), new THREE.LineBasicMaterial({ color: 0xFFE9A8, transparent: true, opacity: 0.08, toneMapped: false }));
+    scene.add(l); return { l, a, b };
+  });
+  const paintLines = () => lines.forEach(L => { L.l.material.opacity = stars[L.a].on && stars[L.b].on ? 0.55 : 0.08; });
+
+  /* ---------- fireflies ---------- */
+  const NFL = RM ? 0 : 24, flies = Array.from({ length: NFL }, (_, i) => ({ p: Math.random() * 7, x: (i % 2 ? -1 : 1) * (7 + Math.random() * 3.5), z: -8 + Math.random() * 15, y: 0.4 + Math.random() * 1.4 }));
+  for (let i = 0; i < 8; i++) Object.assign(flies[i] || {}, { x: -6 + Math.random() * 12, z: -11 + Math.random() * 3 });
+  const flyPos = new Float32Array(NFL * 3), flyCol = new Float32Array(NFL * 3), flyGeo = new THREE.BufferGeometry();
+  flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos, 3)); flyGeo.setAttribute('color', new THREE.BufferAttribute(flyCol, 3));
+  const flyPts = new THREE.Points(flyGeo, new THREE.PointsMaterial({ map: softTex(), size: 0.42, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  flyPts.frustumCulled = false; if (NFL) scene.add(flyPts);
+
+  /* ---------- everything that never moves, baked into a few meshes ---------- */
+  bake(fixed); bake(garden);
+
+  /* ---------- the map: what is lit, and what is under the finger ---------- */
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.05, 8, 40).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xFFE08A, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+  const ringGlow = glow(0, -50, 0, 3, 0xFFD36B, false);
+  scene.add(ring);
+  let hlOn = -1, hlTimer = 0;
+  // a project under the finger: its statue shines and the camera goes to its group; null gives the whole garden back
+  function highlight(i) {
+    const was = hlOn;
+    hlOn = Number.isInteger(i) && STATUES[i] ? i : -1;
+    if (hlOn >= 0) { const [x, z] = STATUES[hlOn]; ring.position.set(x, GY + 0.08, z); ringGlow.position.set(x, GY + PED + 1.0, z); }
+    clearTimeout(hlTimer);
+    if (hlOn === was) return D.wake();
+    const c = hlOn >= 0 ? GROUPS.findIndex(g => g.includes(hlOn)) : -1, to = c >= 0 ? 'c' + c : 'map';
+    // a short wait, so a finger that crosses the list does not shake the camera
+    if (viewName === 'map' || viewName?.[0] === 'c') hlTimer = setTimeout(() => { if (viewName !== to) go(to, { dur: 900 }); }, 220);
+    D.wake();
+  }
+  // the garden as the progress has it: piscina, valid (the projects validated) and stars (the exams passed)
+  function state({ piscina = false, valid = [], stars: n = 0 } = {}) {
+    piscinaOn = piscina;
+    statues.forEach((S, i) => { S.lit = valid.includes(i); setStatue(S, S.lit ? 1 : 0); });
+    stars.forEach((s, i) => { s.on = i < n; s.m.material.color.setHex(s.on ? 0xFFD36B : 0x4A4870); s.gl.material.opacity = s.on ? 0.75 : 0; });
+    paintLines();
+    // before the Piscina the garden is shut: no statues, no fireflies, the lanterns off, a dimmer dusk
+    garden.visible = piscina; statues.forEach(S => { S.fig.visible = piscina; });
+    flyPts.visible = piscina; D.hemi.intensity = piscina ? 0.7 : 0.55; paintLamps();
+    canvas.dataset.estatues = statues.filter(S => S.lit).length; canvas.dataset.estrelles = stars.filter(s => s.on).length;
+    D.wake();
+  }
+
+  /* ---------- what moves by itself ---------- */
+  D.every((dt, now, raw) => {
+    let busy = false;
+    if (!RM) {
+      flies.forEach((q, i) => { q.p += dt; flyPos[i * 3] = q.x + Math.sin(q.p * 0.7) * 0.8; flyPos[i * 3 + 1] = q.y + Math.sin(q.p * 1.3) * 0.35; flyPos[i * 3 + 2] = q.z + Math.cos(q.p * 0.5) * 0.6; const k = 0.3 + 0.7 * Math.sin(q.p * 2.1) ** 2; flyCol[i * 3] = 0.85 * k; flyCol[i * 3 + 1] = k; flyCol[i * 3 + 2] = 0.55 * k; });
+      if (NFL) { flyGeo.attributes.position.needsUpdate = true; flyGeo.attributes.color.needsUpdate = true; }
+      stars.forEach((s, i) => { if (s.on) s.gl.material.opacity = 0.6 + Math.sin(now * 0.002 + i) * 0.15; });
+      statues[0].fig.rotation.y = 0.3 + Math.sin(now * 0.0005) * 0.6;
+      if (hlOn >= 0) { const p = Math.sin(now * 0.006); ring.material.opacity = 0.7 + p * 0.25; ring.scale.setScalar(1 + p * 0.05); ringGlow.material.opacity = 0.55 + p * 0.2; busy = true; }
+    }
+    if (hlOn < 0) { ring.material.opacity = 0; ringGlow.material.opacity = 0; } else if (RM) { ring.material.opacity = 0.9; ringGlow.material.opacity = 0.6; }
+    return busy;
+  });
+
+  let sound = { tone() {} };
+  return { ok: true, layout, go, get view() { return viewName; }, state, highlight, pause: D.pause, celebrate: (t, at) => D.celebrate(t, at), shake: D.shake,
+    hear: o => { sound = { ...sound, ...o }; }, lamps: hue => { lampHue = hue; paintLamps(); },
+    _: { D, statues, stars, signs, TEX, boardM, tween, setStatue } };
+}
+
+// many geometries into one, with their positions and normals only
+function mergeAll(gs) {
+  const g = new THREE.BufferGeometry(), pos = [], nor = [];
+  for (const x of gs) { const y = x.index ? x.toNonIndexed() : x; pos.push(...y.attributes.position.array); nor.push(...y.attributes.normal.array); }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return g;
+}
+// the soft light of a firefly
+function softTex() {
+  return canvasTex(64, 64, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.3, 'rgba(255,255,200,0.5)'); r.addColorStop(1, 'rgba(255,255,200,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
+}

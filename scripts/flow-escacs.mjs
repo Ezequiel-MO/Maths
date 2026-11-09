@@ -198,6 +198,23 @@ for (const [name, save] of Object.entries(SAVES)) {
   });
 }
 
+/* ---------- the garden: a statue lit for each project validated, a star of the knight lit for each exam passed ---------- */
+if (!NOGL) await section('jardí: estàtues i estrelles', async () => {
+  for (const [name, save, q] of [['mig', MID, ''], ['acabada', SAVES.acabada, ''], ['estranya', SAVES.estranya, ''], ['mig amb ?obert', MID, '?obert']]) {
+    const page = await open(save, '.map', 390, 844, q), p = clean(save);
+    await wait(page, () => document.querySelector('#world').dataset.estatues !== undefined);
+    const got = await page.evaluate(() => ({ ...document.querySelector('#world').dataset }));
+    same(`${name}: statues lit`, +got.estatues, q ? PROJECTS.length : L.validated(p).length);
+    same(`${name}: stars lit`, +got.estrelles, p.exams.filter(Boolean).length);
+    // a project under the finger lights its statue and the camera goes to its group; leaving the list gives the garden back
+    await page.hover('.proj[data-p="5"]');
+    await wait(page, () => window.__terrassa.view === 'c2' && window.__terrassa._.D.view === 'c2');
+    await page.mouse.move(5, 5);
+    await wait(page, () => window.__terrassa.view === 'map' && window.__terrassa._.D.view === 'map');
+    await page.context().close();
+  }
+});
+
 /* ---------- the levels ---------- */
 await section('nivell de caselles sense errades', async () => {
   const page = await open(MID);
