@@ -34,6 +34,17 @@ body:not(.nogl) .sheet { position: relative; padding: 14px 12px 18px; border-rad
 body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before { display: none; }
 body:not(.nogl) .stage { min-height: 0; }
 body:not(.nogl) .board:empty { display: none; }
+/* what of a scene in the castle stays in the panel: the legend and the equation of a balance, the bar of a hint (only with the hint) */
+.board.w3 .scene { gap: 8px; }
+.board.w3 .hxs { display: none; width: 100%; max-width: 360px; }
+.board.w3.hint .hxs { display: block; }
+.board.w3.hint .hxs .hx { visibility: visible; opacity: 1; }
+.board.w3 .eqn { margin: 0; }
+.lg .e svg { display: block; }
+.board.w3 .s-bal { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+/* with the castle, the keys of a number in two rows (1 to 6, then 7 8 9 0 ⌫ ✓): the panel stays short */
+body:not(.nogl) .keys { grid-template-columns: repeat(6, minmax(0, 58px)); }
+body:not(.nogl) .key.del { order: 1; } body:not(.nogl) .key.ok { order: 2; }
 @media (min-width: 900px) and (min-aspect-ratio: 5/4) {
   body:not(.nogl) #app { width: 500px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
   .view { display: none; }

@@ -7,8 +7,9 @@
 // puzzles that are paper stay drawn in the panel (draw.js), and the frog of the works waits at its table of plans.
 // Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL castle() gives the same calls doing nothing.
 import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, label, glowTex, ease, easeOut, SPH, V } from '../../shared/diorama.js';
-import { RM } from '../../shared/util.js';
-import { CIRCLES } from './logic.js';
+import { RM, sleep } from '../../shared/util.js';
+import { CIRCLES, barOf } from './logic.js';
+import { api, cellHTML, barSVG } from './draw.js';
 
 /* ---------- the measures of the world ---------- */
 // One unit is about a brick. The grass at 0; the block from YB up, x from X0 to X1 and z from Z0 (back) to Z1 (front); the water at WY
@@ -340,8 +341,10 @@ function build(canvas) {
         if (k >= 1) { frogDo = null; frog.position.y = frog.userData.y0; frog.userData.body.rotation.y = 0; }
         busy = true;
       }
+      if ([...cells3.values()].some(C => C.cur)) { CUR_M.emissiveIntensity = 0.45 + 0.35 * Math.sin(now * 0.008); busy = true; }
       if (hlOn >= 0) { const P = parts[hlOn], p = 0.5 + 0.5 * Math.sin(now * 0.006); if (P.built) P.gl.material.opacity = 0.35 + p * 0.45; else { P.fill.opacity = 0.12 + p * 0.12; P.line.opacity = 0.75 + p * 0.25; } busy = true; }
     }
+    if (tick3 && tick3(dt, now, raw)) busy = true;
     return busy;
   });
 
@@ -393,20 +396,361 @@ function build(canvas) {
   }
 
   /* ---------- the scenes ---------- */
-  // what is on the stage now: its objects go away with rest()
+  // What is on the stage now goes away with rest(). picks are the meshes a tap can find (each with userData.pick = { kind, key }), onPick
+  // what the scene does with one, cells3 its cells with a number, tick3 what it moves every frame
   const stageG = new THREE.Group(); scene.add(stageG);
   // takes away a thing and gives back what it holds, but for the shapes many things share
   function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && !x.geometry.userData.shared) x.geometry.dispose(); if (x.isSprite) x.material.dispose(); }); }
-  let gen = 0;
-  function rest() { gen++; for (const o of [...stageG.children]) drop(o); canvas.dataset.escena = ''; frogHome(); D.wake(); }
-  // the scene of a round: null for the paper puzzles, which the panel draws (the frog waits at its table of plans, the camera with it)
+  let gen = 0, picks = [], onPick = null, cells3 = new Map(), tick3 = null;
+  function rest() { gen++; for (const o of [...stageG.children]) drop(o); picks = []; onPick = null; cells3 = new Map(); tick3 = null; canvas.dataset.escena = ''; frogHome(); D.wake(); }
+  // a tap on the castle: the thing of the scene under the finger
+  canvas.addEventListener('click', e => {
+    if (!onPick || !picks.length) return;
+    const hit = D.pick(e.clientX, e.clientY, picks)[0];
+    if (hit) onPick(hit.object.userData.pick);
+  });
+  // the point of the screen where a thing of the scene on show is: for the checks in the browser, which touch it there
+  function where(kind, key) {
+    const o = picks.find(p => p.userData.pick?.kind === kind && String(p.userData.pick.key) === String(key)); if (!o) return null;
+    return D.onScreen(new THREE.Box3().setFromObject(o).getCenter(V(0, 0, 0)));
+  }
+  const pickable = (o, kind, key) => { o.userData.pick = { kind, key }; picks.push(o); return o; };
+  // a box nobody sees that takes the taps of a thing made of many small pieces
+  const HIT_M = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0 });
+  const hitBox = (w, h, d, x, y, z) => { const m = new THREE.Mesh(boxG(w, h, d, x, y, z), HIT_M); m.userData.keep = true; return m; };
+
+  // A number written on a little canvas on a plane, w × h: the face of a brick, of an orb, of a weight. write(text, o) draws it again
+  // (o: ink, edge, bg, ring, dash, size); the faces on show are written again once the font of the page is there
+  const FONT = '"Baloo 2", system-ui, sans-serif', faces = new Set();
+  function face(w, h, res = 160) {
+    const c = document.createElement('canvas'); c.width = Math.max(32, Math.round(res * w / h)); c.height = res;
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false }));
+    m.renderOrder = 3; faces.add(m);
+    m.userData.dispose = () => { faces.delete(m); tex.dispose(); m.material.dispose(); m.geometry.dispose(); };
+    m.userData.write = (text, o = {}) => {
+      m.userData.last = [text, o];
+      const g = c.getContext('2d'), W = c.width, H = c.height; g.clearRect(0, 0, W, H);
+      if (o.bg || o.ring) {
+        g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, o.r ?? H * 0.24);
+        if (o.bg) { g.fillStyle = o.bg; g.fill(); }
+        if (o.ring) { g.lineWidth = 9; g.setLineDash(o.dash ? [20, 12] : []); g.strokeStyle = o.ring; g.stroke(); g.setLineDash([]); }
+      }
+      const t = String(text); let fs = H * (o.size || 0.72); g.font = `800 ${fs}px ${FONT}`;
+      const tw = g.measureText(t).width, max = W * 0.84; if (tw > max) { fs *= max / tw; g.font = `800 ${fs}px ${FONT}`; }
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      if (o.edge) { g.lineWidth = fs * 0.14; g.strokeStyle = o.edge; g.lineJoin = 'round'; g.strokeText(t, W / 2, H / 2 + fs * 0.07); }
+      g.fillStyle = o.ink || '#fff'; g.fillText(t, W / 2, H / 2 + fs * 0.07);
+      tex.needsUpdate = true; D.wake();
+    };
+    return m;
+  }
+  document.fonts?.ready?.then(() => { for (const f of faces) if (f.userData.last) f.userData.write(...f.userData.last); }).catch(() => {});
+
+  // the look of a hole: a blueprint of light, gold while it is the one typed in; a thing a hint talks of glows
+  const HOLE_M = new THREE.MeshStandardMaterial({ color: 0x6FE3FF, transparent: true, opacity: 0.2, emissive: 0x2A8DAF, emissiveIntensity: 0.55, depthWrite: false, roughness: 0.4 });
+  const CUR_M = new THREE.MeshStandardMaterial({ color: 0xF7C64E, transparent: true, opacity: 0.34, emissive: 0xF7C64E, emissiveIntensity: 0.6, depthWrite: false, roughness: 0.4 });
+  const EDGE_M = new THREE.LineBasicMaterial({ color: 0x9FEFFF, transparent: true, opacity: 0.9, toneMapped: false }), EDGE_CUR = new THREE.LineBasicMaterial({ color: 0xFFE69A, toneMapped: false });
+  const LIT = new Map();
+  const litM = m => { if (!LIT.has(m)) { const x = m.clone(); x.emissive = new THREE.Color(0xF7C64E); x.emissiveIntensity = 0.6; LIT.set(m, x); } return LIT.get(m); };
+  // A cell of a scene with a number: body is the mesh of the thing (a brick, an orb, a pad), f its face, real its material when it is
+  // not a hole, ink the colour of its number. A hole is its blueprint until it is filled; one the child can tap (o.tap) is a pick.
+  // o.hole makes a hole of what the scene has no hole for (the sign of a padlock), o.fmt writes the number, o.edges its outline
+  function cell3(k, sc, body, f, real, ink, o = {}) {
+    const C = { k, body, f, real, ink, hole: o.hole || sc.holes.includes(k), done: false, cur: false, buf: '', lit: false, v: sc.cells[k], fmt: o.fmt || (v => v) };
+    if (C.hole) {
+      C.edges = new THREE.LineSegments(o.edges || new THREE.EdgesGeometry(body.geometry), EDGE_M); C.edges.userData.keep = true; body.add(C.edges);
+      if (o.tap !== false && sc.holes.includes(k)) pickable(body, 'hole', k);
+    }
+    C.paint = () => {
+      const open = C.hole && !C.done;
+      body.material = C.lit ? litM(real) : open ? (C.cur ? CUR_M : HOLE_M) : real; body.castShadow = !open;
+      if (C.edges) { C.edges.visible = open; C.edges.material = C.cur ? EDGE_CUR : EDGE_M; }
+      f.userData.write(open ? (C.buf || '?') : C.fmt(C.v), { ink: open ? (C.buf ? '#FFFFFF' : C.cur ? '#FFE69A' : '#BFF4FF') : ink, edge: open ? 'rgba(4,19,28,0.8)' : o.edge, size: o.size });
+    };
+    C.paint(); cells3.set(k, C); return C;
+  }
+  const worldOf = o => new THREE.Box3().setFromObject(o).getCenter(V(0, 0, 0));
+  // a thing that pops when it is filled, and one that shakes no
+  function pop(o) { const s = o.userData.s0 ?? (o.userData.s0 = o.scale.x); return tween(RM ? 0 : 450, k => o.scale.setScalar(s * (1 + 0.3 * (1 - k))), backOut); }
+  function wobble(o) { const x = o.position.x; return tween(RM ? 0 : 550, k => { o.position.x = x + Math.sin(k * Math.PI * 6) * 0.08 * (1 - k); }, k => k).then(() => { o.position.x = x; }); }
+  // What the screen does to a scene, as draw.js's api(): light the hole typed in, write in it, fill it, shake it, light what a hint talks
+  // of, and the end (finish). The cells left in the panel (the legend of a balance) are driven by draw.js's own, H
+  function api3(o) {
+    const H = o.board ? api(o.board) : null;
+    return {
+      el: k => H?.el(k) || null,
+      active(k) { for (const C of cells3.values()) if (C.cur) { C.cur = false; C.paint(); } const C = cells3.get(k); if (C) { C.cur = true; C.paint(); } H?.active(k); },
+      type(k, txt) { const C = cells3.get(k); if (C) { C.buf = txt; C.paint(); } else H?.type(k, txt); },
+      solve(k, v) { const C = cells3.get(k); if (C) { C.done = true; C.cur = false; C.buf = ''; C.v = v; C.paint(); pop(C.body); } else H?.solve(k, v); },
+      wrong(k) { const C = cells3.get(k); if (C) wobble(C.body); else H?.wrong(k); },
+      lit(keys) { for (const C of cells3.values()) { const on = keys.includes(C.k); if (on !== C.lit) { C.lit = on; C.paint(); } } H?.lit(keys); },
+      spark(k) { const C = cells3.get(k); if (C) D.sparkle(worldOf(C.body).add(V(0, 0.2, 0.3)), 12, 0xFFE08A, 0.3, 1.6, 2.2); },
+      hint() {}, async finish() {}
+    };
+  }
+  // the view of a scene: the ball of radius R round t, seen from the front and a bit above
+  const look = (x, y, z, R, up = 0.36) => ({ t: [x, y, z], dir: [0.06, up, 1], R });
+  const backOut = k => { const c = 1.70158; return 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2; };
+  const bounce = k => { const n = 7.5625, d = 2.75; if (k < 1 / d) return n * k * k; if (k < 2 / d) return n * (k -= 1.5 / d) * k + 0.75; if (k < 2.5 / d) return n * (k -= 2.25 / d) * k + 0.9375; return n * (k -= 2.625 / d) * k + 0.984375; };
+  const rod = (a, b, r, m) => { const d = b.clone().sub(a), g = new THREE.CylinderGeometry(r, r, d.length(), 6).translate(0, d.length() / 2, 0); const x = new THREE.Mesh(g, m); x.position.copy(a); x.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); x.castShadow = true; return x; };
+  const redM = std(0xFF6B5E, { roughness: 0.5 }), V2 = (x, y) => new THREE.Vector2(x, y);
+  const pennant = (c, w = 0.55, h = 0.34) => mesh(new THREE.ShapeGeometry(new THREE.Shape([V2(0, 0), V2(w, -h * 0.42), V2(0, -h)])), mat(c, { side: THREE.DoubleSide }));
+
+  /* ---------- the tower of bricks: each brick stands on the two whose sum it is ---------- */
+  const BRICK = new THREE.BoxGeometry(1, 0.5, 0.5), BRICK_E = new THREE.EdgesGeometry(BRICK); BRICK.userData.shared = BRICK_E.userData.shared = true;
+  const terraM = std(0xD9824A, { roughness: 0.72 }), ametM = std(0x9C84F4, { roughness: 0.32, metalness: 0.1, emissive: 0x2A1660, emissiveIntensity: 0.25 });
+  function pyrStage(sc, o) {
+    const n = sc.n, times = sc.op === '×', [sx, sz] = SPOT.pyr, BW = 1.0, BH = 0.5, GP = 0.06, Y0 = 0.1;
+    const at = (r, i) => V(sx + (i - (n - 1 - r) / 2) * (BW + GP), Y0 + BH / 2 + r * (BH + 0.02), sz);
+    const real = times ? ametM : terraM, ink = times ? '#1A0B4A' : '#3B2208';
+    for (let r = 0; r < n; r++) for (let i = 0; i < n - r; i++) {
+      const b = new THREE.Mesh(BRICK, real); b.position.copy(at(r, i)); b.castShadow = b.receiveShadow = true;
+      const f = face(0.9, 0.44); f.position.z = 0.256; b.add(f); stageG.add(b);
+      cell3(`${r}-${i}`, sc, b, f, real, ink, { edges: BRICK_E });
+    }
+    // the flag on top, raised at the end
+    const top = at(n - 1, 0).add(V(0, BH / 2, 0)), fl = new THREE.Group(); fl.position.copy(top); fl.visible = false; stageG.add(fl);
+    fl.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8).translate(0, 0.5, 0), ironM));
+    const cloth = pennant(times ? 0xB79CFF : 0xFF6B5E); cloth.position.set(0.03, 0.98, 0); fl.add(cloth);
+    const w = n * (BW + GP), h = n * (BH + 0.02);
+    go(look(sx, Y0 + h / 2 + 0.1, sz, Math.max(1.75, Math.hypot(w, h) / 2 + 0.1), 0.4));
+    frogAt(sx + w / 2 + 0.5, sz + 0.6, -0.7);
+    onPick = p => o.on?.('hole', p.key);
+    const S = api3(o), solve0 = S.solve;
+    // a brick put right falls into its place from above
+    S.solve = (k, v) => {
+      solve0(k, v); const C = cells3.get(k); if (!C || RM) return;
+      const y = at(...k.split('-').map(Number)).y; C.body.position.y = y + 1.1;
+      tween(420, q => { C.body.position.y = y + 1.1 * (1 - bounce(q)); }, q => q);
+    };
+    S.finish = async () => {
+      const cs = [...cells3.values()];
+      if (!RM) cs.forEach((C, j) => { const b = C.body, y = b.position.y; setTimeout(() => tween(300, q => { b.position.y = y + Math.sin(q * Math.PI) * 0.16; }, q => q), j * 50); });
+      fl.visible = true; fl.scale.y = 0.01;
+      await tween(RM ? 0 : 600, q => { fl.scale.y = Math.max(0.01, q); }, easeOut);
+      D.sparkle(top.clone().add(V(0, 1.1, 0)), 14, 0xFFD36B, 0.35, 1.6, 2);
+      await sleep(RM ? 0 : 50 * cs.length + 300);
+    };
+    return S;
+  }
+
+  /* ---------- the balances ---------- */
+  const copperM = std(0xC8773F, { metalness: 0.55, roughness: 0.35 }), brassM = std(C.gold, { metalness: 0.6, roughness: 0.3 }), weightM = std(0x3A444E, { metalness: 0.45, roughness: 0.45 });
+  const crateM = std(0xB57A44, { roughness: 0.7 }), crate2M = std(0x7A4E26, { roughness: 0.8 });
+  const WGT = [new THREE.CylinderGeometry(0.13, 0.19, 0.27, 18), new THREE.CylinderGeometry(0.16, 0.23, 0.3, 18)], CRATE = new THREE.BoxGeometry(0.38, 0.34, 0.36);
+  for (const g of [...WGT, CRATE]) g.userData.shared = true;
+  const PH = 2.3, LB = 1.45, HANG = 0.95;
+  // One balance standing at (x, z), s times its size: its foot and column, the beam that swings on the pivot, and two pans hanging from
+  // its ends by three chains each (pans[side].items holds what is on it). Its pivot is where a hint lights it
+  function balance(x, z, s) {
+    const g = new THREE.Group(); g.position.set(x, 0.16, z); g.scale.setScalar(s); stageG.add(g);
+    g.add(mesh(new THREE.CylinderGeometry(0.5, 0.66, 0.2, 24).translate(0, 0.1, 0), copperM));
+    g.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, PH, 12).translate(0, PH / 2 + 0.2, 0), copperM));
+    // the ticks of the needle, on a little plate at the top of the column
+    g.add(mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 24, 1, false, -0.7, 1.4).rotateX(Math.PI / 2).translate(0, PH - 0.05, 0.07), mat(0xF4EEDF)));
+    const beam = new THREE.Group(); beam.position.set(0, PH + 0.2, 0); g.add(beam);
+    const bar = mesh(boxG(2 * LB + 0.2, 0.09, 0.1, 0, 0, 0), brassM); beam.add(bar);
+    beam.add(mesh(new THREE.ConeGeometry(0.045, 0.55, 8).rotateX(Math.PI).translate(0, -0.3, 0.1), redM));
+    beam.add(mesh(new THREE.SphereGeometry(0.12, 16, 10), brassM));
+    const pans = [0, 1].map(() => {
+      const p = new THREE.Group(); g.add(p);
+      p.add(mesh(new THREE.CylinderGeometry(0.66, 0.48, 0.08, 28), brassM));
+      for (let j = 0; j < 3; j++) { const a = j / 3 * Math.PI * 2 + 0.5; p.add(rod(V(Math.cos(a) * 0.6, 0.04, Math.sin(a) * 0.6), V(0, HANG, 0), 0.012, ironM)); }
+      const items = new THREE.Group(); items.position.y = 0.04; p.add(items);
+      return { g: p, items };
+    });
+    return { g, beam, bar, pans, th: 0, w: 0 };
+  }
+  // the beam and the pans where the angle th puts them (th > 0: the right pan lower)
+  function place(B) {
+    B.beam.rotation.z = -B.th;
+    const c = Math.cos(B.th), s = Math.sin(B.th);
+    B.pans[0].g.position.set(-LB * c, PH + 0.2 + LB * s - HANG, 0); B.pans[1].g.position.set(LB * c, PH + 0.2 - LB * s - HANG, 0);
+  }
+  // the beam swings like a spring towards the angle aim
+  function swing(B, aim, dt) {
+    if (RM) { B.th = aim; B.w = 0; } else { B.w += ((aim - B.th) * 80 - B.w * 9) * dt; B.th += B.w * dt; }
+    place(B); return Math.abs(B.w) > 0.002 || Math.abs(aim - B.th) > 0.002;
+  }
+  // what is on a pan: a weight with its number, a box with its label (? until its weight is known), a fruit with its weight once known
+  function item(t, known) {
+    if (typeof t === 'number') {
+      const m = new THREE.Mesh(WGT[t >= 10 ? 1 : 0], weightM); m.castShadow = true; m.position.y = t >= 10 ? 0.15 : 0.135;
+      m.add(mesh(new THREE.TorusGeometry(0.05, 0.016, 6, 12).translate(0, t >= 10 ? 0.19 : 0.175, 0), weightM));
+      const f = face(0.36, 0.25); f.position.set(0, -0.005, t >= 10 ? 0.24 : 0.21); f.rotation.x = -0.12; f.userData.write(t, { ink: '#FFE69A', edge: '#11161B', size: 0.82 }); m.add(f);
+      return { m, w: t >= 10 ? 0.48 : 0.4, h: t >= 10 ? 0.32 : 0.29 };
+    }
+    if (t === 'x') {
+      const m = new THREE.Mesh(CRATE, crateM); m.castShadow = true; m.position.y = 0.17;
+      for (const sg of [-1, 1]) m.add(mesh(new THREE.BoxGeometry(0.4, 0.04, 0.02).rotateZ(sg * 0.72).translate(0, 0, 0.185), crate2M, { cast: false }));
+      const f = face(0.26, 0.17); f.position.set(0, 0, 0.2); f.userData.write(known.has('x') ? known.get('x') : '?', { bg: '#FFF3D6', ink: '#3B2208', r: 18 }); m.add(f);
+      return { m, w: 0.42, h: 0.36 };
+    }
+    const m = label(t, { h: 0.5 }); m.position.y = 0.24;
+    if (known.has(t)) { const tag = label(String(known.get(t)), { h: 0.24, bg: '#F7C64E', ink: '#2A1C00' }); tag.position.set(0.18, -0.12, 0.05); m.add(tag); }
+    return { m, w: 0.46, h: 0.48 };
+  }
+  // the things on a pan in rows, from the rim up
+  function lay(items) {
+    const rows = [[]]; let w = 0;
+    items.forEach((it, i) => { if (w + it.w > 1.2 && rows[rows.length - 1].length) { rows.push([]); w = 0; } rows[rows.length - 1].push(i); w += it.w; });
+    let y = 0;
+    for (const r of rows) { const tw = r.reduce((a, i) => a + items[i].w, 0); let x = -tw / 2; for (const i of r) { items[i].m.position.x = x + items[i].w / 2; items[i].m.position.y += y; x += items[i].w; } y += Math.max(...r.map(i => items[i].h)) + 0.02; }
+  }
+  // the legend and the equation of a balance stay in the panel, as cells to type in
+  const CRATE_SVG = '<svg viewBox="-22 -38 44 40" width="38" height="34" aria-hidden="true"><rect x="-20" y="-36" width="40" height="36" rx="4" fill="#B57A44" stroke="#4E3014" stroke-width="2"/><path d="M-17 -33L17 -3M17 -33L-17 -3" stroke="#6E4520" stroke-opacity="0.5" stroke-width="3"/><rect x="-13" y="-28" width="26" height="18" rx="4" fill="#FFF3D6"/><text y="-14" text-anchor="middle" font-size="15" font-weight="800" fill="#3B2208">?</text></svg>';
+  function balStage(sc, o) {
+    const multi = sc.pans.length > 1, mode = sc.mode || 'solve', [sx, sz] = SPOT.bal, s = multi ? 0.74 : 0.95, known = new Map(), my = gen;
+    const bs = sc.pans.map(([L, R], b) => Object.assign(balance(multi ? sx + (b ? 1.85 : -1.85) : sx, sz, s), { side: [L.slice(), R.slice()], fixed: R.length, lit: false }));
+    const weigh = a => a.reduce((t, x) => t + (typeof x === 'number' ? x : sc.vals[x] ?? 0), 0);
+    const side = a => a.map(t => t === 'x' ? (known.has('x') ? known.get('x') : '?') : t).join(' + ');
+    if (o.board) o.board.innerHTML = mode === 'level' ? '' : `<div class="scene s-bal">${!multi ? '<p class="eqn" aria-live="polite"></p>' : ''}<div class="legend">${sc.holes.map(k => `<span class="lg"><span class="e">${k === 'x' ? CRATE_SVG : k}</span><span class="op">=</span>${cellHTML(sc, k, o.still)}</span>`).join('')}</div></div>`;
+    const eqn = o.board?.querySelector('.eqn'), writeEq = () => { if (eqn) eqn.textContent = `${side(bs[0].side[0])} = ${side(bs[0].side[1])}`; };
+    // what is on the pans of balance b, drawn again: each thing is a pick
+    function paint(b, last = false) {
+      const B = bs[b];
+      B.pans.forEach((P, sd) => {
+        for (const c of [...P.items.children]) drop(c);
+        picks = picks.filter(p => !(p.userData.pick?.kind === 'item' && p.userData.pick.key.startsWith(`${b}.${sd}.`)));
+        const its = B.side[sd].map(t => item(t, known)); lay(its);
+        its.forEach((it, i) => { P.items.add(it.m); if (!o.still) pickable(it.m, 'item', `${b}.${sd}.${i}`); });
+        // a weight just put falls onto the pan
+        if (last && sd === 1 && its.length && !RM) { const m = its[its.length - 1].m, y = m.position.y; m.position.y = y + 1.2; tween(380, q => { m.position.y = y + 1.2 * (1 - bounce(q)); }, q => q); }
+      });
+    }
+    bs.forEach((B, b) => { paint(b); place(B); });
+    writeEq();
+    const aim = B => { const d = weigh(B.side[1]) - weigh(B.side[0]); return d ? Math.sign(d) * Math.min(0.3, 0.07 + Math.abs(d) * 0.018) : 0; };
+    tick3 = dt => { let moving = false; for (const B of bs) if (swing(B, aim(B), dt)) moving = true; return moving; };
+    const emitLevel = () => o.on?.('balance', { L: weigh(bs[0].side[0]), R: weigh(bs[0].side[1]) });
+    onPick = o.still ? null : p => {
+      if (p.kind === 'hole') return o.on?.('hole', p.key);
+      if (p.kind !== 'item') return;
+      const [b, sd, i] = p.key.split('.').map(Number), B = bs[b];
+      if (mode === 'level') { if (sd !== 1 || i < B.fixed) return; B.side[1].splice(i, 1); paint(b); emitLevel(); D.wake(); return; }
+      const t = B.side[sd][i], j = B.side[1 - sd].findIndex(x => x === t), mine = B.pans[sd].items.children[i];
+      if (j < 0) { if (mine) wobble(mine); o.on?.('nomatch', t); return; }
+      const other = B.pans[1 - sd].items.children[j];
+      B.side[sd].splice(i, 1); B.side[1 - sd].splice(j, 1);
+      // the two go up and away together: the balance stays level
+      const gone = [mine, other].filter(Boolean), y0 = gone.map(m => m.position.y);
+      picks = picks.filter(q => !gone.includes(q));
+      tween(RM ? 0 : 380, q => gone.forEach((m, n) => { m.position.y = y0[n] + q * 0.6; m.scale.setScalar(1 - q * 0.6); }), q => q * q).then(() => { if (my === gen) paint(b); });
+      writeEq(); o.on?.('cancel', t);
+    };
+    const S = api3(o), solve0 = S.solve;
+    S.solve = (k, v) => { solve0(k, v); known.set(k, v); bs.forEach((_, b) => paint(b)); writeEq(); };
+    // a hint of a balance (b0, b1) lights its beam
+    const lit0 = S.lit;
+    S.lit = keys => { lit0(keys); bs.forEach((B, b) => { B.bar.material = keys.includes('b' + b) ? litM(brassM) : brassM; }); D.wake(); };
+    S.spark = k => { for (const B of bs) for (const P of B.pans) B.side[B.pans.indexOf(P)].forEach((t, i) => { if (t === k) { const m = P.items.children[i]; if (m) D.sparkle(worldOf(m), 6, 0xFFE08A, 0.25, 1.2, 2); } }); };
+    S.add = w => { const B = bs[0]; if (B.side[1].length >= 10) return; B.side[1].push(w); paint(0, true); emitLevel(); D.wake(); };
+    S.finish = async () => { for (const B of bs) { B.bar.material = litM(brassM); D.sparkle(worldOf(B.beam), 14, 0xFFD36B, 0.35, 1.6, 2); } await sleep(RM ? 0 : 700); };
+    go(look(sx, multi ? 1.55 : 1.65, sz, multi ? 3.5 : 2.55, 0.26));
+    frogAt(sx + (multi ? 3.5 : 2.35), sz + 0.75, -0.7);
+    return S;
+  }
+  // Three small balances held level by a pin. tilt(k) takes out the pin of one; mark(k, 'ok' | 'no') lights the ring under it; finish()
+  // takes out every pin. A balance is touched anywhere on it
+  function bal3Stage(sc, o) {
+    const [sx, sz] = SPOT.bal, s = 0.62;
+    const bs = sc.items.map((it, j) => {
+      const x = sx + (j - 1) * 2.25, B = Object.assign(balance(x, sz + 0.1, s), { k: it.k, side: [it.L, it.R], pinned: true });
+      // the weights bigger than on the big balance, so their numbers can be read from afar
+      B.pans.forEach((P, sd) => { const its = B.side[sd].map(t => item(t, new Map())); its.forEach(i2 => { i2.m.scale.setScalar(1.4); i2.m.position.y *= 1.4; i2.w *= 1.4; i2.h *= 1.4; }); lay(its); its.forEach(i2 => P.items.add(i2.m)); });
+      // the pin: a needle with a red head through the pivot
+      const pin = new THREE.Group(); pin.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6).rotateX(Math.PI / 2 - 0.35).translate(0, 0.05, 0.2), mat(0xDCE6EE, { metalness: 0.6 })), mesh(new THREE.SphereGeometry(0.08, 12, 8).translate(0, 0.17, 0.52), redM));
+      pin.position.copy(B.beam.position); B.g.add(pin); B.pin = pin;
+      const tag = label(it.k.toUpperCase(), { h: 0.4, ink: '#F7C64E', edge: '#1B1206' }); tag.position.set(x, 2.25, sz + 0.1); stageG.add(tag);
+      const ring = mesh(new THREE.TorusGeometry(0.72, 0.04, 8, 40).rotateX(Math.PI / 2).translate(x, 0.2, sz + 0.1), new THREE.MeshBasicMaterial({ color: 0x7CF5B0, toneMapped: false, transparent: true, opacity: 0 }), { cast: false });
+      stageG.add(ring); B.ring = ring;
+      if (!o.still) { const hb = hitBox(2.1, 2.1, 1.0, x, 1.1, sz + 0.1); stageG.add(hb); pickable(hb, 'bal3', it.k); }
+      place(B); return B;
+    });
+    const sum = a => a.reduce((t, x) => t + x, 0);
+    const aim = B => { if (B.pinned) return 0; const d = sum(B.side[1]) - sum(B.side[0]); return d ? Math.sign(d) * Math.min(0.32, 0.12 + Math.abs(d) * 0.04) : 0; };
+    tick3 = dt => { let moving = false; for (const B of bs) if (swing(B, aim(B), dt)) moving = true; return moving; };
+    const unpin = B => { if (!B.pinned) return; B.pinned = false; const p = B.pin, y = p.position.y; tween(RM ? 0 : 350, q => { p.position.y = y + q * 0.8; p.scale.setScalar(1 - q); }, q => q).then(() => { p.visible = false; }); D.wake(); };
+    onPick = o.still ? null : p => { if (p.kind === 'bal3') o.on?.('hit', p.key); };
+    const S = api3(o);
+    S.tilt = k => { const B = bs.find(B => B.k === k); if (B) unpin(B); };
+    S.mark = (k, cls) => { const B = bs.find(B => B.k === k); if (!B) return; B.ring.material.color.setHex(cls === 'ok' ? 0x7CF5B0 : 0xFF6B5E); B.ring.material.opacity = 0.95; D.wake(); };
+    S.finish = async () => { bs.forEach(unpin); await sleep(RM ? 0 : 1300); };
+    go(look(sx, 1.35, sz + 0.1, 3.45, 0.2));
+    frogAt(sx + 3.75, sz + 0.9, -0.7);
+    return S;
+  }
+
+  /* ---------- the padlock: on the chain across the head of the bridge ---------- */
+  const goldLockM = std(0xF2C14E, { metalness: 0.7, roughness: 0.28, emissive: 0x3A2400, emissiveIntensity: 0.2 }), plateM = std(0x2A1C00, { roughness: 0.6 });
+  const steelM = std(0xAEBDCB, { metalness: 0.85, roughness: 0.25 }), codeM = std(0x4A3510, { roughness: 0.5 });
+  function lockStage(sc, o) {
+    const [lx, lz] = SPOT.lock, ts = sc.toks, TH = 0.42, GAP = 0.06;
+    const len = t => String(t).length, holeW = Math.max(0.5, len(sc.cells.x) * 0.24 + 0.2);
+    const ws = ts.map((t, i) => i === sc.hole ? holeW : typeof t === 'number' ? len(t) * 0.23 + 0.06 : 0.28), total = ws.reduce((a, w) => a + w, 0) + GAP * (ts.length - 1);
+    const plateW = Math.max(1.5, total + 0.3), bodyW = plateW + 0.36, bodyH = 0.95, Y0 = 0.32, Z = lz + 0.16;
+    const g = new THREE.Group(); g.position.set(lx, Y0, Z); stageG.add(g);
+    // the body, with its rounded corners, the dark plate of the code and the keyhole
+    const rr = new THREE.Shape(), r = 0.2, w2 = bodyW / 2;
+    rr.moveTo(-w2 + r, 0); rr.lineTo(w2 - r, 0); rr.quadraticCurveTo(w2, 0, w2, r); rr.lineTo(w2, bodyH - r); rr.quadraticCurveTo(w2, bodyH, w2 - r, bodyH); rr.lineTo(-w2 + r, bodyH); rr.quadraticCurveTo(-w2, bodyH, -w2, bodyH - r); rr.lineTo(-w2, r); rr.quadraticCurveTo(-w2, 0, -w2 + r, 0);
+    g.add(mesh(new THREE.ExtrudeGeometry(rr, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 6 }).translate(0, 0, -0.15), goldLockM));
+    g.add(mesh(boxG(plateW, 0.58, 0.03, 0, bodyH - 0.4, 0.19), plateM, { cast: false }));
+    g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12).rotateX(Math.PI / 2).translate(0, 0.17, 0.2), plateM, { cast: false }));
+    // the code: the numbers and the signs, and the hole in its place
+    let x = -total / 2;
+    ts.forEach((t, i) => {
+      const w = ws[i], cx = x + w / 2; x += w + GAP;
+      if (i === sc.hole) {
+        const hb = new THREE.Mesh(boxG(w, 0.48, 0.05), codeM); hb.position.set(cx, bodyH - 0.4, 0.22); g.add(hb);
+        const f = face(w * 0.92, 0.42); f.position.z = 0.03; hb.add(f);
+        cell3('x', sc, hb, f, codeM, '#FFE69A', { hole: true, tap: !sc.sign, size: 0.78 });
+      } else { const f = face(w, TH); f.position.set(cx, bodyH - 0.4, 0.21); f.userData.write(t, { ink: '#FFE69A', size: 0.78 }); g.add(f); }
+    });
+    // the shackle, through the chain
+    const sh = new THREE.Group(), SR = Math.min(0.42, bodyW / 2 - 0.25); sh.position.set(-SR, bodyH, 0); g.add(sh);
+    sh.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 12).translate(0, 0.15, 0), steelM), mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 12).translate(2 * SR, 0.15, 0), steelM));
+    sh.add(mesh(new THREE.TorusGeometry(SR, 0.07, 10, 24, Math.PI).translate(SR, 0.3, 0), steelM));
+    // the chain: links from each post to the top of the shackle, sagging a little
+    const topY = Y0 + bodyH + 0.3 + SR, links = [];
+    for (const sg of [-1, 1]) {
+      const a = V(sg * 1.08, 1.25, lz), b = V(lx + sg * 0.12, topY - 0.02, Z), n = 9;
+      for (let i = 0; i < n; i++) {
+        const k = (i + 0.5) / n, p = a.clone().lerp(b, k); p.y -= Math.sin(k * Math.PI) * 0.12;
+        const l = mesh(new THREE.TorusGeometry(0.075, 0.02, 6, 14), steelM); l.position.copy(p);
+        l.lookAt(b); l.rotateX(Math.PI / 2); if (i % 2) l.rotateY(Math.PI / 2);
+        stageG.add(l); links.push(l);
+      }
+    }
+    // the bar of the hint (part and whole) stays in the panel, under the castle
+    const bar = barOf(sc);
+    if (o.board) o.board.innerHTML = bar ? `<div class="scene s-lock"><svg class="hxs" viewBox="44 -4 312 82" role="img" aria-label="La barra de la pista">${barSVG(bar, 200, 0)}</svg></div>` : '';
+    const S = api3(o);
+    S.finish = async () => {
+      if (sc.sign) S.solve('x', sc.cells.x);
+      await tween(RM ? 0 : 550, q => { sh.position.y = bodyH + q * 0.3; sh.rotation.y = -q * 0.9; }, backOut);
+      links.forEach((l, i) => { const y = l.position.y, rx = Math.random() * 3; setTimeout(() => tween(RM ? 0 : 700, q => { l.position.y = y + (WY - 0.4 - y) * q; l.rotation.x += rx * 0.05; }, q => q * q).then(() => { l.visible = false; }), RM ? 0 : i * 25); });
+      D.shake(0.05);
+      await sleep(RM ? 0 : 1000);
+    };
+    onPick = o.still ? null : p => o.on?.('hole', p.key);
+    go(look(lx, Y0 + 0.62, Z, Math.max(1.75, bodyW / 2 + 0.55), 0.24));
+    frogAt(lx - Math.max(1.75, bodyW / 2 + 0.45), lz + 0.6, 0.6);
+    return S;
+  }
+
+  const STAGES = { pyr: pyrStage, bal: balStage, bal3: bal3Stage, lock: lockStage };
+  // The scene of a round, built at its place, and the camera flies there: the calls of draw.js's scene() for it. null for the paper
+  // puzzles, which the panel draws (the frog waits at its table of plans, the camera with it). o: { t, on(event, data), board (the
+  // board of the panel, for what of the scene is paper), still (a picture only, for «Caça l'errada») }
   function stage(sc, o = {}) {
     rest();
-    go('desk'); canvas.dataset.escena = 'paper';
-    return null;
+    const f = sc && STAGES[sc.s];
+    if (!f) { go('desk'); canvas.dataset.escena = 'paper'; return null; }
+    if (o.board) { o.board.innerHTML = ''; o.board.classList.remove('hint', 'won'); }
+    canvas.dataset.escena = sc.s;
+    return f(sc, o);
   }
-  // the point of the screen where a thing of the scene on show is: for the checks, and to touch it
-  function where() { return null; }
   // a number right in its hole is a brick of the castle: one flies from there to the castle
   function brick() {}
 

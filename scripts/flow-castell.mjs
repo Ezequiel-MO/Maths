@@ -98,7 +98,13 @@ async function after(page, what, before, want) { const got = await stored(page);
 // world says it is (window.__terra.where(kind, key))
 async function touch(page, sel, kind, key) {
   if (await page.$(sel)) return tap(page, sel);
-  const p = await page.evaluate(([kind, key]) => window.__terra?.where?.(kind, key), [kind, key]);
+  // where it is, once the camera has stopped: two readings a moment apart that agree
+  let p = null;
+  for (let n = 0; n < 60; n++) {
+    const q = await page.evaluate(([kind, key]) => window.__terra?.where?.(kind, key), [kind, key]);
+    if (q && p && Math.abs(q.x - p.x) < 1 && Math.abs(q.y - p.y) < 1) break;
+    p = q; await page.waitForTimeout(300);
+  }
   if (!p) throw new Error(`nowhere to touch ${kind} ${key}`);
   await page.mouse.click(p.x, p.y);
 }
