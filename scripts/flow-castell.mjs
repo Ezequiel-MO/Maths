@@ -177,8 +177,14 @@ async function rounds(page, end, wrong = () => false) {
 }
 // a level from the map: its project, then its button in the row of levels
 async function level(page, sec, idx, wrong) {
-  await tap(page, `.proj[data-p="${sec}"]`);
+  // with the pointer, as a child does: it passes over the project before pressing it (the map lights its part of the castle then)
+  await page.hover(`.proj[data-p="${sec}"]`);
+  await page.waitForTimeout(100);
+  await page.click(`.proj[data-p="${sec}"]`);
   await wait(page, () => window.__castell.what === 'nivell');
+  // the camera must stay with the level: nothing left over from the map may take it back there
+  await page.waitForTimeout(700);
+  check(await page.evaluate(() => !window.__terra?.ok || window.__terra.view !== 'map'), `level ${sec}.${idx}: the camera went back to the map`);
   await tap(page, `.levels button[data-n="${idx}"]`);
   await wait(page, ([sec, idx]) => window.__castell.what === 'nivell' && window.__castell.sec === sec && window.__castell.idx === idx, [sec, idx]);
   const slips = await rounds(page, "!!document.querySelector('#nx')", wrong);
