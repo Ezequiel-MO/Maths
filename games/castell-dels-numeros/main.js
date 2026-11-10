@@ -58,6 +58,13 @@ WIDE.addEventListener?.('change', () => frame3d());
 { let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
 // a screen: the room the castle is seen through (h tall on a narrow screen) and the panel under it
 function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
+// On a narrow screen the castle takes all the room the panel leaves: the view grows down to the panel when the panel is short (a
+// tablet held upright), and is never less than 38 % of the screen
+function fitView() {
+  const v = $('.view'), sh = $('#sheet'); if (!v || !sh || !W.ok || WIDE.matches) return;
+  const top = v.getBoundingClientRect().top + scrollY, free = innerHeight - sh.getBoundingClientRect().height - top - 40;
+  v.style.height = Math.round(Math.max(innerHeight * 0.38, Math.min(innerHeight * 0.64, free))) + 'px'; frame3d();
+}
 // how tall the room of the castle is over the panel, on a narrow screen
 const MAP_VIEW = '40vh', LEVEL_VIEW = '38vh';
 // hue: the colour of the lanterns, the one of the project on show
@@ -325,6 +332,7 @@ function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
     else if (ty === 'tiles') ans.innerHTML = `<p class="how">👆 ${R.scene.start ? 'Toca dues fitxes per canviar-les de lloc.' : 'Toca una fitxa i després un cercle buit.'}</p>`;
     else if (ty === 'path') ans.innerHTML = '<div class="opts"><button class="btn soft" id="back">↶ Torna enrere</button><button class="btn soft" id="reset">Comença de nou</button></div>';
     else if (ty === 'explore') ans.innerHTML = '<p class="how">👆 Toca les fletxes del voltant del quadrat.</p>';
+    fitView();
   }
   async function right(el) {
     busy = true; if (clean1) good?.();
