@@ -205,7 +205,8 @@ function examen(c) {
     r.good ? fanfare() : click(196, 0, 0.5, 0.12, 'triangle');
     say(r.good ? 'Examen superat!' : 'Examen acabat. Mira què cal repassar.', r.good ? 'go' : '');
     if (r.good) FX.celebrate(16);
-    W.rest(); if (r.first) W.banner(c);
+    // a circle passed for the first time raises its banner; otherwise the castle is shown
+    W.rest(); r.first ? W.banner(c) : W.go('castle');
     panel(stage, `<h2>${r.score} de ${qs.length}</h2>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? 'Molt bé! Però l\'examen només compta amb tots els projectes del cercle validats.' : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
       ${r.first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
@@ -242,7 +243,7 @@ function full() {
   }
   function finish() {
     const r = res, bad = cs.flatMap((c, i) => c.says !== c.real ? [`la ${i + 1} (és «${c.real}»)`] : []);
-    stage.innerHTML = tail.innerHTML = '';
+    stage.innerHTML = tail.innerHTML = ''; W.rest(); W.go('castle');
     r.good ? fanfare() : click(196, 0, 0.5, 0.12, 'triangle');
     say(r.good ? 'Llibreta perfecta!' : 'Llibreta acabada.', r.good ? 'go' : '');
     panel(stage, `<h2>${cs.length - r.missed.length} de ${cs.length}</h2>

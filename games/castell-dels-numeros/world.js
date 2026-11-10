@@ -923,8 +923,17 @@ function build(canvas) {
     canvas.dataset.escena = sc.s;
     return f(sc, o);
   }
-  // a number right in its hole is a brick of the castle: one flies from there to the castle
-  function brick() {}
+  // A number right in its hole is a brick of the castle: one flies from there (or from the frog, for a cell in the panel) over the moat to
+  // the castle, and lands with a spark
+  const FLY = new THREE.BoxGeometry(0.34, 0.17, 0.17); FLY.userData.shared = true;
+  function brick(k) {
+    if (RM) return;
+    const C = cells3.get(k), from = C ? worldOf(C.body) : frog.position.clone().add(V(0, 0.8, 0)), to = V((Math.random() - 0.5) * 6, FH + 1.6 + Math.random() * 1.6, -5.4);
+    const b = mesh(FLY, terraM); b.position.copy(from); scene.add(b);
+    const top = Math.max(from.y, to.y) + 2.2;
+    tween(950, q => { b.position.lerpVectors(from, to, q); b.position.y = from.y + (to.y - from.y) * q + Math.sin(q * Math.PI) * (top - Math.max(from.y, to.y)); b.rotation.set(q * 6, q * 4, 0); b.scale.setScalar(1 - q * 0.5); }, q => q)
+      .then(() => { scene.remove(b); D.sparkle(to, 6, 0xFFB070, 0.25, 1.0, 2.5); });
+  }
 
   let sound = { tone() {}, chime() {} };
   state({});
