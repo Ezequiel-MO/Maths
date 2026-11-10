@@ -360,8 +360,10 @@ function build(canvas) {
     clearTimeout(hlTimer);
     if (hlOn === was) return D.wake();
     const c = hlOn >= 0 ? GROUPS.findIndex(g => g.includes(hlOn)) : -1, to = c >= 0 ? 'c' + c : 'map';
-    // a short wait, so a finger that crosses the list does not shake the camera
-    if (viewName === 'map' || viewName?.[0] === 'c') hlTimer = setTimeout(() => { if (viewName !== to) go(to, { dur: 900 }); }, 220);
+    // a short wait, so a finger that crosses the list does not shake the camera. Only while the map is still on show: a level that
+    // opened meanwhile has taken the camera to its scene, and it must stay there
+    const onMap = () => viewName === 'map' || /^c\d$/.test(viewName || '');
+    if (onMap()) hlTimer = setTimeout(() => { if (onMap() && viewName !== to) go(to, { dur: 900 }); }, 220);
     D.wake();
   }
   // the castle as the progress has it: piscina, valid (the projects validated) and banners (the circles whose exam is passed)
@@ -403,7 +405,7 @@ function build(canvas) {
   // takes away a thing and gives back what it holds, but for the shapes many things share
   function drop(o) { o.parent?.remove(o); o.traverse(x => { if (x.userData.dispose) x.userData.dispose(); else if (x.geometry && !x.geometry.userData.shared) x.geometry.dispose(); if (x.isSprite) x.material.dispose(); }); }
   let gen = 0, picks = [], onPick = null, cells3 = new Map(), tick3 = null;
-  function rest() { gen++; for (const o of [...stageG.children]) drop(o); picks = []; onPick = null; cells3 = new Map(); tick3 = null; canvas.dataset.escena = ''; frogHome(); D.wake(); }
+  function rest() { clearTimeout(hlTimer); gen++; for (const o of [...stageG.children]) drop(o); picks = []; onPick = null; cells3 = new Map(); tick3 = null; canvas.dataset.escena = ''; frogHome(); D.wake(); }
   // a tap on the castle: the thing of the scene under the finger
   canvas.addEventListener('click', e => {
     if (!onPick || !picks.length) return;
