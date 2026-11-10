@@ -8,7 +8,7 @@
 // Everything 3D is drawn here and only here; main.js tells it what happens. Without WebGL castle() gives the same calls doing nothing.
 import { THREE, diorama, hasGL, canvasTex, boxG, std, mesh, part, mat, bake, label, glowTex, ease, easeOut, SPH, V } from '../../shared/diorama.js';
 import { RM, sleep } from '../../shared/util.js';
-import { CIRCLES, barOf } from './logic.js';
+import { CIRCLES, barOf, undo, stone } from './logic.js';
 import { api, cellHTML, barSVG } from './draw.js';
 
 /* ---------- the measures of the world ---------- */
@@ -28,7 +28,7 @@ const POND = Array.from({ length: 64 }, (_, i) => { const a = i / 64 * Math.PI *
 // the plinth of the castle (its three foundations) is FH tall; the walls and the towers stand on it
 const FH = 0.7;
 // where each scene is played, on the grass or on the water: [x, z]
-export const SPOT = { pyr: [-6.6, 2.1], bal: [0, 2.7], mach: [6.7, 1.45], lock: [0, -1.25], ser: [-5.8, MZ], path: [PC[0], PC[1]], desk: [-6.9, 6.7] };
+export const SPOT = { pyr: [-6.6, 2.1], bal: [0, 2.7], mach: [6.7, 1.45], lock: [0, -1.25], ser: [-5.0, MZ], path: [PC[0], PC[1]], desk: [-6.9, 6.7] };
 const GROUPS = CIRCLES.map(c => c.projects);
 // the colour of the banner of each circle (the rings of the map)
 const RING = [28, 205, 330];
@@ -238,9 +238,10 @@ function build(canvas) {
     fixed.add(mesh(boxG(0.62, 0.14, 0.62, x, 1.62, SPOT.lock[1]), stoneM));
     fixed.add(mesh(new THREE.TorusGeometry(0.08, 0.025, 6, 14).translate(x + (x < 0 ? 0.27 : -0.27), 1.25, SPOT.lock[1]), ironM));
   }
-  // three banners by the moat, one per exam: furled and grey at the foot of their pole, raised in the colour of their circle
+  // three banners on the far bank of the moat, left of the castle, one per exam: furled and grey at the foot of their pole, raised in the
+  // colour of their circle
   const banners = RING.map((h, c) => {
-    const x = -10.0 + c * 1.15, z = -1.0;
+    const x = -9.9 + c * 1.2, z = -4.75;
     fixed.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.0, 8).translate(x, 1.5, z), wood2M));
     fixed.add(part(SPH, mat(C.gold, { metalness: 0.5, roughness: 0.35 }), [0.09, 0.09, 0.09], [x, 3.05, z]));
     const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.55, 8, 1).translate(0.42, 0, 0), new THREE.MeshStandardMaterial({ color: 0x777777, side: THREE.DoubleSide, roughness: 0.7 }));
@@ -313,7 +314,7 @@ function build(canvas) {
   /* ---------- the frog of the works ---------- */
   const frog = makeFrog(); frog.userData.t = 0; frog.userData.sq = 0; scene.add(frog);
   const frogHome = () => frogAt(SPOT.desk[0] - 1.25, SPOT.desk[1] + 0.35, 0.5);
-  function frogAt(x, z, ry = 0, y = 0) { frog.position.set(x, y, z); frog.rotation.y = ry; frog.userData.y0 = y; frog.visible = true; D.wake(); }
+  function frogAt(x, z, ry = 0, y = 0) { frog.position.set(x, y, z); if (y === 0) frog.scale.setScalar(1); frog.rotation.y = ry; frog.userData.y0 = y; frog.visible = true; D.wake(); }
   frogHome();
   // the frog says what the tip says: a leap for a cheer, its head shaken for a slip
   let frogDo = null;
@@ -466,7 +467,7 @@ function build(canvas) {
       const open = C.hole && !C.done;
       body.material = C.lit ? litM(real) : open ? (C.cur ? CUR_M : HOLE_M) : real; body.castShadow = !open;
       if (C.edges) { C.edges.visible = open; C.edges.material = C.cur ? EDGE_CUR : EDGE_M; }
-      f.userData.write(open ? (C.buf || '?') : C.fmt(C.v), { ink: open ? (C.buf ? '#FFFFFF' : C.cur ? '#FFE69A' : '#BFF4FF') : ink, edge: open ? 'rgba(4,19,28,0.8)' : o.edge, size: o.size });
+      f.userData.write(open ? (C.buf || '?') : C.fmt(C.v), { ink: open ? (C.buf ? '#FFFFFF' : C.cur ? '#FFE69A' : '#BFF4FF') : ink, edge: open ? 'rgba(4,19,28,0.8)' : o.edge, size: o.size, bg: open ? (o.bg ? 'rgba(4,19,28,0.55)' : null) : o.bg });
     };
     C.paint(); cells3.set(k, C); return C;
   }
@@ -739,7 +740,178 @@ function build(canvas) {
     return S;
   }
 
-  const STAGES = { pyr: pyrStage, bal: balStage, bal3: bal3Stage, lock: lockStage };
+  /* ---------- the machine: chambers of copper on the bench, and a ball of light through them ---------- */
+  const orbM = std(0xA8F2FF, { roughness: 0.08, metalness: 0.1, emissive: 0x1E6F8A, emissiveIntensity: 0.35, envMapIntensity: 1.4 });
+  const ORB = new THREE.SphereGeometry(0.34, 28, 18), ORB_E = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.35, 1)); ORB.userData.shared = ORB_E.userData.shared = true;
+  const pipeM = new THREE.MeshStandardMaterial({ color: 0x9FEFFF, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1, depthWrite: false });
+  const gearGeo = (r, n) => { const s = new THREE.Shape(); for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * Math.PI * 2, q = i % 2 ? r * 0.76 : r; i ? s.lineTo(Math.cos(a) * q, Math.sin(a) * q) : s.moveTo(Math.cos(a) * q, Math.sin(a) * q); } s.closePath(); return new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); };
+  const GEAR = [gearGeo(0.17, 9), gearGeo(0.13, 7)]; for (const g of GEAR) g.userData.shared = true;
+  function machStage(sc, o) {
+    const N = sc.steps.length, rule = sc.mode === 'rule', [mx, mz] = SPOT.mach, Y = 0.28, OY = Y + 0.72, CW = 1.0, GAP = 0.5;
+    const width = (N + 1) * 0.7 + N * CW + 2 * N * GAP, ox = i => mx - width / 2 + 0.35 + i * (0.7 + CW + 2 * GAP), chx = i => ox(i) + 0.35 + GAP + CW / 2;
+    // the glass pipe along the bench, through every chamber
+    stageG.add(mesh(new THREE.CylinderGeometry(0.16, 0.16, width + 0.2, 20, 1, true).rotateZ(Math.PI / 2).translate(mx, OY, mz), pipeM, { cast: false }));
+    const chambers = sc.steps.map((st, i) => {
+      const g = new THREE.Group(); g.position.set(chx(i), Y, mz); stageG.add(g);
+      const box = mesh(boxG(CW, 1.2, 0.8, 0, 0.6, 0), copperM); g.add(box);
+      g.add(mesh(boxG(CW - 0.2, 0.1, 0.7, 0, 1.25, 0), mat(0x7A3E1A)));
+      g.add(mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 20).rotateX(Math.PI / 2).translate(0, OY - Y, 0.41), mat(0x0B2733, { roughness: 0.2 })));
+      // the plate with the operation
+      g.add(mesh(boxG(CW - 0.16, 0.36, 0.03, 0, 1.0, 0.405), plateM, { cast: false }));
+      const lab = face(CW - 0.2, 0.32); lab.position.set(0, 1.0, 0.425); lab.userData.write(rule ? '?' : st, { ink: '#FFE69A' }); g.add(lab);
+      const gears = GEAR.map((G, j) => { const m = mesh(G, mat(0x4E2A12), { cast: false }); m.position.set(j ? 0.3 : -0.3, j ? 0.22 : 0.25, 0.4); g.add(m); return m; });
+      // the hint of a machine run backwards: under the chamber, what it does the other way
+      let back = null;
+      if (sc.mode === 'in') { back = label(`al revés: ${undo(st)}`, { h: 0.26, ink: '#F7C64E', edge: '#1B1206' }); back.position.set(0, -0.1, 0.6); back.visible = false; g.add(back); }
+      return { g, box, lab, gears, back, st, run: 0 };
+    });
+    // the orbs between the chambers: the numbers that go in and come out
+    for (let i = 0; i <= N; i++) {
+      if (rule) continue;
+      const b = new THREE.Mesh(ORB, orbM); b.position.set(ox(i), OY, mz); b.castShadow = true; stageG.add(b);
+      stageG.add(mesh(new THREE.CylinderGeometry(0.06, 0.1, OY - Y - 0.3, 10).translate(ox(i), Y + (OY - Y - 0.3) / 2, mz), copperM));
+      const f = face(0.56, 0.38); f.position.z = 0.36; b.add(f);
+      cell3(`m${i}`, sc, b, f, orbM, '#05313F', { edges: ORB_E, edge: 'rgba(255,255,255,0.7)' });
+    }
+    if (rule && o.board) o.board.innerHTML = `<div class="scene s-mach"><table class="io"><tr><th>Entra</th>${sc.table.map(([a]) => `<td>${a}</td>`).join('')}</tr><tr><th>Surt</th>${sc.table.map(([, b]) => `<td>${b}</td>`).join('')}</tr></table></div>`;
+    // the ball of light that carries a number through a chamber
+    const ball = mesh(new THREE.SphereGeometry(0.13, 16, 10), new THREE.MeshBasicMaterial({ color: 0xFFFBE6, toneMapped: false }), { cast: false }); ball.visible = false; stageG.add(ball);
+    const ballGl = glow(0, -50, 0, 1.0, 0xFFE9A0, false, stageG);
+    tick3 = dt => { let on = false; for (const C of chambers) if (C.run) { C.gears[0].rotation.z += dt * 4 * C.run; C.gears[1].rotation.z -= dt * 5 * C.run; on = true; } if (ball.visible) ballGl.position.copy(ball.position); return on; };
+    let queue = Promise.resolve();
+    async function run(a, b) {
+      const dir = Math.sign(b - a);
+      for (let i = a; i !== b; i += dir) {
+        const C = chambers[dir > 0 ? i : i - 1];
+        C.run = dir; C.box.material = litM(copperM); if (dir < 0) C.lab.userData.write(undo(C.st), { ink: '#6FE3FF' });
+        ball.visible = true; ballGl.material.opacity = 0.9;
+        await tween(RM ? 0 : 750, q => ball.position.set(ox(i) + (ox(i + dir) - ox(i)) * q, OY, mz), ease);
+        C.run = 0; C.box.material = copperM; C.lab.userData.write(rule && !C.shown ? '?' : C.st, { ink: '#FFE69A' });
+      }
+      ball.visible = false; ballGl.material.opacity = 0; D.wake();
+    }
+    const S = api3(o), solve0 = S.solve;
+    S.solve = (k, v) => { solve0(k, v); const i = +k.slice(1); queue = queue.then(() => sc.mode === 'out' ? run(i - 1, i) : run(i + 1, i)); };
+    S.hint = () => { for (const C of chambers) if (C.back) C.back.visible = true; D.wake(); };
+    S.finish = async () => {
+      await queue;
+      if (rule) for (const C of chambers) { C.shown = true; C.lab.userData.write(C.st, { ink: '#FFE69A' }); pop(C.lab); }
+      await run(0, N);
+    };
+    onPick = o.still ? null : p => o.on?.('hole', p.key);
+    go(look(mx, OY + 0.15, mz, Math.max(1.8, width / 2 + 0.35), 0.3));
+    frogAt(mx - width / 2 - 0.2, mz + 1.0, 0.7);
+    return S;
+  }
+
+  /* ---------- the series: lily pads on the moat, and the frog that hops along them ---------- */
+  const padCellM = std(0x46A85A, { roughness: 0.6 }), PAD = new THREE.CylinderGeometry(0.42, 0.44, 0.07, 26), PAD_E = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.43, 0.43, 0.07, 18));
+  PAD.userData.shared = PAD_E.userData.shared = true;
+  function serStage(sc, o) {
+    const n = sc.vals.length, [cx, cz] = SPOT.ser, STEP = 1.02, x = i => cx + (i - (n - 1) / 2) * STEP, z = i => cz + (i % 2 ? -0.2 : 0.2), Y = WY + 0.04;
+    for (let i = 0; i < n; i++) {
+      const b = new THREE.Mesh(PAD, padCellM); b.position.set(x(i), Y, z(i)); b.receiveShadow = true; stageG.add(b);
+      // the number stands over its pad, looking at the yard
+      const f = face(0.86, 0.56); f.position.set(0, 0.52, 0.05); b.add(f);
+      cell3(`t${i}`, sc, b, f, padCellM, '#0E3A1C', { edges: PAD_E, bg: 'rgba(234,248,228,0.92)' });
+    }
+    // the jumps of the hint: an arc and its label between two pads
+    const jumps = sc.jumps.map((j, i) => {
+      const a = V(x(i), Y + 0.15, z(i)), b = V(x(i + 1), Y + 0.15, z(i + 1)), pts = [];
+      for (let k = 0; k <= 16; k++) { const p = a.clone().lerp(b, k / 16); p.y += Math.sin(k / 16 * Math.PI) * 0.75; pts.push(p); }
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: 0xFFFFFF, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0.6, toneMapped: false }));
+      line.computeLineDistances(); line.visible = false; stageG.add(line);
+      const tag = label(j, { h: 0.32, bg: '#F7C64E', ink: '#2A1C00' }); tag.position.copy(a.clone().lerp(b, 0.5)).add(V(0, 1.05, 0)); tag.visible = false; stageG.add(tag);
+      return [line, tag];
+    });
+    const S = api3(o);
+    S.hint = () => { for (const [l, t] of jumps) l.visible = t.visible = true; D.wake(); };
+    // the frog waits on a pad of its own before the first number, and hops along the series at the end
+    const home = V(x(0) - STEP * 0.95, Y + 0.04, cz - 0.1);
+    stageG.add(mesh(new THREE.CircleGeometry(0.4, 24, 0.25, Math.PI * 2 - 0.35).rotateX(-Math.PI / 2).translate(home.x, WY + 0.03, home.z), padM, { cast: false }));
+    frog.scale.setScalar(0.55); frogAt(home.x, home.z, 0.4, home.y);
+    const padAt = i => i < 0 ? home : V(x(i), Y + 0.04, z(i) - 0.05);
+    S.finish = async () => {
+      for (let i = -1; i < n - 1 && !RM; i++) {
+        const a = padAt(i), b = padAt(i + 1);
+        await tween(300, q => { frog.position.lerpVectors(a, b, q); frog.position.y += Math.sin(q * Math.PI) * 0.7; }, q => q);
+        frog.userData.y0 = frog.position.y; D.sparkle(b.clone().add(V(0, 0.1, 0)), 4, 0x9FEFFF, 0.2, 0.8, 2);
+      }
+      await sleep(RM ? 0 : 250);
+    };
+    onPick = o.still ? null : p => o.on?.('hole', p.key);
+    go({ ...look(cx - STEP * 0.45, Y + 0.5, cz, (n + 1) * STEP / 2 + 0.05, 0.3), fit: 'w' });
+    return S;
+  }
+
+  /* ---------- the path of stones in the pond, to the door that opens with a number ---------- */
+  const slateM = std(0x5E6F80, { roughness: 0.75, flatShading: true }), slateOnM = std(0x2E6A58, { roughness: 0.6, flatShading: true, emissive: 0x1E5A40, emissiveIntensity: 0.5 });
+  const STONE = new THREE.CylinderGeometry(0.42, 0.47, 0.24, 7); STONE.userData.shared = true;
+  function pathStage(sc, o) {
+    const { R, C, grid } = sc, [pcx, pcz] = SPOT.path, STEP = 1.02, Y = WY + 0.1;
+    const sx = c => pcx + (c - (C - 1) / 2) * STEP, sz = r => pcz + (r - (R - 1) / 2) * STEP;
+    const stones = new Map();
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      const m = new THREE.Mesh(STONE, slateM); m.position.set(sx(c), Y, sz(r)); m.rotation.y = (r * 7 + c * 13) % 5 * 0.3; m.castShadow = m.receiveShadow = true; stageG.add(m);
+      const f = face(0.7, 0.44); f.position.set(sx(c), Y + 0.16, sz(r) + 0.05); f.rotation.x = -1.05; f.userData.write(grid[r][c], { ink: '#EAF8F4', edge: '#1B2730', size: 0.8 }); stageG.add(f);
+      if (!o.still) pickable(m, 'stone', `${r}-${c}`);
+      stones.set(`${r}-${c}`, m);
+    }
+    // where the frog starts, a lily pad on the left of the first stone; the door at the right of the last one, with its number
+    const start = V(sx(0) - 1.1, Y, sz(0)), doorAt = V(sx(C - 1) + 1.2, Y, sz(R - 1));
+    stageG.add(mesh(new THREE.CircleGeometry(0.48, 24, 0.25, Math.PI * 2 - 0.35).rotateX(-Math.PI / 2).translate(start.x, WY + 0.03, start.z), padM, { cast: false }));
+    const door = new THREE.Group(); door.position.copy(doorAt); door.rotation.y = -0.5; stageG.add(door);
+    door.add(mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.3, 9).translate(0, -0.05, 0), stone2M));
+    door.add(mesh(arch(1.05, 1.5).translate(0, 0.1, -0.02), darkM), mesh(boxG(1.25, 0.18, 0.2, 0, 1.6, -0.02), stoneM));
+    door.add(mesh(boxG(0.14, 1.5, 0.22, -0.6, 0.85, 0), stoneM), mesh(boxG(0.14, 1.5, 0.22, 0.6, 0.85, 0), stoneM));
+    const leaf = new THREE.Group(); leaf.position.set(-0.46, 0.1, 0.06); door.add(leaf);
+    leaf.add(mesh(arch(0.92, 1.38).translate(0.46, 0, 0), woodM));
+    leaf.add(mesh(boxG(0.66, 0.4, 0.03, 0.46, 0.85, 0.03), plateM, { cast: false }));
+    const plate = face(0.6, 0.36); plate.position.set(0.46, 0.85, 0.05); plate.userData.write(sc.target, { ink: '#FFE69A' }); leaf.add(plate);
+    // the trail of the stones stepped on, and the number the frog carries in its bubble
+    let trail = [], x = sc.start, hopping = Promise.resolve(), bubble = null;
+    const trailLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0xF7C64E, dashSize: 0.12, gapSize: 0.1, toneMapped: false })); stageG.add(trailLine);
+    const posOf = () => trail.length ? stones.get(trail[trail.length - 1].join('-')).position.clone().add(V(0, 0.12, -0.05)) : start.clone().add(V(0, 0.03, 0));
+    const say = () => { if (bubble) { stageG.remove(bubble); bubble.userData.dispose(); } bubble = label(String(x), { h: 0.42, bg: '#FFFDF5', ring: '#22304F', ink: '#22304F' }); stageG.add(bubble); bubble.position.copy(posOf()).add(V(0, 1.05, 0)); };
+    const draw = () => {
+      for (const m of stones.values()) m.material = slateM;
+      for (const [r, c] of trail) stones.get(`${r}-${c}`).material = slateOnM;
+      trailLine.geometry.dispose(); trailLine.geometry = new THREE.BufferGeometry().setFromPoints([start.clone().add(V(0, 0.2, 0)), ...trail.map(([r, c]) => V(sx(c), Y + 0.2, sz(r)))]); trailLine.computeLineDistances();
+      D.wake();
+    };
+    const recompute = () => { x = trail.reduce((v, [r, c]) => stone(v, grid[r][c]), sc.start); };
+    frog.scale.setScalar(0.55); frogAt(start.x, start.z, 0.6, Y + 0.03); say();
+    const my = gen;
+    const hop = () => { const to = posOf(); hopping = hopping.then(() => { if (my !== gen) return; const from = frog.position.clone(); return tween(RM ? 0 : 260, q => { frog.position.lerpVectors(from, to, q); frog.position.y += Math.sin(q * Math.PI) * 0.5; }, q => q).then(() => { frog.userData.y0 = to.y; if (bubble) bubble.position.copy(to).add(V(0, 1.05, 0)); }); }); };
+    const S = api3(o);
+    S.back = () => { if (!trail.length) return; trail.pop(); recompute(); draw(); say(); hop(); o.on?.('back', { x }); };
+    S.reset = () => { trail = []; recompute(); draw(); say(); hop(); o.on?.('back', { x }); };
+    onPick = o.still ? null : p => {
+      if (p.kind !== 'stone') return;
+      const [r, c] = p.key.split('-').map(Number), last = trail[trail.length - 1], prev = trail[trail.length - 2], st = stones.get(p.key);
+      if (last && last[0] === r && last[1] === c) return;
+      if (prev && prev[0] === r && prev[1] === c) return S.back();
+      const near = last ? Math.abs(last[0] - r) + Math.abs(last[1] - c) === 1 : r === 0 && c === 0, seen = trail.some(([a, b]) => a === r && b === c);
+      if (!near || seen) { wobble(st); return o.on?.('far', { first: !last }); }
+      const y = stone(x, grid[r][c]);
+      if (Number.isNaN(y)) { wobble(st); return o.on?.('blocked', { x, cell: grid[r][c] }); }
+      trail.push([r, c]); x = y; draw(); say(); hop();
+      o.on?.('step', { x, exit: r === R - 1 && c === C - 1 });
+    };
+    S.finish = async () => {
+      await hopping;
+      await tween(RM ? 0 : 500, q => { leaf.rotation.y = -q * 1.7; }, ease);
+      const from = frog.position.clone(), to = doorAt.clone().add(V(0, 0.1, 0));
+      if (bubble) bubble.visible = false;
+      await tween(RM ? 0 : 400, q => { frog.position.lerpVectors(from, to, q); frog.position.y += Math.sin(q * Math.PI) * 0.6; }, q => q);
+      frog.visible = false; D.sparkle(to.clone().add(V(0, 0.8, 0)), 14, 0xFFD36B, 0.35, 1.4, 2);
+      await sleep(RM ? 0 : 400);
+    };
+    go(look(pcx + 0.2, Y, pcz + 0.1, Math.max(R, C) * STEP / 2 + 1.25, 0.95));
+    return S;
+  }
+
+  const STAGES = { pyr: pyrStage, bal: balStage, bal3: bal3Stage, lock: lockStage, mach: machStage, ser: serStage, path: pathStage };
   // The scene of a round, built at its place, and the camera flies there: the calls of draw.js's scene() for it. null for the paper
   // puzzles, which the panel draws (the frog waits at its table of plans, the camera with it). o: { t, on(event, data), board (the
   // board of the panel, for what of the scene is paper), still (a picture only, for «Caça l'errada») }
