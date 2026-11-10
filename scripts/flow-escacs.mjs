@@ -290,6 +290,18 @@ await section('nivell de caselles sense errades', async () => {
   await after(page, 'the save after a level with no mistake', MID, levelIn(streakIn(clean(MID), 3).prog, 0, 0, 0).prog);
 });
 
+// With the pointer, as a child does: it passes over the project before pressing it, and the map lights its statue and waits a moment
+// to move the camera. That wait must not take the camera back to the garden once the level has it on the board
+await section('la càmera es queda al tauler', async () => {
+  const page = await open(MID, '.map', 1280, 800);
+  await page.hover('.proj[data-p="1"]');
+  await page.waitForTimeout(100);
+  await page.click('.proj[data-p="1"]');
+  await wait(page, () => window.__escacs.what === 'nivell');
+  await page.waitForTimeout(700);
+  if (!NOGL) same('the view after entering a level with the pointer', await page.evaluate(() => window.__terrassa.view), 'board');
+});
+
 await section('recull les estrelles amb una errada', async () => {
   const page = await open(MID);
   await tap(page, '.proj[data-p="1"]');

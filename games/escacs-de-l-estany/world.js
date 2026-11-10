@@ -299,7 +299,9 @@ function build(canvas) {
     if (hlOn === was) return D.wake();
     const c = hlOn >= 0 ? GROUPS.findIndex(g => g.includes(hlOn)) : -1, to = c >= 0 ? 'c' + c : 'map';
     // a short wait, so a finger that crosses the list does not shake the camera
-    if (viewName === 'map' || viewName?.[0] === 'c') hlTimer = setTimeout(() => { if (viewName !== to) go(to, { dur: 900 }); }, 220);
+    // (only while the garden is still on show: a level that opened meanwhile has taken the camera to the board, and it must stay there)
+    const onMap = () => viewName === 'map' || /^c\d$/.test(viewName || '');
+    if (onMap()) hlTimer = setTimeout(() => { if (onMap() && viewName !== to) go(to, { dur: 900 }); }, 220);
     D.wake();
   }
   // the garden as the progress has it: piscina, valid (the projects validated) and stars (the exams passed)
