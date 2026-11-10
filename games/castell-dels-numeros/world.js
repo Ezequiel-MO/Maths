@@ -253,7 +253,7 @@ function build(canvas) {
     B.cloth.material.color.copy(new THREE.Color(0x777777).lerp(B.color, k));
   }
   // the lanterns of the bridge and of the yard: lit once the Piscina is done, in the colour of the project on show
-  const lamps = [[-2.3, -0.9], [2.3, -0.9], [-3.4, 8.3], [3.4, 8.3]].map(([x, z]) => {
+  const lamps = [[-3.6, -0.9], [3.6, -0.9], [-3.4, 8.3], [3.4, 8.3]].map(([x, z]) => {
     fixed.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 8).translate(x, 0.75, z), std(0x2A2F3A, { metalness: 0.5, roughness: 0.4 })));
     fixed.add(mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.06, 8).translate(x, 1.5, z), std(0x2A2F3A, { metalness: 0.5, roughness: 0.4 })));
     const bulb = mesh(new THREE.SphereGeometry(0.13, 12, 8).translate(x, 1.66, z), new THREE.MeshBasicMaterial({ color: 0x8A8170, toneMapped: false }), { cast: false });
@@ -449,8 +449,8 @@ function build(canvas) {
   document.fonts?.ready?.then(() => { for (const f of faces) if (f.userData.last) f.userData.write(...f.userData.last); }).catch(() => {});
 
   // the look of a hole: a blueprint of light, gold while it is the one typed in; a thing a hint talks of glows
-  const HOLE_M = new THREE.MeshStandardMaterial({ color: 0x6FE3FF, transparent: true, opacity: 0.2, emissive: 0x2A8DAF, emissiveIntensity: 0.55, depthWrite: false, roughness: 0.4 });
-  const CUR_M = new THREE.MeshStandardMaterial({ color: 0xF7C64E, transparent: true, opacity: 0.34, emissive: 0xF7C64E, emissiveIntensity: 0.6, depthWrite: false, roughness: 0.4 });
+  const HOLE_M = new THREE.MeshStandardMaterial({ color: 0x8FE9FF, transparent: true, opacity: 0.78, emissive: 0x2A8DAF, emissiveIntensity: 0.5, roughness: 0.4 });
+  const CUR_M = new THREE.MeshStandardMaterial({ color: 0xFFD970, transparent: true, opacity: 0.88, emissive: 0xF7C64E, emissiveIntensity: 0.6, roughness: 0.4 });
   const EDGE_M = new THREE.LineBasicMaterial({ color: 0x9FEFFF, transparent: true, opacity: 0.9, toneMapped: false }), EDGE_CUR = new THREE.LineBasicMaterial({ color: 0xFFE69A, toneMapped: false });
   const LIT = new Map();
   const litM = m => { if (!LIT.has(m)) { const x = m.clone(); x.emissive = new THREE.Color(0xF7C64E); x.emissiveIntensity = 0.6; LIT.set(m, x); } return LIT.get(m); };
@@ -467,7 +467,7 @@ function build(canvas) {
       const open = C.hole && !C.done;
       body.material = C.lit ? litM(real) : open ? (C.cur ? CUR_M : HOLE_M) : real; body.castShadow = !open;
       if (C.edges) { C.edges.visible = open; C.edges.material = C.cur ? EDGE_CUR : EDGE_M; }
-      f.userData.write(open ? (C.buf || '?') : C.fmt(C.v), { ink: open ? (C.buf ? '#FFFFFF' : C.cur ? '#FFE69A' : '#BFF4FF') : ink, edge: open ? 'rgba(4,19,28,0.8)' : o.edge, size: o.size, bg: open ? (o.bg ? 'rgba(4,19,28,0.55)' : null) : o.bg });
+      f.userData.write(open ? (C.buf || '?') : C.fmt(C.v), { ink: open ? '#FFFFFF' : ink, edge: open ? 'rgba(4,19,28,0.9)' : o.edge, size: open ? Math.max(o.size || 0, 0.86) : o.size, bg: open ? null : o.bg });
     };
     C.paint(); cells3.set(k, C); return C;
   }
@@ -490,6 +490,9 @@ function build(canvas) {
       hint() {}, async finish() {}
     };
   }
+  // The view of a scene: the box of half width hw and half height hh round (x, y, z), seen from the front and from up above. It is as
+  // close as the free part of the screen allows, wide or tall, and follows it when the panel changes size
+  const frame = (x, y, z, hw, hh, up = 0.36) => ({ t: [x, y, z], dir: [0.04, up, 1], get R() { const { w, h } = D.size(), m = Math.min(w, h); return Math.max(hw * m / w, hh * m / h); } });
   // the view of a scene: the ball of radius R round t, seen from the front and a bit above
   const look = (x, y, z, R, up = 0.36) => ({ t: [x, y, z], dir: [0.06, up, 1], R });
   const backOut = k => { const c = 1.70158; return 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2; };
@@ -515,8 +518,8 @@ function build(canvas) {
     fl.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8).translate(0, 0.5, 0), ironM));
     const cloth = pennant(times ? 0xB79CFF : 0xFF6B5E); cloth.position.set(0.03, 0.98, 0); fl.add(cloth);
     const w = n * (BW + GP), h = n * (BH + 0.02);
-    go(look(sx, Y0 + h / 2 + 0.1, sz, Math.max(1.75, Math.hypot(w, h) / 2 + 0.1), 0.4));
-    frogAt(sx + w / 2 + 0.5, sz + 0.6, -0.7);
+    go(frame(sx + 0.3, Y0 + h / 2 + 0.25, sz, w / 2 + 0.95, h / 2 + 0.75, 0.42));
+    frogAt(sx + w / 2 + 0.55, sz + 0.6, -0.7);
     onPick = p => o.on?.('hole', p.key);
     const S = api3(o), solve0 = S.solve;
     // a brick put right falls into its place from above
@@ -539,71 +542,76 @@ function build(canvas) {
   /* ---------- the balances ---------- */
   const copperM = std(0xC8773F, { metalness: 0.55, roughness: 0.35 }), brassM = std(C.gold, { metalness: 0.6, roughness: 0.3 }), weightM = std(0x3A444E, { metalness: 0.45, roughness: 0.45 });
   const crateM = std(0xB57A44, { roughness: 0.7 }), crate2M = std(0x7A4E26, { roughness: 0.8 });
-  const WGT = [new THREE.CylinderGeometry(0.13, 0.19, 0.27, 18), new THREE.CylinderGeometry(0.16, 0.23, 0.3, 18)], CRATE = new THREE.BoxGeometry(0.38, 0.34, 0.36);
+  const WGT = [new THREE.CylinderGeometry(0.19, 0.28, 0.37, 20), new THREE.CylinderGeometry(0.22, 0.33, 0.42, 20)], CRATE = new THREE.BoxGeometry(0.52, 0.52, 0.52);
   for (const g of [...WGT, CRATE]) g.userData.shared = true;
-  const PH = 2.3, LB = 1.45, HANG = 0.95;
+  const PH = 2.7, LB = 1.75, HANG = 1.3, PANR = 0.86;
   // One balance standing at (x, z), s times its size: its foot and column, the beam that swings on the pivot, and two pans hanging from
   // its ends by three chains each (pans[side].items holds what is on it). Its pivot is where a hint lights it
-  function balance(x, z, s) {
+  function balance(x, z, s, lb = LB) {
     const g = new THREE.Group(); g.position.set(x, 0.16, z); g.scale.setScalar(s); stageG.add(g);
-    g.add(mesh(new THREE.CylinderGeometry(0.5, 0.66, 0.2, 24).translate(0, 0.1, 0), copperM));
+    g.add(mesh(new THREE.CylinderGeometry(0.6, 0.8, 0.2, 24).translate(0, 0.1, 0), copperM));
     g.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, PH, 12).translate(0, PH / 2 + 0.2, 0), copperM));
     // the ticks of the needle, on a little plate at the top of the column
     g.add(mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 24, 1, false, -0.7, 1.4).rotateX(Math.PI / 2).translate(0, PH - 0.05, 0.07), mat(0xF4EEDF)));
     const beam = new THREE.Group(); beam.position.set(0, PH + 0.2, 0); g.add(beam);
-    const bar = mesh(boxG(2 * LB + 0.2, 0.09, 0.1, 0, 0, 0), brassM); beam.add(bar);
+    const bar = mesh(boxG(2 * lb + 0.2, 0.09, 0.1, 0, 0, 0), brassM); beam.add(bar);
     beam.add(mesh(new THREE.ConeGeometry(0.045, 0.55, 8).rotateX(Math.PI).translate(0, -0.3, 0.1), redM));
     beam.add(mesh(new THREE.SphereGeometry(0.12, 16, 10), brassM));
     const pans = [0, 1].map(() => {
       const p = new THREE.Group(); g.add(p);
-      p.add(mesh(new THREE.CylinderGeometry(0.66, 0.48, 0.08, 28), brassM));
-      for (let j = 0; j < 3; j++) { const a = j / 3 * Math.PI * 2 + 0.5; p.add(rod(V(Math.cos(a) * 0.6, 0.04, Math.sin(a) * 0.6), V(0, HANG, 0), 0.012, ironM)); }
+      p.add(mesh(new THREE.CylinderGeometry(PANR, PANR - 0.2, 0.08, 32), brassM));
+      // three chains: one at the back and one at each side, so none crosses what is on the pan
+      for (const a of [-Math.PI / 2, 0.3, Math.PI - 0.3]) p.add(rod(V(Math.cos(a) * (PANR - 0.06), 0.04, Math.sin(a) * (PANR - 0.06)), V(0, HANG, 0), 0.014, ironM));
       const items = new THREE.Group(); items.position.y = 0.04; p.add(items);
       return { g: p, items };
     });
-    return { g, beam, bar, pans, th: 0, w: 0 };
+    return { g, beam, bar, pans, lb, th: 0, w: 0 };
   }
   // the beam and the pans where the angle th puts them (th > 0: the right pan lower)
   function place(B) {
     B.beam.rotation.z = -B.th;
     const c = Math.cos(B.th), s = Math.sin(B.th);
-    B.pans[0].g.position.set(-LB * c, PH + 0.2 + LB * s - HANG, 0); B.pans[1].g.position.set(LB * c, PH + 0.2 - LB * s - HANG, 0);
+    B.pans[0].g.position.set(-B.lb * c, PH + 0.2 + B.lb * s - HANG, 0); B.pans[1].g.position.set(B.lb * c, PH + 0.2 - B.lb * s - HANG, 0);
   }
   // the beam swings like a spring towards the angle aim
   function swing(B, aim, dt) {
     if (RM) { B.th = aim; B.w = 0; } else { B.w += ((aim - B.th) * 80 - B.w * 9) * dt; B.th += B.w * dt; }
     place(B); return Math.abs(B.w) > 0.002 || Math.abs(aim - B.th) > 0.002;
   }
-  // what is on a pan: a weight with its number, a box with its label (? until its weight is known), a fruit with its weight once known
-  function item(t, known) {
-    if (typeof t === 'number') {
-      const m = new THREE.Mesh(WGT[t >= 10 ? 1 : 0], weightM); m.castShadow = true; m.position.y = t >= 10 ? 0.15 : 0.135;
-      m.add(mesh(new THREE.TorusGeometry(0.05, 0.016, 6, 12).translate(0, t >= 10 ? 0.19 : 0.175, 0), weightM));
-      const f = face(0.36, 0.25); f.position.set(0, -0.005, t >= 10 ? 0.24 : 0.21); f.rotation.x = -0.12; f.userData.write(t, { ink: '#FFE69A', edge: '#11161B', size: 0.82 }); m.add(f);
-      return { m, w: t >= 10 ? 0.48 : 0.4, h: t >= 10 ? 0.32 : 0.29 };
+  // What is on a pan: a weight, a box (? until its weight is known) or a fruit (with its weight once known), k times its size. Its number
+  // is on a round badge that always faces the camera and is never hidden, so it reads from any side; the thing itself is inside a box
+  // nobody sees that takes the taps, bigger than a finger needs
+  const badge = (txt, bg, ring, ink = '#1B1206') => label(String(txt), { h: 0.42, bg, ring, ink, depthTest: false, order: 6 });
+  function item(t, known, k = 1) {
+    const num = typeof t === 'number', big = num && t >= 10, w = num ? (big ? 0.72 : 0.62) : 0.6, h = num ? (big ? 0.56 : 0.5) : t === 'x' ? 0.54 : 0.6;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.7), HIT_M); m.scale.setScalar(k); m.position.y = h * k / 2;
+    const y0 = -h / 2;
+    if (num) {
+      const body = mesh(WGT[big ? 1 : 0], weightM); body.position.y = y0 + (big ? 0.21 : 0.185); m.add(body);
+      m.add(mesh(new THREE.TorusGeometry(0.075, 0.024, 6, 14).translate(0, y0 + (big ? 0.47 : 0.42), 0), weightM));
+      const b = badge(t, '#FFF8E1', '#F7C64E'); b.position.set(0, y0 + (big ? 0.2 : 0.18), 0.36); m.add(b);
+    } else if (t === 'x') {
+      const body = mesh(CRATE, crateM); body.position.y = y0 + 0.26; m.add(body);
+      for (const sg of [-1, 1]) body.add(mesh(new THREE.BoxGeometry(0.6, 0.06, 0.02).rotateZ(sg * 0.78).translate(0, 0, 0.265), crate2M, { cast: false }));
+      const b = known.has('x') ? badge(known.get('x'), '#F7C64E', '#7A4E26') : badge('?', '#FFF3D6', '#7A4E26'); b.position.set(0, y0 + 0.26, 0.36); m.add(b);
+    } else {
+      const f = label(t, { h: 0.6, depthTest: false, order: 6 }); f.position.set(0, 0, 0.1); m.add(f);
+      if (known.has(t)) { const b = badge(known.get(t), '#F7C64E', '#7A4E26'); b.scale.multiplyScalar(0.75); b.position.set(0.22, -0.16, 0.2); m.add(b); }
     }
-    if (t === 'x') {
-      const m = new THREE.Mesh(CRATE, crateM); m.castShadow = true; m.position.y = 0.17;
-      for (const sg of [-1, 1]) m.add(mesh(new THREE.BoxGeometry(0.4, 0.04, 0.02).rotateZ(sg * 0.72).translate(0, 0, 0.185), crate2M, { cast: false }));
-      const f = face(0.26, 0.17); f.position.set(0, 0, 0.2); f.userData.write(known.has('x') ? known.get('x') : '?', { bg: '#FFF3D6', ink: '#3B2208', r: 18 }); m.add(f);
-      return { m, w: 0.42, h: 0.36 };
-    }
-    const m = label(t, { h: 0.5 }); m.position.y = 0.24;
-    if (known.has(t)) { const tag = label(String(known.get(t)), { h: 0.24, bg: '#F7C64E', ink: '#2A1C00' }); tag.position.set(0.18, -0.12, 0.05); m.add(tag); }
-    return { m, w: 0.46, h: 0.48 };
+    return { m, w: w * k, h: h * k };
   }
   // the things on a pan in rows, from the rim up
   function lay(items) {
     const rows = [[]]; let w = 0;
-    items.forEach((it, i) => { if (w + it.w > 1.2 && rows[rows.length - 1].length) { rows.push([]); w = 0; } rows[rows.length - 1].push(i); w += it.w; });
+    items.forEach((it, i) => { if (w + it.w > 1.62 && rows[rows.length - 1].length) { rows.push([]); w = 0; } rows[rows.length - 1].push(i); w += it.w; });
     let y = 0;
     for (const r of rows) { const tw = r.reduce((a, i) => a + items[i].w, 0); let x = -tw / 2; for (const i of r) { items[i].m.position.x = x + items[i].w / 2; items[i].m.position.y += y; x += items[i].w; } y += Math.max(...r.map(i => items[i].h)) + 0.02; }
   }
   // the legend and the equation of a balance stay in the panel, as cells to type in
   const CRATE_SVG = '<svg viewBox="-22 -38 44 40" width="38" height="34" aria-hidden="true"><rect x="-20" y="-36" width="40" height="36" rx="4" fill="#B57A44" stroke="#4E3014" stroke-width="2"/><path d="M-17 -33L17 -3M17 -33L-17 -3" stroke="#6E4520" stroke-opacity="0.5" stroke-width="3"/><rect x="-13" y="-28" width="26" height="18" rx="4" fill="#FFF3D6"/><text y="-14" text-anchor="middle" font-size="15" font-weight="800" fill="#3B2208">?</text></svg>';
   function balStage(sc, o) {
-    const multi = sc.pans.length > 1, mode = sc.mode || 'solve', [sx, sz] = SPOT.bal, s = multi ? 0.74 : 0.95, known = new Map(), my = gen;
-    const bs = sc.pans.map(([L, R], b) => Object.assign(balance(multi ? sx + (b ? 1.85 : -1.85) : sx, sz, s), { side: [L.slice(), R.slice()], fixed: R.length, lit: false }));
+    const multi = sc.pans.length > 1, mode = sc.mode || 'solve', [sx, sz] = SPOT.bal, s = multi ? 0.68 : 0.9, known = new Map(), my = gen;
+    const bs = sc.pans.map(([L, R], b) => Object.assign(balance(multi ? sx + (b ? 1.95 : -1.95) : sx, sz, s), { side: [L.slice(), R.slice()], fixed: R.length, lit: false }));
     const weigh = a => a.reduce((t, x) => t + (typeof x === 'number' ? x : sc.vals[x] ?? 0), 0);
     const side = a => a.map(t => t === 'x' ? (known.has('x') ? known.get('x') : '?') : t).join(' + ');
     if (o.board) o.board.innerHTML = mode === 'level' ? '' : `<div class="scene s-bal">${!multi ? '<p class="eqn" aria-live="polite"></p>' : ''}<div class="legend">${sc.holes.map(k => `<span class="lg"><span class="e">${k === 'x' ? CRATE_SVG : k}</span><span class="op">=</span>${cellHTML(sc, k, o.still)}</span>`).join('')}</div></div>`;
@@ -648,25 +656,24 @@ function build(canvas) {
     S.spark = k => { for (const B of bs) for (const P of B.pans) B.side[B.pans.indexOf(P)].forEach((t, i) => { if (t === k) { const m = P.items.children[i]; if (m) D.sparkle(worldOf(m), 6, 0xFFE08A, 0.25, 1.2, 2); } }); };
     S.add = w => { const B = bs[0]; if (B.side[1].length >= 10) return; B.side[1].push(w); paint(0, true); emitLevel(); D.wake(); };
     S.finish = async () => { for (const B of bs) { B.bar.material = litM(brassM); D.sparkle(worldOf(B.beam), 14, 0xFFD36B, 0.35, 1.6, 2); } await sleep(RM ? 0 : 700); };
-    go(look(sx, multi ? 1.55 : 1.65, sz, multi ? 3.5 : 2.55, 0.26));
-    frogAt(sx + (multi ? 3.5 : 2.35), sz + 0.75, -0.7);
+    go(multi ? frame(sx, 1.3, sz, 3.95, 1.55, 0.5) : frame(sx, 1.6, sz, 2.6, 1.85, 0.5));
+    frogAt(sx + (multi ? 0 : 1.2), sz + (multi ? 1.5 : 1.35), multi ? 0 : -0.5);
     return S;
   }
   // Three small balances held level by a pin. tilt(k) takes out the pin of one; mark(k, 'ok' | 'no') lights the ring under it; finish()
   // takes out every pin. A balance is touched anywhere on it
   function bal3Stage(sc, o) {
-    const [sx, sz] = SPOT.bal, s = 0.62;
+    const [sx, sz] = SPOT.bal, s = 0.62, GAPX = 2.55;
     const bs = sc.items.map((it, j) => {
-      const x = sx + (j - 1) * 2.25, B = Object.assign(balance(x, sz + 0.1, s), { k: it.k, side: [it.L, it.R], pinned: true });
-      // the weights bigger than on the big balance, so their numbers can be read from afar
-      B.pans.forEach((P, sd) => { const its = B.side[sd].map(t => item(t, new Map())); its.forEach(i2 => { i2.m.scale.setScalar(1.4); i2.m.position.y *= 1.4; i2.w *= 1.4; i2.h *= 1.4; }); lay(its); its.forEach(i2 => P.items.add(i2.m)); });
+      const x = sx + (j - 1) * GAPX, B = Object.assign(balance(x, sz + 0.1, s, 1.12), { k: it.k, side: [it.L, it.R], pinned: true });
+      B.pans.forEach((P, sd) => { const its = B.side[sd].map(t => item(t, new Map(), 1.05)); lay(its); its.forEach(i2 => P.items.add(i2.m)); });
       // the pin: a needle with a red head through the pivot
       const pin = new THREE.Group(); pin.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6).rotateX(Math.PI / 2 - 0.35).translate(0, 0.05, 0.2), mat(0xDCE6EE, { metalness: 0.6 })), mesh(new THREE.SphereGeometry(0.08, 12, 8).translate(0, 0.17, 0.52), redM));
       pin.position.copy(B.beam.position); B.g.add(pin); B.pin = pin;
-      const tag = label(it.k.toUpperCase(), { h: 0.4, ink: '#F7C64E', edge: '#1B1206' }); tag.position.set(x, 2.25, sz + 0.1); stageG.add(tag);
-      const ring = mesh(new THREE.TorusGeometry(0.72, 0.04, 8, 40).rotateX(Math.PI / 2).translate(x, 0.2, sz + 0.1), new THREE.MeshBasicMaterial({ color: 0x7CF5B0, toneMapped: false, transparent: true, opacity: 0 }), { cast: false });
+      const tag = label(it.k.toUpperCase(), { h: 0.4, ink: '#F7C64E', edge: '#1B1206' }); tag.position.set(x, 0.16 + (PH + 0.75) * s, sz + 0.1); stageG.add(tag);
+      const ring = mesh(new THREE.TorusGeometry(0.95, 0.05, 8, 40).rotateX(Math.PI / 2).translate(x, 0.2, sz + 0.1), new THREE.MeshBasicMaterial({ color: 0x7CF5B0, toneMapped: false, transparent: true, opacity: 0 }), { cast: false });
       stageG.add(ring); B.ring = ring;
-      if (!o.still) { const hb = hitBox(2.1, 2.1, 1.0, x, 1.1, sz + 0.1); stageG.add(hb); pickable(hb, 'bal3', it.k); }
+      if (!o.still) { const hb = hitBox(GAPX - 0.1, 2.5, 1.2, x, 1.2, sz + 0.1); stageG.add(hb); pickable(hb, 'bal3', it.k); }
       place(B); return B;
     });
     const sum = a => a.reduce((t, x) => t + x, 0);
@@ -678,8 +685,8 @@ function build(canvas) {
     S.tilt = k => { const B = bs.find(B => B.k === k); if (B) unpin(B); };
     S.mark = (k, cls) => { const B = bs.find(B => B.k === k); if (!B) return; B.ring.material.color.setHex(cls === 'ok' ? 0x7CF5B0 : 0xFF6B5E); B.ring.material.opacity = 0.95; D.wake(); };
     S.finish = async () => { bs.forEach(unpin); await sleep(RM ? 0 : 1300); };
-    go(look(sx, 1.35, sz + 0.1, 3.45, 0.2));
-    frogAt(sx + 3.75, sz + 0.9, -0.7);
+    go(frame(sx, 1.25, sz + 0.1, GAPX * 1.5 + 0.1, 1.45, 0.45));
+    frogAt(sx, sz + 1.6, 0);
     return S;
   }
 
@@ -735,7 +742,7 @@ function build(canvas) {
       await sleep(RM ? 0 : 1000);
     };
     onPick = o.still ? null : p => o.on?.('hole', p.key);
-    go(look(lx, Y0 + 0.62, Z, Math.max(1.75, bodyW / 2 + 0.55), 0.24));
+    go(frame(lx, Y0 + 0.66, Z, Math.max(1.75, bodyW / 2 + 0.6), 1.2, 0.24));
     frogAt(lx - Math.max(1.75, bodyW / 2 + 0.45), lz + 0.6, 0.6);
     return S;
   }
@@ -771,7 +778,7 @@ function build(canvas) {
       const b = new THREE.Mesh(ORB, orbM); b.position.set(ox(i), OY, mz); b.castShadow = true; stageG.add(b);
       stageG.add(mesh(new THREE.CylinderGeometry(0.06, 0.1, OY - Y - 0.3, 10).translate(ox(i), Y + (OY - Y - 0.3) / 2, mz), copperM));
       const f = face(0.56, 0.38); f.position.z = 0.36; b.add(f);
-      cell3(`m${i}`, sc, b, f, orbM, '#05313F', { edges: ORB_E, edge: 'rgba(255,255,255,0.7)' });
+      cell3(`m${i}`, sc, b, f, orbM, '#05313F', { edges: ORB_E, bg: 'rgba(255,255,255,0.92)' });
     }
     if (rule && o.board) o.board.innerHTML = `<div class="scene s-mach"><table class="io"><tr><th>Entra</th>${sc.table.map(([a]) => `<td>${a}</td>`).join('')}</tr><tr><th>Surt</th>${sc.table.map(([, b]) => `<td>${b}</td>`).join('')}</tr></table></div>`;
     // the ball of light that carries a number through a chamber
@@ -799,7 +806,7 @@ function build(canvas) {
       await run(0, N);
     };
     onPick = o.still ? null : p => o.on?.('hole', p.key);
-    go(look(mx, OY + 0.15, mz, Math.max(1.8, width / 2 + 0.35), 0.3));
+    go(frame(mx - 0.2, OY + 0.1, mz, width / 2 + 0.75, 1.25, 0.3));
     frogAt(mx - width / 2 - 0.2, mz + 1.0, 0.7);
     return S;
   }
@@ -840,7 +847,7 @@ function build(canvas) {
       await sleep(RM ? 0 : 250);
     };
     onPick = o.still ? null : p => o.on?.('hole', p.key);
-    go({ ...look(cx - STEP * 0.45, Y + 0.5, cz, (n + 1) * STEP / 2 + 0.05, 0.3), fit: 'w' });
+    go(frame(cx - STEP * 0.45, Y + 0.5, cz, (n + 1) * STEP / 2 + 0.1, 1.1, 0.3));
     return S;
   }
 
@@ -907,7 +914,7 @@ function build(canvas) {
       frog.visible = false; D.sparkle(to.clone().add(V(0, 0.8, 0)), 14, 0xFFD36B, 0.35, 1.4, 2);
       await sleep(RM ? 0 : 400);
     };
-    go(look(pcx + 0.2, Y, pcz + 0.1, Math.max(R, C) * STEP / 2 + 1.25, 0.95));
+    go(frame(pcx + 0.1, Y + 0.3, pcz + 0.1, C * STEP / 2 + 1.75, R * STEP / 2 * 0.8 + 1.0, 0.95));
     return S;
   }
 
