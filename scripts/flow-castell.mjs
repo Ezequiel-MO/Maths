@@ -95,10 +95,10 @@ const shot = (page, name) => SHOTS ? page.screenshot({ path: `${SHOTS}/${name}.p
 // the save after a game: what logic.js gives, and never the save before (a game that changes nothing would check nothing)
 async function after(page, what, before, want) { const got = await stored(page); same(what, got, want); check(JSON.stringify(got) !== JSON.stringify(before), `${what}: the game changed the save`); }
 // A thing of a scene touched: in the drawing of the page when it is there, otherwise in the castle, on the point of the screen where the
-// world says it is (window.__castell.where(kind, key))
+// world says it is (window.__terra.where(kind, key))
 async function touch(page, sel, kind, key) {
   if (await page.$(sel)) return tap(page, sel);
-  const p = await page.evaluate(([kind, key]) => window.__castell.where?.(kind, key), [kind, key]);
+  const p = await page.evaluate(([kind, key]) => window.__terra?.where?.(kind, key), [kind, key]);
   if (!p) throw new Error(`nowhere to touch ${kind} ${key}`);
   await page.mouse.click(p.x, p.y);
 }
