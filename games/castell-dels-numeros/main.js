@@ -49,6 +49,10 @@ let keyFn = null;
 addEventListener('keydown', e => { if (keyFn && !e.ctrlKey && !e.metaKey && !e.altKey) keyFn(e); });
 // a tap that comes less than SETTLE after a question came up was meant for the one before
 let openAt = 0;
+// For the checks in the browser (scripts/flow-castell.mjs): what is on screen. Each screen puts its own here, and play() adds what the round
+// on show is (play): its scene and question, the hole typed in, a tick that counts every new thing to answer, and ready, whether it takes an answer now
+window.__castell = { what: '' };
+let tick = 0;
 
 /* ---------- the map ---------- */
 const RING = [28, 205, 330];
@@ -57,7 +61,7 @@ const ICONS = PROJECTS.map(p => p.ico);
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'stars' });
 let here = -1;
 function mapa() {
-  fresh(); show('El mapa del castell', false, 28);
+  fresh(); show('El mapa del castell', false, 28); window.__castell = { what: 'mapa' };
   const v = validated(prog), n = v.length;
   M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${ICONS[i]}</span>`,
     before: `<div class="castlemap" id="cmap"></div><p class="grow">${n >= 9 ? 'El castell està acabat! Ets l\'arquitecte de l\'estany.' : `Cada projecte validat construeix una part del castell: <b>${n} de 9</b>.`}${prog.maons ? ` Has posat <b>${punt(prog.maons)}</b> ${prog.maons === 1 ? 'maó' : 'maons'}.` : ''}</p>`,
@@ -78,7 +82,7 @@ function frame(n, label) {
 
 /* ---------- the Piscina: a tower, a balance and a frog worth a number ---------- */
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 28); $('#toM').hidden = true; $('#toG').hidden = !HUB;
+  const t = fresh(); show('La Piscina', true, 28); $('#toM').hidden = true; $('#toG').hidden = !HUB; window.__castell = { what: 'piscina' };
   const { stage, dots, say } = frame(POOL.length, 'Tres reptes');
   say('Benvingut al castell dels números! Aquí cada número amagat és un maó del castell. Primer, tres proves per entrar.');
   let k = 0;
@@ -95,6 +99,7 @@ function level(sec, idx) {
   const c = circleOf(sec), t = fresh(); show(`Cercle ${c} · ${PROJECTS[sec].name}`, true, HUES[sec]); here = sec;
   const root = $('#game'), L = PROJECTS[sec].levels[idx];
   let slips = 0, over = false;
+  window.__castell = { what: 'nivell', sec, idx, get slips() { return slips; } };
   root.innerHTML = `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.title}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div>
     <div class="coach" id="coach">${FROG}<p class="status tip" id="tip"></p></div><span class="combo" id="cb" hidden></span><div class="stage" id="stage"></div>`;
@@ -135,6 +140,7 @@ function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]);
   const qs = exam(c, Math.random), run = [], { stage, tail, dots, say } = frame(qs.length, 'Sis preguntes');
   let k = -1, res = null;
+  window.__castell = { what: 'examen', c, qs: JSON.parse(JSON.stringify(qs)), get k() { return k; } };
   const next = () => k === qs.length - 1 ? finish() : arm();
   function arm() {
     k++;
@@ -179,6 +185,7 @@ function full() {
   const t = fresh(); show("Caça l'errada", true, 40);
   const cs = sheet(Math.random), run = [], { stage, tail, dots, say } = frame(cs.length, 'Tres frases');
   let k = -1, C, busy, res = null;
+  window.__castell = { what: 'full', cs: JSON.parse(JSON.stringify(cs)), get k() { return k; }, get ready() { return t.on && !busy && performance.now() >= openAt; } };
   function arm() {
     k++; C = cs[k]; busy = false; openAt = performance.now() + SETTLE;
     dots.forEach((d, j) => d.classList.toggle('cur', j === k));
@@ -231,6 +238,8 @@ const TRAY = [1, 2, 5, 10];
 function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
   const n = L.rounds.length;
   let k = -1, R = null, busy = false, buf = '', S = null, opts = [], known = null, cur = null, laid = 0, clean1 = true;
+  window.__castell.play = { get k() { return k; }, get tick() { return tick; }, get round() { return R && JSON.parse(JSON.stringify(R)); }, get cur() { return cur; },
+    get known() { return known ? [...known] : []; }, get ready() { return t.on && !busy && !!R && performance.now() >= openAt; } };
   stage.innerHTML = `<p class="ask" id="q"></p><div class="board" id="board"></div><div class="ans" id="ans"></div>`;
   const board = $('#board'), ans = $('#ans');
   const keypad = () => `<div class="keys">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<button class="key" data-d="${d}">${d}</button>`).join('')}
@@ -259,7 +268,7 @@ function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
     else if (ev === 'line') { blip(520 + 50 * d.i); tip(`Aquesta línia suma ${d.sum}.`); if (d.all) right(null); }
   }
   function arm() {
-    k++; R = L.rounds[k]; busy = false; buf = ''; laid = 0; clean1 = true; openAt = performance.now() + SETTLE; step?.(k);
+    k++; R = L.rounds[k]; busy = false; buf = ''; laid = 0; clean1 = true; openAt = performance.now() + SETTLE; step?.(k); tick++;
     const ty = R.q.type;
     S = scene(board, R.scene, { t, on });
     $('#q').innerHTML = `${n > 1 ? `<small>Repte ${k + 1} de ${n}</small>` : ''}${R.q.text}`; again($('#q')).add('pop');
@@ -287,7 +296,7 @@ function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
     if (k === n - 1) { keyFn = null; win(`${n === 1 ? 'Un repte resolt' : `${n} reptes resolts`}<br><small>${L.title || ''}</small>`); } else arm();
   }
   function wrong(el, text) {
-    slip(); clean1 = false;
+    slip(); clean1 = false; tick++;
     if (el) { again(el).add('shake'); el.classList.add('no'); }
     tip(`Ui! ${text || hintText()}`, 'oops'); hint();
   }
@@ -296,7 +305,7 @@ function play({ t, L, stage, tip, slip, win, step, good, exam = false }) {
     const h = cur; known.add(h); laid++; buf = '';
     S.solve(h, R.scene.cells[h]); spark(S.el(h), 40); thud(); S.lit([]); board.classList.remove('hint');
     if (R.scene.holes.every(x => known.has(x))) return right(null);
-    cur = nextHole(); S.active(cur);
+    cur = nextHole(); S.active(cur); tick++;
   }
   function press(d) {
     if (busy || R?.q.type !== 'holes' || !cur) return;
