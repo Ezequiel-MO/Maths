@@ -76,11 +76,11 @@ function cellSVG(sc, k, x, y, o) {
   return `<g transform="translate(${f1(x)} ${f1(y)})"><g class="cell${hole ? ' hole' : ''}${blank ? ' blank' : ''}${o.cls ? ' ' + o.cls : ''}" data-k="${H(k)}" data-fs="${f}"${o.pre ? ` data-pre="${o.pre}"` : ''}${hole && !o.still ? ' tabindex="0" role="button" aria-label="Forat"' : ''}>${o.under || ''}${bg}${o.over || ''}<text class="v" y="${f1(f * 0.35)}" text-anchor="middle" font-size="${f1(sized(f, txt))}" fill="${o.ink || '#fff'}">${H((o.pre || '') + txt)}</text></g></g>`;
 }
 // the same, in HTML
-const cellHTML = (sc, k, still, cls = '') => { const hole = sc.holes.includes(k); return `<span class="cell${hole ? ' hole' : ''}${cls ? ' ' + cls : ''}" data-k="${H(k)}"${hole && !still ? ' tabindex="0" role="button" aria-label="Forat"' : ''}><b class="v">${hole ? '?' : H(sc.cells[k])}</b></span>`; };
+export const cellHTML = (sc, k, still, cls = '') => { const hole = sc.holes.includes(k); return `<span class="cell${hole ? ' hole' : ''}${cls ? ' ' + cls : ''}" data-k="${H(k)}"${hole && !still ? ' tabindex="0" role="button" aria-label="Forat"' : ''}><b class="v">${hole ? '?' : H(sc.cells[k])}</b></span>`; };
 
 // What the screen does to a scene: light the hole being typed, write in it, fill it, shake it, light what a hint talks of, and the
-// end of the puzzle (finish). A scene adds what is its own
-function api(root) {
+// end of the puzzle (finish). A scene adds what is its own. The castle in 3D (world.js) uses it too, for the cells it leaves in the panel
+export function api(root) {
   const map = new Map();
   for (const e of root.querySelectorAll('[data-k]')) map.set(e.dataset.k, e);
   const el = k => map.get(k);
@@ -193,7 +193,7 @@ function magicScene(board, sc, o) {
 }
 
 /* ---------- padlocks ---------- */
-function barSVG(bar, cx, y) {
+export function barSVG(bar, cx, y) {
   const W = 300, x0 = cx - W / 2, raw = bar.parts.map(p => Math.max(56, W * p / bar.whole)), k = W / raw.reduce((s, w) => s + w, 0), ws = raw.map(w => w * k);
   let x = x0;
   const parts = bar.parts.map((p, i) => { const r = `<rect x="${f1(x)}" y="${y + 40}" width="${f1(ws[i] - 4)}" height="32" rx="8" fill="${bar.hole === i ? 'rgb(111 227 255 / 0.15)' : 'rgb(124 245 176 / 0.25)'}" stroke="${bar.hole === i ? '#6FE3FF' : '#7CF5B0'}" stroke-width="2"${bar.hole === i ? ' stroke-dasharray="6 4"' : ''}/><text x="${f1(x + (ws[i] - 4) / 2)}" y="${y + 63}" text-anchor="middle" font-size="18" fill="#EAF8F4">${bar.hole === i ? '?' : p}</text>`; x += ws[i]; return r; });

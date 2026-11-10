@@ -1,8 +1,12 @@
-/* Layout: the night pond of the other games, with a castle being built on it. One centred column: the row of levels, the frog in its
-   hard hat with its tip in a speech bubble, the question, the scene (drawn in draw.js) and under it what answers: the keys of a number,
-   the choices, the weights, the buttons of a path. A hole is a blueprint (dashed cyan) until it is filled: then the CSS lets the brick,
-   the cell or the orb it is show. What a hint shows is in the scene already, hidden (.hx), and comes up with .board.hint. Written for a
-   phone held upright; it grows on a wide screen. */
+/* Layout. With WebGL the castle is the 3D picture behind the page (#world, games/castell-dels-numeros/world.js), and the page is a panel
+   of glass over it, as in Els escacs de l'estany: on a wide screen the panel stands on the right and the castle fills the rest; on a phone
+   or a tablet held upright the castle is on top (.view keeps its place free) and the panel under it. The puzzles that are things (towers,
+   balances, padlocks, machines, series, paths) are played in the castle; the panel keeps the question, what answers it and what is paper
+   (the legend of a balance, the table of a machine, the bar of a hint, and the paper puzzles drawn by draw.js).
+   Without WebGL it is the night pond of the other games, with the castle of the map drawn on it: one centred column with the row of
+   levels, the frog in its hard hat with its tip in a speech bubble, the question, the scene (draw.js) and under it what answers.
+   A hole is a blueprint (dashed cyan) until it is filled: then the CSS lets the brick, the cell or the orb it is show. What a hint shows
+   is in the scene already, hidden (.hx), and comes up with .board.hint. Written for a phone held upright; it grows on a wide screen. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
@@ -10,6 +14,52 @@
 #app { max-width: 620px; min-height: calc(100dvh - 38px); }
 #app.wide { max-width: 760px; }
 #app.wide h1 { display: none; }
+
+/* the castle in 3D, and the panel of glass over it */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+/* the page lets the taps through to the castle wherever it has nothing of its own */
+body:not(.nogl) #app { width: min(100%, 640px); max-width: none; padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) #game > :not(.view) { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl).playing header { display: none; }
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+.sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+body:not(.nogl) .sheet { position: relative; padding: 14px 12px 18px; border-radius: 26px; background: rgb(7 28 40 / 0.8); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+/* the frog of the works is in the castle: the panel keeps what it says */
+body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before { display: none; }
+body:not(.nogl) .stage { min-height: 0; }
+body:not(.nogl) .board:empty { display: none; }
+/* what of a scene in the castle stays in the panel: the legend and the equation of a balance, the bar of a hint (only with the hint) */
+.board.w3 .scene { gap: 8px; }
+.board.w3 .hxs { display: none; width: 100%; max-width: 360px; }
+.board.w3.hint .hxs { display: block; }
+.board.w3.hint .hxs .hx { visibility: visible; opacity: 1; }
+.board.w3 .eqn { margin: 0; }
+.lg .e svg { display: block; }
+.board.w3 .s-bal { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+/* with the castle, the keys of a number in two rows (1 to 6, then 7 8 9 0 ⌫ ✓): the panel stays short */
+body:not(.nogl) .keys { grid-template-columns: repeat(6, minmax(0, 58px)); }
+body:not(.nogl) .key.del { order: 1; } body:not(.nogl) .key.ok { order: 2; }
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app { width: 500px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+/* a phone held upright: the panel is kept short, so the castle above it and the keys are in view together */
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  body:not(.nogl) .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body:not(.nogl).playing #app { padding-bottom: 6px; gap: 6px; }
+  body:not(.nogl) .sheet .levels button { width: 38px; height: 38px; }
+  body:not(.nogl) .status.tip { min-height: 0; font-size: 0.95rem; }
+  body:not(.nogl) .coach .status.tip { min-height: 0; padding: 6px 12px; }
+  body:not(.nogl) .stage { gap: 8px; }
+  body:not(.nogl) .key { height: 44px; font-size: 1.35rem; }
+  body:not(.nogl) .keys { gap: 6px; }
+}
 h1, h2, .btn, .chip, .status, .key, .ask, .line, .claimbox, .scene text, .plq, .ft, .fs, .paper, .legend, .rtx, .io, .eqn, .bars { font-family: var(--display); }
 
 /* the rank and the XP live in the row at the top */
