@@ -2,7 +2,9 @@ import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, star
 // The rules and the data of the robot of the weak pronouns, with no page in it. The robot only understands orders that are well
 // written: «Dona'm la pilota!» when the thing is named, and «Dona-me-la!», «Dona-me'l!», «Dona-me-les!», «Dona-me'ls!» when a pronoun
 // stands for it. Seven sections of ten levels: sorting things by their article, orders that name the thing, the two feminine
-// pronouns, the two masculine ones, all four, other verbs, and missions. It must keep importing from Node.
+// pronouns, the two masculine ones, all four, other verbs, and missions. Then the robot learns to talk (circle 3): the order turned
+// into a question, with the pronouns in front of the verb («Me'l dones?»), its answers («Sí, la tinc.») and the pronoun «en»
+// («En vull tres.»). It must keep importing from Node.
 
 /* ---------- the four kinds of noun, each with its article, its pronoun after «me» and its colour ---------- */
 export const TYPES = {
@@ -67,45 +69,159 @@ export const naming = (verb, t) => `${cap(verb)}'m ${phrase(t)}`;
 // the ways a child writes each one wrong
 const BAD = { m1: ['-me-el', "'m-el"], f1: ["-me'la", "'m-la"], m2: ['-me-els', "'m-els"], f2: ["-me'les", "'m-les"] };
 const misnamed = (verb, t) => [`${cap(verb)}-me ${phrase(t)}`, `${cap(verb)} em ${phrase(t)}`];
-// One order to give: the thing t, the verb, whether the order names the thing, and want, the order well written (with no «!»)
-export function roundOf(key, verb = 'dona', named = false) {
-  const t = thing(key);
-  return { t, verb, named, want: named ? naming(verb, t) : order(verb, t.type) };
+
+/* ---------- the questions, the answers and «en»: the sentences of circle 3 ---------- */
+// The order turned into a question, with the pronouns in front of the verb and no hyphen: «Em dones la pilota?», «Me la dones?»,
+// «Me'l dones?». YOU: the verb of an order as it is said in the question
+const YOU = { dona: 'dones', porta: 'portes', passa: 'passes', compra: 'compres', deixa: 'deixes', torna: 'tornes', llança: 'llances', busca: 'busques', guarda: 'guardes' };
+const QSUF = { m1: "'l", f1: ' la', m2: "'ls", f2: ' les' };
+export const asking = (verb, type) => `Me${QSUF[type]} ${YOU[verb]}`;
+export const askNaming = (verb, t) => `Em ${YOU[verb]} ${phrase(t)}`;
+const BADQ = { m1: ['Me el', "Em'l"], f1: ['Me-la', "Me'la"], m2: ['Me els', "Em'ls"], f2: ['Me-les', "Me'les"] };
+const misasked = (verb, t) => [`Me ${YOU[verb]} ${phrase(t)}`, `${cap(YOU[verb])}-me ${phrase(t)}`];
+// What the robot answers when it is asked about a thing. ME: the verb of the question («Tens…?») and the one of the answer («…tinc.»)
+const ME = { tens: 'tinc', vols: 'vull', veus: 'veig', portes: 'porto', busques: 'busco', guardes: 'guardo', agafes: 'agafo', amagues: 'amago' };
+const NUM = { m: ['', 'un', 'dos', 'tres', 'quatre', 'cinc'], f: ['', 'una', 'dues', 'tres', 'quatre', 'cinc'] };
+// two words one after the other: with no space after an apostrophe
+export const glue = (a, b) => a + (!a || a.endsWith("'") || a.endsWith(' ') ? '' : ' ') + b;
+// the pronoun of a kind of noun in front of a verb: «el», «la», «els», «les», and «l'» when the verb starts with a vowel
+export const pron = (type, verb) => type[1] === '1' && vowel(verb) ? "l'" : TYPES[type].art;
+const en = verb => vowel(verb) ? "n'" : 'en';
+
+// One sentence to give: the thing t, the verb, form ('imp' an order, 'ask' a question, 'ans' an answer with el, la, els or les, 'en'
+// an answer with «en»), whether it names the thing, want (the sentence well written, with no mark at the end) and end, its mark.
+// pre and post are what is already written around the gap when the sentence is typed, bpre and bpost when it is built out of pieces;
+// with words the pieces are whole words. In o: yes (false: the robot answers no) and count (how many things, in an answer with «en»)
+export function roundOf(key, verb = 'dona', named = false, form = 'imp', o = {}) {
+  const t = thing(key), V = cap(verb);
+  if (form === 'ask') {
+    const post = named ? ` ${YOU[verb]} ${phrase(t)}` : ` ${YOU[verb]}`;
+    return { t, verb, named, form, end: '?', want: named ? askNaming(verb, t) : asking(verb, t.type), pre: '', post, bpre: '', bpost: post };
+  }
+  if (form === 'ans' || form === 'en') {
+    const yes = o.yes !== false, me = ME[verb], count = form === 'en' ? o.count || 0 : 0;
+    const p = form === 'ans' ? pron(t.type, me) : en(me), tail = count ? `${me} ${NUM[t.type[0]][count]}` : me, pre = count ? '' : yes ? 'Sí, ' : 'No, no ';
+    // an answer with «en» is about things with no article: as many drawings as it says
+    return { t: count ? { ...t, n: count } : t, verb, named: false, form, yes, count, me, end: '.', want: cap(pre + glue(p, tail)), pre, post: tail, glue: true, bpre: '', bpost: '', words: true };
+  }
+  return { t, verb, named, form: 'imp', end: '!', want: named ? naming(verb, t) : order(verb, t.type), pre: V, post: named ? ` ${phrase(t)}` : '', bpre: V, bpost: '' };
 }
-// what the commander wants, said aloud: «Plou! Vull el paraigua!»
-export const wish = r => `${WISH[r.t.id] ? WISH[r.t.id] + ' ' : ''}Vull ${r.named ? phrase(r.t) : r.t.text}!`;
-// two orders are the same whatever their capitals, the shape of the apostrophe and the «!» at the end
-export const norm = s => String(s).trim().toLowerCase().replace(/[’`´]/g, "'").replace(/[!.\s]+$/, '').replace(/\s+/g, ' ');
-// Why got is not the order of round r, said to a child; '' when it is. An order of another kind of noun says whose it is;
+// A sentence out of what the child has put in its gap: parts are the pieces touched (mode 'build') or the letters typed (mode 'type')
+export function compose(L, r, parts) {
+  if (L.mode === 'build') return r.words ? cap(parts.reduce((s, p) => glue(s, p), '') || ' ').trim() : r.bpre + parts.join('') + r.bpost;
+  const s = parts.join('');
+  if (L.full) return s;
+  return r.glue ? r.pre + glue(s, r.post) : r.pre + s + r.post;
+}
+// what the commander wants, said aloud: «Plou! Vull el paraigua!»; and what the frog asks the robot: «Robot, tens la clau?»
+export function wish(r) {
+  if (r.form === 'ans') return `Robot, ${r.verb} ${r.t.text}?`;
+  if (r.form === 'en') return r.count ? `Robot, ${r.t.type[0] === 'm' ? 'quants' : 'quantes'} ${r.t.word} ${r.verb}?` : `Robot, ${r.verb} ${r.t.word}?`;
+  return `${WISH[r.t.id] ? WISH[r.t.id] + ' ' : ''}Vull ${r.named ? phrase(r.t) : r.t.text}!`;
+}
+// two sentences are the same whatever their capitals, the shape of the apostrophe and the mark at the end
+export const norm = s => String(s).trim().toLowerCase().replace(/[’`´]/g, "'").replace(/[!.?\s]+$/, '').replace(/\s+/g, ' ');
+// Why got is not the sentence of round r, said to a child; '' when it is. A sentence of another kind of noun says whose it is;
 // one that is badly joined says how its pronoun is joined
 export function why(r, got) {
   const g = norm(got), V = cap(r.verb), T = TYPES[r.t.type];
   if (g === norm(r.want)) return '';
+  if (r.form === 'ask') return whyAsk(r, g);
+  if (r.form === 'ans') return whyAns(r, g);
+  if (r.form === 'en') return whyEn(r, g);
+  if (YOU[r.verb] && g.endsWith(' ' + YOU[r.verb])) return `Això és una pregunta. Aquí cal una ordre: el verb va davant, i els pronoms darrere, enganxats: «${r.want}!».`;
   const other = ALL.find(k => g === norm(order(r.verb, k)));
   if (r.named) return other ? `Aquí has de dir el nom de la cosa: «${V}'m» i després el nom.` : `Davant del nom s'escriu «${V}'m»: «em» s'enganxa al verb, la e cau i hi queda l'apòstrof.`;
   if (other) return `«${order(r.verb, other)}!» és per a «${TYPES[other].art}», ${TYPES[other].what}. «${cap(r.t.text)}»: ${T.what}.${r.t.note ? ' ' + r.t.note : ''}`;
   if (g.startsWith(norm(V) + "'m")) return `«${V}'m» va davant del nom de la cosa. Sense dir el nom, s'escriu «${V}-me» i el pronom.`;
   return r.t.type[0] === 'm' ? '«Me» i «el» s\'enganxen sense guionet: la e d\'«el» cau i hi queda un apòstrof. S\'escriu me\'l i me\'ls.' : '«La» i «les» van darrere de «me» amb un guionet, i no cau cap lletra. S\'escriu me-la i me-les.';
 }
+function whyAsk(r, g) {
+  const T = TYPES[r.t.type], you = YOU[r.verb];
+  if (g.startsWith(r.verb.toLowerCase() + '-') || g.startsWith(r.verb.toLowerCase() + "'")) return `«${cap(r.verb)}…!» és una ordre. Aquí cal una pregunta: els pronoms van davant del verb, «${r.want}?».`;
+  const other = ALL.find(k => g === norm(asking(r.verb, k)));
+  if (r.named) return other ? `Aquí has de dir el nom de la cosa: «Em ${you}» i després el nom.` : `Dient el nom de la cosa, davant del verb s'escriu «Em», sol: «Em ${you}…?».`;
+  if (other) return `«${asking(r.verb, other)}?» és per a «${TYPES[other].art}», ${TYPES[other].what}. «${cap(r.t.text)}»: ${T.what}.${r.t.note ? ' ' + r.t.note : ''}`;
+  if (g.includes('-')) return 'Davant del verb no hi va mai cap guionet. Els guionets només hi són quan els pronoms van darrere del verb, com a «Dona-me-la!».';
+  if (/^em\b/.test(g)) return `«Em ${you}» va amb el nom de la cosa. Sense dir el nom, «em» es gira i es torna «me»: me'l, me la, me'ls, me les.`;
+  return r.t.type[0] === 'm' ? '«Me» i «el» s\'enganxen: la e d\'«el» cau i hi queda un apòstrof. S\'escriu me\'l i me\'ls.' : '«Me la» i «me les» són dues paraules separades: ni guionet ni apòstrof.';
+}
+// the answer of the robot with each pronoun, to see which one the child has given
+const answer = (r, p) => norm(r.pre + glue(p, r.post));
+function whyAns(r, g) {
+  const T = TYPES[r.t.type], p = pron(r.t.type, r.me);
+  if (g === norm(r.pre + r.post)) return `Hi falta el pronom! «${cap(r.pre + r.post)}.» no diu què. Al lloc del nom hi va «${p}», davant del verb.`;
+  if (g === answer(r, en(r.me))) return `«En» és per quan no es diu quina cosa és. Aquí és «${r.t.text}», una cosa concreta: «${p}».`;
+  if (p === "l'" && g === answer(r, T.art)) return `Davant d'un verb que comença per vocal, «${T.art}» es torna «l'»: ${r.want}.`;
+  const other = ALL.find(k => g === answer(r, pron(k, r.me)));
+  if (other) return `«${pron(other, r.me)}» és per a un nom ${TYPES[other].what}. «${cap(r.t.text)}»: ${T.what}.${r.t.note ? ' ' + r.t.note : ''}`;
+  if (g.includes('-')) return `En una resposta el pronom va davant del verb, sense guionet: ${r.want}.`;
+  if (!r.yes && !g.startsWith('no, no')) return `Quan diu que no, el pronom va entre «no» i el verb: ${r.want}.`;
+  return `«${cap(r.t.text)}» es torna «${p}», i va davant del verb: ${r.want}.`;
+}
+function whyEn(r, g) {
+  const p = en(r.me), the = thing(r.t.key);
+  if (g === norm(r.pre + r.post)) return `Hi falta «en»! «${cap(r.pre + r.post)}.» queda coixa: al lloc del nom hi va «${p}». ${r.want}.`;
+  if (p === "n'" && g === answer(r, 'en')) return `Davant d'un verb que comença per vocal, «en» es torna «n'»: ${r.want}.`;
+  const other = ALL.find(k => g === answer(r, pron(k, r.me)));
+  if (other) return `«${pron(other, r.me)}» és per a una cosa concreta, com «${the.text}». Aquí no es diu quina: és «${p}». ${r.want}.`;
+  if (g.includes('-')) return `Davant del verb, «en» va sol, sense guionet: ${r.want}.`;
+  if (r.count && g.startsWith(norm(glue(p, r.me)))) return `Compta bé els dibuixos: n'hi ha ${NUM[r.t.type[0]][r.count]}.`;
+  if (!r.yes && !g.startsWith('no, no')) return `Quan diu que no, «en» va entre «no» i el verb: ${r.want}.`;
+  return `Al lloc del nom hi va «${p}», davant del verb: ${r.want}.`;
+}
 // «d'» in front of the articles that start with a vowel
 export const from = art => art[0] === 'e' ? `d'«${art}»` : `de «${art}»`;
 const flip = type => type[0] + (type[1] === '1' ? 2 : 1);
-// the orders to choose from in a level of mode 'pick', the good one first: the page shuffles them
+// The sentences to choose from in a level of mode 'pick', each with its mark at the end, the good one first: the page shuffles them
 export function options(L, r) {
-  if (L.mix) return [r.want, r.named ? order(r.verb, r.t.type) : naming(r.verb, r.t), misnamed(r.verb, r.t)[0], order(r.verb, flip(r.t.type))];
-  if (r.named) return [r.want, ...misnamed(r.verb, r.t)];
-  if (L.spell) return [r.want, ...BAD[r.t.type].map(s => cap(r.verb) + s)];
-  return [r.want, ...(L.types || ALL).filter(k => k !== r.t.type).map(k => order(r.verb, k))];
+  const seen = new Set();
+  return optionsOf(L, r).map(s => typeof s === 'string' ? s + r.end : s[0] + s[1]).filter(s => !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()));
 }
-// the pieces to build an order with in a level of mode 'build': they go after the verb, in the order they are touched
+function optionsOf(L, r) {
+  const ty = r.t.type, types = (L.types || ALL).filter(k => k !== ty);
+  if (r.form === 'ask') {
+    // an order and a question for the same thing: each with its own mark
+    if (L.duo) return [r.want, [order(r.verb, ty), '!'], `${BADQ[ty][0]} ${YOU[r.verb]}`, [`${cap(r.verb)}${BAD[ty][0]}`, '!']];
+    if (L.mix) return [r.want, r.named ? asking(r.verb, ty) : askNaming(r.verb, r.t), misasked(r.verb, r.t)[0], asking(r.verb, flip(ty))];
+    if (r.named) return [r.want, ...misasked(r.verb, r.t)];
+    if (L.spell) return [r.want, ...BADQ[ty].map(s => `${s} ${YOU[r.verb]}`)];
+    return [r.want, ...types.map(k => asking(r.verb, k))];
+  }
+  if (r.form === 'ans') {
+    const say = p => cap(r.pre + glue(p, r.post)), T = TYPES[ty];
+    if (L.mix) return [r.want, say(en(r.me)), cap(r.pre + r.post)];
+    if (L.spell) return [r.want, r.yes ? `Sí, ${r.me}-${T.art}` : `No, ${T.art} no ${r.me}`, cap(r.pre + r.post)];
+    return [r.want, ...types.map(k => say(pron(k, r.me))), ...(pron(ty, r.me) === "l'" ? [say(T.art)] : [])];
+  }
+  if (r.form === 'en') {
+    const say = p => cap(r.pre + glue(p, r.post)), the = TYPES[thing(r.t.key).type].art, num = r.count ? ' ' + NUM[ty[0]][r.count] : '';
+    if (L.mix) return [r.want, say(the), cap(r.pre + r.post)];
+    return [r.want, cap(r.pre + r.post), say(the), en(r.me) === "n'" ? say('en') : r.yes ? cap(`${r.pre}${r.me}-ne${num}`) : `No, en no ${r.me}`];
+  }
+  if (L.duo) return [r.want, [asking(r.verb, ty), '?'], `${cap(r.verb)}${BAD[ty][0]}`, [`${BADQ[ty][0]} ${YOU[r.verb]}`, '?']];
+  if (L.mix) return [r.want, r.named ? order(r.verb, ty) : naming(r.verb, r.t), misnamed(r.verb, r.t)[0], order(r.verb, flip(ty))];
+  if (r.named) return [r.want, ...misnamed(r.verb, r.t)];
+  if (L.spell) return [r.want, ...BAD[ty].map(s => cap(r.verb) + s)];
+  return [r.want, ...types.map(k => order(r.verb, k))];
+}
+// The pieces to build a sentence with in a level of mode 'build', in the order they are touched: after the verb in an order, in front
+// of it in a question, and whole words in an answer
 export function trayOf(L, r) {
+  if (r.form === 'ask') return L.tray || ['Me', 'Em', "'l", ' la', "'ls", ' les'];
+  const the = TYPES[thing(r.t.key).type].art;
+  if (r.form === 'ans') return ['sí,', 'no,', 'no', ...new Set(ALL.map(k => pron(k, r.me))), r.me];
+  if (r.form === 'en') return r.count ? [...new Set(['en', "n'", the, r.me, NUM[r.t.type[0]][r.count], NUM[r.t.type[0]][r.count === 5 ? 4 : r.count + 1]])] : ['sí,', 'no,', 'no', 'en', "n'", the, r.me];
   const noun = L.noun || r.named ? [' ' + phrase(r.t)] : [];
   return [...(L.tray || ["-me", "'m", '-la', "'l", '-les', "'ls"]), ...noun];
 }
-// the keys to write an order with in a level of mode 'type': the letters of the pronouns, and those of the verb when it is typed too
+// The keys to write a sentence with in a level of mode 'type': the letters of the pronouns, and those of the verb when it is typed
+// too. A question has a key for the space: its pronouns are words apart
 export function keysOf(L, r) {
-  const letters = L.full ? [...new Set([...r.verb, ...'mels'])].sort((a, b) => a.localeCompare(b, 'ca')) : [...'mel', 'a', 's'];
-  return [...letters, '-', "'"];
+  const sorted = a => [...new Set(a)].sort((a, b) => a.localeCompare(b, 'ca'));
+  if (r.form === 'ask') return [...(L.full ? sorted([...YOU[r.verb], ...'mela']) : [...'mel', 'a', 's']), '-', "'", ' '];
+  if (r.form === 'ans' || r.form === 'en') return [...'el', 'a', 's', 'n', '-', "'"];
+  return [...(L.full ? sorted([...r.verb, ...'mels']) : [...'mel', 'a', 's']), '-', "'"];
 }
 
 /* ---------- the levels ---------- */
@@ -117,13 +233,28 @@ const sort = (title, items, bins, bare, say) => ({ kind: 'sort', title, items: i
 // choices are ways of writing one order), mix (they name the thing or not), shelf (the things of 'touch' and of free), bare,
 // tray and noun (the pieces of 'build'), full (the verb is typed too), free (how many things the child chooses off the shelf),
 // verb (the verb of the free ones) and make ([drawing, name] of what the robot builds at the end)
+// The sentences of circle 3: «?» in front of a round makes it a question («?porta:pa», «?=porta:pa» naming the thing); «verb>key» is
+// an answer of the robot with el, la, els or les («tens>clau»: «Sí, la tinc.») and «verb#key» one with «en» («tens#cargol+»: «Sí,
+// en tinc.»), with «!» in front of the key when the robot says no and a number after it for how many («vols#pila+3»: «En vull
+// tres.»). In o: duo (the choices are an order and a question)
 const TITLE = { pick: 'Tria l\'ordre', touch: 'Què donarà?', build: 'Munta l\'ordre', type: 'Escriu l\'ordre' };
+const TITLES = { ask: { pick: 'Tria la pregunta', touch: 'Què donarà?', build: 'Munta la pregunta', type: 'Escriu la pregunta' },
+  ans: { pick: 'Tria la resposta', touch: 'De què parla?', build: 'Munta la resposta', type: 'Escriu la resposta' } };
+function parse(s) {
+  let m = /^([a-zç]+)>(!?)(.+)$/.exec(s);
+  if (m) return roundOf(m[3], m[1], false, 'ans', { yes: !m[2] });
+  m = /^([a-zç]+)#(!?)(.+?)(\d?)$/.exec(s);
+  if (m) return roundOf(m[3], m[1], false, 'en', { yes: !m[2], count: +m[4] || 0 });
+  const [, q, eq, verb, key] = /^(\??)(=?)(?:([a-zç]+):)?(.+)$/.exec(s);
+  return roundOf(key, verb, !!eq, q ? 'ask' : 'imp');
+}
 function job(mode, rounds, o, say) {
-  const rs = rounds.map(s => { const [, eq, verb, key] = /^(=?)(?:([a-zç]+):)?(.+)$/.exec(s); return roundOf(key, verb, !!eq); });
-  return { kind: 'job', mode, title: o.make ? `Construeix ${o.make[1]}` : o.free ? 'Tria tu' : TITLE[mode], rounds: rs, ...o, say };
+  const rs = rounds.map(parse), form = rs.length && rs.every(r => r.form !== 'imp') ? rs[0].form === 'ask' ? 'ask' : 'ans' : 'imp';
+  return { kind: 'job', mode, title: o.make ? `Construeix ${o.make[1]}` : o.free ? 'Tria tu' : o.duo ? 'Ordre o pregunta?' : (TITLES[form] || TITLE)[mode], rounds: rs, form, ...o, say };
 }
 const FEM = { types: ['f1', 'f2'] }, MASC = { types: ['m1', 'm2'] };
 const NAMES = { tray: ["'m", '-me', ' em'] }, FTRAY = { tray: ['-me', "'m", '-la', '-les'] }, MTRAY = { tray: ['-me', "'m", "'l", "'ls", '-el', '-els'] };
+const QTRAY = { tray: ['Me', 'Em', "'l", ' la', "'ls", ' les', '-la', ' el'] };
 
 export const SECTIONS = [
   { name: 'El magatzem', sub: 'Endreça cada cosa al calaix del seu article: el, la, els o les.', levels: [
@@ -209,6 +340,42 @@ export const SECTIONS = [
     job('build', ['=compra:globus+', 'porta:globus+', 'passa:guitarra', '=porta:pastis'], { noun: true, make: ['🎉', 'una festa'] }, 'Per fer una festa: algunes ordres diuen el nom i d\'altres no. Mira el senyal.'),
     job('type', [], { free: 4, verb: 'passa', full: true, shelf: ['corona', 'anell', 'estrella+', 'pantalons+'] }, 'Tria-les totes quatre i escriu cada ordre sencera amb «Passa».'),
     job('type', ['porta:corona', 'llança:estrella+', 'deixa:anell', 'torna:ulleres+', 'guarda:pantalons+'], { full: true, make: ['🏆', 'la copa dels pronoms febles'] }, 'L\'última missió: cinc ordres senceres, cinc verbs. Endavant, comandant!')
+  ] },
+  { name: 'Me\'l dones?', sub: 'Demana-ho amb una pregunta: «Me la dones?», «Me\'l dones?».', levels: [
+    job('pick', ['?=pilota', '?=pa'], {}, 'Una ordre és una mica seca. Demana-ho amb una pregunta! Dient el nom de la cosa, «em» va davant del verb, sol: «Em dones la pilota?».'),
+    job('pick', ['?pilota', '?poma+'], FEM, 'Sense dir el nom, «em» es gira i es torna «me», i el pronom va darrere, separat: «Me la dones?», «Me les dones?».'),
+    job('pick', ['?llibre', '?llapis+'], MASC, '«Me» i «el» s\'enganxen com sempre: la e d\'«el» cau i hi queda l\'apòstrof. «Me\'l dones?», «Me\'ls dones?».'),
+    job('touch', ['?carta+', '?martell', '?corona'], { shelf: ['martell', 'carta+', 'corona', 'guant+'] }, 'Llegeix la pregunta i toca què et donarà el robot.'),
+    job('pick', ['?llanterna', '?cotxe', '?sabata+'], { spell: true }, 'Davant del verb no hi ha mai guionets! Els guionets només hi són quan els pronoms van darrere.'),
+    job('build', ['?bombeta', '?guant+', '?flor+'], QTRAY, 'Munta la pregunta: primer «Me» i després el pronom. Hi ha peces que enganyen!'),
+    job('pick', ['porta:motxilla', '?porta:motxilla', '?passa:llapis+', 'passa:llapis+'], { duo: true }, 'Mira el senyal: ❗ vol una ordre, amb els pronoms darrere del verb; ❓ vol una pregunta, amb els pronoms davant.'),
+    job('type', ['?maduixa+', '?gelat'], {}, 'Ara l\'escrius tu. Entre «me» i «la» hi va un espai: té la seva tecla.'),
+    job('type', ['?=compra:xocolata', '?compra:xocolata', '?passa:tisores+'], {}, 'Amb el nom: «Em». Sense el nom: «Me» i el pronom.'),
+    job('type', ['?torna:rellotge', '?busca:ulleres+', '?guarda:caramel+'], { full: true }, 'Tres preguntes senceres, amb el verb i tot. El verb va al final!')
+  ] },
+  { name: 'Sí, la tinc!', sub: 'El robot respon sense repetir el nom: «Sí, la tinc.», «No, no el veig.».', levels: [
+    job('pick', ['tens>pilota', 'tens>galeta+'], FEM, 'El robot ha estrenat veu! Quan li pregunten «Tens la pilota?», no repeteix el nom: el canvia per un pronom, davant del verb. «Sí, la tinc.»'),
+    job('pick', ['tens>llibre', 'vols>llapis+', 'veus>corona'], {}, 'Ara amb tots quatre: el, la, els i les. Mira l\'article de la cosa que li pregunten.'),
+    job('touch', ['veus>dau+', 'tens>corona', 'vols>llapis+'], { shelf: ['corona', 'dau+', 'llapis+', 'martell'] }, 'Al revés: llegeix què respon el robot i toca la cosa de què parla.'),
+    job('pick', ['tens>!clau', 'veus>!globus+'], { spell: true }, 'Quan diu que no, el pronom va entre «no» i el verb: «No, no la tinc.»'),
+    job('pick', ['vols>pizza', 'busques>mapa', 'portes>sabata+'], { spell: true }, 'El pronom, sempre davant del verb i sense guionet. I que no falti: «Sí, vull.» no diu què vol!'),
+    job('pick', ['agafes>poma', 'agafes>llibre', 'agafes>guant+'], {}, 'Davant d\'un verb que comença per vocal, «el» i «la» es fan «l\'»: «Sí, l\'agafo.» «Els» i «les» no canvien.'),
+    job('build', ['tens>motxilla', 'veus>!cotxe', 'vols>maduixa+'], {}, 'Munta la resposta paraula per paraula. On va el pronom?'),
+    job('type', ['tens>bicicleta', 'vols>!formatge', 'veus>estrella+'], {}, 'Ara escrius tu el pronom que falta.'),
+    job('type', ['agafes>paraigua', 'amagues>clau', 'agafes>pantalons+'], {}, 'Verbs que comencen per vocal: l\'apòstrof té la seva tecla. I compte amb els noms que enganyen!'),
+    job('type', ['tens>!ou', 'busques>tisores+', 'agafes>anell', 'vols>aigua'], {}, 'Quatre respostes escrites. Si surten totes a la primera, el robot ja parla com tu!')
+  ] },
+  { name: 'En vull tres!', sub: 'Quantes en vols? «En vull tres.» En tens? «No, no en tinc.»', levels: [
+    job('pick', ['vols#pila+3'], {}, 'Li pregunten «Quantes piles vols?». El robot no repeteix «piles»: al seu lloc hi posa «en». «En vull tres.» Sense «en», la frase queda coixa!'),
+    job('pick', ['tens#cargol+2', 'vols#galeta+4'], {}, 'Compta els dibuixos i busca la resposta que porta «en» davant del verb.'),
+    job('pick', ['tens#cargol+', 'vols#aigua'], {}, 'Quan li pregunten per una cosa sense «el» ni «la» («Tens cargols?»), també respon amb «en»: «Sí, en tinc.»'),
+    job('pick', ['tens#!pila+', 'vols#!llet'], {}, 'Quan diu que no, «en» va entre «no» i el verb: «No, no en tinc.»'),
+    job('pick', ['tens>pila+', 'tens#pila+', 'vols#galeta+', 'vols>galeta+'], { mix: true }, 'Compte! «Tens LES piles?» parla d\'unes piles concretes: «Sí, les tinc.» «Tens piles?» no diu quines: «Sí, en tinc.»'),
+    job('pick', ['agafes#poma+2', 'agafes#caramel+', 'agafes#!guant+'], {}, 'Davant d\'un verb que comença per vocal, «en» es fa «n\'»: «N\'agafo dues.»'),
+    job('build', ['vols#bombeta+3', 'tens#!suc', 'veus#globus+5'], {}, 'Munta la resposta paraula per paraula. «En» va davant del verb.'),
+    job('type', ['tens#martell+2', 'vols#!pa', 'veus#estrella+4'], {}, 'Ara escrius tu la paraula que falta.'),
+    job('type', ['agafes#maduixa+5', 'agafes#xocolata', 'tens>clau+', 'tens#clau+'], {}, 'Barrejat: «n\'» davant de vocal, «les» per a unes de concretes i «en» per a la resta.'),
+    job('type', ['vols#ou+3', 'veus>mapa', 'agafes#!guant+', 'tens>!ulleres+', 'vols#cargol+5'], { make: ['🎤', 'un robot que parla'] }, 'L\'última: cinc respostes, amb «en» i amb «el, la, els, les». Si surten bé, el robot ja sap parlar del tot!')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -222,7 +389,8 @@ export const PROJECTS = SECTIONS;
 export const CIRCLES = [
   { name: 'El robot es desperta', projects: [0, 1] },
   { name: 'Les quatre ordres', projects: [2, 3, 4] },
-  { name: 'Comandant de robots', projects: [5, 6] }
+  { name: 'Comandant de robots', projects: [5, 6] },
+  { name: 'El robot aprèn a parlar', projects: [7, 8, 9] }
 ];
 // the progress of the cursus, the same in every game (shared/curs.js): the stars of each level are kept in stars
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', badges: p => badges(p), BADGES: () => BADGES });
@@ -232,7 +400,8 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle };
 export const POOL = ['pilota', 'llapis+', 'tisores+'];
 export const POOL_SHELF = ['llibre', 'pilota', 'llapis+', 'tisores+'];
 
-// What is saved is facts only: { so, stars[70], piscina, exams[3], fulls }. Marks, XP, level and badges are worked out, never stored.
+// What is saved is facts only: { so, stars[100], piscina, exams[4], fulls }. Marks, XP, level and badges are worked out, never stored.
+// A save from before circle 3 (stars[70], exams[3]) keeps all it had: the new places come empty.
 // a complete progress inside its limits from any value at all; a new object
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
@@ -244,9 +413,10 @@ export const BADGES = [
   { name: 'Primer full', what: 'Troba bé les errades d\'un full.' },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
   { name: 'Deu fulls', what: 'Corregeix bé deu fulls d\'errades.' },
-  { name: 'Mestre dels pronoms febles', what: 'Supera els tres exàmens.' }
+  { name: 'Mestre dels pronoms febles', what: 'Supera els exàmens dels cercles 0, 1 i 2.' },
+  { name: 'Robot xerraire', what: 'Supera l\'examen del cercle 3.' }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true)];
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.slice(0, 3).every(e => e === true), p.exams[3] === true];
 
 /* ---------- the exam and «Caça l'errada» ---------- */
 // Chance enters only through rnd (a function like Math.random).
@@ -287,8 +457,32 @@ const CLAIM = {
   }
 };
 export const KINDS = Object.keys(CLAIM);
+// The claims of circle 3, each with q (what the sheet says before the sentence) and end (its mark): a question, an answer of the
+// robot and an answer with «en»
+const COUNTED = ['pila+', 'cargol+', 'galeta+', 'poma+', 'caramel+', 'globus+'];
+const said = (r, q, bad, rnd) => { const wrong = shuffle(options({}, r).slice(1).map(s => s.slice(0, -1)), rnd); return { ...claim(r.t.key, false, r.want, wrong, bad, rnd), q, end: r.end }; };
+const CLAIM3 = {
+  ask(bad, rnd) {
+    const t = thing(GIVEN[at(GIVEN.length, rnd)]), verb = VERBS[at(VERBS.length, rnd)], r = roundOf(t.key, verb, false, 'ask');
+    const wrong = shuffle([`${BADQ[t.type][0]} ${YOU[verb]}`, asking(verb, flip(t.type))], rnd);
+    return { ...claim(t.key, false, r.want, wrong, bad, rnd), q: `Per demanar <b>${t.text}</b> amb una pregunta, sense dir-ne el nom:`, end: '?' };
+  },
+  ans(bad, rnd) {
+    const r = roundOf(GIVEN[at(GIVEN.length, rnd)], ['tens', 'vols', 'veus', 'agafes'][at(4, rnd)], false, 'ans', { yes: at(3, rnd) > 0 });
+    return said(r, `Li pregunten «${wish(r)}» i el robot respon:`, bad, rnd);
+  },
+  en(bad, rnd) {
+    const r = roundOf(COUNTED[at(COUNTED.length, rnd)], ['tens', 'vols', 'agafes'][at(3, rnd)], false, 'en', { count: [0, 2, 3, 4][at(4, rnd)] });
+    return said(r, `Li pregunten «${wish(r)}»${r.count ? `, n'hi ha ${NUM[r.t.type[0]][r.count]},` : ''} i el robot respon:`, bad, rnd);
+  }
+};
+Object.assign(CLAIM, CLAIM3);
+export const KINDS3 = Object.keys(CLAIM3);
 // Three claims of three different kinds; from 0 to 2 of them are wrong (never all three), in any place
-export function sheet(rnd) {
+function draw(kinds, rnd) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
-  return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
+  return shuffle(kinds, rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
 }
+export function sheet(rnd) { return draw(KINDS.slice(), rnd); }
+// the same with the sentences of circle 3 among them, for when that circle is open
+export function sheetWide(rnd) { return draw([...KINDS, ...KINDS3], rnd); }

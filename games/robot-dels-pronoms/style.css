@@ -1,7 +1,11 @@
-/* Layout: the night pond of the other games, turned into the workshop of a robot. One centred column: the row of levels, the frog
-   in its commander's cap with its tip in a speech bubble, and a stage: the robot on the left, its screen with the order and the
-   things on the right, the bag the things fly to, and under it what answers (orders to choose, pieces, keys or drawers). Two fixed
-   canvases paint the sky behind and the sparks in front. Written for a phone held upright; it only grows on a wide screen. */
+/* Layout. With WebGL the workshop of the robot is the 3D picture behind the page (#world, games/robot-dels-pronoms/world.js), and the
+   page is a panel of glass over it, as in El castell dels números: on a wide screen the panel stands on the right and the workshop
+   fills the rest; on a phone or a tablet held upright the workshop is on top (.view keeps its place free) and the panel under it.
+   The robot, the things and the drawers live in the workshop; the panel keeps the question, the screen with the sentence and what
+   answers it (sentences to choose, pieces, keys, drawers).
+   Without WebGL it is the night pond of the other games: one centred column with the row of levels, the frog in its commander's cap
+   with its tip in a speech bubble, and a stage: the robot on the left, its screen with the sentence and the things on the right, the
+   bag the things fly to, and under it what answers. Written for a phone held upright; it only grows on a wide screen. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
@@ -10,6 +14,53 @@
 #app.wide { max-width: 780px; }
 #app.wide h1 { display: none; }
 h1, h2, .btn, .chip, .status, .key, .ask, .line, .console, .rule, .it, .bin, .pc { font-family: var(--display); }
+
+/* the workshop in 3D, and the panel of glass over it */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+/* the page lets the taps through to the workshop wherever it has nothing of its own */
+body:not(.nogl) #app { width: min(100%, 640px); max-width: none; padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) #game > :not(.view) { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl) h1 { font-size: clamp(1.7rem, 5.4vw, 2.5rem); }
+body:not(.nogl).playing header { display: none; }
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+.sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+body:not(.nogl) .sheet { position: relative; padding: 14px 12px 18px; border-radius: 26px; background: rgb(7 28 40 / 0.82); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+/* the robot, the frog and the thing asked for are in the workshop: the panel keeps what the frog says, the screen and what answers */
+body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before, body:not(.nogl) .botbox, body:not(.nogl) .cards.solo { display: none; }
+body:not(.nogl) .stage { min-height: 0; }
+body:not(.nogl) .desk { max-width: 460px; }
+body:not(.nogl) .bins .bin { min-height: 76px; }
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app { width: 500px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+/* a phone held upright: the panel is kept short, so the workshop above it and the keys are in view together */
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  body:not(.nogl) .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body:not(.nogl).playing #app { padding-bottom: 6px; gap: 6px; }
+  body:not(.nogl) .sheet .levels button { width: 38px; height: 38px; }
+  body:not(.nogl) .coach .status.tip { min-height: 0; padding: 6px 12px; font-size: 0.95rem; }
+  body:not(.nogl) .stage { gap: 8px; }
+  body:not(.nogl) .ask { font-size: 1.15rem; }
+  body:not(.nogl) .key { width: 44px; height: 44px; font-size: 1.4rem; }
+  body:not(.nogl) .keys { gap: 6px; }
+  body:not(.nogl) .rule { font-size: 0.95rem; }
+  body:not(.nogl) .ans { gap: 8px; min-height: 0; }
+  body:not(.nogl) .ans .opts { gap: 8px; }
+  body:not(.nogl) .ans .opts .btn { font-size: 1.05rem; padding: 0.35em 0.85em; min-width: 0; }
+  body:not(.nogl) .console { font-size: 1.3rem; }
+  body:not(.nogl) .bag i { width: 30px; height: 30px; font-size: 1.1rem; }
+  body:not(.nogl) .pc { min-width: 52px; min-height: 44px; font-size: 1.3rem; }
+  body:not(.nogl) .tray { gap: 8px; }
+}
+body:not(.nogl) .rule { min-height: 0; }
+body:not(.nogl) .rule:empty { display: none; }
 
 /* the rank and the XP live in the row at the top: always in view, and no screen is taller for it */
 .xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
@@ -29,10 +80,14 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .console, .rule, .it, .bin, .pc
 .panel .won { color: var(--sun); font-size: 2rem; letter-spacing: 0.12em; line-height: 1; }
 .panel .lead.go { color: var(--mint); }
 
-/* the map: three bands that grow outwards like rings; a closed one says what it lacks and its buttons are disabled */
+/* the map: a band for each circle; a closed one says what it lacks and its buttons are disabled */
 .map { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.grow { font-weight: 800; font-size: 0.9rem; color: var(--muted); max-width: 44ch; }
+.grow b { color: var(--sun); }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
-.ring.r0 { --rh: 140; width: 93%; } .ring.r1 { --rh: 195; width: 96%; } .ring.r2 { --rh: 262; }
+.ring.r0 { --rh: 140; } .ring.r1 { --rh: 195; } .ring.r2 { --rh: 262; } .ring.r3 { --rh: 318; }
+.proj .pi { font-size: 1.4rem; line-height: 1.1; }
+.proj.ok .pi { filter: drop-shadow(0 0 6px var(--mint)); }
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 26px; height: 26px; }
@@ -164,6 +219,9 @@ button.it:disabled { opacity: 0.3; cursor: not-allowed; }
 .key.mark { border: 2px solid var(--sun); color: var(--sun); font-size: 2rem; }
 .key.ok { width: 76px; background: var(--pad); color: var(--on-pad); border: 0; box-shadow: 0 4px 0 var(--pad-dark); }
 .key.del { width: 62px; }
+/* the space between two pronouns that are words apart: a long key */
+.key.space, body:not(.nogl) .key.space { width: 108px; font-size: 1rem; border: 2px solid var(--cyan); color: var(--cyan); }
+body:not(.nogl) .key.ok { width: 70px; } body:not(.nogl) .key.del { width: 56px; }
 
 /* the drawers, each in the colour of its article, with what has been put in it */
 .bins { width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
