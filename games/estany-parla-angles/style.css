@@ -1,7 +1,12 @@
-/* Layout: the night pond of the other games, with a radio station in it. One centred column: the row of levels, the frog with
-   headphones and its tip in a speech bubble, the dots of the round, then the stage: what goes over the questions (the radio, the
-   topic, the text to read) and the card of the question on show, with its play buttons and its answers. Written for a phone held
-   upright; it grows on a wide screen. */
+/* Layout. With WebGL Ràdio Granota is the 3D picture behind the page (#world, games/estany-parla-angles/world.js), and the page is a
+   panel of glass over it, as in El robot dels pronoms febles: on a wide screen the panel stands on the right and the pond fills the
+   rest; on a phone or a tablet held upright the pond is on top (.view keeps its place free) and the panel under it. The frog lives in
+   the studio, the picture of the question is on its board and the options with a picture float on lily pads; the panel keeps the
+   question, the play buttons and what answers it.
+   Without WebGL it is the night pond of the other games: one centred column with the row of levels, the frog with headphones and its
+   tip in a speech bubble, the dots of the round, then the stage: what goes over the questions (the radio, the topic, the text to
+   read) and the card of the question on show, with its play buttons and its answers. Written for a phone held upright; it grows on a
+   wide screen. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
@@ -10,6 +15,46 @@
 #app.wide { max-width: 760px; }
 #app.wide h1 { display: none; }
 h1, h2, h3, .btn, .chip, .status, .ask, .line2, .claimbox, .show, .tile .lbl, .lt, .wt, .ls, .ws, .num, .card b, .who, .inst { font-family: var(--display); }
+
+/* the studio in 3D, and the panel of glass over it */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+/* the page lets the taps through to the studio wherever it has nothing of its own */
+body:not(.nogl) #app { width: min(100%, 640px); max-width: none; padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) #game > :not(.view) { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl) h1 { font-size: clamp(1.7rem, 5.4vw, 2.5rem); }
+body:not(.nogl).playing header { display: none; }
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+.sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+body:not(.nogl) .sheet { position: relative; padding: 14px 12px 18px; border-radius: 26px; background: rgb(7 28 40 / 0.82); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+/* the frog is in the studio: the panel keeps what it says */
+body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before, body:not(.nogl) .hero .frog { display: none; }
+body:not(.nogl) .stage { min-height: 0; }
+/* the end of an exam, a sheet or the simulacre empties the stage: its panel needs room inside the glass */
+body:not(.nogl) .stage:has(> .panel) { min-height: 340px; }
+body:not(.nogl) .qcard { background: rgb(255 255 255 / 0.04); }
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app { width: 520px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+/* a phone held upright: the panel is kept short, so the pond above it and the answers are in view together */
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  body:not(.nogl) .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body:not(.nogl).playing #app { padding-bottom: 6px; gap: 6px; }
+  body:not(.nogl) .sheet .levels button { width: 38px; height: 38px; }
+  body:not(.nogl) .coach .status.tip { min-height: 0; padding: 6px 12px; font-size: 0.95rem; }
+  body:not(.nogl) .stage { gap: 8px; }
+  body:not(.nogl) .qcard { gap: 8px; padding: 8px 8px 10px; }
+  body:not(.nogl) .big { min-height: 0; }
+  body:not(.nogl) .big .emo { font-size: 3.2rem; }
+  body:not(.nogl) .tile .emo { font-size: 2.4rem; }
+  body:not(.nogl) .tiles { max-width: 340px; }
+}
 
 /* the level and the XP live in the row at the top */
 .xp { flex: 1 1 0; min-width: 0; max-width: 240px; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; background: var(--glass); border: 1px solid var(--edge); }
@@ -58,7 +103,7 @@ h1, h2, h3, .btn, .chip, .status, .ask, .line2, .claimbox, .show, .tile .lbl, .l
 .novoice { color: var(--coral); }
 .next { font-weight: 800; font-size: 0.95rem; color: var(--sun); }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
-.ring.r0 { --rh: 45; width: 93%; } .ring.r1 { --rh: 200; width: 96%; } .ring.r2 { --rh: 320; }
+.ring.r0 { --rh: 45; width: 91%; } .ring.r1 { --rh: 200; width: 94%; } .ring.r2 { --rh: 320; width: 97%; } .ring.r3 { --rh: 140; }
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 28px; height: 28px; }
@@ -168,6 +213,14 @@ h1, h2, h3, .btn, .chip, .status, .ask, .line2, .claimbox, .show, .tile .lbl, .l
 .tf .tfb.ok { outline: 4px solid #fff; outline-offset: 2px; }
 .tf .tfb:disabled:not(.ok) { opacity: 0.45; }
 .nextb { margin-top: 4px; }
+
+/* pictures with ✓ (yes) or ✗ (no): «Have you got...?», «Can you...?», «Do you like...?» */
+.marks { display: flex; gap: 18px; justify-content: center; }
+.marks .mkp { position: relative; display: grid; place-items: center; width: 96px; height: 96px; border-radius: 22px; background: var(--paper); border: 3px solid #4D7486; }
+.big .marks .emo, .marks .emo { font-size: 3.2rem; line-height: 1; }
+.marks .mkp b { position: absolute; right: -10px; bottom: -10px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 1.35rem/1 var(--display); border: 3px solid #fff; }
+.marks .mkp.yes { border-color: #2FB36B; } .marks .mkp.yes b { background: #2FB36B; }
+.marks .mkp.no { border-color: #E8476A; } .marks .mkp.no b { background: #E8476A; }
 
 /* a thing in a place */
 .place { position: relative; display: block; width: 86%; height: 86%; }

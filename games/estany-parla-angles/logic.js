@@ -1,5 +1,5 @@
 import { curs, whole, within, slots, at, int, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-import { VOCAB, W, inGroup, numWord, an, plural, PEOPLE, FACTS, LOVES, ROLES, TOPICS, TEXTS, SENTENCES, TASKS, SLIPS } from './content.js';
+import { VOCAB, W, inGroup, numWord, an, plural, PEOPLE, FACTS, LOVES, ROLES, TOPICS, TEXTS, SENTENCES, TASKS, SLIPS, HELLO, ABOUT, YESNO, KIN, DAYS, THEMES, SLIPS3 } from './content.js';
 // The rules and the rounds of «L'estany parla anglès», with no page in it. Every level is a round of a few questions, like the parts of
 // the English test of the «avaluació de diagnòstic» of 4t: listen and choose the picture, listen and say TRUE or FALSE, listen and do,
 // read a text with headings and answer, and write a word or a sentence. Chance enters only through rnd; it must keep importing from Node.
@@ -28,7 +28,11 @@ export const SAYS = {
   text: ['Answer the questions according to the text. Only one option is correct.', 'Respon segons el text. Només hi ha una resposta bona.'],
   textTf: ['Choose TRUE or FALSE according to the text.', 'Tria TRUE (veritat) o FALSE (mentida) segons el text.'],
   spell: ['Listen and write the word.', 'Escolta i escriu la paraula.'],
-  build: ['Put the words in order.', 'Posa les paraules en ordre.']
+  build: ['Put the words in order.', 'Posa les paraules en ordre.'],
+  answer: ['Listen and choose the right answer.', 'Escolta la pregunta i tria la resposta bona.'],
+  marks: ['Look at the pictures. Listen and choose the answer.', 'Mira els dibuixos: ✓ vol dir que sí i ✗ que no. Escolta la pregunta i tria la resposta.'],
+  lookAnswer: ['Look at the picture. Listen and choose the answer.', 'Mira el dibuix, escolta la pregunta i tria la resposta.'],
+  listenWord: ['Listen and choose the word.', 'Escolta i tria la paraula.']
 };
 const ask = (kind, extra = {}) => ({ en: SAYS[kind][0], ca: SAYS[kind][1], ...extra });
 
@@ -194,7 +198,86 @@ function textItems(r, T, which = null) {
   });
 }
 
-/* ---------- the rounds of the six projects ---------- */
+/* ---------- circle 3: questions and their answers ---------- */
+const AGES = [8, 9, 10, 11, 12];
+const FEEL = inGroup('feel'), WEA = inGroup('wea'), FAM = inGroup('fam'), CLOCKS = inGroup('time');
+// n of pool, none of them right
+const others = (r, pool, right, n = 2) => draw(r, [...new Set(pool)], n, [right]);
+// A question heard and its answer chosen among three (the right one and two wrongs). show writes the question too; big is a picture
+// that says the answer (kind lookAnswer) or two pictures with ✓ or ✗ (kind marks)
+function answerItem(r, q, right, wrongs, o = {}) {
+  const opts = mix(r, [right, ...wrongs.slice(0, 2)]);
+  return { k: 'pick', ...ask(o.kind || 'answer'), say: q, show: o.hide ? null : q, opts: opts.map(t => ({ t })), ok: opts.indexOf(right), word: o.word || null, learn: `${q} ${right}`, ...(o.big ? { big: o.big } : {}) };
+}
+// a sentence heard and its picture chosen: the sentence is what is learnt
+const sayWord = (r, k, pool, s) => ({ ...listenWord(r, k, pool, 3, s), learn: s });
+// a picture, a question about it and the answers of the others of its group
+const lookAns = (r, k, pool, q, line) => answerItem(r, q, line(k), others(r, pool, k).map(line), { kind: 'lookAnswer', big: W[k].pic, word: k });
+// the greetings: the wrong options answer the other greetings
+function hellos(r, n) {
+  const name = pick(r, PEOPLE)[0], bank = HELLO.map(([q, a]) => [q, a(name)]);
+  return draw(r, bank, n).map(([q, a]) => answerItem(r, q, a, others(r, bank.map(b => b[1]), a)));
+}
+// the questions about oneself: «How old are you?» has «I'm fine, thank you.» among its wrong ones
+function abouts(r, n, hide = false) {
+  const bank = ABOUT.map(f => f(r, numWord(pick(r, AGES)))), answers = bank.map(b => b[1]);
+  return draw(r, bank, n).map(([q, a]) => answerItem(r, q, a, q.startsWith('How old') ? ["I'm fine, thank you.", ...others(r, answers, a, 1)] : others(r, answers, a), { hide }));
+}
+// Two pictures with ✓ or ✗ and a question about one of them: the answer is yes or no as its mark says. The third option is the short
+// answer of another kind of question («Yes, I can.» to «Have you got...?»)
+function yesNos(r, kind, n, hide = false) {
+  const Y = YESNO[kind];
+  return draw(r, Y.things, n).map(a => {
+    const b = pick(r, Y.things.filter(t => t !== a)), yes = r() < 0.5, marks = mix(r, [[W[a[0]].pic, yes], [W[b[0]].pic, r() < 0.5]]);
+    const X = YESNO[pick(r, Object.keys(YESNO).filter(x => x !== kind))];
+    return answerItem(r, Y.ask(a[1]), yes ? Y.yes : Y.no, [yes ? Y.no : Y.yes, yes ? X.yes : X.no], { kind: 'marks', big: { marks }, word: a[0], hide });
+  });
+}
+// «Who is she?» and a picture: one wrong answer has the same he or she, the other one the other
+function whoItem(r, [k, he]) {
+  const He = he === 'he' ? 'He' : 'She', She = he === 'he' ? 'She' : 'He';
+  const same = pick(r, KIN.filter(x => x[1] === he && x[0] !== k))[0], other = pick(r, KIN.filter(x => x[1] !== he))[0];
+  return answerItem(r, `Who is ${he}?`, `${He}'s my ${W[k].word}.`, [`${He}'s my ${W[same].word}.`, `${She}'s my ${W[other].word}.`], { kind: 'lookAnswer', big: W[k].pic, word: k });
+}
+// a day heard: the trap is the one that sounds like it (Tuesday and Thursday)
+const DAYTRAP = { Monday: 'Sunday', Tuesday: 'Thursday', Wednesday: 'Monday', Thursday: 'Tuesday', Friday: 'Saturday', Saturday: 'Sunday', Sunday: 'Saturday' };
+function dayItem(r, d) {
+  const t = DAYTRAP[d], o = mix(r, [d, t, pick(r, DAYS.filter(x => x !== d && x !== t))]);
+  return { k: 'pick', ...ask('listenWord'), say: `Today is ${d}.`, opts: o.map(t => ({ t })), ok: o.indexOf(d), word: null, learn: `Today is ${d}.` };
+}
+// Two children talk (two voices): names, age, a pet, what one can and can't do, the weather. Heard whole, then four questions with
+// pictures; what one can't do is among the options of what one can, as in the test
+function chat(r) {
+  const [a] = pick(r, PEOPLE), [b, he] = pick(r, PEOPLE.filter(p => p[0] !== a)), He = he === 'he' ? 'He' : 'She';
+  const age = pick(r, AGES), pet = pick(r, ['dog', 'cat', 'rabbit', 'fish', 'bird', 'turtle']), [can, cant] = draw(r, YESNO.can.things, 2), wea = pick(r, ['sunny', 'rainy', 'cloudy', 'windy', 'snowy']);
+  const lines = [`Hi! I'm ${a}. What's your name?`, `Hello, ${a}! My name is ${b}.`, `How old are you, ${b}?`, `I'm ${numWord(age)}.`, 'Have you got a pet?', `Yes, I have. I've got ${an(W[pet].word)}.`,
+    `Can you ${cant[1]}?`, `No, I can't. But I can ${can[1]}!`, "What's the weather like today?", `It's ${W[wea].word}! Let's go to the park!`];
+  const q = (show, ca, right, opts, learn) => { const o = mix(r, opts); return { k: 'pick', ...ask('radio'), ca, show, opts: o.map(x => typeof x === 'number' ? numPic(x) : pic(x)), ok: o.indexOf(right),
+    word: typeof right === 'number' ? (W[nk(right)] ? nk(right) : null) : right, learn }; };
+  const ages = [age, ...draw(r, [age - 1, age + 1, age + 2, age + 10].filter(x => x !== age), 2)];
+  return { who: `${a} and ${b}`, lines, qs: [
+    q(`${b} is ___ years old.`, `Quants anys té ${b}?`, age, ages, `${He} is ${numWord(age)} years old.`),
+    q(`${b} has got a...`, `Quina mascota té ${b}?`, pet, [pet, ...draw(r, ['dog', 'cat', 'rabbit', 'fish', 'bird', 'turtle'], 2, [pet])], `${He} has got ${an(W[pet].word)}.`),
+    q(`${b} can...`, `Què sap fer ${b}? Compte: hi ha una cosa que no sap fer.`, can[0], [can[0], cant[0], pick(r, YESNO.can.things.filter(t => t !== can && t !== cant))[0]], `${He} can ${can[1]}.`),
+    q("What's the weather like?", 'Quin temps fa?', wea, [wea, ...draw(r, ['sunny', 'rainy', 'cloudy', 'windy', 'snowy'], 2, [wea])], `It's ${W[wea].word}.`)] };
+}
+
+/* ---------- circle 3: the theme days ---------- */
+// One theme for three parts, as in the test: Listening 1 (who talks and three pictures to choose), Listening 2 (three sentences,
+// TRUE or FALSE according to what is heard: each alone, or whole once and twice at most) and a short text with three questions.
+// Each item says its part; parts gives what goes over the questions of each one
+const whoOf = Th => Th.hello.match(/I'm ((?:Mr |Mrs )?[A-Z]\w+)/)[1];
+function themeRound(r, Th, whole) {
+  const p1 = draw(r, Th.pics, 3).map(([s, ...ks], i) => { const c = choice(r, ks[0], ks.slice(1)); return { k: 'pick', ...ask('listen'), say: i ? s : [Th.hello, s], opts: c.opts.map(pic), ok: c.ok, word: ks[0], learn: s, part: 0 }; });
+  const L = heardLines(r, Th.topic, 3), p2 = L.map((l, i) => ({ ...tfHeard(l, i + 1, !whole), part: 1 }));
+  const X = textItems(r, Th.text), tfs = X.filter(i => i.k === 'tf'), p3 = [...X.filter(i => i.k === 'pick'), pick(r, tfs)].map(it => ({ ...it, part: 2 }));
+  return { theme: Th, items: [...p1, ...p2, ...p3], parts: [
+    { title: 'LISTENING 1', ctx: { who: whoOf(Th) } },
+    { title: 'LISTENING 2', ctx: whole ? { topic: Th.topic, intro: { who: Th.topic.name, lines: L.map((l, i) => `Number ${i + 1}. ${l.heard}`) }, once: true } : { topic: Th.topic } },
+    { title: 'READING', ctx: { text: Th.text } }] };
+}
+
+/* ---------- the rounds of the eight projects ---------- */
 // R[p](idx, rnd) → { items, intro?, text? }. intro is a recording heard before the questions (lines), once says the questions have no
 // sentence of their own: the whole recording is what is heard, as in the test
 const BASIC = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'white', 'grey'];
@@ -285,13 +368,32 @@ const R = [
     const task = draw(r, T.ans, 2).map(([w, pc]) => buildSentence(r, { w, bad: T.bad }, idx >= 8 ? 2 : 1, { ...T, pic: pc }));
     const hobbies = hob.map(k => ({ ...spellWord(r, W[k].word, W[k].pic, k, 2), en: 'What about you? What are your hobbies? Write a hobby.', ca: "I tu? Escriu l'afició del dibuix." }));
     return { items: [...task, ...hobbies, buildSentence(r, pick(r, SENTENCES), 2)] };
-  }
+  },
+  // 6 · Ask and answer: greetings, oneself, the short answers, the weather, the family, the time, a conversation
+  (idx, r) => {
+    const weather = k => `It's ${W[k].word}.`;
+    if (idx === 0) return { items: mix(r, [...hellos(r, 3), ...draw(r, FEEL, 2).map(k => sayWord(r, k, FEEL, `I'm ${W[k].word}.`)), lookAns(r, pick(r, FEEL), FEEL, 'How are you?', k => `I'm ${W[k].word}.`)]) };
+    if (idx === 1) return { items: abouts(r, 6) };
+    if (idx === 2) return { items: yesNos(r, 'got', 6) };
+    if (idx === 3) return { items: yesNos(r, 'can', 6) };
+    if (idx === 4) return { items: mix(r, [...yesNos(r, 'like', 4), ...yesNos(r, 'got', 1, true), ...yesNos(r, 'can', 1, true)]) };
+    if (idx === 5) return { items: mix(r, [...draw(r, WEA, 3).map(k => sayWord(r, k, WEA, weather(k))), ...draw(r, WEA, 3).map(k => lookAns(r, k, WEA, "What's the weather like?", weather))]) };
+    if (idx === 6) return { items: mix(r, [...draw(r, FAM, 3).map(k => sayWord(r, k, FAM, `This is my ${W[k].word}.`)), ...draw(r, KIN, 3).map(kin => whoItem(r, kin))]) };
+    if (idx === 7) return { items: mix(r, [...draw(r, CLOCKS, 2).map(k => sayWord(r, k, CLOCKS, `It's ${W[k].word}.`)), ...draw(r, CLOCKS, 2).map(k => lookAns(r, k, CLOCKS, 'What time is it?', x => `It's ${W[x].word}.`)),
+      ...draw(r, DAYS, 2).map(d => dayItem(r, d))]) };
+    if (idx === 8) { const C = chat(r); return { once: true, intro: { who: C.who, lines: C.lines, duo: true }, items: C.qs }; }
+    return { items: mix(r, [...hellos(r, 1), ...abouts(r, 1, true), ...yesNos(r, 'got', 1, true), ...yesNos(r, 'can', 1, true), ...yesNos(r, 'like', 1, true),
+      lookAns(r, pick(r, WEA), WEA, "What's the weather like?", weather), whoItem(r, pick(r, KIN)), (k => sayWord(r, k, CLOCKS, `It's ${W[k].word}.`))(pick(r, CLOCKS))]) };
+  },
+  // 7 · Theme day: a theme a level, and a surprise one at the end; from level 7 on Listening 2 is heard whole, as in the test
+  (idx, r) => themeRound(r, idx < THEMES.length ? THEMES[idx] : pick(r, THEMES), idx >= 6)
 ];
 // the round of level idx of project p, drawn with rnd
 export function round(p, idx, rnd = Math.random) { return (R[p] || R[0])(Math.min(9, Math.max(0, whole(idx))), rnd); }
 
 // where the words of each group of the album come up first: [project, level]
-export const LEARN = { col: [0, 0], num: [0, 1], ani: [1, 0], body: [1, 0], food: [1, 1], clo: [1, 2], hob: [1, 3], pla: [1, 4], tra: [1, 4], sch: [1, 5], rec: [1, 5], nat: [1, 5] };
+export const LEARN = { col: [0, 0], num: [0, 1], ani: [1, 0], body: [1, 0], food: [1, 1], clo: [1, 2], hob: [1, 3], pla: [1, 4], tra: [1, 4], sch: [1, 5], rec: [1, 5], nat: [1, 5],
+  feel: [6, 0], wea: [6, 5], fam: [6, 6], time: [6, 7] };
 
 /* ---------- the cursus: circles, projects, marks ---------- */
 const lv = titles => titles.map(title => ({ title }));
@@ -301,12 +403,15 @@ export const PROJECTS = [
   { name: 'Ràdio Granota', sub: 'Escolta qui parla', icon: '📻', levels: lv(['Meet a friend', 'Hello, who are you?', 'All about me', 'Find the things', 'Listen in order', 'Careful!', 'The whole radio', 'The whole radio', 'Tricky radio', 'Tricky radio']) },
   { name: 'True or false?', sub: 'Veritat o mentida', icon: '✅', levels: lv(['This is...', 'How many?', 'The monster', 'Colour it', 'Where is it?', 'Listen and do', 'Listen carefully', 'Listen carefully', 'The whole listening', 'The whole listening']) },
   { name: 'Reading', sub: 'Llegeix i respon', icon: '📖', levels: lv([...TEXTS.short.map(t => t.title), ...TEXTS.medium.map(t => t.title), ...TEXTS.long.slice(0, 4).map(t => t.title)]) },
-  { name: 'Write it!', sub: 'Lletres i frases', icon: '✏️', levels: lv(['Three letters', 'Short words', 'Long words', 'Short sentences', 'Sentences', 'Long sentences', 'Write like the test', 'Write like the test', 'Write like the test', 'Write like the test']) }
+  { name: 'Write it!', sub: 'Lletres i frases', icon: '✏️', levels: lv(['Three letters', 'Short words', 'Long words', 'Short sentences', 'Sentences', 'Long sentences', 'Write like the test', 'Write like the test', 'Write like the test', 'Write like the test']) },
+  { name: 'Ask and answer', sub: 'Preguntes i respostes', icon: '💬', levels: lv(['Hello! How are you?', 'All about you', 'Have you got...?', 'Can you...?', 'Do you like...?', "What's the weather like?", 'My family', 'What time is it?', 'A conversation', 'Review']) },
+  { name: 'Theme day', sub: 'Un tema, com a la prova', icon: '🗓️', levels: lv([...THEMES.map(t => t.name), 'Surprise theme!']) }
 ];
 export const CIRCLES = [
   { name: 'Primeres paraules', projects: [0, 1] },
   { name: 'Escolta!', projects: [2, 3] },
-  { name: 'Llegeix i escriu', projects: [4, 5] }
+  { name: 'Llegeix i escriu', projects: [4, 5] },
+  { name: 'Converses i temes', projects: [6, 7] }
 ];
 const count = a => a.filter(Boolean).length;
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', lists: ['words'], badges: p => badges(p), BADGES: () => BADGES, xpExtra: p => 2 * count(p.words) + 5 * p.best });
@@ -318,8 +423,9 @@ export const mockIn = cursus.keep('best');
 export const POOL = [{ title: 'Escolta i toca', p: 0, idx: 0, n: 4 }, { title: 'TRUE o FALSE', p: 3, idx: 0, n: 4 }, { title: 'Llegeix i toca', p: 1, idx: 6, n: 3 }];
 export const pool = (k, rnd = Math.random) => { const P = POOL[k] || POOL[0]; return round(P.p, P.idx, rnd).items.slice(0, P.n); };
 
-// What is saved is facts only: { so, stars[60], piscina, exams[3], fulls, ratxa, best, proves, words[...] }. words keeps a boolean per word of
-// VOCAB, in its order (the album). Marks, XP, level and badges are worked out, never stored.
+// What is saved is facts only: { so, stars[80], piscina, exams[4], fulls, ratxa, best, proves, words[...] }. words keeps a boolean per word of
+// VOCAB, in its order (the album). Marks, XP, level and badges are worked out, never stored. A save from before circle 3 (stars[60],
+// exams[3], fewer words) keeps all it had: the new places come empty.
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
   const stars = slots(o.stars, PROJECTS.length * 10).map(s => within(s, 3));
@@ -349,10 +455,13 @@ export const BADGES = [
   { name: 'Aprovat!', what: 'Treu 10 o més al simulacre.' },
   { name: 'Excel·lent!', what: 'Treu 18 o més al simulacre.' },
   { name: 'Tots els projectes', what: 'Valida els sis projectes.' },
-  { name: 'English expert', what: 'Supera els tres exàmens.' }
+  { name: 'English expert', what: 'Supera els tres exàmens.' },
+  { name: 'Bona conversa', what: "Supera l'examen del cercle 3." },
+  { name: '150 paraules', what: "Posa 150 paraules a l'àlbum." }
 ];
+// «Tots els projectes» and «English expert» keep what they were: the six projects and the three exams of the first circles
 export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.ratxa >= 15, count(p.words) >= 50, count(p.words) >= 100,
-  p.proves >= 1, p.best >= 10, p.best >= 18, PROJECTS.every((_, i) => noteOf(p, i) >= VALID), p.exams.every(e => e === true)];
+  p.proves >= 1, p.best >= 10, p.best >= 18, PROJECTS.slice(0, 6).every((_, i) => noteOf(p, i) >= VALID), p.exams.slice(0, 3).every(e => e === true), p.exams[3] === true, count(p.words) >= 150];
 
 /* ---------- the exam of a circle ---------- */
 // Six different levels of the projects of circle c, at least one of each project, in a random order; each { title, p, idx }
@@ -371,9 +480,11 @@ export function exam(c, rnd) {
 // one question of the level of an exam: an item of its round, with the recording or the text it needs
 export function examItem(q, rnd = Math.random) {
   const Rd = round(q.p, q.idx, rnd), it = { ...Rd.items[at(Rd.items.length, rnd)] };
-  if (Rd.text) it.text = Rd.text;
-  if (Rd.once && Rd.intro) it.intro = Rd.intro;
-  if (Rd.topic) it.topic = Rd.topic;
+  // a theme day: what goes over the questions is the one of the item's part
+  const C = Rd.parts ? Rd.parts[it.part].ctx : Rd;
+  if (C.text) it.text = C.text;
+  if (C.once && C.intro) it.intro = C.intro;
+  if (C.topic) it.topic = C.topic;
   return it;
 }
 
@@ -409,6 +520,24 @@ export function sheet(rnd) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
   return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => {
     const s = CLAIM[kind](rnd);
+    return { kind, pic: s.pic, ca: s.ca, real: s.real, says: bads.has(i) ? s.bad : s.real, opts: mix(rnd, [s.real, s.bad, s.other]) };
+  });
+}
+// the mistakes of circle 3: «Is sunny.», «Yes, I like.», «Yes, I know.» (from «en sé»), «Yes, I have got.», «Is three o'clock.»
+const CLAIM3 = {
+  weather: r => SLIPS3.weather(pick(r, ['sunny', 'rainy', 'windy', 'cloudy', 'cold', 'hot'])),
+  doYou: r => SLIPS3.doYou(pick(r, YESNO.like.things)),
+  canYou: r => SLIPS3.canYou(pick(r, YESNO.can.things)),
+  haveGot: r => SLIPS3.haveGot(pick(r, YESNO.got.things)),
+  time: r => SLIPS3.time(int(r, 1, 12))
+};
+export const KINDS3 = Object.keys(CLAIM3);
+// The notebook once circle 3 is open: one sentence of its mistakes and two of any kind, from 0 to 2 of them wrong. sheet() stays as it was
+export function sheetWide(rnd) {
+  const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
+  const one = KINDS3[at(KINDS3.length, rnd)], rest = shuffle([...KINDS, ...KINDS3].filter(k => k !== one), rnd).slice(0, 2);
+  return shuffle([one, ...rest], rnd).map((kind, i) => {
+    const s = (CLAIM[kind] || CLAIM3[kind])(rnd);
     return { kind, pic: s.pic, ca: s.ca, real: s.real, says: bads.has(i) ? s.bad : s.real, opts: mix(rnd, [s.real, s.bad, s.other]) };
   });
 }

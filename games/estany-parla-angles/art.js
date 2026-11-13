@@ -24,8 +24,10 @@ export const RADIO = `<svg class="radio" viewBox="0 0 120 92" aria-hidden="true"
   <g class="waves" fill="none" stroke="#6FE3FF" stroke-width="3" stroke-linecap="round"><path class="w1" d="M104 44q5 9 0 18"/><path class="w2" d="M110 38q9 15 0 30"/><path class="w3" d="M116 32q12 21 0 42"/></g></svg>`;
 
 /* ---------- the pictures of a question ---------- */
-// «~#E8443A» a colour, «=20» a number, { a, b, rel } a thing in a place, anything else an emoji (or a few of them)
+// «~#E8443A» a colour, «=20» a number, { a, b, rel } a thing in a place, { marks: [[pic, yes], ...] } pictures with ✓ or ✗, anything
+// else an emoji (or a few of them)
 export function picHtml(p) {
+  if (p && typeof p === 'object' && p.marks) return `<span class="marks" aria-hidden="true">${p.marks.map(([x, yes]) => `<span class="mkp${yes ? ' yes' : ' no'}">${picHtml(x)}<b>${yes ? '✓' : '✗'}</b></span>`).join('')}</span>`;
   if (p && typeof p === 'object') return `<span class="place r-${p.rel.replace(' ', '-')}" aria-hidden="true"><span class="b">${p.b}</span><span class="a">${p.a}</span></span>`;
   const s = String(p);
   if (s.startsWith('~')) return `<span class="sw" style="--c:${s.slice(1)}" aria-hidden="true"></span>`;

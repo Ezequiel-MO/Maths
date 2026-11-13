@@ -189,12 +189,46 @@ rain|🌧️|rain|nat
 snow|❄️|snow|nat
 cloud|☁️|cloud|nat
 rainbow|🌈|rainbow|nat
-wind|🌬️|wind|nat`;
+wind|🌬️|wind|nat
+sunny|☀️|sunny|wea
+rainy|🌧️|rainy|wea
+cloudy|☁️|cloudy|wea
+windy|🌬️|windy|wea
+snowy|❄️|snowy|wea
+stormy|⛈️|stormy|wea
+hot|🥵|hot|wea
+cold|🥶|cold|wea
+mum|👩|mum|fam
+dad|👨|dad|fam
+brother|👦|brother|fam
+sister|👧|sister|fam
+grandma|👵|grandma|fam
+grandad|👴|grandad|fam
+baby|👶|baby|fam
+happy|😀|happy|feel
+sad|😢|sad|feel
+tired|😴|tired|feel
+hungry|😋|hungry|feel
+angry|😠|angry|feel
+scared|😨|scared|feel
+c1|🕐|one o'clock|time
+c2|🕑|two o'clock|time
+c3|🕒|three o'clock|time
+c4|🕓|four o'clock|time
+c5|🕔|five o'clock|time
+c6|🕕|six o'clock|time
+c7|🕖|seven o'clock|time
+c8|🕗|eight o'clock|time
+c9|🕘|nine o'clock|time
+c10|🕙|ten o'clock|time
+c11|🕚|eleven o'clock|time
+c12|🕛|twelve o'clock|time`;
 export const VOCAB = RAW.trim().split('\n').map(l => { const [key, pic, word, cat] = l.split('|'); return { key, pic, word, cat }; });
 export const W = Object.fromEntries(VOCAB.map(v => [v.key, v]));
 // the groups of the album, in its order, with their name in Catalan
 export const GROUPS = [['col', 'Colors'], ['num', 'Números'], ['ani', 'Animals'], ['body', 'El cos'], ['food', 'Menjar'], ['clo', 'Roba'],
-  ['hob', 'Aficions'], ['pla', 'Llocs'], ['sch', "Coses de l'escola"], ['tra', 'Vehicles i espai'], ['rec', 'Reciclar'], ['nat', 'Natura']];
+  ['hob', 'Aficions'], ['pla', 'Llocs'], ['sch', "Coses de l'escola"], ['tra', 'Vehicles i espai'], ['rec', 'Reciclar'], ['nat', 'Natura'],
+  ['wea', 'El temps'], ['fam', 'La família'], ['feel', 'Com estàs?'], ['time', "L'hora"]];
 export const inGroup = cat => VOCAB.filter(v => v.cat === cat).map(v => v.key);
 
 /* ---------- numbers in words ---------- */
@@ -422,4 +456,136 @@ export const SLIPS = {
   thereAre: (n, k) => ({ pic: W[k].pic.repeat(n), ca: `Hi ha ${n} ${({ apple: 'pomes', banana: 'plàtans', duck: 'ànecs', pencil: 'llapis', flower: 'flors', egg: 'ous' })[k]}.`, real: `There are ${numWord(n)} ${plural(W[k].word)}.`, bad: `There is ${numWord(n)} ${plural(W[k].word)}.`, other: `There are ${numWord(n)} ${W[k].word}.` }),
   from: () => ({ pic: '🗺️', ca: 'Sóc de Catalunya.', real: 'I am from Catalonia.', bad: 'I am of Catalonia.', other: 'I from Catalonia.' }),
   playing: k => ({ pic: W[k].pic, ca: `M'agrada jugar a ${({ football: 'futbol', tennis: 'tennis', basketball: 'bàsquet' })[k]}.`, real: `I like playing ${k}.`, bad: `I like play ${k}.`, other: `I like playing the ${k}s.` })
+};
+
+/* ---------- circle 3, «Ask and answer»: questions and their answers ---------- */
+// The greetings: a question or a greeting heard and what answers it. The wrong options are the answers of the others
+export const HELLO = [
+  ["What's your name?", n => `My name is ${n}.`], ['How are you?', () => "I'm fine, thank you."], ['Nice to meet you!', () => 'Nice to meet you too!'],
+  ['Goodbye!', () => 'Bye! See you soon!'], ['Thank you!', () => "You're welcome."], ['Good night!', () => 'Good night! Sleep well!']
+];
+// What one is asked about oneself: each gives [question, answer] drawn with r (age, the age in words). The wrong options are the
+// answers of the others, so only the question says which one is right
+export const ABOUT = [
+  (r, age) => ['How old are you?', `I'm ${age}.`],
+  r => ['Where do you live?', r() < 0.5 ? 'I live in a small village.' : 'I live in a big city.'],
+  r => ['Where are you from?', r() < 0.5 ? "I'm from Catalonia." : "I'm from Spain."],
+  r => ["What's your favourite colour?", `My favourite colour is ${['red', 'blue', 'green', 'purple', 'yellow'][Math.floor(r() * 5) % 5]}.`],
+  r => ["What's your favourite food?", `My favourite food is ${['pizza', 'fish', 'chips', 'salad'][Math.floor(r() * 4) % 4]}.`],
+  r => ['What do you like doing?', `I like ${['reading', 'dancing', 'painting', 'swimming'][Math.floor(r() * 4) % 4]}.`],
+  r => ['Have you got a brother or a sister?', r() < 0.5 ? "Yes, I've got a sister." : "No, I haven't."],
+  () => ["What's your name?", 'My name is Leo.']
+];
+// «Have you got...?», «Can you...?» and «Do you like...?»: what is asked about (an album key and how it is said) and the two answers
+export const YESNO = {
+  got: { ask: w => `Have you got ${w}?`, yes: 'Yes, I have.', no: "No, I haven't.", things: [['dog', 'a dog'], ['cat', 'a cat'], ['rabbit', 'a rabbit'], ['fish', 'a fish'], ['bird', 'a bird'],
+    ['turtle', 'a turtle'], ['bike', 'a bike'], ['camera', 'a camera'], ['computer', 'a computer'], ['teddy', 'a teddy bear'], ['schoolbag', 'a schoolbag'], ['robot', 'a robot']] },
+  can: { ask: w => `Can you ${w}?`, yes: 'Yes, I can.', no: "No, I can't.", things: [['swimming', 'swim'], ['cycling', 'ride a bike'], ['skating', 'skate'], ['cooking', 'cook'],
+    ['dancing', 'dance'], ['singing', 'sing'], ['guitar', 'play the guitar'], ['football', 'play football']] },
+  like: { ask: w => `Do you like ${w}?`, yes: 'Yes, I do.', no: "No, I don't.", things: [['pizza', 'pizza'], ['salad', 'salad'], ['cheese', 'cheese'], ['chocolate', 'chocolate'],
+    ['milk', 'milk'], ['apple', 'apples'], ['banana', 'bananas'], ['carrot', 'carrots'], ['icecream', 'ice cream'], ['strawberry', 'strawberries'], ['egg', 'eggs']] }
+};
+// the family, with he or she for «Who is he?»
+export const KIN = [['mum', 'she'], ['dad', 'he'], ['brother', 'he'], ['sister', 'she'], ['grandma', 'she'], ['grandad', 'he']];
+export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+/* ---------- circle 3, «Theme day»: one theme for the three parts, as in the test ---------- */
+// Each theme: who talks in Listening 1 and how they start (hello); pics, the sentences of Listening 1 with the right picture first and
+// two wrong ones (album keys); topic, the sentences of Listening 2 (a topic of «True or false?», or one of its own); and a short text
+const topicOf = name => TOPICS.find(t => t.name === name);
+export const THEMES = [
+  { name: 'Birds', pic: '🐦', hello: "Hi! I'm Emma. I'm a birdwatcher.", topic: topicOf('Birds'), pics: [
+    ['Owls can see at night.', 'owl', 'duck', 'hen'], ['Ducks can swim in the lake.', 'duck', 'owl', 'hen'], ["Penguins can't fly, but they can swim.", 'penguin', 'owl', 'bird'],
+    ['Birds have got feathers.', 'feather', 'leaf', 'ear'], ['Hens lay eggs.', 'egg', 'apple', 'bread'], ['Birds make their nests in trees.', 'tree', 'house', 'sea']],
+    text: { title: 'Amazing birds', pic: '🐦', intro: 'There are a lot of different birds in the world.', vocab: [['insects', 'insectes'], ['seeds', 'llavors']], secs: [
+      { h: 'DESCRIPTION', pic: '🐦', body: 'Birds have got two legs, two wings and feathers. Most birds can fly.' },
+      { h: 'NESTS', pic: '🌳', body: 'Birds make nests with branches and leaves. They lay their eggs in the nest.' },
+      { h: 'FOOD', pic: '🐛', body: 'Some birds eat insects*. Other birds eat seeds* and fruit.' }],
+      qs: [{ q: 'Birds have got...', o: ['feathers', 'hair', 'fins'], s: 0 }, { q: 'Birds make nests with...', o: ['branches and leaves', 'stones', 'paper'], s: 1 },
+        { tf: 'All birds eat fish.', a: false, s: 2 }, { tf: 'Birds lay their eggs in the nest.', a: true, s: 1 }] } },
+  { name: 'Space', pic: '🚀', hello: "Hello! I'm Carolina. I want to be an astronaut.", topic: topicOf('Space'), pics: [
+    ['At night I can see the Moon.', 'moon', 'sun', 'cloud'], ['The Sun is a star.', 'sun', 'moon', 'planet'], ['Astronauts travel in a rocket.', 'rocket', 'plane', 'bus'],
+    ['I look at the stars with a telescope.', 'telescope', 'camera', 'glasses'], ['Saturn is a planet with rings.', 'planet', 'star', 'moon'], ['We live on planet Earth.', 'earth', 'moon', 'sun']],
+    text: { title: 'Our Solar System', pic: '🪐', intro: 'The Sun and eight planets are our Solar System.', vocab: [['air', 'aire']], secs: [
+      { h: 'THE SUN', pic: '☀️', body: 'The Sun is a star. It is very big and very hot.' },
+      { h: 'THE EARTH', pic: '🌍', body: 'The Earth is our planet. It has got water, air* and a lot of animals and plants.' },
+      { h: 'MARS', pic: '🔴', body: 'Mars is a red planet. It is very cold. Nobody lives there.' }],
+      qs: [{ q: 'The Sun is a...', o: ['star', 'planet', 'moon'], s: 0 }, { q: 'There are ___ planets in our Solar System.', o: ['eight', 'three', 'ten'], s: -1 },
+        { tf: 'Mars is red.', a: true, s: 2 }, { tf: 'The Sun is cold.', a: false, s: 0 }] } },
+  { name: 'Recycling', pic: '♻️', hello: "Hi! I'm Ben. I recycle at home and at school.", topic: topicOf('Recycling'), pics: [
+    ['Put the newspaper in the blue bin.', 'newspaper', 'can', 'jar'], ['Glass bottles go in the green bin.', 'glassb', 'plastic', 'box'], ['Plastic bottles go in the yellow bin.', 'plastic', 'glassb', 'paper'],
+    ["Old batteries don't go in the bin.", 'battery', 'bulb', 'can'], ['We can recycle cans.', 'can', 'jar', 'box'], ['Put the boxes in the blue bin.', 'box', 'can', 'bulb']],
+    text: { title: 'The three Rs', pic: '♻️', intro: 'We can help the planet with three words: reduce, reuse and recycle.', vocab: [['less', 'menys'], ['again', 'una altra vegada']], secs: [
+      { h: 'REDUCE', pic: '🛍️', body: 'Reduce means use less*. Use less paper and less plastic.' },
+      { h: 'REUSE', pic: '🫙', body: 'Reuse means use again*. An old jar can be a pencil pot!' },
+      { h: 'RECYCLE', pic: '♻️', body: 'Recycle means make new things with old things. Old paper makes new paper.' }],
+      qs: [{ q: 'Reuse means...', o: ['use again', 'use less', 'make new things'], s: 1 }, { q: 'An old jar can be...', o: ['a pencil pot', 'a ball', 'a book'], s: 1 },
+        { tf: 'Old paper makes new paper.', a: true, s: 2 }, { tf: 'Reduce means use more plastic.', a: false, s: 0 }] } },
+  { name: 'The sea', pic: '🐬', hello: "Hello! I'm Lucy. I'm on a boat.", topic: topicOf('The sea'), pics: [
+    ['Dolphins are very clever animals.', 'dolphin', 'fish', 'turtle'], ['Turtles can live for a hundred years.', 'turtle', 'fish', 'dolphin'], ['Fish live under the water.', 'fish', 'bird', 'horse'],
+    ["I'm on a boat.", 'boat', 'bus', 'car'], ["There's an island in the sea.", 'island', 'mountains', 'city'], ['I can swim in the sea.', 'swimming', 'cycling', 'skating']],
+    text: { title: 'Sea turtles', pic: '🐢', intro: 'Sea turtles are very old animals. They live in all the oceans*.', vocab: [['oceans', 'oceans'], ['shell', 'closca'], ['jellyfish', 'meduses']], secs: [
+      { h: 'THE SHELL', pic: '🐢', body: "Turtles have got a hard shell*. They can't take their shell off!" },
+      { h: 'FOOD', pic: '🌿', body: 'Many sea turtles eat jellyfish* and sea plants.' },
+      { h: 'EGGS', pic: '🥚', body: 'Turtles lay their eggs on the beach, in the sand.' }],
+      qs: [{ q: 'Turtles have got a hard...', o: ['shell', 'hat', 'box'], s: 0 }, { q: 'Turtles lay their eggs...', o: ['on the beach', 'in a tree', 'in a river'], s: 2 },
+        { tf: 'Sea turtles eat jellyfish.', a: true, s: 1 }, { tf: 'Turtles can take their shell off.', a: false, s: 0 }] } },
+  { name: 'Healthy food', pic: '🍎', hello: "Hello! I'm Mr Brown, the teacher.", topic: topicOf('Healthy food'), pics: [
+    ['Apples are good for you.', 'apple', 'chocolate', 'cake'], ['Drink a lot of water.', 'water', 'chocolate', 'chips'], ['Milk is good for breakfast.', 'milk', 'chips', 'pizza'],
+    ['Carrots are orange.', 'carrot', 'tomato', 'banana'], ["Don't eat chocolate every day.", 'chocolate', 'salad', 'apple'], ['A salad is healthy food.', 'salad', 'chips', 'cake']],
+    text: { title: 'A good breakfast', pic: '🥛', intro: 'Breakfast is the first meal of the day.', vocab: [['bones', 'ossos'], ['vitamins', 'vitamines'], ['energy', 'energia']], secs: [
+      { h: 'MILK', pic: '🥛', body: 'Milk and yoghurt make your bones* strong.' },
+      { h: 'FRUIT', pic: '🍓', body: 'Fruit has got a lot of vitamins*. Strawberries and oranges are great!' },
+      { h: 'BREAD', pic: '🍞', body: 'Bread gives you energy* for the morning at school.' }],
+      qs: [{ q: 'Breakfast is the ___ meal of the day.', o: ['first', 'last', 'second'], s: -1 }, { q: 'Bread gives you...', o: ['energy', 'sleep', 'water'], s: 2 },
+        { tf: 'Milk makes your bones strong.', a: true, s: 0 }, { tf: "Fruit hasn't got vitamins.", a: false, s: 1 }] } },
+  { name: 'The weather', pic: '🌦️', hello: "Hi! I'm Tom. Let's talk about the weather!", topic: topicOf('The weather'), pics: [
+    ["Today it's sunny.", 'sunny', 'rainy', 'snowy'], ["It's rainy. I need an umbrella.", 'rainy', 'sunny', 'windy'], ["In winter it's cold and snowy.", 'snowy', 'sunny', 'rainy'],
+    ["It's very windy today.", 'windy', 'cloudy', 'sunny'], ["There's a rainbow after the rain.", 'rainbow', 'cloud', 'moon'], ["It's very hot in summer.", 'hot', 'cold', 'snowy']],
+    text: { title: 'The four seasons', pic: '🍂', intro: 'A year has got four seasons*.', vocab: [['seasons', 'estacions'], ['warm', 'ni fred ni calor']], secs: [
+      { h: 'SPRING', pic: '🌸', body: 'In spring it is warm* and the flowers grow.' },
+      { h: 'SUMMER', pic: '☀️', body: 'In summer it is hot and sunny. We go to the beach.' },
+      { h: 'AUTUMN', pic: '🍂', body: 'In autumn it is windy and the leaves fall.' },
+      { h: 'WINTER', pic: '❄️', body: 'In winter it is cold. Sometimes it snows.' }],
+      qs: [{ q: 'How many seasons are there?', o: ['four', 'three', 'two'], s: -1 }, { q: 'In summer we go to the...', o: ['beach', 'school', 'snow'], s: 1 },
+        { tf: 'In autumn the leaves fall.', a: true, s: 2 }, { tf: 'In winter it is hot.', a: false, s: 3 }] } },
+  { name: 'Plants', pic: '🌻', hello: "Hello! I'm Olivia. I've got a garden.", topic: topicOf('Plants'), pics: [
+    ['Bees love flowers.', 'bee', 'spider', 'snake'], ['Trees have got leaves.', 'leaf', 'feather', 'hand'], ['Apples grow on trees.', 'apple', 'carrot', 'bread'],
+    ['Plants need water.', 'water', 'milk', 'chocolate'], ['Flowers grow in spring.', 'flower', 'snow', 'leaf'], ["There's a butterfly on the flower.", 'butterfly', 'bee', 'bird']],
+    text: { title: 'How a plant grows', pic: '🌱', intro: 'Olivia plants a seed* in her garden.', vocab: [['seed', 'llavor'], ['months', 'mesos']], secs: [
+      { h: 'WATER', pic: '💧', body: 'Every day, Olivia gives the seed some water.' },
+      { h: 'SUN', pic: '☀️', body: 'The plant needs sun too. It grows and grows!' },
+      { h: 'THE FLOWER', pic: '🌻', body: 'After two months*, there is a big yellow flower.' }],
+      qs: [{ q: 'Olivia plants a seed in her...', o: ['garden', 'bedroom', 'school'], s: -1 }, { q: 'The flower is...', o: ['yellow', 'blue', 'black'], s: 2 },
+        { tf: 'The plant needs sun.', a: true, s: 1 }, { tf: 'Olivia gives the seed milk.', a: false, s: 0 }] } },
+  { name: 'The farm', pic: '🚜', hello: "Hi! I'm Mrs Hill. I'm a farmer.", topic: { name: 'The farm', en: 'Mrs Hill, the farmer, talks about her farm.', ca: 'La senyora Hill, la pagesa, parla de la seva granja.', pic: '🚜', lines: [
+    'Cows give us [milk|eggs].', 'Hens give us [eggs|milk].', 'Sheep have got [wool|feathers].', 'Pigs love [mud|snow].', 'A farmer gets up very [early|late].', 'Horses eat [grass|meat].'] }, pics: [
+    ['Cows give us milk.', 'cow', 'pig', 'horse'], ['The horse is brown.', 'horse', 'cow', 'sheep'], ['Sheep are white.', 'sheep', 'pig', 'cow'],
+    ['Pigs are pink.', 'pig', 'sheep', 'horse'], ['I collect the eggs every morning.', 'egg', 'milk', 'cheese'], ['The hens live in a small house.', 'hen', 'duck', 'bird']],
+    text: { title: 'Life on a farm', pic: '🐄', intro: 'Mrs Hill lives on a farm with her family.', vocab: [['barn', 'estable']], secs: [
+      { h: 'MORNING', pic: '🐔', body: "Every morning, Mrs Hill gets up at six o'clock and collects the eggs." },
+      { h: 'ANIMALS', pic: '🐄', body: 'She gives food to the cows, the pigs and the sheep.' },
+      { h: 'EVENING', pic: '🌙', body: 'In the evening, the animals sleep in the barn*.' }],
+      qs: [{ q: 'Mrs Hill gets up at...', o: ["six o'clock", "ten o'clock", "one o'clock"], s: 0 }, { q: 'In the evening, the animals sleep in the...', o: ['barn', 'house', 'river'], s: 2 },
+        { tf: 'Mrs Hill collects the eggs.', a: true, s: 0 }, { tf: "There aren't any pigs on the farm.", a: false, s: 1 }] } },
+  { name: 'The museum', pic: '🏛️', hello: "Hello! I'm Jack. I'm at the Science Museum with my grandad.", topic: { name: 'The museum', en: 'Jack talks about the Science Museum.', ca: 'En Jack parla del museu de la ciència.', pic: '🏛️', lines: [
+    'The museum has got a [robot|lion].', 'The plane is very [old|small].', 'The rocket is [ten|two] metres tall.', 'You can [play|sleep] with the robot.', 'Jack goes with his [grandad|teacher].', 'The dinosaur is very [old|young].'] }, pics: [
+    ['I can see a robot.', 'robot', 'rocket', 'car'], ["There's a very old plane.", 'plane', 'train', 'boat'], ["There's a real rocket!", 'rocket', 'plane', 'robot'],
+    ['I take photos with my camera.', 'camera', 'computer', 'clock'], ['I play a game on the computer.', 'computer', 'camera', 'book'], ["There's an old train.", 'train', 'bus', 'car']],
+    text: { title: 'Robots', pic: '🤖', intro: 'In the Science Museum there is a room with robots.', vocab: [['clean', 'netejar']], secs: [
+      { h: 'HELPERS', pic: '🧹', body: 'Robots help people. Some robots clean* the house.' },
+      { h: 'SPACE', pic: '🚀', body: 'Some robots travel to other planets and take photos.' },
+      { h: 'FUN', pic: '🎮', body: 'Some robots can dance and play games!' }],
+      qs: [{ q: 'Some robots clean the...', o: ['house', 'sea', 'sky'], s: 0 }, { q: 'Some robots travel to other planets and take...', o: ['photos', 'sweets', 'books'], s: 1 },
+        { tf: 'Some robots can dance.', a: true, s: 2 }, { tf: 'Robots never help people.', a: false, s: 0 }] } }
+];
+
+/* ---------- «Caça l'errada» of circle 3: the mistakes of the short answers and of «it's» ---------- */
+const HOURS = ['', 'la una', 'les dues', 'les tres', 'les quatre', 'les cinc', 'les sis', 'les set', 'les vuit', 'les nou', 'les deu', 'les onze', 'les dotze'];
+export const SLIPS3 = {
+  weather: k => ({ pic: W[k].pic, ca: ({ sunny: 'Fa sol.', rainy: 'Plou.', windy: 'Fa vent.', cloudy: 'Està ennuvolat.', cold: 'Fa fred.', hot: 'Fa calor.' })[k], real: `It's ${W[k].word}.`, bad: `Is ${W[k].word}.`, other: `It ${W[k].word}.` }),
+  doYou: ([k, w]) => ({ pic: W[k].pic, ca: "—T'agrada? —Sí, m'agrada.", real: `Do you like ${w}? Yes, I do.`, bad: `Do you like ${w}? Yes, I like.`, other: `Do you like ${w}? Yes, I am.` }),
+  canYou: ([k, w]) => ({ pic: W[k].pic, ca: '—En saps? —Sí, en sé.', real: `Can you ${w}? Yes, I can.`, bad: `Can you ${w}? Yes, I know.`, other: `Can you ${w}? Yes, I do.` }),
+  haveGot: ([k, w]) => ({ pic: W[k].pic, ca: '—En tens? —Sí, en tinc.', real: `Have you got ${w}? Yes, I have.`, bad: `Have you got ${w}? Yes, I have got.`, other: `Have you got ${w}? Yes, I got.` }),
+  time: n => ({ pic: W['c' + n].pic, ca: `${n === 1 ? 'És' : 'Són'} ${HOURS[n]}.`, real: `It's ${numWord(n)} o'clock.`, bad: `Is ${numWord(n)} o'clock.`, other: `It's ${numWord(n)} clock.` })
 };
