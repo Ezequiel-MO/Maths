@@ -6,10 +6,11 @@ import { load, save as store } from '../../shared/progress.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, combo } from '../../shared/shell.js';
 import { PROJECTS, CIRCLES, POOL, POINTS, EXAM_PASS, VALID, starsFor, clean, noteOf, reached, validated, levelText, isOpen, examOpen, circleOf, exOf,
-  BADGES, badges, levelIn, poolIn, exam, examIn, examItem, sheet, sheetIn, streakIn, wordsIn, mockDone, round, pool, mock, VOCAB, W, LEARN } from './logic.js';
+  BADGES, badges, levelIn, poolIn, exam, examIn, examItem, sheet, sheetWide, sheetIn, streakIn, wordsIn, mockDone, round, pool, mock, VOCAB, W, LEARN } from './logic.js';
 import { GROUPS } from './content.js';
 import { speak, hush, canSpeak, english } from './speech.js';
 import { FROG, RADIO, picHtml, monster, shape, HEX, CA } from './art.js';
+import { studio, RING } from './world.js';
 
 const KEY = 'estany-parla-angles';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out
@@ -24,23 +25,55 @@ let keyFn = null;
 const fresh = tokens(() => { hush(); keyFn = null; });
 
 const { tone, chime } = voice(() => prog.so), { tone: click } = voice(() => prog.so, false);
-const FX = pond(tone);
+// Ràdio Granota in 3D behind the panel (world.js); without WebGL its calls do nothing and the game is the one of the page
+const ST = studio($('#world'));
+document.body.classList.toggle('nogl', !ST.ok);
+// for the checks in the browser: the studio, to ask it where the lily pads are
+window.__radio = ST;
+// the sparks and the confetti: the studio's with WebGL, the pond of the page without it
+const FX = ST.ok ? { burst() {}, celebrate: n => ST.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1), mood() {} } : pond(tone);
+ST.hear({ tone: click, chime });
+// the studio as the progress has it: a balloon for each project validated, a light of the antenna for each exam passed, the frog awake after the Piscina
+const worldState = () => ST.state({ piscina: prog.piscina || OPEN, valid: PROJECTS.map((_, i) => i).filter(i => OPEN || noteOf(prog, i) >= VALID), exams: CIRCLES.map((_, c) => c).filter(c => OPEN || prog.exams[c]) });
 const blip = (f = 660) => click(f, 0, 0.08, 0.06);
 const buzz = () => click(150, 0, 0.3, 0.12, 'triangle');
 const fanfare = () => chime([523, 659, 784, 1047, 1319]);
 const up = pentatonic(523);
 
 const HURRAY = ['Well done!', 'Great!', 'Super!', 'Fantastic!', 'Brilliant!', 'Yes!', 'Perfect!', 'Good job!'];
-const HUES = [45, 200, 330, 140, 262, 20];
+const HUES = [45, 200, 330, 140, 262, 20, 170, 300];
 const again = e => { e.classList.remove('shake', 'pop'); void e.getBoundingClientRect(); return e.classList; };
 const spark = (e, h = 48) => { if (e) { const p = mid(e); FX.burst(p.x, p.y, h, 16, 130); } };
 const H = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const count = a => a.filter(Boolean).length;
 
 const HUB = ownPage(KEY);
+const root = $('#game');
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+// the studio is framed in the part of the screen the panel leaves free: on the left of it when the screen is wide, above it otherwise
+function frame3d() {
+  if (WIDE.matches) ST.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('.view'); ST.layout('bottom', v ? Math.max(0.3, 1 - v.getBoundingClientRect().bottom / innerHeight) : 0.55); }
+}
+WIDE.addEventListener?.('change', () => frame3d());
+{ let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
+// a screen: the room the studio is seen through (h tall on a narrow screen) and the panel under it
+function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="sheet" id="sheet">${html}</div>`; frame3d(); }
+// On a narrow screen the studio takes the room the panel leaves: the view grows down to the panel when the panel is short (a tablet
+// held upright), and is never less than 30 % of the screen. Each question has a panel of its own height: the view only changes for a
+// big difference, so the camera does not move at every question (and the lily pads stay under the finger)
+function fitView() {
+  const v = $('.view'), sh = $('#sheet'); if (!v || !sh || !ST.ok || WIDE.matches) return;
+  const top = v.getBoundingClientRect().top + scrollY, free = innerHeight - sh.getBoundingClientRect().height - top - 40;
+  const h = Math.round(Math.max(innerHeight * 0.3, Math.min(innerHeight * 0.62, free)));
+  if (v.dataset.fit && Math.abs(h - v.getBoundingClientRect().height) < innerHeight * 0.08) return;
+  v.dataset.fit = '1'; v.style.height = h + 'px'; frame3d();
+}
+const MAP_VIEW = '40vh', LEVEL_VIEW = '36vh';
 function show(kicker, playing, hue) {
-  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  $('#game').onclick = null; keyFn = null; FX.mood(hue);
+  document.body.classList.toggle('playing', playing); $('#app').classList.toggle('wide', playing);
+  $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
+  root.onclick = null; keyFn = null; FX.mood(hue); ST.onPick = null; ST.highlight(null); ST.lamps(playing ? hue : null); ST.rest();
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -74,7 +107,8 @@ function streakBreak() { streak = 0; combo(0); }
 function audioHtml(label = 'Listen', small = false) {
   return `<div class="audio${small ? ' small' : ''}"><button class="play" data-play>🔊 <span>${label}</span></button><button class="slow" data-slow aria-label="A poc a poc">🐢</button><span class="left"></span></div>`;
 }
-function player(box, lines, limit) {
+// duo: a conversation, every other line in the second voice. While it plays the frog of the studio talks
+function player(box, lines, limit, duo = false) {
   let left = limit;
   const el = $('.audio', box);
   const paint = () => { const l = $('.left', el); if (l) l.textContent = Number.isFinite(left) ? (left ? `${left} ${left === 1 ? 'vegada' : 'vegades'}` : 'ja no') : ''; };
@@ -83,7 +117,7 @@ function player(box, lines, limit) {
     if (left <= 0) return false;
     if (Number.isFinite(left)) left--;
     paint(); el.classList.add('on'); el.classList.remove('wake');
-    speak(lines, slow).then(() => el.classList.remove('on'));
+    speak(lines, slow, duo, on => ST.talk(on)).then(() => el.classList.remove('on'));
     return true;
   }
   if (el) el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (!play('slow' in b.dataset) && Number.isFinite(limit)) b.closest('.audio').classList.add('shake'); };
@@ -92,15 +126,18 @@ function player(box, lines, limit) {
 }
 
 /* ---------- the map ---------- */
-const RING = [45, 200, 320];
 const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true"><circle r="13" fill="#F7C64E" stroke="hsl(${RING[c]} 70% 62%)" stroke-width="2.4"/><text y="5" text-anchor="middle" font-size="13" font-weight="800" fill="#6B4A10">${c + 1}</text></svg>`;
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN, field: 'stars' });
 let here = -1;
 function mapa() {
   fresh(); show("El mapa de l'anglès", false, 200);
-  const w = count(prog.words), pct = Math.round(100 * w / VOCAB.length);
-  M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${PROJECTS[i].icon}</span>`, pp: true,
+  worldState(); ST.go('map');
+  const w = count(prog.words), pct = Math.round(100 * w / VOCAB.length), nv = PROJECTS.filter((_, i) => noteOf(prog, i) >= VALID).length;
+  panel3d(MAP_VIEW, '');
+  const sheetEl = $('#sheet');
+  M.screen({ root: sheetEl, here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${PROJECTS[i].icon}</span>`, pp: true,
     before: `<div class="hero">${FROG}<p class="bubble">Hello! A l'abril hi ha la prova d'anglès de 4t. Cada dia una mica, i la passarem!</p></div>
+      ${ST.ok ? `<p class="grow">${nv >= PROJECTS.length ? 'El cel de l\'estany és ple de globus! Ràdio Granota està orgullosa de tu.' : `Cada projecte validat enlaira un globus sobre l'estany: <b>${nv} de ${PROJECTS.length}</b>.`}</p>` : ''}
       <div class="cards"><button class="card mockc" id="mockb"><span class="ci" aria-hidden="true">🎯</span><b>Simulacre de la prova</b><span>20 preguntes, com a l'abril</span><span class="mk">${prog.proves ? `Rècord: ${prog.best} de 20` : 'Encara no l’has fet'}</span></button>
       <button class="card albc" id="albb"><span class="ci" aria-hidden="true">📒</span><b>Àlbum de paraules</b><span>${w} de ${VOCAB.length}</span><span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span></button></div>
       ${prog.ratxa ? `<p class="grow">🔥 Rècord de ratxa: ${prog.ratxa} encerts seguits</p>` : ''}
@@ -108,6 +145,9 @@ function mapa() {
     foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${OPEN || validated(prog).length ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
       ${badgeList(BADGES, got)}</div>`,
     open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full], ['#mockb', simulacre], ['#albb', album]] });
+  // a project under the finger, or with the focus, lights its balloon
+  const lit = e => { const b = e.target.closest?.('.proj[data-p]'); ST.highlight(b ? +b.dataset.p : null); };
+  sheetEl.onpointerover = lit; sheetEl.onfocusin = lit; sheetEl.onpointerleave = () => ST.highlight(null);
   here = -1;
   if (canSpeak) setTimeout(() => { const n = $('#novoice'); if (n && !english()) n.hidden = false; }, 1500);
 }
@@ -131,7 +171,7 @@ function context(ctx, env) {
   if (ctx.text) html += textHtml(ctx.text, env.mode === 'learn');
   box.innerHTML = html;
   if (ctx.intro) {
-    P = player($('.radiobox', box), ctx.intro.lines, env.limit);
+    P = player($('.radiobox', box), ctx.intro.lines, env.limit, !!ctx.intro.duo);
     const radio = $('.radiobox', box), obs = new MutationObserver(() => radio.classList.toggle('on', $('.audio', radio).classList.contains('on')));
     obs.observe($('.audio', radio), { attributes: true, attributeFilter: ['class'] });
     if (ctx.once && env.auto && prog.so) setTimeout(() => { if (env.t.on) P.play(); }, 500);
@@ -161,6 +201,12 @@ function ask(it, env) {
     q.innerHTML = `<div class="qcard">${inst}${prompt}${it.say ? audioHtml() : ''}<div class="ans" id="ans"></div></div>`;
     again($('.qcard', q)).add('pop');
     const ans = $('#ans', q), openAt = performance.now() + SETTLE;
+    // for the checks in the browser: the question on show, and whether it takes a tap now
+    window.__angles = { it, mode: env.mode, get ready() { return t.on && !done && performance.now() >= openAt; } };
+    // the studio: the picture on the board, and the options with a picture on lily pads, which can be touched there too
+    ST.bot(''); ST.say('');
+    ST.question({ big: it.big || null, svg: it.monster ? monster(it.monster) : null, opts: it.k === 'pick' || it.k === 'order' ? it.opts : null });
+    ST.onPick = (kind, i) => { if (kind === 'pad' && t.on && !done) $(`[data-o="${i}"]`, ans)?.click(); };
     const P = it.say ? player($('.qcard', q), it.say, env.limit) : null;
     if (P && env.auto && prog.so) setTimeout(() => { if (t.on && !done) P.play(); }, 450);
     else if (P) $('.audio', q).classList.add('wake');
@@ -170,7 +216,7 @@ function ask(it, env) {
     async function good(el) {
       if (done) return; done = true; keyFn = null;
       $('.qcard', q).classList.add('solved');
-      if (env.mode !== 'mock') { spark(el || ans, 140); }
+      if (env.mode !== 'mock') { spark(el || ans, 140); ST.bot('ok'); if (it.learn) ST.say(it.learn, true); }
       env.right(it, slips);
       await sleep(env.mode === 'mock' ? 300 : 1200);
       finish({ ok: learn ? slips === 0 : true, slips });
@@ -185,7 +231,7 @@ function ask(it, env) {
       if (done) return true;
       if (learn) { slips++; env.slip(msg); return false; }
       done = true; keyFn = null;
-      if (env.mode === 'exam') { reveal?.(); env.tip(msg, 'oops'); buzz(); await next(); } else await sleep(300);
+      if (env.mode === 'exam') { reveal?.(); env.tip(msg, 'oops'); buzz(); ST.bot('err'); await next(); } else await sleep(300);
       finish({ ok: false, slips: 1 });
       return true;
     }
@@ -200,15 +246,15 @@ function ask(it, env) {
       ans.onclick = async e => {
         const b = e.target.closest('[data-o]'); if (!b || b.disabled || done || e.timeStamp < openAt) return;
         const i = +b.dataset.o;
-        if (i === it.ok) { b.classList.add('ok'); q.classList.add('told'); return good(b); }
+        if (i === it.ok) { b.classList.add('ok'); q.classList.add('told'); ST.mark(i, true); return good(b); }
         if (env.mode === 'mock') { b.classList.add('picked'); return bad(''); }
-        b.classList.add('no'); b.disabled = true; again(b).add('shake');
+        b.classList.add('no'); b.disabled = true; again(b).add('shake'); ST.mark(i, false);
         const right = $(`[data-o="${it.ok}"]`, ans);
-        await bad(learn ? (it.say ? 'Oh, no! Torna-ho a escoltar.' : 'Oh, no! Torna-ho a mirar.') : `No! La bona era: ${it.opts[it.ok].t || it.opts[it.ok].word}.`, () => { right.classList.add('ok'); q.classList.add('told'); });
+        await bad(learn ? (it.say ? 'Oh, no! Torna-ho a escoltar.' : 'Oh, no! Torna-ho a mirar.') : `No! La bona era: ${it.opts[it.ok].t || it.opts[it.ok].word}.`, () => { right.classList.add('ok'); q.classList.add('told'); ST.mark(it.ok, true); });
       };
       env.hint = () => {
         const left = [...ans.querySelectorAll('[data-o]')].filter(b => !b.disabled && +b.dataset.o !== it.ok);
-        if (left.length > 1 || (left.length && !it.say && it.sec == null)) { left[0].disabled = true; left[0].classList.add('no'); }
+        if (left.length > 1 || (left.length && !it.say && it.sec == null)) { left[0].disabled = true; left[0].classList.add('no'); ST.mark(+left[0].dataset.o, false); }
         const sec = hiSec();
         if (P) { P.play(true); return 'Escolta-ho a poc a poc.' + (left.length > 1 ? ' I he tret una opció dolenta.' : ''); }
         return sec ? 'La resposta és a la part del text que brilla.' : 'He tret una opció dolenta.';
@@ -254,12 +300,12 @@ function ask(it, env) {
         const b = e.target.closest('[data-o]'); if (!b || b.disabled || done || e.timeStamp < openAt) return;
         const i = +b.dataset.o;
         if (i === it.seq[n]) {
-          n++; b.disabled = true; b.classList.add('ok'); $('.ord', b).textContent = n; blip(up(n + 3));
+          n++; b.disabled = true; b.classList.add('ok'); $('.ord', b).textContent = n; blip(up(n + 3)); ST.mark(i, true, `${n} · ${it.opts[i].word}`);
           if (n === it.seq.length) { q.classList.add('told'); return good(b); }
           return;
         }
-        again(b).add('shake');
-        await bad(learn ? 'Aquest no va ara. Torna a escoltar l’ordre.' : 'No era aquest!', () => { it.seq.forEach((k, j) => { const x = $(`[data-o="${k}"]`, ans); x.classList.add('ok'); $('.ord', x).textContent = j + 1; }); q.classList.add('told'); });
+        again(b).add('shake'); ST.bot('err');
+        await bad(learn ? 'Aquest no va ara. Torna a escoltar l’ordre.' : 'No era aquest!', () => { it.seq.forEach((k, j) => { const x = $(`[data-o="${k}"]`, ans); x.classList.add('ok'); $('.ord', x).textContent = j + 1; ST.mark(k, true, `${j + 1} · ${it.opts[k].word}`); }); q.classList.add('told'); });
       };
       env.hint = () => { glow($(`[data-o="${it.seq[n]}"]`, ans)); return 'El que brilla és el següent.'; };
     }
@@ -334,7 +380,7 @@ function ask(it, env) {
       };
       env.hint = () => { glow([...ans.querySelectorAll('.wt:not(:disabled)')].find(x => x.dataset.w === it.words[n])); if (P) P.play(true); return 'La paraula que brilla és la següent.'; };
     }
-    scrollTo({ top: 0, behavior: 'auto' });
+    fitView(); scrollTo({ top: 0, behavior: 'auto' });
   });
 }
 
@@ -348,7 +394,7 @@ const paintDots = (k, run) => [...$('#dots').children].forEach((d, j) => { d.cla
 // the env of the levels and the Piscina: a slip lowers the stars, a right answer grows the run and fills the album
 function learnEnv(t, tip, onSlip) {
   return { t, mode: 'learn', limit: Infinity, auto: true, ca: true, tip,
-    slip: msg => { onSlip(); buzz(); streakBreak(); tip(msg, 'oops'); },
+    slip: msg => { onSlip(); buzz(); streakBreak(); tip(msg, 'oops'); ST.bot('err'); },
     right: (it, s) => { if (!s) streakUp(); blip(up(Math.min(streak, 12) + 4)); setTimeout(() => blip(up(Math.min(streak, 12) + 6)), 90); if (!s) collect(it.word); tip(`${pick(HURRAY)}${it.learn ? ` <b>${H(it.learn)}</b>` : ''}`, 'go'); } };
 }
 
@@ -357,9 +403,11 @@ const POOL_TIP = [
   'Hello! Aquí tot és en anglès. Prem 🔊 per escoltar (i 🐢 per escoltar-ho a poc a poc). Després toca el dibuix que has sentit.',
   'Ara escoltaràs una frase sobre el dibuix. Si és veritat, toca TRUE. Si és mentida, toca FALSE.',
   'Ara llegeix la paraula i toca el dibuix que diu.'];
+// In the studio the frog of the radio sleeps: each of the three games wakes it a little more
 function piscina() {
   const t = fresh(); show('La Piscina', true, 200); $('#toM').hidden = true; $('#toG').hidden = !HUB;
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(POOL.length, 'Tres jocs')}<span class="combo" id="cb" hidden></span></div>${coachHtml()}<div class="stage" id="stage"><div id="ctx"></div><div id="q"></div></div>`;
+  worldState(); ST.go('stage'); ST.wake(0);
+  panel3d(LEVEL_VIEW, `<div class="hud mid">${dotsHtml(POOL.length, 'Tres jocs')}<span class="combo" id="cb" hidden></span></div>${coachHtml()}<div class="stage" id="stage"><div id="ctx"></div><div id="q"></div></div>`);
   const tip = tipper(), run = [];
   (async () => {
     for (let k = 0; k < POOL.length; k++) {
@@ -369,10 +417,10 @@ function piscina() {
       const items = pool(k, Math.random);
       for (let j = 0; j < items.length; j++) {
         const p = ask(items[j], env);
-        if (j === 0) tip(POOL_TIP[k]);
+        if (j === 0) tip(k === 0 && ST.ok ? 'La granota de Ràdio Granota dorm! Per despertar-la, prem 🔊 per escoltar (i 🐢 per escoltar-ho a poc a poc) i toca el dibuix que has sentit.' : POOL_TIP[k]);
         await p; if (!t.on) return;
       }
-      run[k] = true; fanfare(); FX.celebrate(8);
+      run[k] = true; fanfare(); FX.celebrate(8); ST.wake((k + 1) / POOL.length);
     }
     paintDots(-1, run);
     const r = poolIn(prog); prog = r.prog; save();
@@ -383,28 +431,36 @@ function piscina() {
 }
 
 /* ---------- one level of a project: a round of questions ---------- */
+// what the frog says at the start of each part of a theme day (whole: Listening 2 is heard all at once, as in the test)
+const PART_TIP = ['Primera part, Listening 1: escolta i toca el dibuix que sents.', 'Segona part, Listening 2: TRUE si la frase escrita és igual que la que sents; FALSE si canvia alguna cosa.',
+  'Última part, Reading: llegeix el text amb calma. Les respostes hi són!'];
 function level(sec, idx) {
   const c = circleOf(sec), t = fresh(); show(`Cercle ${c} · ${PROJECTS[sec].name}`, true, HUES[sec]); here = sec;
-  const root = $('#game'), Lv = PROJECTS[sec].levels[idx], R = round(sec, idx, Math.random);
-  let slips = 0, over = false;
+  const Lv = PROJECTS[sec].levels[idx], R = round(sec, idx, Math.random);
+  let slips = 0, over = false, part = -1;
   const wordsBefore = count(prog.words);
-  root.innerHTML = `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
+  worldState(); ST.go('stage');
+  panel3d(LEVEL_VIEW, `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${H(Lv.title)}</span><span class="chip" id="st"></span><span class="combo" id="cb" hidden></span><span class="tools"><button class="link" id="hintb">Dona'm una pista</button></span></div>
-    ${coachHtml()}<div class="hud mid">${dotsHtml(R.items.length, `${R.items.length} preguntes`)}</div><div class="stage" id="stage"><div id="ctx"></div><div id="q"></div></div>`;
+    ${coachHtml()}<div class="hud mid">${dotsHtml(R.items.length, `${R.items.length} preguntes`)}</div><div class="stage" id="stage"><p class="sechead" id="sh"></p><div id="ctx"></div><div id="q"></div></div>`);
   root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.stars[sec * 10 + i] > 0));
   wireLevels(root, i => level(sec, i));
   const tip = tipper(), stars = () => { $('#st').textContent = starRow(starsFor(slips)); };
   const env = learnEnv(t, tip, () => { slips++; stars(); });
   env.ca = idx < 6; streakBreak();
-  context(ctxOf(R), env);
+  if (!R.parts) context(ctxOf(R), env);
   $('#hintb').onclick = () => { if (over || !env.hint) return; const txt = env.hint(); if (txt) { slips++; stars(); streakBreak(); tip(txt); } };
   stars();
   const run = [];
   (async () => {
     for (let k = 0; k < R.items.length; k++) {
       paintDots(k, run);
+      // a theme day: a new part brings its heading and what goes over its questions
+      const np = R.parts && R.items[k].part !== part;
+      if (np) { part = R.items[k].part; const Pt = R.parts[part]; $('#sh').innerHTML = `<b>${H(Pt.title)}</b> · ${H(R.theme.name)}`; context({ once: false, ...Pt.ctx }, env); }
       const p = ask(R.items[k], env);
-      if (k === 0) tip(R.once ? 'Primer escolta tota la gravació. Després respon les preguntes: la pots tornar a escoltar.' : R.text ? 'Llegeix el text amb calma. Les respostes hi són!' : PROJECTS[sec].sub + '. Som-hi!');
+      if (np) tip(part === 1 && R.parts[1].ctx.once ? 'Segona part, Listening 2: escolta tota la gravació i després digues TRUE o FALSE de cada frase. La pots tornar a escoltar.' : PART_TIP[part]);
+      else if (k === 0) tip(R.once ? 'Primer escolta tota la gravació. Després respon les preguntes: la pots tornar a escoltar.' : R.text ? 'Llegeix el text amb calma. Les respostes hi són!' : PROJECTS[sec].sub + '. Som-hi!');
       const res = await p; if (!t.on) return;
       run[k] = res.ok;
     }
@@ -422,12 +478,15 @@ function level(sec, idx) {
       <p class="line2">${H(Lv.title)}</p><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
       <p class="lead${r.valid ? ' go' : ''}">Nota del projecte: ${r.note} de 100${r.valid ? ' · validat ✓' : ''}${r.gain ? ` · +${r.gain} XP` : ''}</p>
       ${got ? `<p class="lead go">📒 ${got} ${got === 1 ? 'paraula nova' : 'paraules noves'} a l'àlbum</p>` : ''}
+      ${r.valid && ST.ok ? '<p class="lead go">Un globus nou sobre l\'estany! 🎈</p>' : ''}
       ${r.exam ? `<p class="lead go">S'ha obert l'examen del cercle ${c}.</p>` : ''}${news(r.news)}
       ${r.exam || r.news.length ? '' : `<p class="lead">${n === 3 ? 'Ni un sol error: 10 punts!' : `Aquest nivell dona ${POINTS[n]} punts. Sense errors ni pistes en dona 10.`}</p>`}
       <button class="btn" id="nx">${end ? 'Torna al mapa' : 'Nivell següent'}</button>${n < 3 ? '<button class="link" id="ag">Torna-hi</button>' : ''}`);
     stage.querySelector('.panel').scrollIntoView({ block: 'center', behavior: RM ? 'auto' : 'smooth' });
     $('#nx').onclick = () => end ? mapa() : level(sec, idx + 1);
     if (n < 3) $('#ag').onclick = () => level(sec, idx);
+    // a project validated: its balloon fills and rises over the pond
+    if (r.valid) { ST.rest(); ST.validate(sec); }
   }
 }
 
@@ -435,7 +494,8 @@ function level(sec, idx) {
 function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]); streakBreak();
   const qs = exam(c, Math.random), run = [];
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(qs.length, 'Sis preguntes')}<span class="chip" id="qn"></span></div>${coachHtml()}<div class="stage" id="stage"><div id="ctx"></div><div id="q"></div></div>`;
+  worldState(); ST.go('stage');
+  panel3d(LEVEL_VIEW, `<div class="hud mid">${dotsHtml(qs.length, 'Sis preguntes')}<span class="chip" id="qn"></span></div>${coachHtml()}<div class="stage" id="stage"><div id="ctx"></div><div id="q"></div></div>`);
   const tip = tipper();
   const env = { t, mode: 'exam', limit: 2, auto: true, ca: false, tip, slip: () => {}, right: it => { chime([523, 659, 784]); FX.celebrate(4); collect(it.word); tip('Correct!', 'go'); } };
   (async () => {
@@ -453,6 +513,8 @@ function examen(c) {
     r.good ? fanfare() : click(196, 0, 0.5, 0.12, 'triangle');
     tip(r.good ? 'Exam passed!' : 'Examen acabat. Mira què cal repassar.', r.good ? 'go' : '');
     if (r.good) FX.celebrate(16);
+    // a circle passed for the first time lights its light on the antenna; otherwise the pond is shown
+    ST.rest(); first ? ST.beacon(c) : ST.go('map');
     panel($('#stage'), `<h2>${r.score} de ${qs.length}</h2>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? "Molt bé! Però l'examen només compta amb tots els projectes del cercle validats." : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
       ${first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
@@ -470,17 +532,18 @@ const MOCK_TIP = [
   ['Escolta la frase i toca la resposta bona. Fins que no l’encertis, no passem a la frase següent.', 'Ara la segona part: escolta la frase i digues si és igual que l’escrita.', 'Última part: llegeix el text amb calma. Les respostes hi són!']];
 function simulacre() {
   const t = fresh(); show('Simulacre de la prova', true, 20); streakBreak();
-  $('#game').innerHTML = `${coachHtml()}<div class="stage" id="stage"><div class="mockintro"><h2>🎯 Simulacre de la prova d'anglès</h2>
+  worldState(); ST.go('stage');
+  panel3d(LEVEL_VIEW, `${coachHtml()}<div class="stage" id="stage"><div class="mockintro"><h2>🎯 Simulacre de la prova d'anglès</h2>
     <p>Com a l'abril: <b>20 preguntes</b> en tres parts.</p>
     <ol><li><b>Listening 1</b> (1-6): algú parla de si mateix. Tria el dibuix.</li><li><b>Listening 2</b> (7-10): TRUE o FALSE segons el que sents.</li><li><b>Reading</b> (11-20): llegeix un text i respon.</li></ol>
     <div class="cards"><button class="card" id="step"><span class="ci" aria-hidden="true">👣</span><b>Pas a pas</b><span>Una frase i la seva pregunta. Fins que no l’encertis, no passem a la següent.</span></button>
-      <button class="card" id="go"><span class="ci" aria-hidden="true">🎯</span><b>Com a l'abril</b><span>Tota la gravació seguida, dues vegades. Sense pistes: ho sabràs al final.</span></button></div></div></div>`;
+      <button class="card" id="go"><span class="ci" aria-hidden="true">🎯</span><b>Com a l'abril</b><span>Tota la gravació seguida, dues vegades. Sense pistes: ho sabràs al final.</span></button></div></div></div>`);
   const tip = tipper();
   tip('Primer pas a pas. Quan et surti bé, prova-ho com a l’abril. Tu pots!');
   $('#step').onclick = () => start(true); $('#go').onclick = () => start(false);
   function start(step) {
     const S = mock(Math.random, step), all = S.flatMap((s, i) => s.items.map(it => ({ it, s: i }))), run = [];
-    $('#game').innerHTML = `<div class="hud mid">${dotsHtml(all.length, 'Vint preguntes')}</div>${coachHtml()}<div class="stage" id="stage"><p class="sechead" id="sh"></p><div id="ctx"></div><div id="q"></div></div>`;
+    panel3d(LEVEL_VIEW, `<div class="hud mid">${dotsHtml(all.length, 'Vint preguntes')}</div>${coachHtml()}<div class="stage" id="stage"><p class="sechead" id="sh"></p><div id="ctx"></div><div id="q"></div></div>`);
     const tip2 = tipper();
     let env = { t, mode: 'mock', limit: 2, auto: false, ca: false, tip: tip2, slip: () => {}, right: () => {} };
     if (step) { env = learnEnv(t, tip2, () => {}); env.ca = false; }
@@ -519,10 +582,13 @@ function simulacre() {
 }
 
 /* ---------- «Caça l'errada»: three sentences of the notebook; from none to two have a beginner's mistake ---------- */
+// Once circle 3 is open, one of the three is of its mistakes («Is sunny.», «Yes, I know.»). In the studio the picture is on the board
+// and the frog says the sentence of the notebook, and then the right one
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40); streakBreak();
-  const cs = sheet(Math.random), run = [];
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(cs.length, 'Tres frases')}</div>${coachHtml()}<div class="stage" id="stage"><div id="q"></div><div class="tail" id="tail"></div></div>`;
+  const cs = (OPEN || isOpen(prog, 3) ? sheetWide : sheet)(Math.random), run = [];
+  worldState(); ST.go('stage');
+  panel3d(LEVEL_VIEW, `<div class="hud mid">${dotsHtml(cs.length, 'Tres frases')}</div>${coachHtml()}<div class="stage" id="stage"><div id="q"></div><div class="tail" id="tail"></div></div>`);
   const tip = tipper();
   let k = -1, C, busy = true, res = null, openAt = 0;
   function arm() {
@@ -531,6 +597,7 @@ function full() {
       <p class="ask claim">A la llibreta hi diu:</p><p class="claimbox">«${H(C.says)}»</p></div>`;
     $('#tail').innerHTML = `<div class="opts"><button class="btn" id="yes">És correcte</button><button class="btn soft" id="no">Té una errada</button></div>`;
     tip("Llegeix la frase en anglès. Està ben escrita?");
+    ST.bot(''); ST.question({ big: C.pic }); ST.say(C.says, true); fitView();
   }
   async function answer(ok, said) {
     const last = k === cs.length - 1;
@@ -538,12 +605,13 @@ function full() {
     if (last) { res = sheetIn(prog, run); prog = res.prog; save(); }
     for (const b of $('#tail').querySelectorAll('button')) b.disabled = true;
     if (ok) { tip(said, 'go'); chime([523, 659, 784]); FX.celebrate(6); } else { tip(said, 'oops'); buzz(); }
+    ST.bot(ok ? 'ok' : 'err'); ST.say(C.real, true);
     await sleep(ok ? 1400 : 3000); if (!t.on) return;
     last ? finish() : arm();
   }
   function finish() {
     const r = res, bad = cs.flatMap((c, i) => c.says !== c.real ? [`la ${i + 1} (és «${c.real}»)`] : []);
-    $('#q').innerHTML = $('#tail').innerHTML = ''; paintDots(-1, run);
+    $('#q').innerHTML = $('#tail').innerHTML = ''; paintDots(-1, run); ST.rest(); ST.go('map');
     r.good ? fanfare() : click(196, 0, 0.5, 0.12, 'triangle');
     tip(r.good ? 'Llibreta perfecta!' : 'Llibreta acabada.', r.good ? 'go' : '');
     panel($('#stage'), `<h2>${cs.length - r.missed.length} de ${cs.length}</h2>
@@ -560,7 +628,7 @@ function full() {
       if (!bad) return answer(false, `Sí que ho era: «${H(C.real)}»`);
       openAt = performance.now() + SETTLE;
       $('#tail').innerHTML = `<div class="opts col">${C.opts.map((v, i) => `<button class="btn soft" data-v="${i}">${H(v)}</button>`).join('')}</div>`;
-      tip('Ben vist! Ara tria la frase ben escrita.', 'go');
+      tip('Ben vist! Ara tria la frase ben escrita.', 'go'); fitView();
     } else if ('v' in b.dataset) { const ok = C.opts[+b.dataset.v] === C.real; answer(ok, ok ? `Arreglada: «${H(C.real)}»` : `No era aquesta. La bona és: «${H(C.real)}»`); }
   };
   arm();
@@ -571,12 +639,15 @@ function full() {
 function album() {
   const t = fresh(); show("L'àlbum de paraules", true, 280);
   const n = count(prog.words);
-  $('#game').innerHTML = `<div class="albhead"><h2>📒 ${n} de ${VOCAB.length} paraules</h2><p class="grow">Toca una paraula. Les que tens les pots escoltar; les que falten s'aconsegueixen encertant-les a la primera als nivells.</p></div>
+  worldState(); ST.go('map');
+  panel3d(MAP_VIEW, `<div class="albhead"><h2>📒 ${n} de ${VOCAB.length} paraules</h2><p class="grow">Toca una paraula. Les que tens les pots escoltar; les que falten s'aconsegueixen encertant-les a la primera als nivells.</p></div>
     ${GROUPS.map(([g, name]) => { const ws = VOCAB.map((v, i) => [v, i]).filter(([v]) => v.cat === g); const got = ws.filter(([, i]) => prog.words[i]).length;
       return `<section class="agroup"><h3>${H(name)} <small>${got} de ${ws.length}</small></h3><div class="agrid">${ws.map(([v, i]) => prog.words[i]
         ? `<button class="aw" data-k="${v.key}">${picHtml(v.pic)}<span>${H(v.word)}</span></button>`
         : `<button class="aw no" data-k="${v.key}" aria-label="Paraula que falta">${picHtml(v.pic)}<span>?</span></button>`).join('')}</div></section>`; }).join('')}
-    <button class="btn" id="bk">Torna al mapa</button><div class="zoom" id="zoom" hidden></div>`;
+    <button class="btn" id="bk">Torna al mapa</button>`);
+  // the card of a word goes over everything: outside the panel of glass, which would hold it inside itself
+  root.insertAdjacentHTML('beforeend', '<div class="zoom" id="zoom" hidden></div>');
   const zoom = $('#zoom'), close = () => { hush(); zoom.hidden = true; keyFn = null; };
   function card(k) {
     const v = W[k], i = VOCAB.findIndex(x => x.key === k), got = prog.words[i];

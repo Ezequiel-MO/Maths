@@ -14,10 +14,11 @@ export const canSpeak = !!S;
 // whether an English voice was found (some browsers only list them a moment after the page loads)
 export const english = () => !!best;
 let gen = 0;
-export function hush() { gen++; if (S) { try { S.cancel(); } catch (e) {} } }
+export function hush() { gen++; const t = talking; talking = null; t?.(false); if (S) { try { S.cancel(); } catch (e) {} } }
 
-// says one line; resolves when it ends, or a while after it should have ended (some browsers never call onend)
-function one(text, rate, my) {
+// says one line; resolves when it ends, or a while after it should have ended (some browsers never call onend). pitch: a conversation
+// gives the second voice a higher one
+function one(text, rate, my, pitch = 1.05) {
   return new Promise(done => {
     if (my !== gen) return done();
     let over = false;
@@ -25,24 +26,30 @@ function one(text, rate, my) {
     const guard = setTimeout(end, 2000 + text.split(/\s+/).length * 700 / rate);
     try {
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = best ? best.lang : 'en-GB'; if (best) u.voice = best; u.rate = rate; u.pitch = 1.05;
+      u.lang = best ? best.lang : 'en-GB'; if (best) u.voice = best; u.rate = rate; u.pitch = pitch;
       u.onend = u.onerror = end;
       S.speak(u);
     } catch (e) { end(); }
   });
 }
-// lines one after the other, with a short gap; slow is the turtle. Resolves true when all were said, false when stopped or impossible
-export function speak(lines, slow = false) {
+// Lines one after the other, with a short gap; slow is the turtle; duo, a conversation: every other line is the second voice, higher.
+// on(true) when it starts talking and on(false) when it ends or is stopped (the frog of the studio moves its mouth). Resolves true
+// when all were said, false when stopped or impossible
+let talking = null;
+export function speak(lines, slow = false, duo = false, on = null) {
   hush();
   const my = gen, list = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
   if (!S || !list.length) return Promise.resolve(false);
   const rate = slow ? 0.6 : 0.88;
+  talking = on; on?.(true);
   return (async () => {
     for (let i = 0; i < list.length; i++) {
       if (my !== gen) return false;
-      await one(list[i], rate, my);
+      await one(list[i], rate, my, duo && i % 2 ? 1.45 : duo ? 0.85 : 1.05);
       if (i < list.length - 1) await new Promise(r => setTimeout(r, slow ? 650 : 420));
     }
-    return my === gen;
+    if (my !== gen) return false;
+    const t = talking; talking = null; t?.(false);
+    return true;
   })();
 }
