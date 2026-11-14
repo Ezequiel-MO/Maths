@@ -52,7 +52,9 @@ export const F = {
   galetes: thing('🍪', 'Galetes', 'un paquet de galetes'), xocolata: thing('🍫', 'Xocolata', 'una rajola de xocolata'), suc: thing('🧃', 'Suc', 'un suc'),
   llibre: thing('📘', 'Llibre', 'un llibre'), patins: thing('🛼', 'Patins', 'uns patins'), joc: thing('🎮', 'Joc', 'un videojoc'), caramel: thing('🍬', 'Caramel', 'un caramel'),
   iogurt: thing('🥣', 'Iogurt', 'un iogurt'), pernil: thing('🥓', 'Pernil', 'el pernil'), bici: thing('🚲', 'Bicicleta', 'una bicicleta'), llibreta: thing('📒', 'Llibreta', 'una llibreta'),
-  pastis: thing('🎂', 'Pastís', 'un pastís'), peix: thing('🐟', 'Peix', 'el peix'), mobil: thing('📱', 'Mòbil', 'un mòbil')
+  pastis: thing('🎂', 'Pastís', 'un pastís'), peix: thing('🐟', 'Peix', 'el peix'), mobil: thing('📱', 'Mòbil', 'un mòbil'),
+  got: thing('🥤', 'Llimonada', 'un got de llimonada'), mel: thing('🍯', 'Mel', 'un pot de mel'), gel: thing('🧊', 'Gel', 'una bossa de gel'),
+  entrada: thing('🎟️', 'Cinema', "una entrada de cinema"), bus: thing('🚌', 'Autobús', "el bitllet de l'autobús")
 };
 // the thing does it, or they do: «una pilota costa», «uns patins costen»
 const pl = k => /^(uns|unes|les|els) /.test(F[k].the);
@@ -60,8 +62,10 @@ const verb = (k, one, many) => pl(k) ? many : one;
 // what is sold by the kilo or in offers, with its article in the plural
 const KG = { poma: 'les pomes', taronja: 'les taronges', platan: 'els plàtans', cireres: 'les cireres', formatge: 'el formatge', maduixes: 'les maduixes', pernil: 'el pernil',
   patates: 'les patates', tomaquet: 'els tomàquets', iogurt: 'els iogurts', suc: 'els sucs', gelat: 'els gelats' };
-// the animals of the pond that come to the stall when the child is the shopkeeper
-const WHO = [['🐢', 'La tortuga'], ['🦆', "L'ànec"], ['🐌', 'El cargol'], ['🦔', "L'eriçó"], ['🐿️', "L'esquirol"], ['🦉', "L'òliba"], ['🐇', 'El conill']];
+// the people who come to the stall when the child is the shopkeeper: the face of the page without WebGL, the name in a sentence and the
+// kind of person the market in 3D draws (the guests of the hotel: walkers, cyclists, tourists and grannies)
+const WHO = [['🧑', "L'excursionista", 'excursionista'], ['👩', 'La ciclista', 'ciclista'], ['🧔', 'El turista', 'turista'], ['👵', "L'àvia", 'avi'],
+  ['👧', 'La noia de la motxilla', 'excursionista'], ['👨', 'El ciclista', 'ciclista'], ['👩‍🦰', 'La senyora del barret', 'turista']];
 // an item with its price (p, in cents) and what the price is for (u: «el kg», «cada un»...)
 const it = (k, p, u = '') => ({ ...F[k], p, u });
 const cap = s => s[0].toUpperCase() + s.slice(1);
@@ -69,8 +73,13 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 /* ---------- the scenes: what is drawn over a question ---------- */
 // coins: coins and notes on the counter (big: a single one, large) · stall: the stall with its things and price tags · receipt: a
 // receipt (lines [{ e, n, q, p, sub }], total, paid) · purses: two purses, A and B · offers: two offers, A and B · dial: the scales of
-// the stall with a needle · crate: a crate of fruit in rows and columns · piggy: the piggy bank of the frog
+// the stall with a needle · crate: a crate of fruit in rows and columns · piggy: the piggy bank of the frog · trade: the board of the
+// barter of long ago (rules [[thing, how many, thing], ...]: one of the first is worth so many of the second) · ledger: the book of the
+// bank or the accounts of the lemonade (rows [{ t, e, v }], v in cents, + what comes in and − what goes out; start, title, end the name
+// of the last line, hide: the last amount is a «?», run: the balance after every row)
 const coins = (cs, o = {}) => ({ s: 'coins', coins: cs, ...o });
+const trade = (rules, o = {}) => ({ s: 'trade', rules, ...o });
+const ledger = (rows, o = {}) => ({ s: 'ledger', rows: rows.map(([t, e, v]) => ({ t, e, v })), ...o });
 const stall = (items, o = {}) => ({ s: 'stall', items, ...o });
 const line = (k, p, q = 1, o = {}) => ({ e: F[k].e, n: F[k].n, p, q, ...o });
 const receipt = (lines, o = {}) => ({ s: 'receipt', lines, ...o });
@@ -129,30 +138,34 @@ const PE = [200, 100, 50, 20, 10, 5].map(v => [v, Infinity]);
 const PB = [2000, 1000, 500, 200, 100, 50, 20, 10, 5].map(v => [v, Infinity]);
 const PURSES = { PC, PE, PB };
 // pay c with the purse: items are what is bought (their tags go over the counter); min asks for the fewest coins and notes
+// o.text and o.hint say it in other words; o.bank: the money goes into the account of the bank, not over the counter of the stall
 function pay(c, purse, o = {}) {
   const den = purse.filter(([, n]) => n > 0).map(([v]) => v), best = fewest(c, den), items = o.items || [];
   const text = o.text || (items.length ? `Paga ${items.map(x => x.the).join(' i ')}${o.min ? ', amb les menys monedes possibles' : ''}.` : `Paga ${eur(c)}${o.min ? ' amb les menys monedes possibles' : ''}.`);
-  const hint = o.min ? `Comença pel bitllet o la moneda més gran que no passi de ${eur(c)}, i continua amb el que falta.${best ? ` Es pot fer amb ${best.length}.` : ''}`
+  const hint = o.hint ? o.hint : o.min ? `Comença pel bitllet o la moneda més gran que no passi de ${eur(c)}, i continua amb el que falta.${best ? ` Es pot fer amb ${best.length}.` : ''}`
     : purse.some(([, n]) => Number.isFinite(n)) ? 'Només pots fer servir el que hi ha al moneder. Prova primer amb les monedes grans i mira què et falta.'
       : items.length > 1 ? `Primer suma els preus: ${items.map(x => eur(x.p)).join(' + ')} = ${eur(c)}. Després paga.` : `Posa primer les monedes grans, i quan t'hi acostis, les petites. Has d'arribar a ${eur(c)}.`;
   return R(null, Q('pay', text, c, hint, `${items.length > 1 ? `${items.map(x => eur(x.p)).join(' + ')} = ${eur(c)}. ` : ''}${(best || []).map(short).join(' + ')} = ${eur(c)}.`,
-    { purse, target: c, min: o.min && best ? best.length : 0, items }));
+    { purse, target: c, min: o.min && best ? best.length : 0, items, ...(o.bank ? { bank: true } : {}) }));
 }
+// n things k at each cents each, as one line to pay: «4 llimones», 0,80 €
+const bunch = (k, n, each, name) => ({ ...F[k], n: name, the: name, p: n * each, u: `${n} × ${eur(each)}` });
 const item = (k, p, u) => it(k, p, u);
 // the limited purse: { value: how many }
 const lim = (c, m, o = {}) => pay(c, Object.entries(m).map(([v, n]) => [+v, n]).sort((a, b) => b[0] - a[0]), o);
 // the next whole euro after p, the first step of counting up
 const up = p => Math.ceil(p / 100) * 100;
 const countUp = (p, paid) => up(p) === p || up(p) >= paid ? `Resta: ${eur(paid)} − ${eur(p)}.` : `Compta endavant: de ${eur(p)} a ${eur(up(p))} hi ha ${short(up(p) - p)}, i de ${eur(up(p))} a ${eur(paid)}, ${short(paid - up(p))}. Suma-ho.`;
-// the change of p paid with paid: typed, or given with the coins of the till (tokens) by the child, the shopkeeper
+// the change of p paid with paid: typed, or given with the coins of the till (tokens) by the child, the shopkeeper. o.the: what is
+// bought in other words («2 gots de llimonada»), with the till only
 function change(p, paid, k, o = {}) {
-  const T = F[k], [e, who] = WHO[o.w || 0], c = paid - p;
+  const T = o.the ? { ...F[k], the: o.the } : F[k], [e, who, kind] = WHO[o.w || 0], c = paid - p;
   if (!o.till) return money(`${cap(T.the)} ${verb(k, 'costa', 'costen')} ${eur(p)}. Pagues amb ${isBill(paid) ? 'un bitllet de ' : ''}${valName(paid)}. {?} et tornen?`, c, countUp(p, paid),
     `${eur(paid)} − ${eur(p)} = ${c < 100 ? c + ' cèntims' : eur(c)}.`, stall([it(k, p)]));
   const best = fewest(c, o.till.map(([v]) => v));
   return R(null, Q('pay', `${who} compra ${T.the} ${de(eur(p))} i et paga amb ${isBill(paid) ? 'un bitllet de ' : ''}${valName(paid)}. Torna-li el canvi${o.min ? ' amb les menys monedes possibles' : ''}.`, c,
     countUp(p, paid) + (o.min && best ? ` Es pot tornar amb ${best.length} peces.` : ''), `${eur(paid)} − ${eur(p)} = ${eur(c)}: ${(best || []).map(short).join(' + ')}.`,
-    { purse: o.till, target: c, min: o.min && best ? best.length : 0, change: true, who: [e, who], items: [it(k, p)], paid }));
+    { purse: o.till, target: c, min: o.min && best ? best.length : 0, change: true, who: [e, who, kind], items: [{ ...it(k, p), the: T.the }], paid }));
 }
 // a receipt and the change of what it says, paid with paid
 function change2(lines, paid) {
@@ -275,6 +288,29 @@ function weeks(p, per, k, have = 0) {
     need % per ? `En ${w - 1} setmanes en tindria ${eur((w - 1) * per + have)}: no n'hi ha prou. En ${w}, ${eur(w * per + have)}. Són ${w} setmanes.` : `${eur(need)} : ${eur(per)} = ${w} setmanes.`,
     piggy(per, { goal: it(k, p), have }), 'setmanes');
 }
+
+/* ---------- how money works: the barter of long ago, the lemonade, the bank ---------- */
+// Before money, things were swapped. At the pond a loaf is worth 3 apples, a cheese 2 loaves (6 apples) and a fish 4 apples: what each
+// is worth, counted in apples
+const WORTH = { poma: 1, pa: 3, formatge: 6, peix: 4 };
+const PA = ['pa', 3, 'poma'], FORMATGE = ['formatge', 2, 'pa'], PEIX = ['peix', 4, 'poma'];
+// The scales of barter: what is on the left (keys of things) against the pieces the child puts on the right (apples, loaves) until both
+// are worth the same. It is a question of weighing, with the value in apples for the weight; min asks for the fewest pieces
+function swap(left, pieces, rules, text, hint, say, o = {}) {
+  const target = sum(left.map(k => WORTH[k])), vals = pieces.map(k => WORTH[k]), best = fewest(target, vals);
+  return R(null, Q('weigh', text, target, hint, say, { target, weights: vals, e: left.map(k => F[k].e).join(''),
+    barter: { left: left.map(k => F[k].e), pieces: pieces.map(k => ({ v: WORTH[k], e: F[k].e, n: F[k].n.toLowerCase() })), rules }, min: o.min && best ? best.length : 0 }));
+}
+// the three jobs of money, to tell apart
+const JOBS = ['Per canviar', 'Per posar preu', 'Per guardar'];
+const job = (text, j) => Pk(`${text} Per a què serveixen aquí els diners?`, [JOBS[j], ...JOBS.filter((_, i) => i !== j)],
+  'Canviar: pagar o cobrar alguna cosa. Posar preu: saber què val més. Guardar: estalviar per a més endavant.',
+  ['Per canviar: tothom accepta els diners a canvi de les coses.', 'Per posar preu: amb els preus es pot comparar què val més.', 'Per guardar: els diners no es fan malbé i es poden estalviar.'][j]);
+// the bank of the pond gives 1 € a year for every 10 € kept in it
+const interest = c => c / 10;
+// a line of the book of the bank or of the accounts
+const BOOK = 'LLIBRETA DEL BANC', SHOP = 'COMPTES DE LA LLIMONADA';
+const lemons = (n, each = 20) => bunch('llimona', n, each, `${n} llimones`);
 
 /* ---------- the projects ---------- */
 export const SECTIONS = [
@@ -430,6 +466,153 @@ export const SECTIONS = [
       N('Tens 20 €. Compres una samarreta de 12 € i, amb el que et sobra, sobres de cromos de 2 €. Quants sobres?', 4, 'Pas 1: quant et sobra? Pas 2: quantes vegades cap 2 € dins del que sobra?', '20 − 12 = 8 €, i 8 : 2 = 4 sobres.', stall([it('samarreta', 1200), it('cromos', 200)]), 'sobres'),
       E('Un paquet de 6 sucs costa 4,20 €. En compres 2 paquets i un suc solt de 0,90 €. Quant pagues?', 930, 'Pas 1: 2 paquets, 2 × 4,20 €. Pas 2: suma-hi el suc solt.', '8,40 € + 0,90 € = 9,30 €.', stall([it('suc', 420, 'paquet de 6'), it('suc', 90, 'solt')]))]),
     lv('El gran mercat', "L'últim repte del mercat: de tot una mica!", [pay(1385, PB, { min: true, items: [item('peix', 785), item('formatge', 600)] }), change(3260, 5000, 'patins', { till: PB, min: true, w: 6 }), weigh(1350, 'pastis'), weeks(4500, 500, 'bici', 1000)])
+  ] },
+  { name: 'Abans dels diners', sub: 'El bescanvi, i per què es van inventar els diners: per canviar, per posar preu i per guardar.', levels: [
+    lv('La balança dels canvis', "Fa molt de temps no hi havia diners: la gent canviava unes coses per unes altres. Un pa valia el mateix que 3 pomes.", [
+      swap(['pa'], ['poma'], [PA], "Posa pomes a l'altre plat fins que valguin el mateix que el pa.", 'Mira el tauler dels canvis: un pa val 3 pomes.', '1 pa = 3 pomes. Equilibrada!'),
+      swap(['pa', 'pa'], ['poma'], [PA], 'I ara, per dos pans, quantes pomes cal posar?', 'Cada pa val 3 pomes: 3 i 3 més.', '2 pans = 3 + 3 = 6 pomes.'),
+      swap(['peix'], ['poma'], [PEIX], 'El pescador porta un peix. Equilibra la balança amb pomes.', 'Mira el tauler: un peix val 4 pomes.', '1 peix = 4 pomes.')]),
+    lv('Pans i pomes', 'Ara també pots posar pans al plat: un pa fa el mateix pes que 3 pomes.', [
+      swap(['formatge'], ['pa', 'poma'], [FORMATGE, PA], 'El formatge val 2 pans. Equilibra-ho amb pans, amb pomes o amb tots dos.', 'Un formatge són 2 pans, i cada pa, 3 pomes.', '1 formatge = 2 pans = 6 pomes.'),
+      swap(['formatge'], ['pa', 'poma'], [FORMATGE, PA], 'Torna-ho a fer, però amb les menys peces possibles.', 'Les peces grosses són els pans: comença per aquí.', '2 pans: només 2 peces!', { min: true }),
+      swap(['peix', 'pa'], ['pa', 'poma'], [PEIX, PA], 'Un peix i un pa. Equilibra-ho amb les menys peces possibles.', "Passa-ho a pomes: 4 + 3 = 7. Quants pans hi caben, i quantes pomes falten?", '7 pomes: 2 pans i 1 poma, 3 peces.', { min: true })]),
+    lv('Quantes pomes val?', 'Amb el tauler dels canvis es pot calcular sense balança.', [
+      N('Quantes pomes valen 4 pans?', 12, 'Cada pa són 3 pomes: 4 vegades 3.', '4 × 3 = 12 pomes.', trade([PA]), 'pomes'),
+      N('Quantes pomes val un formatge?', 6, 'Primer, quants pans val el formatge? Després, passa els pans a pomes.', '2 pans × 3 = 6 pomes.', trade([FORMATGE, PA]), 'pomes'),
+      N('Tens 15 pomes. Quants pans te\'n donen?', 5, 'Quantes vegades cap 3 dins de 15?', '15 : 3 = 5 pans.', trade([PA]), 'pans'),
+      N('Tens 2 formatges. Quants peixos te\'n donen?', 3, 'Passa-ho tot a pomes: un formatge són 6 pomes. Després, quants peixos de 4 pomes hi caben?', '2 × 6 = 12 pomes, i 12 : 4 = 3 peixos.', trade([FORMATGE, PA, PEIX]), 'peixos')]),
+    lv('Quan el canvi no funciona', 'El bescanvi té un problema: cal trobar algú que tingui el que vols i que vulgui el que tens.', [
+      Pk('El conill té pastanagues i vol un peix. Però el pescador no vol pastanagues: vol pa. Què pot fer el conill?', ['Canviar les pastanagues per pa, i després el pa pel peix', 'Donar-li les pastanagues igualment', 'Res: no hi ha cap manera'],
+        'Busca algú que vulgui pastanagues i que tingui el que vol el pescador.', 'Dos canvis: pastanagues → pa → peix. Quina feinada!'),
+      Pk('I si tothom del mercat accepta monedes, què fa el conill?', ['Ven les pastanagues i, amb les monedes, compra el peix', 'Canvia les monedes per pastanagues', 'Es guarda les pastanagues per sempre'],
+        'Les monedes les vol tothom.', 'Vendre i comprar: les monedes serveixen per canviar qualsevol cosa.'),
+      Pk('Per què és més fàcil pagar amb diners que fer bescanvi?', ['Perquè tothom els accepta a canvi de qualsevol cosa', 'Perquè els diners pesen més', 'Perquè amb diners no cal comptar'],
+        'Pensa en el conill i el pescador.', 'Tothom accepta els diners: aquesta és la primera feina dels diners, servir per canviar.')]),
+    (S => lv('Els preus mesuren', 'Si una poma costa 0,50 €, totes les coses es poden mesurar amb euros.', [
+      E('Una poma costa 0,50 €, i un pa val 3 pomes. Quant costa el pa?', 150, '3 vegades 0,50 €.', '3 × 0,50 € = 1,50 €.', S),
+      E('Un formatge val 6 pomes. Quant costa?', 300, '6 × 0,50 €. Pensa: 2 pomes fan 1 €.', '6 × 0,50 € = 3 €.', S),
+      E('Un peix val 4 pomes. Quant costa?', 200, '4 × 0,50 €.', '4 × 0,50 € = 2 €.', S),
+      Pk('Amb els preus en euros, què és més fàcil?', ['Saber de cop què val més', 'Comprar sense pagar', 'Que les pomes no es facin malbé'], 'Compara: 1,50 €, 3 € i 2 €.',
+        'Amb euros, tot es mesura amb la mateixa regla: la segona feina dels diners és posar preu a les coses.', S)]))(stall([it('poma', 50)])),
+    lv('Del preu al canvi', 'Al revés: amb els preus, es pot saber quantes coses en val una altra.', [
+      N('El pa costa 1,20 € i una poma, 0,40 €. Quantes pomes val un pa?', 3, 'Quantes vegades cap 0,40 € dins d\'1,20 €? Pensa-ho en cèntims: 120 : 40.', '120 : 40 = 3 pomes.', stall([it('pa', 120), it('poma', 40)]), 'pomes'),
+      N('Un formatge costa 4,50 € i un pa, 1,50 €. Quants pans val el formatge?', 3, 'Ves sumant 1,50 €: 1,50 · 3 · 4,50.', '3 × 1,50 € = 4,50 €: 3 pans.', stall([it('formatge', 450), it('pa', 150)]), 'pans'),
+      N('Un peix costa 6 € i una llimona, 0,50 €. Quantes llimones val el peix?', 12, 'Cada euro són 2 llimones de 0,50 €.', '6 × 2 = 12 llimones.', stall([it('peix', 600), it('llimona', 50)]), 'llimones'),
+      Pk('El pa costa 1,50 € i la llet, 1 €. Què val més: 2 pans o 3 llets?', ['Valen igual', '2 pans', '3 llets'], 'Calcula tots dos: 2 × 1,50 € i 3 × 1 €.', '2 × 1,50 € = 3 € i 3 × 1 € = 3 €: valen igual!', stall([it('pa', 150), it('llet', 100)]))]),
+    lv('Monedes i bitllets', 'Els bitllets i les monedes també es canvien entre ells: un bitllet de 10 € són cinc monedes de 2 €.', [
+      N('Quantes monedes de 2 € fan un bitllet de 10 €?', 5, '10 : 2.', '5 × 2 € = 10 €.', coins([1000, 200]), 'monedes'),
+      N('Quantes monedes de 50 cèntims fan 5 €?', 10, 'Cada euro són 2 monedes de 50 cèntims.', '5 × 2 = 10 monedes.', coins([500, 50]), 'monedes'),
+      N('Quants bitllets de 5 € fan 50 €?', 10, '50 : 5.', '10 × 5 € = 50 €.', coins([5000, 500]), 'bitllets'),
+      N('Quantes monedes de 20 cèntims fan 2 €?', 10, 'Un euro són 5 monedes de 20 cèntims.', '2 × 5 = 10 monedes.', coins([200, 20]), 'monedes')]),
+    lv("Guardar per a l'hivern", 'Les pomes es fan malbé. Els diners, no.', [
+      N('Al setembre, la granota té 20 pomes. Cada setmana se n\'espatllen 3. Quantes en queden de bones al cap de 4 setmanes?', 8, 'En 4 setmanes se n\'espatllen 4 × 3.', '20 − 12 = 8 pomes.', crate(4, 5, 'poma'), 'pomes'),
+      E('I si al setembre ven les 20 pomes a 0,50 € cada una, quants diners té?', 1000, '20 × 0,50 €.', '20 × 0,50 € = 10 €.', stall([it('poma', 50)])),
+      Pk('Guarda els 10 € a la guardiola. Quants diners hi ha al cap de 4 setmanes?', ['10 €, els mateixos', '4 €', '8 €'], 'Les monedes no es fan malbé.', 'Els mateixos 10 €: les monedes no s\'espatllen.'),
+      Pk('Per guardar fins a l\'estiu, què és millor?', ['Diners a la guardiola', 'Pomes al rebost', 'Gelats al sol'], 'Què no es fa malbé?', 'Els diners es poden guardar: aquesta és la tercera feina dels diners.')]),
+    lv('Les tres feines dels diners', 'Canviar, posar preu i guardar: els diners serveixen per a tres coses.', [
+      job('La granota paga el pa amb una moneda de 2 €.', 0),
+      job("L'etiqueta diu que la pera costa 0,60 € i la poma 0,40 €: així se sap que la pera val més.", 1),
+      job('Cada setmana poses 1 € a la guardiola per comprar-te uns patins a l\'estiu.', 2),
+      job('El conill ven pastanagues i amb els diners compra un peix.', 0)]),
+    lv('Repte del bescanvi', 'Bescanvis, preus i monedes: tot junt.', [
+      swap(['formatge', 'peix'], ['pa', 'poma'], [FORMATGE, PA, PEIX], 'Un formatge i un peix. Equilibra-ho amb les menys peces possibles.', 'Passa-ho a pomes: 6 + 4 = 10. Quants pans de 3 hi caben?', '10 pomes: 3 pans i 1 poma, 4 peces.', { min: true }),
+      N('Tens 3 peixos. Quants pans te\'n donen?', 4, 'Passa-ho a pomes: 3 peixos són 12 pomes. Quants pans de 3 pomes?', '3 × 4 = 12 pomes, i 12 : 3 = 4 pans.', trade([PEIX, PA]), 'pans'),
+      E('Una poma costa 0,40 €. Quant costen 3 peixos de 4 pomes cada un?', 480, '3 peixos són 12 pomes: 12 × 0,40 €.', '12 × 0,40 € = 4,80 €.', trade([PEIX])),
+      N('Quantes monedes de 50 cèntims fan un bitllet de 20 €?', 40, 'Cada euro són 2 monedes de 50 cèntims.', '20 × 2 = 40 monedes.', coins([2000, 50]), 'monedes')])
+  ] },
+  { name: 'La llimonada de la granota', sub: 'Compra, fes llimonada i ven-la: despeses, ingressos i guany.', levels: [
+    lv('Compra els ingredients', 'La granota obre una parada de llimonada! Primer cal comprar el que fa falta.', [
+      pay(80, PC, { items: [lemons(4)], text: 'Calen 4 llimones de 0,20 € cada una. Paga-les.', hint: '4 vegades 0,20 €: 0,20 · 0,40 · 0,60 · 0,80.' }),
+      pay(250, PE, { items: [item('mel', 250)] }),
+      pay(330, PE, { items: [lemons(4), item('mel', 250)] })]),
+    lv('Ven llimonada', 'Ara la granota ven gots de llimonada a 0,50 €. Tu tornes el canvi!', [
+      change(50, 100, 'got', { till: PE, w: 0 }), change(100, 200, 'got', { till: PE, w: 3, the: '2 gots de llimonada' }), change(150, 500, 'got', { till: PB, w: 1, the: '3 gots de llimonada' })]),
+    (S => lv('Els ingressos', 'Els diners que cobres quan vens es diuen ingressos.', [
+      E('Has venut 12 gots a 0,50 €. Quant has cobrat?', 600, '12 × 0,50 €. Pensa: 2 gots fan 1 €.', '12 × 0,50 € = 6 €.', S),
+      E('Diumenge en vens 15 a 0,60 €. Quant cobres?', 900, '15 × 0,60 €: 10 gots fan 6 €, i 5 gots, 3 €.', '15 × 0,60 € = 9 €.', stall([it('got', 60, 'cada got')])),
+      N('Un dia has cobrat 7 € venent gots a 0,50 €. Quants gots has venut?', 14, 'Cada euro són 2 gots.', '7 € : 0,50 € = 14 gots.', S, 'gots')]))(stall([it('got', 50, 'cada got')])),
+    lv('Les despeses', 'Els diners que gastes per fer la llimonada es diuen despeses.', [
+      E('Una llimona costa 0,20 €. Quant costen 10 llimones?', 200, '10 × 0,20 €.', '10 × 0,20 € = 2 €.', stall([it('llimona', 20, 'cada una')])),
+      E('Quant has gastat en total?', 600, 'Suma les tres despeses.', '2 € + 2,50 € + 1,50 € = 6 €.', ledger([['10 llimones', '🍋', -200], ['Mel', '🍯', -250], ['Gel', '🧊', -150]], { title: SHOP, end: 'Despeses', hide: true })),
+      E('La setmana següent compres 15 llimones, la mel de 2,50 € i el gel d\'1,50 €. Quant gastes?', 700, 'Primer les llimones: 15 × 0,20 €. Després, suma-hi la mel i el gel.', '3 € + 2,50 € + 1,50 € = 7 €.', stall([it('llimona', 20, 'cada una'), it('mel', 250), it('gel', 150)]))]),
+    lv('El guany', 'El guany és el que et queda de veritat: els ingressos menys les despeses.', [
+      E('Has cobrat 9 € i has gastat 6 €. Quant has guanyat?', 300, 'Ingressos menys despeses: 9 € − 6 €.', '9 € − 6 € = 3 €.', ledger([['Vendes', '🥤', 900], ['Ingredients', '🍋', -600]], { title: SHOP, end: 'Guany', hide: true })),
+      E('Has venut 20 gots a 0,50 € i has gastat 6 €. Quant has guanyat?', 400, 'Primer, els ingressos: 20 × 0,50 €. Després, resta les despeses.', '10 € − 6 € = 4 €.', stall([it('got', 50, 'cada got')])),
+      E('Has venut 16 gots a 0,75 € i els ingredients han costat 7,50 €. Quin és el guany?', 450, '16 × 0,75 €: 4 gots fan 3 €. Després, resta 7,50 €.', '12 € − 7,50 € = 4,50 €.', stall([it('got', 75, 'cada got')]))]),
+    lv('Recuperar el que has gastat', 'Abans de guanyar, cal vendre prou per recuperar el que has gastat.', [
+      N('Has gastat 6 € i cada got es ven a 0,50 €. Quants gots has de vendre per recuperar els 6 €?', 12, 'Cada euro són 2 gots.', '12 × 0,50 € = 6 €.', stall([it('got', 50, 'cada got')]), 'gots'),
+      N('I quants gots per guanyar, a més a més, 2 €?', 16, 'Ara necessites 6 € + 2 € = 8 €.', '16 × 0,50 € = 8 €: 6 € per recuperar i 2 € de guany.', stall([it('got', 50, 'cada got')]), 'gots'),
+      N('Si gastes 4,50 € i vens cada got a 0,75 €, quants gots has de vendre per recuperar-ho?', 6, 'Ves sumant 0,75 €: 0,75 · 1,50 · 2,25 · 3...', '6 × 0,75 € = 4,50 €.', stall([it('got', 75, 'cada got')]), 'gots')]),
+    lv('Quant costa fer un got?', 'Si saps quant costa fer cada got, saps quant guanyes amb cada un.', [
+      money('Amb 3 € d\'ingredients en surten 10 gots. {?} costa fer cada got?', 30, '3 € : 10. Pensa-ho en cèntims: 300 : 10.', '300 : 10 = 30 cèntims.'),
+      money('El vens a 0,50 €. {?} guanyes amb cada got?', 20, 'El preu de venda menys el que costa fer-lo: 50 − 30.', '50 − 30 = 20 cèntims per got.', stall([it('got', 50, 'cada got')])),
+      E('I si en vens 10, quant guanyes?', 200, '10 × 20 cèntims.', '10 × 0,20 € = 2 €. És el mateix que 5 € − 3 €!', stall([it('got', 50, 'cada got')]))]),
+    lv('Pujar o baixar el preu', 'Més car no sempre vol dir cobrar més: si és car, en vens menys.', [
+      Pk('A 0,50 € el got, en vens 20. A 1 €, només en vens 8. Amb quin preu cobres més?', ['A 0,50 €: 10 €', 'A 1 €: 8 €', 'Cobres igual'], 'Calcula tots dos: 20 × 0,50 € i 8 × 1 €.', '20 × 0,50 € = 10 € i 8 × 1 € = 8 €.'),
+      E('Els ingredients costen 4 €. Quant guanyes si en vens 20 a 0,50 €?', 600, 'Ingressos: 10 €. Menys les despeses.', '10 € − 4 € = 6 €.'),
+      E('I si en vens 8 a 1 €?', 400, 'Ingressos: 8 €. Menys les despeses.', '8 € − 4 € = 4 €.'),
+      Pk('Quin preu et fa guanyar més?', ['0,50 €', '1 €', 'Tots dos igual'], 'Compara els dos guanys.', 'A 0,50 € guanyes 6 € i a 1 €, 4 €. Guanya el preu barat!')]),
+    lv('Guanys i pèrdues', 'Si cobres menys del que has gastat, no guanyes: perds.', [
+      Pk("Un dia de pluja has gastat 5 € i només has cobrat 3,50 €. Has guanyat o has perdut?", ['He perdut', 'He guanyat', 'Ni una cosa ni l\'altra'], 'Has cobrat més o menys del que has gastat?', '3,50 € és menys que 5 €: has perdut.', ledger([['Vendes', '🥤', 350], ['Ingredients', '🍋', -500]], { title: SHOP })),
+      E('Quant has perdut?', 150, '5 € − 3,50 €.', '5 € − 3,50 € = 1,50 €.', ledger([['Vendes', '🥤', 350], ['Ingredients', '🍋', -500]], { title: SHOP })),
+      Pk('Un altre dia gastes 5 € i cobres 5 €. Què passa?', ["Ni guanyes ni perds", 'Guanyes 5 €', 'Perds 5 €'], 'Ingressos menys despeses: 5 € − 5 €.', '5 € − 5 € = 0: has recuperat el que has gastat, i prou.'),
+      E('Dilluns guanyes 3 €, dimarts perds 1,50 € i dimecres guanyes 4 €. Quant has guanyat en total?', 550, 'Suma els guanys i resta la pèrdua: 3 € + 4 € − 1,50 €.', '3 € + 4 € − 1,50 € = 5,50 €.', ledger([['Dilluns', '☀️', 300], ['Dimarts', '🌧️', -150], ['Dimecres', '☀️', 400]], { title: SHOP, end: 'Guany', hide: true }))]),
+    lv('Repte del negoci', 'Despeses, ingressos i guany: el negoci sencer.', [
+      E('Compres 12 llimones a 0,25 € i una bossa de gel de 2 €. Quant gastes?', 500, '12 × 0,25 €: 4 llimones fan 1 €. Després, suma-hi el gel.', '3 € + 2 € = 5 €.', stall([it('llimona', 25, 'cada una'), it('gel', 200)])),
+      N('Vens cada got a 0,50 €. Quants n\'has de vendre per recuperar els 5 €?', 10, 'Cada euro són 2 gots.', '10 × 0,50 € = 5 €.', stall([it('got', 50, 'cada got')]), 'gots'),
+      E('Si en vens 18, quant guanyes?', 400, 'Ingressos: 18 × 0,50 €. Menys els 5 € de despeses.', '9 € − 5 € = 4 €.', stall([it('got', 50, 'cada got')])),
+      change(150, 500, 'got', { till: PB, min: true, w: 2, the: '3 gots de llimonada' })])
+  ] },
+  { name: "El banc de l'estany", sub: "Ingressar, treure, el saldo, l'interès, els préstecs i la targeta.", levels: [
+    lv('Ingressa al banc', 'Al banc es guarden els diners en un compte. Posar-n\'hi es diu ingressar.', [
+      pay(750, PB, { bank: true, text: 'Ingressa 7,50 € al teu compte del banc.' }),
+      pay(1200, PB, { bank: true, min: true, text: 'Ingressa 12 € amb les menys peces possibles.' }),
+      pay(2560, PB, { bank: true, text: 'Ingressa 25,60 € al compte.' })]),
+    lv('El saldo', 'El saldo és quants diners tens al compte. Ingressar el fa pujar; treure\'n, baixar.', [
+      E("Tenies 20 € al compte i n'hi ingresses 5. Quin és el saldo ara?", 2500, 'Ingressar és sumar: 20 € + 5 €.', '20 € + 5 € = 25 €.', ledger([['Ingrés', '💶', 500]], { title: BOOK, start: 2000, end: 'Saldo', hide: true })),
+      E('Ara en treus 8 € al caixer. Quin és el saldo?', 1700, 'Treure és restar: 25 € − 8 €.', '25 € − 8 € = 17 €.', ledger([['Ingrés', '💶', 500], ['Caixer', '🏧', -800]], { title: BOOK, start: 2000, end: 'Saldo', hide: true })),
+      E('Hi ingresses la paga de 10 € i pagues 3,50 € de cromos. Quin és el saldo?', 2350, 'Comença pels 17 €: suma la paga i resta els cromos.', '17 € + 10 € − 3,50 € = 23,50 €.', ledger([['Paga', '💶', 1000], ['Cromos', '🃏', -350]], { title: BOOK, start: 1700, end: 'Saldo', hide: true }))]),
+    (B => lv('La llibreta del banc', 'La llibreta diu tot el que ha entrat (+) i sortit (−) del compte.', [
+      E('Quin és el saldo final?', 2410, 'Ves línia a línia: suma el que entra i resta el que surt.', '15 € + 10 € − 4,50 € + 6 € − 2,40 € = 24,10 €.', B(true)),
+      Tp('Després de quina línia hi havia més diners al compte? Toca-la.', [2], 'Calcula el saldo després de cada línia: 25 €, ...', 'Després del regal: 15 + 10 − 4,50 + 6 = 26,50 €.', B(false)),
+      E('Quant hi has ingressat en total?', 1600, 'Suma només les línies amb +.', '10 € + 6 € = 16 €.', B(false)),
+      E('I quant n\'has tret?', 690, 'Suma només les línies amb −.', '4,50 € + 2,40 € = 6,90 €.', B(false))]))(end => ledger([['Paga', '💶', 1000], ['Cinema', '🎟️', -450], ["Regal de l'àvia", '🎁', 600], ['Gelats', '🍦', -240]], { title: BOOK, start: 1500, ...(end ? { end: 'Saldo', hide: true } : {}) })),
+    lv('La paga', 'Cada setmana tens una paga. Si no te la gastes tota, estalvies.', [
+      E('Cada setmana tens 3 € de paga i en gastes 1,80 €. Quants diners estalvies cada setmana?', 120, 'Paga menys el que gastes: 3 € − 1,80 €.', '3 € − 1,80 € = 1,20 €.', piggy(120)),
+      E('Quant estalvies en 5 setmanes?', 600, '5 × 1,20 €.', '5 × 1,20 € = 6 €.', piggy(120, { weeks: 5 })),
+      N('Vols uns patins de 30 €. Quantes setmanes has d\'estalviar 1,20 € cada setmana?', 25, '5 setmanes són 6 €. Quantes vegades 6 € fan 30 €?', '5 setmanes són 6 €, i 30 € són 5 vegades 6 €: 25 setmanes.', piggy(120, { goal: it('patins', 3000) }), 'setmanes'),
+      N('I si no gastes res de la paga, quantes setmanes et calen?', 10, '30 € : 3 €.', '30 € : 3 € = 10 setmanes. Gastar menys fa arribar abans!', piggy(300, { goal: it('patins', 3000) }), 'setmanes')]),
+    lv('Necessitat o caprici?', 'Amb un pressupost, primer el que necessites, i després, si en sobra, els capricis.', [
+      E('Tens 10 € per a l\'excursió i l\'autobús en costa 6. Quant et queda per a capricis?', 400, '10 € − 6 €.', '10 € − 6 € = 4 €.', stall([it('bus', 600)])),
+      Pk('Amb els 4 € que et queden, què pots comprar?', ['Un gelat d\'1,50 € i cromos de 2 €', 'Un llibre de 5 €', 'Dos gelats i els cromos'], 'Suma cada opció i mira que no passi de 4 €.', '1,50 € + 2 € = 3,50 €: hi cap, i encara sobren 0,50 €.', stall([it('gelat', 150), it('cromos', 200), it('llibre', 500)])),
+      Pk('Quina d\'aquestes coses és una necessitat?', ["El bitllet de l'autobús de l'excursió", 'Un sobre de cromos', 'Un gelat de xocolata'], 'Sense quina cosa no pots anar d\'excursió?', 'Sense autobús no hi vas: primer, el que cal.'),
+      Pk('Tens 15 € per a la setmana i cada dia d\'escola gastes 2 € en l\'esmorzar. Pots comprar un joc de 6 €?', ['No: els esmorzars fan 10 € i en queden 5', 'Sí, i encara en sobren', 'Sí, just'],
+        'Primer, els esmorzars: 5 dies × 2 €.', '5 × 2 € = 10 €, i 15 € − 10 € = 5 €: el joc de 6 € no hi cap.')]),
+    lv("L'interès: el banc et paga", "Si deixes els diners al banc tot un any, el banc te'n dona una mica més: és l'interès. Al banc de l'estany, 1 € per cada 10 €.", [
+      E('Tens 30 € al banc tot un any. Quant et dona el banc?', interest(3000), 'Quantes vegades hi ha 10 € dins de 30 €? Tants euros et dona.', '30 € són 3 vegades 10 €: 3 €.'),
+      E('Quants diners tindràs, doncs, al cap de l\'any?', 3300, 'Els 30 € més l\'interès.', '30 € + 3 € = 33 €.'),
+      E('I si hi tens 80 €, quant et dona?', interest(8000), 'Quantes vegades hi ha 10 € dins de 80 €?', '80 € són 8 vegades 10 €: 8 €.'),
+      E('I amb 45 €? Per 5 €, el banc et dona la meitat d\'1 €.', interest(4500), '40 € donen 4 €. I 5 € és la meitat de 10 €: 0,50 €.', '4 € + 0,50 € = 4,50 €.')]),
+    lv('Any rere any', "Al segon any, l'interès és més gran: també es compten els diners que el banc t'ha donat.", [
+      E('Tens 100 € al banc. Al cap d\'un any, quant interès et donen?', interest(10000), '100 € són 10 vegades 10 €.', '1 € per cada 10 €: 10 €.'),
+      E('Ara en tens 110. Quant interès et donen el segon any?', interest(11000), '110 € són 11 vegades 10 €.', '110 € són 11 vegades 10 €: 11 €.'),
+      E('Quants diners tens al cap dels dos anys?', 12100, '110 € + 11 €.', '110 € + 11 € = 121 €.'),
+      Pk("Per què el segon any et donen més interès que el primer?", ["Perquè ja tens més diners al compte: l'interès també en dona", "Perquè el banc s'equivoca", 'Perquè al segon any tot és més car'], 'Quants diners hi havia al compte cada any?', 'El primer any 100 €; el segon, 110 €. Com més n\'hi ha, més interès.')]),
+    lv('El préstec', 'Si et falten diners, el banc te\'n pot deixar: és un préstec. Però s\'han de tornar, i una mica més.', [
+      E("Demanes 20 € al banc i n'has de tornar 22. Quant t'ha costat el préstec?", 200, 'El que tornes menys el que t\'han deixat.', '22 € − 20 € = 2 €.'),
+      E('Els 22 € els tornes en 4 mesos, a parts iguals. Quant tornes cada mes?', 550, '22 € : 4. Pensa: 20 € : 4 = 5 €, i 2 € : 4 = 0,50 €.', '22 € : 4 = 5,50 €.'),
+      Pk('Vols uns patins de 40 €. Què surt més barat?', ['Estalviar fins a tenir-los', 'Demanar un préstec de 40 € i tornar-ne 44', 'Costen igual'], 'Quant pagues al final, en cada cas?', 'Estalviant pagues 40 €; amb el préstec, 44 €.', stall([it('patins', 4000)])),
+      E('Demanes 50 € i el banc et cobra 1 € per cada 10 €. Quant has de tornar?', 5500, '50 € són 5 vegades 10 €: et cobra 5 €.', '50 € + 5 € = 55 €.')]),
+    lv('Pagar amb targeta', 'La targeta paga amb els diners del teu compte: no són diners que surten del no-res!', [
+      E('Tens 25 € al compte i pagues 8,40 € amb la targeta. Quant et queda al compte?', 1660, '25 € − 8,40 €.', '25 € − 8,40 € = 16,60 €.', ledger([['Targeta: llibre', '📘', -840]], { title: BOOK, start: 2500, end: 'Saldo', hide: true })),
+      Pk('Ara vols pagar uns patins de 30 € amb la targeta. Pots?', ['No: al compte només hi ha 16,60 €', 'Sí: la targeta sempre paga', 'Sí, si la passes dues vegades'], 'D\'on surten els diners de la targeta?', 'La targeta només pot gastar el que hi ha al compte.', stall([it('patins', 3000)])),
+      E('Quant et falta per poder-los comprar?', 1340, '30 € − 16,60 €.', '30 € − 16,60 € = 13,40 €.', stall([it('patins', 3000)])),
+      N('Si cada setmana hi ingresses 5 €, quantes setmanes et calen per tenir-ho?', 3, 'En 2 setmanes, 10 €: no n\'hi ha prou.', 'En 2 setmanes, 10 € (no hi arribes); en 3, 15 €: 3 setmanes.', piggy(500, { goal: it('patins', 3000), have: 1660 }), 'setmanes')]),
+    lv('Repte del banc', 'Ingressos, saldo, interès i préstecs: com un banquer de l\'estany.', [
+      pay(1850, PB, { bank: true, min: true, text: 'Ingressa 18,50 € al compte amb les menys peces possibles.' }),
+      E('Pagues un llibre de 6,75 € amb la targeta i després t\'ingressen la paga de 12 €. Quin és el saldo?', 2375, 'Comença per 18,50 €: resta el llibre i suma la paga.', '18,50 € − 6,75 € + 12 € = 23,75 €.', ledger([['Targeta: llibre', '📘', -675], ['Paga', '💶', 1200]], { title: BOOK, start: 1850, end: 'Saldo', hide: true })),
+      E('Deixes 60 € al banc tot un any. Quant tindràs?', 6600, 'El banc et dona 1 € per cada 10 €: 6 €.', '60 € + 6 € = 66 €.'),
+      E('Demanes un préstec de 30 € i en tornes 33 en 3 mesos iguals. Quant tornes cada mes?', 1100, '33 € : 3.', '33 € : 3 = 11 €.')])
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -453,7 +636,8 @@ export const PROJECTS = SECTIONS;
 export const CIRCLES = [
   { name: 'Monedes i bitllets', projects: [0, 1, 2] },
   { name: 'La compra', projects: [3, 4, 5] },
-  { name: 'El mercader savi', projects: [6, 7, 8] }
+  { name: 'El mercader savi', projects: [6, 7, 8] },
+  { name: 'Com funcionen els diners', projects: [9, 10, 11] }
 ];
 const cursus = curs({ PROJECTS, CIRCLES, field: 'stars', badges: p => badges(p), BADGES: () => BADGES });
 export const { circleOf, noteOf, reached, validated, xpOf, levelText, isOpen, examOpen, levelIn, examIn, sheetIn, rapidIn } = cursus;
@@ -462,7 +646,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle };
 export const POOL = [value(50), pay(70, PC, { items: [item('poma', 70)] }),
   Tp('Quina és la cosa més cara de la parada? Toca-la.', [2], 'Mira les etiquetes i busca el preu més gran.', 'La síndria: 3,40 €.', stall([it('pera', 65), it('pa', 120), it('sindria', 340), it('llet', 95)]))];
 
-// What is saved is facts only: { so, stars[90], piscina, exams[3], fulls, rapid } (rapid: the best rush hour, in customers served). Marks, XP, level and badges are worked out, never stored.
+// What is saved is facts only: { so, stars[120], piscina, exams[4], fulls, rapid }. A save of before the fourth circle had stars[90] and exams[3]: the places it lacks are 0 and false (rapid: the best rush hour, in customers served). Marks, XP, level and badges are worked out, never stored.
 // a complete progress inside its limits from any value at all; a new object
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
@@ -474,20 +658,27 @@ export const BADGES = [
   { name: 'Primer full', what: "Caça bé les errades d'un full." },
   { name: 'Nota 100', what: 'Treu un 100 en un projecte.' },
   { name: 'Deu fulls', what: "Caça bé les errades de deu fulls." },
-  { name: 'Mercader savi', what: 'Supera els tres exàmens.' },
-  { name: 'Hora punta', what: 'Atén 10 clients en una hora punta.' }
+  { name: 'Mercader savi', what: 'Supera els tres primers exàmens.' },
+  { name: 'Hora punta', what: 'Atén 10 clients en una hora punta.' },
+  { name: "Banquer de l'estany", what: "Supera l'examen del cercle 3." },
+  { name: 'Hora punta de rècord', what: 'Atén 20 clients en una hora punta.' }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.every(e => e === true), p.rapid >= 10];
+// «Mercader savi» is the three exams it always was; the exam of circle 3 has a badge of its own
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.fulls >= 10, p.exams.slice(0, 3).every(e => e === true), p.rapid >= 10,
+  p.exams[3] === true, p.rapid >= 20];
 
 /* ---------- the rush hour: customers in a queue, the change against the clock ---------- */
-// The k-th customer of a rush: an animal of the pond buys a thing and pays with a note; the child gives the change with the till.
-// The first ones pay a price of whole tens of cents with 1 € or 2 €; then notes of 5, 10 and 20 €, and prices of any 5 cents
+// The k-th customer of a rush: somebody buys a thing and pays with a note; the child gives the change with the till. The first ones
+// pay a price of whole tens of cents with 1 € or 2 €; then notes of 5, 10 and 20 €, and prices of any 5 cents. From the eighth on,
+// half of them buy two things: the two prices are added first. items the things bought, price what they cost together
 export const RUSH_SECS = 90;
 export function customer(k, rnd) {
   const paid = k < 3 ? pickOf([100, 200], rnd) : k < 7 ? pickOf([200, 500], rnd) : pickOf([500, 1000, 2000], rnd);
   const step = k < 5 ? 10 : 5, p = paid - step * (1 + at(Math.min(paid, k < 7 ? 500 : 2000) / step - 2, rnd));
-  const [e, who] = WHO[at(WHO.length, rnd)], key = pickOf(FOOD.concat(['cromos', 'gelat', 'poma', 'pera']), rnd);
-  return { who: [e, who], item: it(key, p), paid, change: paid - p, min: fewest(paid - p, PB.map(([v]) => v)).length };
+  const [e, who, kind] = WHO[at(WHO.length, rnd)], [key, key2] = shuffle(FOOD.concat(['cromos', 'gelat', 'poma', 'pera']), rnd);
+  const two = k >= 7 && p >= 4 * step && rnd() < 0.5, first = two ? step * (1 + at(p / step - 2, rnd)) : p;
+  const items = two ? [it(key, first), it(key2, p - first)] : [it(key, p)];
+  return { who: [e, who, kind], item: items[0], items, price: p, paid, change: paid - p, min: fewest(paid - p, PB.map(([v]) => v)).length };
 }
 export const TILL = PB;
 
@@ -544,4 +735,37 @@ export const KINDS = Object.keys(CLAIM);
 export function sheet(rnd) {
   const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
   return shuffle(KINDS.slice(), rnd).slice(0, 3).map((kind, i) => ({ kind, ...CLAIM[kind](bads.has(i), rnd) }));
+}
+
+// The claims of circle 3, the mistakes made with how money works: the costs forgotten in the profit, a withdrawal added to the balance,
+// the interest of 1 € in 10 € taken as 1 € in 100 €, and a barter added instead of multiplied. A sheet with them, once circle 3 is open
+// (sheetWide), has one of these and two of the others
+const CLAIM3 = {
+  profit(bad, rnd) {
+    const n = 10 + at(11, rnd), each = pickOf([50, 50, 60, 75, 100], rnd), inc = n * each, cost = 100 * (1 + at(Math.max(1, Math.floor(inc / 100) - 2), rnd)), t = inc - cost;
+    const say = x => `Si vens ${n} gots a ${eur(each)} i has gastat ${eur(cost)}, guanyes ${eur(x)}.`, wrong = [inc, t + 100];
+    return { scene: ledger([['Vendes', '🥤', inc], ['Ingredients', '🍋', -cost]], { title: SHOP }), real: say(t), says: say(bad ? wrong[0] : t), opts: shuffle([t, ...wrong].map(say), rnd) };
+  },
+  balance(bad, rnd) {
+    const start = 100 * (10 + at(21, rnd)), a = 100 * (2 + at(9, rnd)), b = 50 * (3 + at(12, rnd)), t = start + a - b;
+    const say = x => `Tenies ${eur(start)} al compte, n'hi has ingressat ${eur(a)} i n'has tret ${eur(b)}: ara hi tens ${eur(x)}.`, wrong = [start + a + b, t - 100];
+    return { scene: ledger([['Ingrés', '💶', a], ['Caixer', '🏧', -b]], { title: BOOK, start }), real: say(t), says: say(bad ? wrong[0] : t), opts: shuffle([t, ...wrong].map(say), rnd) };
+  },
+  interest(bad, rnd) {
+    const c = 1000 * (2 + at(9, rnd)), t = interest(c);
+    const say = x => `Amb ${eur(c)} al banc tot un any, el banc de l'estany et dona ${eur(x)} d'interès.`, wrong = [c / 100, t * 10];
+    return { scene: null, real: say(t), says: say(bad ? wrong[0] : t), opts: shuffle([t, ...wrong].map(say), rnd) };
+  },
+  barter(bad, rnd) {
+    const k = 2 + at(4, rnd), n = 2 + at(5, rnd), t = n * k;
+    const say = x => `Si un pa val ${k} pomes, ${n} pans valen ${x} pomes.`, wrong = [n + k, t - k];
+    return { scene: trade([['pa', k, 'poma']]), real: say(t), says: say(bad ? wrong[0] : t), opts: shuffle([t, ...wrong].map(say), rnd) };
+  }
+};
+const KINDS3 = Object.keys(CLAIM3);
+// A sheet once circle 3 is open: three claims of three different kinds, one of them of circle 3; from 0 to 2 wrong
+export function sheetWide(rnd) {
+  const bads = new Set(shuffle([0, 1, 2], rnd).slice(0, [0, 1, 1, 2, 2][at(5, rnd)]));
+  const kinds = shuffle([[CLAIM3, pickOf(KINDS3, rnd)], ...shuffle(KINDS.slice(), rnd).slice(0, 2).map(k => [CLAIM, k])], rnd);
+  return kinds.map(([C, kind], i) => ({ kind, ...C[kind](bads.has(i), rnd) }));
 }

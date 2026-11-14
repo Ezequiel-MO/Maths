@@ -1,7 +1,11 @@
 /* Layout: the night pond of the other games, turned into a market under string lights. One centred column: the row of levels, the
    frog of the stall in its apron and its tip in a speech bubble, the question, the scene (the stall, the receipt, the scales... drawn in
    draw.js) and under it what answers: the keys of a number, the choices, or the counter with the purse and the register. Two fixed
-   canvases paint the sky behind and the sparks in front. Written for a phone held upright; it grows on a wide screen. */
+   canvases paint the sky behind and the sparks in front. Written for a phone held upright; it grows on a wide screen.
+   With WebGL the market is the 3D picture behind the page (#world, games/mercat-de-l-estany/world.js) and the page is a panel of glass
+   over it, as in El robot dels pronoms febles: on a wide screen the panel stands on the right and the market fills the rest; on a phone or
+   a tablet held upright the market is on top (.view keeps its place free) and the panel under it. The frog, the coins, the crates, the
+   scales, the piggy bank and the customers live in the market; the panel keeps the question, the papers and what answers. */
 @import "../../shared/base.css";
 @import "../../shared/sections.css";
 
@@ -18,6 +22,50 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .display, .claimbox, .lcd, .clo
 .xp-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sun); box-shadow: 0 0 10px var(--sun); transition: width 0.6s; }
 .top { flex-wrap: nowrap; }
 .top > span { flex: none; }
+
+/* the market in 3D, and the panel of glass over it */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+/* the page lets the taps through to the market wherever it has nothing of its own */
+body:not(.nogl) #app { width: min(100%, 640px); max-width: none; padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) #game > :not(.view) { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl) h1 { font-size: clamp(1.7rem, 5.4vw, 2.5rem); }
+body:not(.nogl).playing header { display: none; }
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+.sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+body:not(.nogl) .sheet { position: relative; padding: 14px 12px 18px; border-radius: 26px; background: rgb(7 28 40 / 0.82); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+/* the frog, the scales and the customer are in the market */
+body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before, body:not(.nogl) .scalebox svg, body:not(.nogl) .paybox .client .who { display: none; }
+body:not(.nogl) .stage { min-height: 0; }
+body:not(.nogl) .counter { min-height: 58px; margin-top: 4px; padding: 6px 8px; }
+body:not(.nogl) .paybox .client .bubble::before { display: none; }
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app { width: 520px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  body:not(.nogl) .sheet { padding: 10px 8px 12px; gap: 8px; }
+  body:not(.nogl).playing #app { padding-bottom: 6px; gap: 6px; }
+  body:not(.nogl) .sheet .levels button { width: 38px; height: 38px; }
+  body:not(.nogl) .coach .status.tip { min-height: 0; padding: 6px 12px; font-size: 0.95rem; }
+  body:not(.nogl) .stage { gap: 8px; }
+  body:not(.nogl) .ask { font-size: 1.15rem; }
+  body:not(.nogl) .key { height: 44px; font-size: 1.4rem; }
+  body:not(.nogl) .keys { gap: 6px; }
+  body:not(.nogl) .ans { gap: 8px; min-height: 0; }
+  body:not(.nogl) .wallet { padding: 6px; gap: 6px; }
+}
+/* the row of buttons that stands for the coins or the crates of the market, when a question is answered by touching them */
+.tchips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tchip { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 6px; border-radius: 16px; border: 2px solid var(--edge); background: var(--glass); color: var(--ink); font-weight: 800; touch-action: manipulation; }
+.tchip b { font-size: 1.5rem; line-height: 1; } .tchip i { font: 800 1.05rem/1 var(--display); font-style: normal; color: var(--sun); }
+.tchip .money { display: inline-block; }
+.tchip.ok { border-color: var(--mint); box-shadow: 0 0 16px rgb(124 245 176 / 0.5); } .tchip.no { border-color: var(--bad); }
 
 #game { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: auto; }
 .hud { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -37,7 +85,7 @@ h1, h2, .btn, .chip, .status, .key, .ask, .line, .display, .claimbox, .lcd, .clo
 .market { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 8px 18px rgb(0 0 0 / 0.45)); }
 .grow { font-weight: 800; font-size: 0.9rem; color: var(--muted); max-width: 40ch; }
 .ring { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; border-radius: 28px; border: 2px solid hsl(var(--rh) 60% 55% / 0.55); background: var(--glass); }
-.ring.r0 { --rh: 45; width: 93%; } .ring.r1 { --rh: 140; width: 96%; } .ring.r2 { --rh: 320; }
+.ring.r0 { --rh: 45; width: 91%; } .ring.r1 { --rh: 140; width: 94%; } .ring.r2 { --rh: 320; width: 97%; } .ring.r3 { --rh: 195; }
 .ring.shut { border-style: dashed; }
 .ring h2 { margin: 0; display: flex; align-items: center; gap: 10px; justify-content: center; font-size: 1.15rem; line-height: 1.1; }
 .ring h2 svg { flex: none; width: 28px; height: 28px; }
@@ -174,6 +222,34 @@ b.seq { position: absolute; top: -6px; right: -6px; display: grid; place-items: 
 .hit.ok > .offer, .hit.ok > .purse { box-shadow: 0 0 0 4px var(--mint), 0 0 26px rgb(124 245 176 / 0.5); }
 .hit.no > .offer, .hit.no > .purse { box-shadow: 0 0 0 4px var(--bad); }
 .hit:hover > .offer, .hit:hover > .purse, .hit:focus-visible > .offer, .hit:focus-visible > .purse { transform: translateY(-3px); }
+/* the board of the barter: a blackboard with one thing worth so many of another */
+.trade { width: 100%; max-width: 420px; padding: 10px 14px; border-radius: 12px; background: #1E2B26; border: 6px solid var(--wood); box-shadow: inset 0 0 20px rgb(0 0 0 / 0.5), 0 8px 16px rgb(0 0 0 / 0.35); }
+.trade .th { margin: 0 0 4px; font: 800 0.85rem/1.2 var(--display); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.trade .rule { margin: 0; display: grid; grid-template-columns: auto auto 1fr; gap: 2px 10px; align-items: center; padding: 4px 0; animation: line-in 0.35s var(--d) ease-out both; }
+.trade .rule + .rule { border-top: 1px dashed rgb(243 251 248 / 0.2); }
+.trade .one { font-size: 1.9rem; line-height: 1; } .trade .many { font-size: 1.5rem; line-height: 1; letter-spacing: -0.05em; text-align: left; }
+.trade .rule > b { font: 800 1.5rem/1 var(--display); color: var(--sun); }
+.trade small { grid-column: 1 / -1; font-weight: 800; font-size: 0.85rem; color: #F3FBF8; text-align: left; }
+/* the book of the bank and the accounts of the lemonade */
+.book { width: 100%; max-width: 380px; padding: 12px 14px 14px; border-radius: 6px 14px 14px 6px; background: var(--cream); color: #2A1C00; border-left: 10px solid #2E7D5B; box-shadow: 0 10px 20px rgb(0 0 0 / 0.4); animation: rise 0.4s both;
+  font: 700 0.95rem/1.35 ui-monospace, "Courier New", monospace; text-align: left; }
+.book .hd { margin: 0 0 6px; text-align: center; font-weight: 800; letter-spacing: 0.08em; border-bottom: 2px solid #C9A55A; padding-bottom: 6px; }
+.book .st, .book .tot { margin: 0; display: flex; justify-content: space-between; padding: 3px 4px; }
+.book .st { opacity: 0.75; }
+.book ul { list-style: none; margin: 0; padding: 0; }
+.book li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 4px; border-radius: 6px; animation: line-in 0.35s var(--d) ease-out both; }
+.book li .ln { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .book li .ln b { display: inline-block; width: 1.3em; opacity: 0.5; }
+.book .am { white-space: nowrap; font-weight: 800; } .book .am.in { color: #1F7A4D; } .book .am.out { color: #B5392F; }
+.book li.hit:hover, .book li.hit:focus-visible { background: rgb(111 227 255 / 0.25); }
+.book li.ok { background: rgb(124 245 176 / 0.45); } .book li.no { background: rgb(255 107 94 / 0.35); }
+.book .tot { margin-top: 6px; border-top: 2px dashed #C9A55A; font-size: 1.15rem; font-weight: 800; animation: line-in 0.35s var(--d) ease-out both; }
+/* the scales of barter: pieces with their drawing */
+.wt.pc .pe { font-size: 1.9rem; line-height: 1.1; } .wt.pc small { font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.flyw.pe { background: none; font-size: 1.8rem; }
+.scalebox .undo { font-size: 0.9rem; }
+.scalebox.barter .trade { margin-bottom: 4px; }
+.chip.till { color: var(--mint); white-space: nowrap; }
+
 /* the dial, the crate, the piggy bank */
 .s-dial svg { max-width: 330px; }
 .s-dial .load { animation: drop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
