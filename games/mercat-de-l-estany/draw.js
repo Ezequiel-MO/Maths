@@ -8,7 +8,7 @@
 // Every loop hangs from frames() of shared/scene.js, so it stops with its screen.
 import { RM, mid } from '../../shared/util.js';
 import { frames, tween } from '../../shared/scene.js';
-import { eur, short, gr, isBill, valName, thousands } from './logic.js';
+import { eur, short, gr, isBill, valName, thousands, F } from './logic.js';
 
 /* ---------- the money ---------- */
 // the sizes of the real coins, in mm: a 1 € coin is 23,25 mm, a 2 € coin 25,75 mm
@@ -157,6 +157,18 @@ const DRAW = {
       ${Array.from({ length: sc.rows * sc.cols }, (_, i) => { const r = Math.floor(i / sc.cols), c = i % sc.cols, x = 10 + c * s + s / 2, y = 10 + r * s + s / 2;
         return `${egg ? `<circle cx="${x}" cy="${y}" r="${s * 0.42}" fill="#A8957A"/>` : ''}<text class="drop" style="--d:${(r * 0.12 + c * 0.04).toFixed(2)}s" x="${x}" y="${y + s * 0.3}" text-anchor="middle" font-size="${s * 0.8}">${sc.e}</text>`; }).join('')}</svg>`;
   },
+  // the board of the barter: one thing worth so many of another
+  trade(sc) {
+    return `<div class="trade"><p class="th">Tauler dels canvis</p>${sc.rules.map(([a, n, b], i) => `<p class="rule" style="--d:${i * 0.15}s"><span class="one">${F[a].e}</span><b>=</b>
+      <span class="many">${n <= 6 ? F[b].e.repeat(n) : `${n} × ${F[b].e}`}</span><small>1 ${H(F[a].n.toLowerCase())} = ${n} ${H(plural(b, n))}</small></p>`).join('')}</div>`;
+  },
+  // the book of the bank or the accounts of the lemonade: what comes in (+), what goes out (−) and the last line
+  ledger(sc, o) {
+    const t = (sc.start || 0) + sc.rows.reduce((s, r) => s + r.v, 0);
+    const row = (r, i) => `<li${tapAttr(o, i, `Línia ${i + 1}: ${r.t}`)} style="--d:${0.2 + i * 0.18}s"><span class="ln"><b>${i + 1}</b>${r.e} ${H(r.t)}</span><span class="am ${r.v < 0 ? 'out' : 'in'}">${r.v < 0 ? '−' : '+'} ${eur(Math.abs(r.v))}</span></li>`;
+    return `<div class="book"><p class="hd">${H(sc.title || '')}</p>${sc.start != null ? `<p class="st"><span>Saldo d'abans</span><b>${eur(sc.start)}</b></p>` : ''}
+      <ul>${sc.rows.map(row).join('')}</ul>${sc.end ? `<p class="tot" style="--d:${0.3 + sc.rows.length * 0.18}s"><span>${H(sc.end)}</span><b>${sc.hide ? '?' : eur(t)}</b></p>` : ''}</div>`;
+  },
   piggy(sc) {
     return `<svg viewBox="0 0 340 230" role="img" aria-label="La guardiola">
       <ellipse cx="130" cy="214" rx="90" ry="10" fill="rgb(0 0 0 / 0.3)"/>
@@ -173,6 +185,9 @@ const DRAW = {
         <rect x="258" y="164" width="72" height="26" rx="6" fill="#FFF8E6" stroke="#C9A55A" stroke-width="2"/><text x="294" y="183" text-anchor="middle" font-size="16" font-weight="800" fill="#2A1C00" font-family="Baloo 2, sans-serif">${H(eur(sc.goal.p))}</text></g>` : ''}</svg>`;
   }
 };
+// the plural of a thing of the barter: «3 pomes», «2 pans»
+const PLURAL = { poma: 'pomes', pa: 'pans', formatge: 'formatges', peix: 'peixos' };
+export const plural = (k, n) => n === 1 ? F[k].n.toLowerCase() : PLURAL[k] || F[k].n.toLowerCase();
 // a coin drawn inside an SVG (the piggy bank), not as its own svg
 const coinG = v => isBill(v) ? `<g transform="scale(0.45) translate(-80 -42)">${money(v).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>` : `<g transform="scale(0.32)">${money(v).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>`;
 const starPath = (n, R, r) => Array.from({ length: n * 2 }, (_, i) => { const a = i / (n * 2) * Math.PI * 2, rr = i % 2 ? r : R; return `${i ? 'L' : 'M'}${(Math.sin(a) * rr).toFixed(1)} ${(-Math.cos(a) * rr).toFixed(1)}`; }).join('') + 'Z';
@@ -221,16 +236,17 @@ function fly(html, from, to, dur = 420, spin = 0) {
 
 /* ---------- the counter, the purse and the register ---------- */
 // The child pays (or gives the change): a tap on a coin of the purse makes it fly to the counter, a tap on a coin of the counter sends
-// it back. o.onPut(list of values) after every move; o.sound(kind) for the clink of a coin ('coin'), a note ('bill') and the way back ('back').
-// Gives { value() the list on the counter, lock(), shake(), open() the drawer of the register when it is right }
+// it back. o.onPut(list of values) after every move, once the coin has landed; o.onMove(list) at once, for the counter of the market in
+// 3D; o.sound(kind) for the clink of a coin ('coin'), a note ('bill') and the way back ('back').
+// Gives { value() the list on the counter, take(v) one of v back to the purse, lock(), shake(), open() the drawer of the register when it is right }
 export function payBox(el, q, o = {}) {
   defs();
   const left = new Map(q.purse.map(([v, n]) => [v, n]));
-  const head = q.change ? `<div class="client"><span class="who">${q.who[0]}</span><div class="bubble"><p>Em poses ${H(q.items[0].the)}? <span class="price">${H(eur(q.items[0].p))}</span></p><p class="gives">Té${q.paid >= 500 ? ', un bitllet de' : ''} ${money(q.paid, 40)}</p></div></div>`
+  const head = q.change ? `<div class="client"><span class="who">${q.who[0]}</span><div class="bubble"><p>Em poses ${H(q.items.map(x => x.the).join(' i '))}? ${q.items.map(x => `<span class="price">${H(eur(x.p))}</span>`).join(' + ')}</p><p class="gives">Té${q.paid >= 500 ? ', un bitllet de' : ''} ${money(q.paid, 40)}</p></div></div>`
     : q.items.length ? `<div class="tags">${q.items.map(x => `<span class="ptag"><b>${x.e}</b>${H(x.n)}<i>${H(eur(x.p))}</i></span>`).join('<span class="plus">+</span>')}</div>` : '';
-  el.innerHTML = `<div class="paybox${q.change ? ' change' : ''}">${head}
-    <div class="register"><span class="lcd-l">${q.change ? 'Canvi' : 'Al taulell'}</span><span class="lcd" id="lcd">0,00 €</span>${q.min ? `<span class="pcs" id="pcs">0 peces</span>` : ''}<span class="drawer"></span></div>
-    <div class="counter" id="counter" aria-label="El taulell"><p class="empty">${q.change ? 'Posa aquí el canvi' : 'Posa aquí els diners'}</p></div>
+  el.innerHTML = `<div class="paybox${q.change ? ' change' : ''}${q.bank ? ' bank' : ''}">${head}
+    <div class="register"><span class="lcd-l">${q.change ? 'Canvi' : q.bank ? 'Ingrés' : 'Al taulell'}</span><span class="lcd" id="lcd">0,00 €</span>${q.min ? `<span class="pcs" id="pcs">0 peces</span>` : ''}<span class="drawer"></span></div>
+    <div class="counter" id="counter" aria-label="El taulell"><p class="empty">${q.change ? 'Posa aquí el canvi' : q.bank ? 'Posa aquí el que ingresses' : 'Posa aquí els diners'}</p></div>
     <div class="purse-l">${q.change ? 'La caixa' : 'El teu moneder'}</div>
     <div class="wallet" id="wallet">${q.purse.map(([v, n]) => `<button class="mo${isBill(v) ? ' b' : ''}" data-v="${v}" aria-label="${valName(v)}"${n === 0 ? ' disabled' : ''}>${money(v, 50)}${Number.isFinite(n) ? `<i class="n">×${n}</i>` : ''}</button>`).join('')}</div></div>`;
   const counter = el.querySelector('#counter'), wallet = el.querySelector('#wallet'), lcd = el.querySelector('#lcd'), pcs = el.querySelector('#pcs');
@@ -242,7 +258,8 @@ export function payBox(el, q, o = {}) {
     else tween(260, k => { const x = Math.round(from + (to - from) * k); lcd.textContent = `${Math.floor(x / 100)},${String(x % 100).padStart(2, '0')} €`; });
     if (pcs) pcs.textContent = `${put.length} ${put.length === 1 ? 'peça' : 'peces'}`;
     counter.querySelector('.empty').hidden = put.length > 0;
-    for (const b of wallet.querySelectorAll('.mo')) { const n = left.get(+b.dataset.v); if (Number.isFinite(n)) { b.disabled = n <= 0; b.querySelector('.n').textContent = `×${n}`; } }
+    for (const b of wallet.querySelectorAll('.mo')) { const n = left.get(+b.dataset.v); if (Number.isFinite(n)) { b.disabled = locked || n <= 0; b.querySelector('.n').textContent = `×${n}`; } }
+    o.onMove?.(put.slice());
   }
   // the coins on the counter: notes in a row of their own, then the coins from the biggest
   function layout() {
@@ -263,8 +280,9 @@ export function payBox(el, q, o = {}) {
     dest.style.visibility = ''; dest.classList.add('land');
     o.onPut?.(put.slice());
   };
-  counter.onclick = async e => {
-    const b = e.target.closest('.on'); if (!b || locked) return;
+  // a coin of the counter goes back to the purse
+  async function back(b) {
+    if (!b || locked) return;
     const v = +b.dataset.v, i = put.indexOf(v); if (i < 0) return;
     put.splice(i, 1); if (Number.isFinite(left.get(v))) left.set(v, left.get(v) + 1);
     const home = wallet.querySelector(`[data-v="${v}"]`);
@@ -272,10 +290,12 @@ export function payBox(el, q, o = {}) {
     await fly(money(v, 46), b, home, 300, -360);
     layout();
     o.onPut?.(put.slice());
-  };
+  }
+  counter.onclick = e => back(e.target.closest('.on'));
   paint();
   return {
     value: () => put.slice(),
+    take: v => back([...counter.querySelectorAll('.on')].find(x => +x.dataset.v === v && x.style.visibility !== 'hidden')),
     lock() { locked = true; wallet.querySelectorAll('button').forEach(b => b.disabled = true); },
     shake() { const r = el.querySelector('.register'); r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake'); },
     open() { el.querySelector('.register').classList.add('open'); counter.classList.add('right'); },
@@ -285,21 +305,28 @@ export function payBox(el, q, o = {}) {
 
 /* ---------- the scales with two pans ---------- */
 // The thing on the left pan weighs q.target; the weights the child puts go on the right pan and the beam swings on a spring:
-// down on the heavy side, level when they weigh the same. Gives { value(), lock(), shake(), level() }
+// down on the heavy side, level when they weigh the same. The scales of barter (q.barter) weigh what things are worth in apples: on the
+// left the things to pay, with a «?», and on the right the apples and loaves the child puts, with the board of the swaps over them.
+// o.onMove(list) after every move, at once. Gives { value(), take(w), lock(), shake(), level() }
 export function scaleBox(el, q, o = {}) {
-  const t = o.t;
-  el.innerHTML = `<div class="scalebox"><svg viewBox="0 0 340 230" role="img" aria-label="Balança de dos plats">
+  const t = o.t, B = q.barter, pc = B ? new Map(B.pieces.map(x => [x.v, x])) : null;
+  // what a weight or a pile of them says: «500 g», or «3 pomes»
+  const say = w => B ? `${w} ${w === 1 ? 'poma' : 'pomes'}` : gr(w);
+  const left = B ? `<text y="${B.left.length > 1 ? 60 : 64}" text-anchor="middle" font-size="${B.left.length > 2 ? 26 : B.left.length > 1 ? 32 : 42}">${B.left.join('')}</text>` : `<text y="64" text-anchor="middle" font-size="42">${q.e}</text>`;
+  el.innerHTML = `<div class="scalebox${B ? ' barter' : ''}">${B ? DRAW.trade({ rules: B.rules }) : ''}<svg viewBox="0 0 340 230" role="img" aria-label="${B ? 'La balança dels canvis' : 'Balança de dos plats'}">
       <rect x="150" y="196" width="40" height="14" rx="4" fill="#6F7C86"/><path d="M110 222h120l-12 -14h-96Z" fill="#9EC3C0"/><rect x="164" y="64" width="12" height="134" rx="5" fill="url(#m-brass)"/>
       <g class="beam"><rect x="40" y="56" width="260" height="10" rx="5" fill="url(#m-brass)" stroke="#6B4A10" stroke-width="1.5"/><circle cx="170" cy="61" r="9" fill="#F7C64E" stroke="#6B4A10" stroke-width="2"/></g>
       <g class="panL"><path d="M0 0L-38 70M0 0L38 70" stroke="#C9D6DB" stroke-width="1.5"/><path d="M-48 70h96q-6 20 -48 20q-42 0 -48 -20Z" fill="#C9D6DB" stroke="#6F7C86" stroke-width="2"/>
-        <text y="64" text-anchor="middle" font-size="42">${q.e}</text><rect x="-34" y="92" width="68" height="20" rx="10" fill="#04131C" stroke="#F7C64E" stroke-width="1.5"/><text y="107" text-anchor="middle" class="kg">${H(gr(q.target))}</text></g>
+        ${left}<rect x="-34" y="92" width="68" height="20" rx="10" fill="#04131C" stroke="#F7C64E" stroke-width="1.5"/><text y="107" text-anchor="middle" class="kg">${B ? '?' : H(gr(q.target))}</text></g>
       <g class="panR"><path d="M0 0L-38 70M0 0L38 70" stroke="#C9D6DB" stroke-width="1.5"/><path d="M-48 70h96q-6 20 -48 20q-42 0 -48 -20Z" fill="#C9D6DB" stroke="#6F7C86" stroke-width="2"/><g class="stack"></g>
-        <rect x="-34" y="92" width="68" height="20" rx="10" fill="#04131C" stroke="#6FE3FF" stroke-width="1.5"/><text y="107" text-anchor="middle" class="kg now">0 g</text></g>
+        <rect x="-34" y="92" width="68" height="20" rx="10" fill="#04131C" stroke="#6FE3FF" stroke-width="1.5"/><text y="107" text-anchor="middle" class="kg now">${B ? '0 pomes' : '0 g'}</text></g>
       <path class="arrow" d="M170 30v18" stroke="#F7C64E" stroke-width="3" stroke-linecap="round"/><path class="mark" d="M163 40l7 10l7 -10" fill="#F7C64E"/>
     </svg>
-    <p class="weights-l">Les peses <small>(toca el plat per treure'n)</small></p>
-    <div class="weights">${q.weights.map(w => `<button class="wt" data-w="${w}" aria-label="Pesa de ${gr(w)}"><svg viewBox="0 0 60 60" aria-hidden="true"><path d="M22 8h16v8h-16Z" fill="#6B4A10"/><rect x="26" y="2" width="8" height="10" rx="4" fill="none" stroke="#6B4A10" stroke-width="3"/>
-      <path d="M12 ${w >= 1000 ? 16 : w >= 500 ? 22 : w >= 200 ? 28 : w >= 100 ? 33 : 38}h36l6 40h-48Z" fill="url(#m-brass)" stroke="#6B4A10" stroke-width="2"/></svg><b>${H(gr(w))}</b></button>`).join('')}</div></div>`;
+    <p class="weights-l">${B ? 'Les peces' : 'Les peses'} <small>(toca el plat per treure'n)</small></p>
+    <div class="weights">${q.weights.map(w => B ? `<button class="wt pc" data-w="${w}" aria-label="${H(pc.get(w).n)}"><span class="pe">${pc.get(w).e}</span><b>${H(pc.get(w).n)}</b><small>${H(say(w))}</small></button>`
+      : `<button class="wt" data-w="${w}" aria-label="Pesa de ${gr(w)}"><svg viewBox="0 0 60 60" aria-hidden="true"><path d="M22 8h16v8h-16Z" fill="#6B4A10"/><rect x="26" y="2" width="8" height="10" rx="4" fill="none" stroke="#6B4A10" stroke-width="3"/>
+      <path d="M12 ${w >= 1000 ? 16 : w >= 500 ? 22 : w >= 200 ? 28 : w >= 100 ? 33 : 38}h36l6 40h-48Z" fill="url(#m-brass)" stroke="#6B4A10" stroke-width="2"/></svg><b>${H(gr(w))}</b></button>`).join('')}</div>
+    <button class="link undo" type="button">↩ Treu-ne una</button></div>`;
   const beam = el.querySelector('.beam'), L = el.querySelector('.panL'), Rp = el.querySelector('.panR'), stack = el.querySelector('.stack'), now = el.querySelector('.now');
   let put = [], angle = 0, locked = false;
   const target = () => { const d = put.reduce((s, x) => s + x, 0) - q.target; return d === 0 ? 0 : Math.sign(d) * Math.min(16, 4 + Math.abs(d) / q.target * 30); };
@@ -314,20 +341,29 @@ export function scaleBox(el, q, o = {}) {
   move();
   function draw() {
     const sorted = put.slice().sort((a, b) => b - a);
-    stack.innerHTML = sorted.map((w, i) => { const h = w >= 1000 ? 22 : w >= 500 ? 18 : w >= 200 ? 15 : w >= 100 ? 12 : 10, row = Math.floor(i / 3), col = i % 3;
+    stack.innerHTML = sorted.map((w, i) => { const h = w >= 1000 ? 22 : w >= 500 ? 18 : w >= 200 ? 15 : w >= 100 ? 12 : 10, row = Math.floor(i / (B ? 4 : 3)), col = i % (B ? 4 : 3);
+      if (B) return `<text class="pw" data-w="${w}" x="${(col - 1.5) * 20}" y="${66 - row * 16}" text-anchor="middle" font-size="19">${pc.get(w).e}</text>`;
       return `<g class="pw" data-w="${w}" transform="translate(${(col - 1) * 28} ${68 - row * 22})"><path d="M-11 0h22l3 -${h}h-28Z" fill="url(#m-brass)" stroke="#6B4A10" stroke-width="1.5"/><text y="-3" text-anchor="middle" font-size="7" font-weight="800" fill="#3B2A00">${w >= 1000 ? w / 1000 + 'kg' : w}</text></g>`; }).join('');
-    const sum = put.reduce((s, x) => s + x, 0); now.textContent = gr(sum);
+    const sum = put.reduce((s, x) => s + x, 0); now.textContent = say(sum);
+    o.onMove?.(put.slice());
   }
   el.querySelector('.weights').onclick = async e => {
     const b = e.target.closest('.wt'); if (!b || locked) return;
     const w = +b.dataset.w; put.push(w); o.sound?.('weight');
-    await fly(`<span class="flyw">${H(gr(w))}</span>`, b, Rp, 360, 0);
+    await fly(B ? `<span class="flyw pe">${pc.get(w).e}</span>` : `<span class="flyw">${H(gr(w))}</span>`, b, Rp, 360, 0);
     draw(); move(); o.onPut?.(put.slice());
   };
+  // a weight comes off the right pan: w, or the lightest
+  function take(w) {
+    if (locked || !put.length) return;
+    if (w == null || !put.includes(w)) w = put.slice().sort((a, b) => a - b)[0];
+    put.splice(put.indexOf(w), 1); o.sound?.('back'); draw(); move(); o.onPut?.(put.slice());
+  }
   Rp.style.cursor = 'pointer';
-  Rp.addEventListener('click', () => { if (locked || !put.length) return; const w = put.slice().sort((a, b) => a - b)[0]; put.splice(put.indexOf(w), 1); o.sound?.('back'); draw(); move(); o.onPut?.(put.slice()); });
+  Rp.addEventListener('click', () => take());
+  el.querySelector('.undo').onclick = () => take();
   return {
-    value: () => put.slice(),
+    value: () => put.slice(), take,
     lock() { locked = true; el.querySelectorAll('button').forEach(b => b.disabled = true); },
     shake() { const s = el.querySelector('svg'); s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake'); },
     level() { el.querySelector('.scalebox').classList.add('right'); }
@@ -335,22 +371,28 @@ export function scaleBox(el, q, o = {}) {
 }
 
 /* ---------- the stall of the frog, on the map ---------- */
-// It grows with the projects validated (n of 9): an awning, lights, crates, the sign, flags, the register, the stalls next door and a star
-export const MARKET_STEPS = ['un tendal', 'llums', 'una caixa de fruita', 'el rètol', 'una altra caixa', 'banderetes', 'la caixa registradora', 'parades veïnes', "l'estrella d'or"];
+// It grows with the projects validated (n of 12): an awning, lights, crates, the sign, flags, flowers, the stalls next door, a street
+// lamp, the fountain of coins, balloons and a star. The market in 3D (world.js) grows with the same list
+export const MARKET_STEPS = ['un tendal', 'llums', 'una caixa de taronges', 'el rètol', 'una caixa de síndries', 'banderetes', 'testos amb flors', 'parades veïnes',
+  'un fanal', 'la font de les monedes', 'globus', "l'estrella d'or"];
 export function market(el, n) {
   defs();
   const has = k => n > k;
-  el.innerHTML = `<svg class="market" viewBox="0 -26 360 196" role="img" aria-label="La teva parada: ${n} de 9 millores">
+  el.innerHTML = `<svg class="market" viewBox="0 -26 360 196" role="img" aria-label="La teva parada: ${n} de ${MARKET_STEPS.length} millores">
+    ${has(8) ? `<g class="lamp"><rect x="70" y="30" width="4" height="122" fill="#2A4B5C"/><path d="M64 30h16l-3 -12h-10Z" fill="#2A4B5C"/><circle class="bulb" cx="72" cy="34" r="5" fill="#FFE59A"/></g>` : ''}
+    ${has(9) ? `<g class="fount"><ellipse cx="36" cy="160" rx="30" ry="8" fill="#4D7486"/><ellipse cx="36" cy="157" rx="24" ry="5" fill="#6FE3FF"/><path d="M36 156V136M36 138q-12 4-14 16M36 138q12 4 14 16" fill="none" stroke="#BFF4FF" stroke-width="2"/>${[24, 32, 44].map(x => `<circle cx="${x}" cy="158" r="2.5" fill="#F7C64E"/>`).join('')}</g>` : ''}
+    ${has(10) ? `<g class="balloons">${[[290, -6, '#FF6B5E'], [304, 4, '#7CF5B0'], [282, 12, '#6FE3FF']].map(([x, y, c]) => `<path d="M${x} ${y + 12}Q${x - 4} ${y + 40} 276 64" fill="none" stroke="#C9D6DB" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="9" ry="11" fill="${c}"/>`).join('')}</g>` : ''}
+    ${has(6) ? `<g class="pots">${[[96, '#FF8FD0'], [262, '#FFE59A']].map(([x, c]) => `<path d="M${x - 9} 140h18l-3 14h-12Z" fill="#C2693A"/><circle cx="${x - 4}" cy="134" r="5" fill="${c}"/><circle cx="${x + 4}" cy="132" r="5" fill="${c}"/><circle cx="${x}" cy="128" r="5" fill="${c}"/>`).join('')}</g>` : ''}
     ${has(7) ? `<g class="neigh" opacity="0.75"><rect x="4" y="70" width="58" height="80" fill="#1B3F52"/><path d="M0 70h66l-6 -22h-54Z" fill="#6FE3FF"/><text x="33" y="120" text-anchor="middle" font-size="26">🧀</text>
       <rect x="298" y="70" width="58" height="80" fill="#1B3F52"/><path d="M294 70h66l-6 -22h-54Z" fill="#B79CFF"/><text x="327" y="120" text-anchor="middle" font-size="26">🐟</text></g>` : ''}
     <rect x="84" y="${has(0) ? 40 : 70}" width="6" height="${has(0) ? 110 : 80}" fill="#8A5A2B"/><rect x="270" y="${has(0) ? 40 : 70}" width="6" height="${has(0) ? 110 : 80}" fill="#8A5A2B"/>
     ${has(0) ? awning(78, 282, 36, 22, 8) : ''}${has(1) ? bulbs(86, 274, 66, 9) : ''}
     ${has(5) ? `<path d="M20 20Q180 50 340 20" fill="none" stroke="#C9D6DB" stroke-width="1"/>${Array.from({ length: 12 }, (_, i) => { const x = 30 + i * 27, y = 20 + Math.sin((i + 0.5) / 12 * Math.PI) * 15; return `<path class="flag" style="--d:${i * 0.2}s;transform-origin:${x}px ${y}px" d="M${x - 7} ${y}h14l-7 13Z" fill="${['#FF6B5E', '#F7C64E', '#7CF5B0', '#6FE3FF'][i % 4]}"/>`; }).join('')}` : ''}
     ${has(3) ? `<g class="sign"><rect x="106" y="${has(0) ? 4 : 30}" width="148" height="24" rx="6" fill="#0A2A3A" stroke="#F7C64E" stroke-width="2"/><text x="180" y="${has(0) ? 21 : 47}" text-anchor="middle" font-size="12" font-weight="800" fill="#F7C64E" font-family="Baloo 2, sans-serif">MERCAT DE L'ESTANY</text></g>` : ''}
-    ${has(8) ? `<g class="star"><path transform="translate(180 ${has(0) ? -6 : 20}) scale(0.2)" d="${starPath(5, 48, 20)}" fill="#F7C64E" stroke="#FFF3B8" stroke-width="6"/></g>` : ''}
+    ${has(11) ? `<g class="star"><path transform="translate(180 ${has(0) ? -6 : 20}) scale(0.2)" d="${starPath(5, 48, 20)}" fill="#F7C64E" stroke="#FFF3B8" stroke-width="6"/></g>` : ''}
     <rect x="76" y="126" width="208" height="30" rx="6" fill="url(#m-wood)" stroke="#6B3E1C" stroke-width="2"/>
     ${crate(130, 98, 60, '🍎', false, 0)}${has(2) ? crate(180, 98, 60, '🍊', false, 1) : ''}${has(4) ? crate(230, 98, 60, '🍉', false, 2) : ''}
-    ${has(6) ? `<g transform="translate(248 104)"><rect width="30" height="22" rx="4" fill="#4D7486" stroke="#04131C" stroke-width="1.5"/><rect x="4" y="4" width="22" height="7" rx="2" fill="#7CF5B0"/><rect x="-2" y="20" width="34" height="6" rx="2" fill="#2A4B5C"/></g>` : ''}
+    <g transform="translate(248 104)"><rect width="30" height="22" rx="4" fill="#4D7486" stroke="#04131C" stroke-width="1.5"/><rect x="4" y="4" width="22" height="7" rx="2" fill="#7CF5B0"/><rect x="-2" y="20" width="34" height="6" rx="2" fill="#2A4B5C"/></g>
     <g transform="translate(180 152) scale(0.42)">${FROG.replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g></svg>`;
 }
 
