@@ -1,7 +1,7 @@
 // The cards of the hotel: the paper a question is about (the rack of keys, the calendar, the bill, the chart...), drawn in SVG. card(c)
 // gives the markup of card c of logic.js. What can be touched carries data-k (the key the rounds of logic.js speak of); a number still to
 // find is a .blank, where main.js writes what the child types. Nothing here keeps state: main.js switches classes on what is touched.
-import { WEEK, PLACES } from './logic.js';
+import { WEEK, PLACES, flowStart, flowEnd, onBoard } from './logic.js';
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const svg = (w, h, body, cls = '') => `<svg class="cv ${cls}" viewBox="0 0 ${w} ${h}" role="img">${body}</svg>`;
@@ -259,8 +259,109 @@ const K = {
     let s = `<path d="M70 30q-40 10 -50 70q0 50 70 50h60q70 0 70 -50q-10 -60 -50 -70z" fill="#B98A5A" stroke="#7A5230" stroke-width="3"/><path d="M80 30q40 -14 80 0" stroke="#7A5230" stroke-width="5" fill="none"/>`;
     balls.forEach((f, i) => { s += `<circle cx="${60 + (i % 5) * 30 + (Math.floor(i / 5) % 2) * 14}" cy="${70 + Math.floor(i / 5) * 28}" r="12" fill="${f}" stroke="rgba(0,0,0,.25)"/>`; });
     return svg(240, 160, s, 'bag');
+  },
+  // The bus of the hotel from the side: a window for each seat, the golden frame round the seats there were at the start, the stop with
+  // the ones waiting to get on and, on the right, the ones that got off. c.st is the bus while the child plays (what can be touched then
+  // carries data-k: the people of the bus while some still have to get off, the ones at the stop after); with no c.st the bus is drawn
+  // at the start, or at the end with c.end. Once done, show 'tell' marks the empty seats of the frame (−1) and the people out of it (+1)
+  // and says how many more or fewer; 'blank' leaves that number to find
+  flow(c) {
+    const st = c.st || (c.end ? flowEnd(c) : flowStart(c)), live = !!c.st && !st.done, P = 34, x0 = 10, top = 52, bot = 156, sx = x0 + 54;
+    const BW = 54 + c.seats * P + 44, Wd = Math.max(x0 + BW + 12, 380), outPhase = live && st.off < c.o, inPhase = live && !outPhase && st.wait > 0;
+    let s = `<rect x="0" y="${bot + 16}" width="${Wd}" height="7" rx="3" fill="#9E9384" opacity=".35"/>`;
+    // the body, the red stripe with the name, the windscreen, the lamp, the door and the wheels
+    s += `<rect x="${x0}" y="${top}" width="${BW}" height="${bot - top}" rx="16" fill="#F2C14E" stroke="#B9862A" stroke-width="3"/><rect x="${x0 + 2}" y="${bot - 34}" width="${BW - 4}" height="9" fill="#D9474F"/>`
+      + T(x0 + BW / 2 + 12, bot - 9, "HOTEL DE L'ESTANY", 'class="tiny busname"')
+      + `<rect x="${x0 + BW - 38}" y="${top + 12}" width="28" height="52" rx="7" fill="#BFE6F2" stroke="#7BB5C6" stroke-width="1.5"/><circle cx="${x0 + BW - 11}" cy="${bot - 16}" r="5" fill="#FFF3C4" stroke="#B9862A"/>`
+      + `<rect x="${x0 + 10}" y="${top + 12}" width="34" height="${bot - top - 16}" rx="5" fill="#2F4A44" stroke="${BRASS}" stroke-width="2"/><path d="M${x0 + 27} ${top + 14}V${bot - 6}" stroke="${BRASS}" stroke-width="1.5"/>`;
+    for (const wx of [x0 + 72, x0 + BW - 66]) s += `<circle cx="${wx}" cy="${bot + 4}" r="14" fill="#2B2B2B"/><circle cx="${wx}" cy="${bot + 4}" r="5" fill="#B9B2A4"/>`;
+    // the frame of the start, and its label
+    const fx = sx - 6, fw = c.n * P + 6, fc = fx + fw / 2;
+    s += `<rect x="${fx}" y="${top + 5}" width="${fw}" height="66" rx="10" class="frame"/><path d="M${fc} ${top - 12}v17" stroke="${BRASS}" stroke-width="2"/>`
+      + `<g class="fl"><rect x="${fc - 62}" y="${top - 38}" width="124" height="26" rx="13"/>${T(fc, top - 20, `Al principi: ${c.n}`)}</g>`;
+    const done = st.done && c.show !== 'none';
+    st.seat.forEach((v, j) => {
+      const x = sx + j * P, cx = x + 14, cy = top + 36, on = v === 'o' || v === 'n', tap = outPhase && on;
+      s += `<g class="seat2 s-${v || 'free'}${tap ? ' tap' : ''}"${tap ? ` data-k="S${j}"` : ''}><rect x="${x}" y="${top + 12}" width="28" height="52" rx="7" class="win"/>`;
+      if (on) s += face(SPS[(j + (v === 'n' ? 2 : 0)) % 4], cx, cy, 11.5);
+      if (v === 'n') s += `<circle cx="${cx}" cy="${cy}" r="14.5" class="ring-in"/>`;
+      if (v === 'g') s += `<circle cx="${cx}" cy="${cy}" r="11" class="ghost"/>`;
+      if (done && v === 'g') s += T(cx, top + 60, '−1', 'class="tiny red"');
+      if (done && v === 'n' && j >= c.n) s += T(cx, top + 60, '+1', 'class="tiny grn"');
+      s += '</g>';
+    });
+    // the stop, with the ones waiting to get on; on the right, the ones that got off
+    const y = bot + 60;
+    s += `<path d="M${x0 + 12} ${y + 22}V${bot + 30}" stroke="#5A5144" stroke-width="3"/><rect x="${x0 - 4}" y="${bot + 24}" width="52" height="20" rx="5" fill="#2F7A6C"/>${T(x0 + 22, bot + 38, 'Parada', 'class="tiny light"')}`;
+    for (let q = 0; q < st.wait; q++) { const qx = x0 + 70 + q * 28; s += `<g class="qp${inPhase ? ' tap' : ''}"${inPhase ? ` data-k="Q${q}"` : ''}><circle cx="${qx}" cy="${y}" r="14" class="qbg"/>${face(SPS[(q + 2) % 4], qx, y, 11)}</g>`; }
+    if (st.wait) s += T(x0 + 70 + (st.wait - 1) * 14, y + 28, `per pujar: ${st.wait}`, 'class="tiny"');
+    for (let q = 0; q < st.off; q++) s += face(SPS[(q + 1) % 4], Wd - 24 - q * 28, y, 11);
+    if (st.off) s += T(Wd - 24 - (st.off - 1) * 14, y + 28, `han baixat: ${st.off}`, 'class="tiny"');
+    // how many now, and how many more or fewer than at the start
+    if (done) {
+      const now = onBoard(st), d = now - c.n, cls = d < 0 ? 'out' : d > 0 ? 'in' : 'eq', word = d < 0 ? 'menys' : d > 0 ? 'més' : 'les mateixes';
+      const num = c.show === 'blank' ? '<tspan class="blank">?</tspan> ' : d ? `${Math.abs(d)} ` : '';
+      s += `<g class="res ${cls}"><rect x="${Wd - 150}" y="${top - 38}" width="146" height="26" rx="13"/><text x="${Wd - 77}" y="${top - 20}">${c.show === 'blank' ? '' : `Ara ${now} · `}${num}${word}</text></g>`;
+    }
+    return svg(Wd, y + 36, s, 'flow');
+  },
+  // the ones that get off on top and the ones that get on below; a touch joins one of each with a line and both fade (they cancel out),
+  // until one row has no one left: what is left of the other one is how many more or fewer there will be
+  pairs(c) {
+    const P = 32, x0 = 110, m = c.made || 0, all = Math.min(c.o, c.i), done = m >= all, Wd = Math.max(300, x0 + Math.max(c.o, c.i) * P + 14), y1 = 34, y2 = 112, d = Math.abs(c.o - c.i);
+    const tok = (j, y, r, left) => { const x = x0 + j * P + P / 2; return `<g class="pt${j < m ? ' paired' : ''}${left ? ' left' : ''}"${done || j < m || j >= all ? '' : ` data-k="${r}${j}"`}><circle cx="${x}" cy="${y}" r="15" class="pbg"/>${face(SPS[(j + (r === 'B' ? 2 : 0)) % 4], x, y, 11)}${left ? `<circle cx="${x}" cy="${y}" r="15.5" class="lring ${r === 'T' ? 'out' : 'in'}"/>` : ''}</g>`; };
+    let s = T(54, y1 + 5, `${cap(c.out)}: ${c.o}`, 'class="lab red2"') + T(54, y2 + 5, `${cap(c.in)}: ${c.i}`, 'class="lab grn"');
+    for (let j = 0; j < m; j++) s += `<path class="link" d="M${x0 + j * P + P / 2} ${y1 + 17}V${y2 - 17}"/>`;
+    for (let j = 0; j < c.o; j++) s += tok(j, y1, 'T', done && j >= all);
+    for (let j = 0; j < c.i; j++) s += tok(j, y2, 'B', done && j >= all);
+    if (m) s += T(x0 + m * P / 2, (y1 + y2) / 2 + 5, `${m} ${m === 1 ? 'parella' : 'parelles'}`, 'class="tiny"');
+    if (done) s += T(Wd / 2, y2 + 44, d ? `${d === 1 ? 'Sobra 1' : `Sobren ${d}`} que ${c.o > c.i ? (d === 1 ? c.out1 : c.out) : (d === 1 ? c.in1 : c.in)}: ${d} ${c.o > c.i ? 'menys' : 'més'}` : 'Tots fan parella: les mateixes',
+      `class="lab ${c.o > c.i ? 'red2' : c.i > c.o ? 'grn' : ''}"`);
+    return svg(Wd, y2 + 56, s, 'pairs');
+  },
+  // two bars to the same scale: what goes out and what comes in. With show 'diff' the length both have is the pairs, and what is left of
+  // the longer one is how many more or fewer there are now (blank: that number is the one to find)
+  race(c) {
+    const x0 = 92, Lw = 230, sc = Lw / Math.max(c.o, c.i), wo = c.o * sc, wi = c.i * sc, lo = Math.min(wo, wi), y1 = 36, y2 = 100, h = 32, d = Math.abs(c.o - c.i), diff = c.show === 'diff';
+    let s = diff ? `<rect x="${x0 - 5}" y="${y1 - 7}" width="${lo + 10}" height="${y2 + h - y1 + 14}" rx="10" class="pairzone"/>` : '';
+    s += T(46, y1 + 21, cap(c.out), 'class="lab red2"') + T(46, y2 + 21, cap(c.in), 'class="lab grn"');
+    s += `<rect x="${x0}" y="${y1}" width="${wo}" height="${h}" rx="6" class="rb out"/><rect x="${x0}" y="${y2}" width="${wi}" height="${h}" rx="6" class="rb in"/>`;
+    s += T(x0 + 10, y1 + 22, c.o, 'class="bn" text-anchor="start"') + T(x0 + 10, y2 + 22, c.i, 'class="bn" text-anchor="start"');
+    if (diff) {
+      s += `<path d="M${x0 + lo} ${y1 - 9}V${y2 + h + 9}" class="cut"/>` + T(x0 + lo / 2, (y1 + h + y2) / 2 + 5, `${Math.min(c.o, c.i)} fan parella`, 'class="tiny"');
+      if (d) {
+        const top = c.o > c.i, wl = Math.abs(wo - wi), xl = x0 + lo;
+        s += `<rect x="${xl}" y="${top ? y1 : y2}" width="${wl}" height="${h}" rx="6" class="rest ${top ? 'out' : 'in'}"/>`
+          + `<text x="${Math.min(xl + wl / 2, x0 + Lw - 30)}" y="${top ? y1 - 13 : y2 + h + 22}" class="lab">${c.blank ? '<tspan class="blank">?</tspan>' : d} de més</text>`;
+      } else s += T(x0 + lo / 2, y2 + h + 22, 'Tots fan parella', 'class="lab"');
+    }
+    return svg(x0 + Lw + 36, y2 + h + 32, s, 'race');
+  },
+  // A place over time: a bar for each moment, what went out and came in under it, and the start dashed across the chart. A bar still
+  // to know is a dashed box; the number to find is the blank; gap draws how far a moment is from the start
+  level(c) {
+    const n = c.labels.length, bw = 46, gap = 34, x0 = 14, top = 30, H = 150, base = top + H, X = j => x0 + j * (bw + gap), g = c.gap;
+    const sc = H / (Math.max(...c.values) * 1.1), Y = v => base - v * sc, ys = Y(c.values[0]), end = X(n - 1) + bw + 8;
+    let s = `<path d="M${x0 - 6} ${base}H${end}" stroke="#9E8F75" stroke-width="2"/>`;
+    c.values.forEach((v, j) => {
+      const x = X(j), sh = c.show[j], tap = c.pick && sh !== 'h';
+      if (sh === 'h') s += `<rect x="${x}" y="${top}" width="${bw}" height="${H}" rx="6" class="lvh"/>${T(x + bw / 2, top + H / 2 + 8, '?', 'class="mid unk"')}`;
+      else s += `<g class="lvc${tap ? ' tap' : ''}"${tap ? ` data-k="C${j}"` : ''}><rect x="${x - 8}" y="${top - 24}" width="${bw + 16}" height="${H + 24}" fill="transparent"/>`
+        + `<rect class="lvb${j ? '' : ' first'}" x="${x}" y="${Y(v)}" width="${bw}" height="${base - Y(v)}" rx="5"/><text x="${x + bw / 2}" y="${Y(v) - 7}" class="lab">${sh === 'b' ? '<tspan class="blank">?</tspan>' : v}</text></g>`;
+      s += T(x + bw / 2, base + 17, c.labels[j], 'class="tiny"');
+      if (c.d[j]) s += T(x + bw / 2, base + 33, `${c.out} ${c.d[j][0]}`, 'class="tiny red"') + T(x + bw / 2, base + 48, `${c.in} ${c.d[j][1]}`, 'class="tiny grn"');
+    });
+    s += `<path d="M${x0 - 6} ${ys}H${end}" class="startline"/>`;
+    if (g >= 0) {
+      const ye = Y(c.values[g]), x = X(g) + bw + 12, less = c.values[g] < c.values[0], cls = less ? 'out' : 'in';
+      s += `<path d="M${x} ${ys}V${ye}M${x - 5} ${ys}h10M${x - 5} ${ye}h10" class="gapl ${cls}"/>`
+        + `<text x="${x + 10}" y="${Math.abs(ye - ys) < 26 ? Math.min(ys, ye) - 9 : (ys + ye) / 2 + 5}" class="lab ${less ? 'red2' : 'grn'}" text-anchor="start">${c.gapV == null ? '<tspan class="blank">?</tspan>' : c.gapV} ${less ? 'menys' : 'més'}</text>`;
+    }
+    return svg(end + (g >= 0 ? 90 : 8), base + (c.d.some(Boolean) ? 56 : 24), s, 'level');
   }
 };
+const SPS = ['excursionista', 'ciclista', 'turista', 'avi'];
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 function clock(cx, cy, r, h, m) {
   let s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${CREAM}" stroke="${BRASS}" stroke-width="5"/>`;
   for (let i = 1; i <= 12; i++) { const a = i / 12 * Math.PI * 2; s += T(cx + Math.sin(a) * r * 0.78, cy - Math.cos(a) * r * 0.78 + 5, i, 'class="tiny"'); }

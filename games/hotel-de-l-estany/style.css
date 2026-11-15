@@ -199,6 +199,34 @@ body.playing header { display: none; }
 .bars .ax { text-anchor: end; }
 .bars.set .lvl:hover { fill: rgb(217 164 65 / 0.18); }
 .tally .lt { font: 700 15px var(--display); text-anchor: start; }
+/* what comes in and goes out: red is going out, green coming in, gold the start */
+.cv .red2 { fill: var(--cherry); } .cv .grn { fill: #2E8B57; font-weight: 700; } .cv .unk { fill: #B0A58F; }
+.flow .busname { font: 800 9px var(--body); fill: #FFF4DF; letter-spacing: 0.08em; }
+.flow .win { fill: #DFF2F7; stroke: #7BB5C6; stroke-width: 1.5; }
+.flow .s-g .win { fill: #FCE6E7; stroke: var(--cherry); stroke-dasharray: 4 3; }
+.flow .ghost { fill: none; stroke: var(--cherry); stroke-width: 2; stroke-dasharray: 3 3; }
+.flow .ring-in { fill: none; stroke: #2E9E5B; stroke-width: 3; }
+.flow .frame { fill: rgb(246 215 136 / 0.18); stroke: var(--brass); stroke-width: 3.5; stroke-dasharray: 8 5; }
+.flow .fl rect { fill: var(--brass); } .flow .fl text { fill: #2A1C05; font: 800 14px var(--body); }
+.flow .tap { cursor: pointer; } .flow .seat2.tap:hover .win { stroke: var(--brass); stroke-width: 3; }
+.flow .qbg { fill: transparent; } .flow .qp.tap .qbg { fill: rgb(46 158 91 / 0.16); stroke: #2E9E5B; stroke-width: 2; animation: beat 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.flow .res rect { fill: #EDE3CC; } .flow .res text { font: 800 14px var(--body); }
+.flow .res.out rect { fill: #FCE0E1; } .flow .res.out text { fill: #B3313A; }
+.flow .res.in rect { fill: #DDF3E4; } .flow .res.in text { fill: #23784A; }
+.pairs .pbg { fill: #FFFDF6; stroke: #D8C9A8; } .pairs .pt { transition: opacity 0.35s; }
+.pairs .pt.paired { opacity: 0.3; } .pairs .pt[data-k] { cursor: pointer; } .pairs .pt[data-k]:not(.paired):hover .pbg { stroke: var(--brass); stroke-width: 3; }
+.pairs .link { stroke: var(--brass); stroke-width: 3.5; stroke-linecap: round; }
+.pairs .lring { fill: none; stroke-width: 3.5; } .pairs .lring.out { stroke: var(--cherry); } .pairs .lring.in { stroke: #2E9E5B; }
+.race .rb.out { fill: #E9858A; } .race .rb.in { fill: #7CC48A; }
+.race .rest.out { fill: #C2353E; } .race .rest.in { fill: #23784A; }
+.race .pairzone { fill: rgb(246 215 136 / 0.45); stroke: var(--brass); stroke-dasharray: 5 4; }
+.race .cut { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.race .bn { font: 800 17px var(--display); fill: #FFFDF6; }
+.level .lvb { fill: #2F7A6C; } .level .lvb.first { fill: var(--brass); }
+.level .lvc.tap { cursor: pointer; } .level .lvc.tap:hover .lvb { fill: #3E7CB1; }
+.level .lvh { fill: none; stroke: #B0A58F; stroke-width: 2; stroke-dasharray: 5 4; }
+.level .startline { stroke: #B9862A; stroke-width: 2.5; stroke-dasharray: 8 5; fill: none; }
+.level .gapl { fill: none; stroke-width: 3; } .level .gapl.out { stroke: var(--cherry); } .level .gapl.in { stroke: #2E9E5B; }
 .note { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 8px; text-align: center; }
 .note .ni { font-size: 2.2rem; line-height: 1.1; }
 .note p { font: 700 1.15rem/1.3 var(--display); font-variation-settings: "SOFT" 100; color: var(--ink); }

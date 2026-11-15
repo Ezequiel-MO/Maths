@@ -1,6 +1,6 @@
 // L'hotel de l'estany: the maths a hotel does every day. Room numbers and keys, the lift and the floors under the ground, the
-// calendar of the bookings, rooms and tables for groups, tiles and towels, the plan of the garden, the restaurant, the bill and
-// the numbers of the hotel. The rules and the data, with no page in it: main.js draws the cards and world.js the hotel.
+// calendar of the bookings, rooms and tables for groups, tiles and towels, the plan of the garden, the restaurant, the bill, the
+// numbers of the hotel, and what comes in and goes out (the bus, the train, the pool) and how many stay. The rules and the data, with no page in it: main.js draws the cards and world.js the hotel.
 //
 // A level is { title, say, warm, make }: make(rnd) gives its rounds, drawn again every time it is played (chance enters only
 // through rnd). A round is one guest of the hotel: { type, card, text, ans, hint, say, sp, ... }.
@@ -12,6 +12,8 @@
 //   fill   the guests of the card sat in its rooms or tables, a room at a time
 //   combo  every menu of the card made, one dish of each column
 //   bars   the bars of the card raised to the values they show
+//   flow   the people of the bus touched to get off, and then the ones at the stop touched to get on (flowOff, flowOn)
+//   pairs  one getting off and one getting on paired, a touch each, until one row has no one left
 import { curs, POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle, whole, within, slots, at, int } from '../../shared/curs.js';
 
 /* ---------- words ---------- */
@@ -544,6 +546,206 @@ const chance = [rnd => {
     'Si no n\'hi ha cap, és impossible. Si totes ho són, és segur.', `${ans}.`, { order: ['Segur', 'Possible', 'Impossible'] });
 }];
 
+/* ---------- 9 · Entren i surten ---------- */
+// A place things come into and go out of, and how many it holds as time goes by: the people of the bus of the hotel or of the train,
+// the guests of the hotel, the bathers of the pool, the cars of the car park, the litres of the water tank. What the child has to see:
+// each one that comes in takes the place of one that went out, and only the ones left without a partner change how many there are.
+// More out than in, fewer than at the start; more in than out, more; as many in as out, the same. How many there were at the start
+// does not matter for that, only for how many there are now.
+export const SYSTEMS = {
+  bus: { at: "al bus de l'hotel", when: 'a la parada', one: 'persona', many: 'persones', f: true, out: 'baixen', in: 'pugen', outP: 'baixat', inP: 'pujat' },
+  tren: { at: 'al tren', when: "a l'estació", one: 'persona', many: 'persones', f: true, out: 'baixen', in: 'pugen', outP: 'baixat', inP: 'pujat',
+    stops: ['Sants', 'Gràcia', 'Badalona', 'Mataró'], stopAt: s => `A ${s}` },
+  hotel: { at: "a l'hotel", when: 'avui', one: 'hoste', many: 'hostes', f: false, out: 'marxen', in: 'arriben', outP: 'marxat', inP: 'arribat',
+    stops: ['dilluns', 'dimarts', 'dimecres', 'dijous'], stopAt: s => `El ${s}` },
+  piscina: { at: 'a la piscina', when: 'en una hora', one: 'banyista', many: 'banyistes', f: false, out: 'surten', in: 'entren', outP: 'sortit', inP: 'entrat',
+    stops: ['11:00', '12:00', '13:00', '14:00'], stopAt: s => `Fins a les ${s}` },
+  parking: { at: 'al pàrquing', when: 'al matí', one: 'cotxe', many: 'cotxes', f: false, out: 'surten', in: 'entren', outP: 'sortit', inP: 'entrat',
+    stops: ['9:00', '10:00', '11:00', '12:00'], stopAt: s => `Fins a les ${s}` },
+  aigua: { at: "al dipòsit d'aigua", when: 'en una hora', one: 'litre', many: 'litres', f: false, out: 'surten', in: 'entren', outP: 'sortit', inP: 'entrat' }
+};
+const BIG = ['tren', 'hotel', 'piscina', 'parking', 'aigua'], ALONG = ['tren', 'hotel', 'piscina', 'parking'];
+const sysOf = (rnd, from = BIG) => SYSTEMS[pickOf(from, rnd)];
+// «en baixen», «n'entren»
+const en = v => /^[aeiouàèéíòóú]/.test(v) ? `n'${v}` : `en ${v}`;
+// the story: «Al tren hi ha 570 persones. A l'estació en baixen 198 i en pugen 123.»; with no start: «Al tren, a l'estació, en baixen...»
+const story = (S, n, o, i) => `${cap(S.at)} hi ha ${n} ${S.many}. ${cap(S.when)} ${en(S.out)} ${o} i ${en(S.in)} ${i}.`;
+const moves = (S, o, i) => `${cap(S.at)}, ${S.when}, ${en(S.out)} ${o} i ${en(S.in)} ${i}.`;
+const how = S => S.f ? 'Quantes' : 'Quants';
+const sameOf = S => S.f ? 'Les mateixes' : 'Els mateixos';
+const MORE = 'Més que al principi', LESS = 'Menys que al principi';
+const moreLess = (S, o, i) => o > i ? LESS : i > o ? MORE : sameOf(S);
+const mlOrder = S => [MORE, LESS, sameOf(S)];
+// a pick «more or fewer than at the start?», its options always in the same order
+const mlPick = (card, S, o, i, hint, say, lead = '') => Pick(card, `${lead ? lead + ' ' : ''}Ara, hi ha més o menys ${S.many} que al principi?`, four(moreLess(S, o, i), mlOrder(S)), hint, say, { order: mlOrder(S) });
+// why there are more, fewer or the same now
+function why(S, n, o, i) {
+  const e = n - o + i, d = Math.abs(o - i), dl = S.f ? 'de les que' : 'dels que', start = `Al principi ${n}, ara ${e}`;
+  if (o > i) return `${start}: han ${S.outP} més ${S.many} ${dl} han ${S.inP}, i n'hi ha ${pl(d, S.one, S.many)} menys.`;
+  if (i > o) return `${start}: han ${S.inP} més ${S.many} ${dl} han ${S.outP}, i n'hi ha ${pl(d, S.one, S.many)} més.`;
+  return `${start}: n'han ${S.inP} ${S.f ? 'tantes' : 'tants'} com n'han ${S.outP}, i n'hi ha ${sameOf(S).toLowerCase()}.`;
+}
+// «Compara els que baixen i els que pugen»: the hint of every «more or fewer?»
+const compare2 = S => `Compara ${S.f ? 'les' : 'els'} que ${S.out} i ${S.f ? 'les' : 'els'} que ${S.in}. Si ${S.out} més, n'hi haurà menys; si ${S.in} més, n'hi haurà més.`;
+// the pairs: «Les 123 que pugen fan parella amb 123 de les que baixen. Quantes baixen de més? 198 − 123.»
+function pairHint(S, o, i) {
+  const art = S.f ? 'Les' : 'Els', de = S.f ? 'de les' : 'dels', [a, va, b, vb] = o > i ? [i, S.in, o, S.out] : [o, S.out, i, S.in];
+  return `${art} ${a} que ${va} fan parella amb ${a} ${de} que ${vb}. ${how(S)} ${vb} de més? ${b} − ${a}.`;
+}
+
+// A trip of the bus small enough to draw every person: n at the start, o get off, i get on; kind: fewer, more or the same at the end.
+// Never more than 12 on the bus, never more getting off than there are
+function small(rnd, kind) {
+  const n = int(rnd, 4, 8);
+  if (kind === 'less') { const o = int(rnd, 2, Math.min(5, n)); return { n, o, i: int(rnd, 1, o - 1) }; }
+  if (kind === 'more') { const o = int(rnd, 1, Math.min(4, n)); return { n, o, i: int(rnd, o + 1, Math.min(o + 4, 12 - n + o)) }; }
+  const o = int(rnd, 1, Math.min(5, n)); return { n, o, i: o };
+}
+// a trip with numbers too big to draw one by one: from lo to hi at the start, and at most half of them out; when more come in, the start
+// is lower, so that the end stays under a thousand
+function bigTrip(rnd, kind, lo, hi) {
+  const n = int(rnd, lo, kind === 'more' ? Math.max(lo, Math.floor(hi * 0.72)) : hi), top = Math.max(4, Math.floor(n / 2)), a = int(rnd, Math.ceil(top / 3) + 1, top), b = int(rnd, Math.ceil(a / 3), a - 1);
+  return kind === 'less' ? { n, o: a, i: b } : kind === 'more' ? { n, o: b, i: a } : { n, o: a, i: a };
+}
+const kindOf = rnd => at(2, rnd) ? 'less' : 'more';
+
+// the bus with its seats, its golden frame round the seats of the start and its stop. show: 'none' (only the seats), 'tell' (how many
+// now and how many more or fewer, once done) or 'blank' (that number is the one to find); end: drawn when everyone is off and on
+export const flowCard = (t, o = {}) => ({ k: 'flow', shape: 'bus', n: t.n, o: t.o, i: t.i, seats: Math.min(13, Math.max(t.n + 2, t.n - t.o + t.i + 1)), show: 'none', ...o });
+// The seats of a flow card, a letter each: o someone there from the start, n someone who got on, g the empty seat of someone of the start
+// who got off (inside the golden frame), '' a free seat. wait: how many are still at the stop; off: how many got off; last: the seat
+// that changed
+export const flowStart = c => ({ seat: Array.from({ length: c.seats }, (_, j) => j < c.n ? 'o' : ''), wait: c.i, off: 0, last: -1 });
+// the one at seat j gets off
+export function flowOff(st, c, j) {
+  if (st.seat[j] !== 'o' && st.seat[j] !== 'n') return st;
+  const seat = st.seat.slice(); seat[j] = j < c.n ? 'g' : '';
+  return { ...st, seat, off: st.off + 1, last: j };
+}
+// the first one at the stop gets on: into the first empty seat of the frame or, with none, into the first free seat
+export function flowOn(st) {
+  const g = st.seat.indexOf('g'), j = g >= 0 ? g : st.seat.indexOf('');
+  if (!st.wait || j < 0) return st;
+  const seat = st.seat.slice(); seat[j] = 'n';
+  return { ...st, seat, wait: st.wait - 1, last: j };
+}
+// everyone off and on: the last ones of the start get off, and the ones at the stop get on
+export function flowEnd(c) {
+  let st = flowStart(c);
+  for (let k = 0; k < c.o; k++) st = flowOff(st, c, c.n - 1 - k);
+  for (let k = 0; k < c.i; k++) st = flowOn(st);
+  return { ...st, last: -1, done: true };
+}
+export const onBoard = st => st.seat.filter(s => s === 'o' || s === 'n').length;
+const Flow = (card, text, hint, say, o = {}) => R('flow', card, text, { hint, say, ...o });
+const Pairs = (card, text, hint, say, o = {}) => R('pairs', card, text, { hint, say, ...o });
+
+// 0 · the bus, done by the child: off first, then on
+const rideKinds = (kinds, show) => rnd => kinds.map(kd => {
+  const t = small(rnd, kd), S = SYSTEMS.bus;
+  return Flow(flowCard(t, { show }), `${story(S, t.n, t.o, t.i)} Fes-les baixar i pujar.`, 'Primer toca les persones del bus que baixen; després, les de la parada, que pugen.', why(S, t.n, t.o, t.i), { sp: 'turista' });
+});
+// 1 · done, and then looked at: more or fewer than at the start?
+const rideAsk = rnd => ['less', 'more'].flatMap(kd => {
+  const t = small(rnd, kd), S = SYSTEMS.bus, c = flowCard(t);
+  return [Flow(c, `${story(S, t.n, t.o, t.i)} Fes-les baixar i pujar.`, 'Primer toca les persones del bus que baixen; després, les de la parada, que pugen.', 'Fet! Mira bé el marc daurat.'),
+    mlPick(flowCard(t, { end: true }), S, t.o, t.i, 'Mira el marc daurat: si hi ha seients buits, n\'hi ha menys; si hi ha gent fora del marc, n\'hi ha més.', why(S, t.n, t.o, t.i))];
+});
+// 2 · the bus after the stop: count the empty seats of the frame, or the people out of it
+const seats = kind => rnd => {
+  const t = small(rnd, kind), S = SYSTEMS.bus, d = Math.abs(t.o - t.i);
+  if (kind === 'same') return mlPick(flowCard(t, { end: true }), S, t.o, t.i, 'Mira el marc daurat: hi ha algun seient buit? Hi ha algú fora del marc?', why(S, t.n, t.o, t.i), story(S, t.n, t.o, t.i));
+  const less = kind === 'less';
+  return Num(flowCard(t, { end: true, show: 'blank' }), `${story(S, t.n, t.o, t.i)} Quantes persones ${less ? 'menys' : 'més'} hi ha ara que al principi?`, d,
+    less ? 'Compta els seients buits del marc daurat: cada un és una persona menys.' : 'Compta les persones que seuen fora del marc daurat: cada una és una persona més.', why(S, t.n, t.o, t.i));
+};
+// 3 · one that gets on and one that gets off make a pair, and only the ones with no pair change the bus
+const pairs = kinds => rnd => kinds.map(kd => {
+  const t = small(rnd, kd), S = SYSTEMS.bus, d = Math.abs(t.o - t.i), less = t.o > t.i;
+  return Pairs({ k: 'pairs', o: t.o, i: t.i, out: S.out, in: S.in, out1: 'baixa', in1: 'puja', made: 0 }, `${moves(S, t.o, t.i)} Toca per fer parelles: una que baixa amb una que puja.`, 'Toca qualsevol persona: fa parella amb una de l\'altra fila.',
+    `${d === 1 ? 'Sobra' : 'Sobren'} ${pl(d, 'persona', 'persones')} que ${less ? (d === 1 ? 'baixa' : 'baixen') : (d === 1 ? 'puja' : 'pugen')}: al bus hi haurà ${pl(d, 'persona', 'persones')} ${less ? 'menys' : 'més'} que al principi, tant se val quantes n'hi havia.`);
+});
+// 4 · big numbers: more or fewer? Only the ones that go out and come in matter
+const raceCard = (S, t, o = {}) => ({ k: 'race', o: t.o, i: t.i, out: S.out, in: S.in, show: 'bars', ...o });
+const moreLessBig = (kind, lo, hi) => rnd => {
+  const S = sysOf(rnd), t = bigTrip(rnd, kind, lo, hi);
+  return mlPick(raceCard(S, t), S, t.o, t.i, compare2(S), `${t.o > t.i ? `${cap(S.out)} més que no ${S.in}` : t.i > t.o ? `${cap(S.in)} més que no ${S.out}` : `${cap(S.out)} tants com ${S.in}`}: ${moreLess(S, t.o, t.i).toLowerCase()}.`, story(S, t.n, t.o, t.i));
+};
+// 5 · how many more or fewer: the ones with no pair
+const diffBig = (lo, hi) => rnd => {
+  const S = sysOf(rnd), t = bigTrip(rnd, kindOf(rnd), lo, hi), d = Math.abs(t.o - t.i), less = t.o > t.i;
+  return Num(raceCard(S, t, { show: 'diff', blank: true }), `${story(S, t.n, t.o, t.i)} ${how(S)} ${S.many} ${less ? 'menys' : 'més'} hi ha ara que al principi?`, d, pairHint(S, t.o, t.i),
+    `${less ? `${t.o} − ${t.i}` : `${t.i} − ${t.o}`} = ${d}: ara hi ha ${pl(d, S.one, S.many)} ${less ? 'menys' : 'més'} que al principi.`);
+};
+// the chart of a place over time: a bar for each moment, the start dashed across. show: 'v' the number, 'b' the number to find, 'h' not
+// known yet; d: what went out and came in before each moment; gap: the moment whose difference with the start is drawn (gapV its number,
+// null when it is the one to find)
+const levelCard = (S, labels, values, d, o = {}) => ({ k: 'level', labels, values, d, out: S.out, in: S.in, many: S.many, show: values.map(() => 'v'), gap: -1, gapV: null, ...o });
+// 6 · the whole problem, as the one of the train: more or fewer, how many fewer, and how many now
+const whole3 = rnd => {
+  const S = sysOf(rnd), t = bigTrip(rnd, kindOf(rnd), 300, 900), e = t.n - t.o + t.i, d = Math.abs(t.o - t.i), less = t.o > t.i, st = story(S, t.n, t.o, t.i);
+  const two = ['Al principi', 'Ara'], dd = [null, [t.o, t.i]];
+  return [
+    mlPick(levelCard(S, two, [t.n, e], dd, { show: ['v', 'h'] }), S, t.o, t.i, compare2(S), `${cap(S.out)} ${t.o} i ${S.in} ${t.i}: ${moreLess(S, t.o, t.i).toLowerCase()}.`, st),
+    Num(raceCard(S, t, { show: 'diff', blank: true }), `${st} ${how(S)} ${S.many} ${less ? 'menys' : 'més'} hi ha ara que al principi?`, d, pairHint(S, t.o, t.i), `${less ? `${t.o} − ${t.i}` : `${t.i} − ${t.o}`} = ${d} ${less ? 'menys' : 'més'}.`),
+    Num(levelCard(S, two, [t.n, e], dd, { show: ['v', 'b'], gap: 1, gapV: d }), `${st} ${how(S)} ${S.many} hi ha ara ${S.at}?`, e,
+      `Al principi ${t.n}, i n'hi ha ${d} ${less ? 'menys' : 'més'}: ${t.n} ${less ? '−' : '+'} ${d}. També es pot fer pas a pas: ${t.n} − ${t.o} + ${t.i}.`,
+      `${t.n} ${less ? '−' : '+'} ${d} = ${e}. Pas a pas dona el mateix: ${t.n} − ${t.o} = ${t.n - t.o}, i ${t.n - t.o} + ${t.i} = ${e}.`)
+  ];
+};
+// one round of the whole problem, for the challenge: how many now, with the difference to find on the way
+const nowBig = rnd => {
+  const S = sysOf(rnd), t = bigTrip(rnd, kindOf(rnd), 300, 900), e = t.n - t.o + t.i, d = Math.abs(t.o - t.i), less = t.o > t.i;
+  return Num(levelCard(S, ['Al principi', 'Ara'], [t.n, e], [null, [t.o, t.i]], { show: ['v', 'b'] }), `${story(S, t.n, t.o, t.i)} ${how(S)} ${S.many} hi ha ara ${S.at}?`, e,
+    `Primer mira si n'hi ha més o menys, i quants: ${less ? `${t.o} − ${t.i}` : `${t.i} − ${t.o}`}. Després, ${t.n} ${less ? '−' : '+'} aquests.`, `${t.n} ${less ? '−' : '+'} ${d} = ${e}.`);
+};
+// A day (or a trip) moment by moment: n at the start and what goes out and comes in before each of the four moments after it. dirs, when
+// given, says which way each moment goes (+1 more than before, -1 fewer). The numbers stay between 3 and 95
+function along(rnd, dirs) {
+  const S = SYSTEMS[pickOf(ALONG, rnd)], up = dirs ? dirs.filter(x => x > 0).length : 2, n = dirs ? (up >= 3 ? int(rnd, 18, 36) : up <= 1 ? int(rnd, 52, 70) : int(rnd, 35, 55)) : int(rnd, 30, 60);
+  const values = [n], d = [null];
+  for (let k = 0; k < 4; k++) {
+    const v = values[k], dir = dirs ? dirs[k] : v < 10 ? 1 : v > 85 ? -1 : at(2, rnd) ? 1 : -1;
+    // the change of this moment, and what went out and came in to make it: never fewer than 3 left, never more than 95, at least 1 in
+    const step = Math.max(1, Math.min(int(rnd, 3, 12), dir > 0 ? 95 - v : v - 3));
+    const o = dir > 0 ? int(rnd, 1, Math.min(15, v)) : int(rnd, step + 1, Math.min(step + 15, v)), i = dir > 0 ? o + step : o - step;
+    values.push(v - o + i); d.push([o, i]);
+  }
+  return { S, labels: ['Al principi', ...S.stops], values, d };
+}
+// 7 · moment after moment: how many after each one, from the one before
+const stepByStep = rnd => {
+  const A = along(rnd), { S } = A;
+  return [1, 2, 3].map(k => {
+    const [o, i] = A.d[k], v = A.values[k - 1], show = A.values.map((_, j) => j < k ? 'v' : j === k ? 'b' : 'h');
+    return Num(levelCard(S, A.labels.slice(0, 4), A.values.slice(0, 4), A.d.slice(0, 4), { show: show.slice(0, 4) }), `${S.stopAt(A.labels[k])}, ${S.at}, ${en(S.out)} ${o} i ${en(S.in)} ${i}. ${how(S)} ${S.many} hi ha ara?`, A.values[k],
+      `Abans n'hi havia ${v}: ${v} − ${o} + ${i}.`, `${v} − ${o} + ${i} = ${A.values[k]}${o > i ? ': menys que abans' : i > o ? ': més que abans' : ''}.`);
+  });
+};
+// 8 · read the chart of the day: when there were most, where the bar went down (or up), and the end against the start
+const DIRS = [[1, 1, -1, 1], [1, -1, 1, 1], [-1, 1, 1, 1], [-1, -1, 1, -1], [-1, 1, -1, -1], [1, -1, -1, -1]];
+const peak = rnd => {
+  let A = along(rnd);
+  for (let k = 0; k < 20 && A.values.filter(v => v === Math.max(...A.values)).length > 1; k++) A = along(rnd);
+  const { S } = A, top = A.values.indexOf(Math.max(...A.values));
+  return Tap(levelCard(S, A.labels, A.values, A.d, { pick: true }), `Toca el moment en què hi havia més ${S.many} ${S.at}.`, `C${top}`, 'Busca la barra més alta.', `${cap(A.labels[top])}: ${A.values[top]} ${S.many}.`);
+};
+const turn = rnd => {
+  const dirs = pickOf(DIRS, rnd), A = along(rnd, dirs), { S } = A, ups = dirs.filter(x => x > 0).length, odd = ups === 1 ? 1 : -1, k = dirs.indexOf(odd) + 1;
+  const [o, i] = A.d[k], dl = S.f ? 'de les que' : 'dels que';
+  const text = odd < 0 ? `Toca el moment en què havien ${S.outP} més ${S.many} ${dl} havien ${S.inP}.` : `Toca el moment en què havien ${S.inP} més ${S.many} ${dl} havien ${S.outP}.`;
+  return Tap(levelCard(S, A.labels, A.values, A.d, { pick: true }), text, `C${k}`,
+    odd < 0 ? 'Si en surten més dels que entren, la barra baixa: busca la que és més baixa que la d\'abans.' : 'Si n\'entren més dels que en surten, la barra puja: busca la que és més alta que la d\'abans.',
+    `${cap(A.labels[k])}: ${S.out} ${o} i ${S.in} ${i}, i la barra ${odd < 0 ? 'baixa' : 'puja'} de ${A.values[k - 1]} a ${A.values[k]}.`);
+};
+const endDay = rnd => {
+  let A = along(rnd);
+  for (let k = 0; k < 20 && A.values[4] === A.values[0]; k++) A = along(rnd);
+  const { S } = A, e = A.values[4], n = A.values[0];
+  return Pick(levelCard(S, A.labels, A.values, A.d), `Al final, hi ha més o menys ${S.many} que al principi?`, four(e > n ? MORE : e < n ? LESS : sameOf(S), mlOrder(S)),
+    'Compara l\'última barra amb la ratlla de punts del principi.', `Al principi ${n} i al final ${e}: ${e > n ? `${e - n} més` : e < n ? `${n - e} menys` : 'els mateixos'}.`, { order: mlOrder(S) });
+};
+
 /* ---------- the projects ---------- */
 const anyOf = fs => rnd => pickOf(fs, rnd)(rnd);
 export const PROJECTS = [
@@ -645,15 +847,29 @@ export const PROJECTS = [
     lv('La mitjana', 'Si es repartís igual cada dia, quants serien?', three(mean)),
     lv('Fes el gràfic', 'Ara el gràfic el fas tu.', three(makeBars), true),
     lv('La tómbola', 'Segur, possible o impossible?', rnd => [chance[0](rnd), chance[1](rnd), chance[1](rnd)]),
-    lv("Repte de l'hotel", 'Una mica de tot. Endavant!', three(barDiff, mean, anyOf(chance)))] }
+    lv("Repte de l'hotel", 'Una mica de tot. Endavant!', three(barDiff, mean, anyOf(chance)))] },
+  { name: 'Entren i surten', sub: "Qui arriba, qui se'n va i quants en queden", set: 'bus', levels: [
+    lv('Baixen i pugen', "Toca les persones que baixen del bus i després les que pugen. El marc daurat guarda els seients que hi havia al principi.", rideKinds(['less', 'more', 'same'], 'tell'), true),
+    lv('Més o menys?', 'Fes-les baixar i pujar, i després mira el marc daurat: hi ha seients buits, o gent de més?', rideAsk),
+    lv('Seients buits, gent de més', 'Cada seient buit del marc és una persona menys. Cada persona fora del marc, una de més.', rnd => [seats('less')(rnd), seats('more')(rnd), seats('same')(rnd)]),
+    lv('Fan parella', 'Cada persona que puja ocupa el lloc d\'una que baixa: fan parella. Les que es queden sense parella diuen si n\'hi haurà més o menys.', pairs(['less', 'more', 'less']), true),
+    lv('Només cal comparar', 'No cal saber quants n\'hi havia: si en surten més dels que entren, n\'hi haurà menys.', rnd => [moreLessBig('less', 20, 99)(rnd), moreLessBig('more', 200, 900)(rnd), moreLessBig(pickOf(['less', 'same'], rnd), 200, 900)(rnd)]),
+    lv('Quants menys? Quants més?', 'Els que entren fan parella amb els que surten. Els que es queden sense parella són la diferència.', rnd => [diffBig(20, 99)(rnd), diffBig(200, 900)(rnd), diffBig(200, 900)(rnd)]),
+    lv('Quants en queden?', 'El problema sencer, en tres passos: més o menys, quants, i quants n\'hi ha ara.', whole3),
+    lv('Parada a parada', 'Cada moment surt del d\'abans: el que hi havia, menys el que surt, més el que entra.', stepByStep),
+    lv('El gràfic del dia', 'Quan la barra baixa, n\'han sortit més dels que han entrat. Quan puja, al revés.', rnd => [peak(rnd), turn(rnd), endDay(rnd)]),
+    lv("Repte d'entrar i sortir", 'Una mica de tot. Endavant!', rnd => [diffBig(200, 900)(rnd), nowBig(rnd), turn(rnd)])] }
 ];
+// the circle of what comes in and goes out is free: it opens with the Piscina, with no inspection before it, and its inspection lights no
+// star of the sign (the sign has three, one for each of the other circles)
 export const CIRCLES = [
   { name: 'La recepció', projects: [0, 1, 2] },
   { name: 'Les habitacions', projects: [3, 4, 5] },
-  { name: 'El restaurant i la caixa', projects: [6, 7, 8] }
+  { name: 'El restaurant i la caixa', projects: [6, 7, 8] },
+  { name: "L'hotel s'omple i es buida", projects: [9], free: true }
 ];
 export const LEVELS = PROJECTS.flatMap(p => p.levels);
-const cursus = curs({ PROJECTS, CIRCLES, field: 'lv', badges: p => badges(p), BADGES: () => BADGES });
+const cursus = curs({ PROJECTS, CIRCLES, field: 'lv', alsoOpen: (p, c) => CIRCLES[c].free === true && p.piscina === true, badges: p => badges(p), BADGES: () => BADGES });
 export const { circleOf, noteOf, reached, validated, xpOf, levelText, isOpen, examOpen, levelIn, poolIn, examIn, sheetIn } = cursus;
 export { POINTS, VALID, EXAM_PASS, starsFor, exOf, shuffle };
 // the Piscina, at the pool of the hotel: a key, the lift and a first bill
@@ -663,7 +879,8 @@ export const POOL = [
   Num(bill([line('Habitació', 2, 30, 'nits', false)], { blank: 0 }), '2 nits a 30 € la nit. Quant fa?', 60, '30 + 30.', '2 × 30 = 60 €.', { unit: '€', sp: 'turista' })
 ];
 
-// What is saved is facts only: { so, lv[90], piscina, exams[3], fulls, clients }. clients counts every guest served right in a level (it
+// What is saved is facts only: { so, lv[100], piscina, exams[4], fulls, clients } (a save from before «Entren i surten» has lv[90] and
+// exams[3]: the places it lacks come in empty). clients counts every guest served right in a level (it
 // only grows). Marks, XP, level and badges are worked out, never stored. A complete progress inside its limits from any value at all
 export function clean(d) {
   const o = d && typeof d === 'object' && !Array.isArray(d) ? d : {};
@@ -681,9 +898,9 @@ export const BADGES = [
   { name: 'Deu fulls', what: "Caça bé les errades de deu fulls." },
   { name: 'Hotel de tres estrelles', what: 'Supera els tres exàmens.' }
 ];
-export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.clients >= 100, p.fulls >= 10, p.exams.every(e => e === true)];
-// the stars on the sign of the hotel: one for every exam passed
-export const starsOf = p => p.exams.filter(Boolean).length;
+export const badges = p => [p.piscina === true, p.fulls >= 1, PROJECTS.some((_, i) => noteOf(p, i) === 100), p.clients >= 100, p.fulls >= 10, starsOf(p) === 3];
+// the stars on the sign of the hotel: one for every exam passed of the three circles that are not free
+export const starsOf = p => CIRCLES.filter((C, c) => !C.free && p.exams[c] === true).length;
 
 /* ---------- what a thing of a card is, said when it is touched ---------- */
 export function tapSay(card, key) {
@@ -692,6 +909,7 @@ export function tapSay(card, key) {
   if (card.k === 'plan' || card.k === 'facade') return `Aquesta és la casella ${coord(key)}.`;
   if (card.k === 'bars') { const i = +key.slice(1); return `El ${WEEK[i]} van venir ${card.values[i]} hostes.`; }
   if (card.k === 'bill') { const l = card.lines[+key.slice(1)]; return `${l.q} = ${l.val} €: aquesta línia està bé.`; }
+  if (card.k === 'level') { const j = +key.slice(1); return `${cap(card.labels[j])}: ${card.values[j]} ${card.many}.`; }
   return '';
 }
 
@@ -757,6 +975,11 @@ const CLAIM = {
     const v = draw(rnd, 5, r => 5 * int(r, 2, 9)); let i, j; do { i = at(5, rnd); j = at(5, rnd); } while (v[i] <= v[j]);
     const d = v[i] - v[j], say = x => `El ${WEEK[i]} van venir ${x} hostes més que el ${WEEK[j]}.`;
     return { card: bars(v), real: say(d), says: say(bad ? d + 5 : d), opts: shuffle([d, d + 5, v[i]].map(say), rnd) };
+  },
+  // the mistake of the train: more getting off than on, and still «more than at the start»
+  flow(bad, rnd) {
+    const S = SYSTEMS.tren, t = bigTrip(rnd, 'less', 300, 800), d = t.o - t.i, say = x => `Al tren hi havia ${t.n} persones. N'han baixat ${t.o} i n'han pujat ${t.i}: ara n'hi ha ${x} que al principi.`;
+    return { card: raceCard(S, t), real: say(`${d} menys`), says: say(bad ? `${d} més` : `${d} menys`), opts: shuffle([`${d} menys`, `${d} més`, `${t.o + t.i} menys`].map(say), rnd) };
   }
 };
 export const KINDS = Object.keys(CLAIM);
