@@ -5,7 +5,7 @@ import { load, save as store } from '../../shared/progress.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, combo } from '../../shared/shell.js';
 import { PROJECTS, CIRCLES, POOL, POINTS, EXAM_PASS, VALID, GUESTS, shuffle, starsFor, clean, noteOf, reached, validated, levelText, isOpen, examOpen,
-  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, servedIn, starsOf, tapSay } from './logic.js';
+  circleOf, exOf, BADGES, badges, levelIn, exam, examIn, sheet, sheetIn, servedIn, starsOf, tapSay, flowStart, flowOff, flowOn, onBoard } from './logic.js';
 import { card, face, GRUM } from './cards.js';
 import { hotel } from './world.js';
 
@@ -62,6 +62,9 @@ const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, i
 const ico = d => `<svg class="ico" viewBox="0 0 32 32" aria-hidden="true">${d}</svg>`;
 const BED = '<path d="M5 24V11M5 19H27V24M27 19V15.5A2.5 2.5 0 0 0 24.5 13H13V19"/><circle cx="9" cy="15.5" r="2.2" class="f"/>';
 const BELL = '<path d="M6 23H26M8.5 22.5A7.5 7.5 0 0 1 23.5 22.5M16 15V12.5"/><circle cx="16" cy="11" r="1.6" class="f"/>';
+// the bus of the hotel, and a door with one arrow going in and one coming out
+const BUS = '<rect x="4.5" y="7" width="23" height="15.5" rx="3.5"/><path d="M4.5 15H27.5M10.5 7V15M16 7V15M21.5 7V15"/><circle cx="10" cy="24.5" r="2.4" class="f"/><circle cx="22" cy="24.5" r="2.4" class="f"/>';
+const DOOR = '<rect x="11.5" y="5" width="9" height="22" rx="1.5"/><path d="M2.5 11.5H9M6.5 9L9 11.5L6.5 14M29.5 20.5H23M25.5 18L23 20.5L25.5 23"/>';
 const CLOCHE = '<path d="M5 23H27M7.5 22.5A8.5 8.5 0 0 1 24.5 22.5"/><circle cx="16" cy="12.5" r="1.7" class="f"/>';
 const ICONS = [
   '<circle cx="10" cy="16" r="5.2"/><path d="M15.2 16H27M22 16V20.5M26 16V19.5"/>',
@@ -72,9 +75,10 @@ const ICONS = [
   '<path d="M5 8.5L12 5.5L20 8.5L27 5.5V24L20 27L12 24L5 27Z M12 5.5V24M20 8.5V27"/><circle cx="16" cy="15" r="1.8" class="f"/>',
   CLOCHE,
   '<path d="M9 4.5H23V27.5L20.7 25.9L18.3 27.5L16 25.9L13.7 27.5L11.3 25.9L9 27.5Z M12.5 10.5H19.5M12.5 15H19.5M12.5 19.5H16.5"/>',
-  '<path d="M5 26.5H27"/><path d="M8 18h4v8.5H8zM14 12h4v14.5h-4zM20 7h4v19.5h-4z" class="f"/>'
+  '<path d="M5 26.5H27"/><path d="M8 18h4v8.5H8zM14 12h4v14.5h-4zM20 7h4v19.5h-4z" class="f"/>',
+  BUS
 ].map(ico);
-const WING = [BELL, BED, CLOCHE].map(ico);
+const WING = [BELL, BED, CLOCHE, DOOR].map(ico);
 const STAR = ico('<path d="M16 5L19.1 12.2L26.8 12.9L21 18L22.7 25.6L16 21.6L9.3 25.6L11 18L5.2 12.9L12.9 12.2Z" class="f"/>');
 let here = -1;
 function mapa() {
@@ -90,7 +94,7 @@ function mapa() {
   const exRow = c => { const done = prog.exams[c], op = M.openX(c); return `<li><button class="row exam${done ? ' ok' : ''}" data-x="${c}"${op ? '' : ' disabled'}><span class="plate" aria-hidden="true">${STAR}</span><span class="what"><b>Inspecció del cercle ${c}</b><small>L'examen: sis clients, un intent cada un</small></span><span class="mk">${done ? 'Superat ✓' : op ? 'Sis preguntes' : M.openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button></li>`; };
   $('#game').innerHTML = `${view('44vh')}<div class="sheet map">
     <div class="rating" role="img" aria-label="Hotel de ${stars} ${stars === 1 ? 'estrella' : 'estrelles'}"><span>${'★'.repeat(stars)}<em>${'★'.repeat(3 - stars)}</em></span>
-      <p>${v.length >= 9 ? "L'hotel és sencer: totes les plantes enceses!" : `Cada projecte validat encén una part de l'hotel: <b>${v.length} de 9</b>.`}${prog.clients ? ` Has atès <b>${prog.clients}</b> ${prog.clients === 1 ? 'client' : 'clients'}.` : ''}</p></div>
+      <p>${v.length >= PROJECTS.length ? "L'hotel és sencer: totes les plantes enceses!" : `Cada projecte validat encén una part de l'hotel: <b>${v.length} de ${PROJECTS.length}</b>.`}${prog.clients ? ` Has atès <b>${prog.clients}</b> ${prog.clients === 1 ? 'client' : 'clients'}.` : ''}</p></div>
     ${tip ? `<p class="next">${tip}</p>` : ''}
     ${CIRCLES.map((C, c) => `<section class="wing${M.openC(c) ? '' : ' shut'}" aria-labelledby="w${c}"><h2 id="w${c}"><span aria-hidden="true">${WING[c]}</span> Cercle ${c} · ${C.name}</h2>
       ${M.openC(c) ? '' : `<p class="why">Supera la inspecció del cercle ${c - 1} per obrir-lo.</p>`}<ol>${C.projects.map(row).join('')}${exRow(c)}</ol></section>`).join('')}
@@ -216,8 +220,8 @@ function examen(c) {
     if (r.good) W.celebrate(3);
     panel(stage, `<h2>${r.score} de ${qs.length}</h2>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superada ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja la tenies superada.'}` : r.score >= EXAM_PASS ? "Molt bé! Però la inspecció només compta amb tots els projectes del cercle validats." : `Per superar-la calen ${EXAM_PASS} de ${qs.length}.`}</p>
-      ${r.first ? `<p class="lead go">L'hotel guanya una estrella: ${'★'.repeat(starsOf(prog))}</p>` : ''}
-      ${r.first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
+      ${r.first && !CIRCLES[c].free ? `<p class="lead go">L'hotel guanya una estrella: ${'★'.repeat(starsOf(prog))}</p>` : ''}
+      ${r.first && c < CIRCLES.length - 1 && !CIRCLES[c + 1].free ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
       ${r.redo.length ? `<p class="lead">Per repassar: ${list(r.redo.map(i => PROJECTS[i].name))}.</p>` : ''}${news(r.news)}
       <button class="btn" id="bk">Torna al mapa</button><button class="link" id="rp">Una altra inspecció</button>`);
     scrollTo({ top: 0, behavior: 'auto' });
@@ -275,8 +279,8 @@ function full() {
 
 /* ---------- the guests of a level, one after another ---------- */
 // Each round is a guest with a card and a question. The answer is typed on the brass keypad (taken as soon as it is right; ✓ sends one
-// that is not, and that is a slip), picked from the options, or done on the card (a key, a day, a tile, a room, a dish, a bar) or with
-// the lift. A slip says how to work it out, never the answer. step(k), when given, hears of every new round (the dots of the Piscina);
+// that is not, and that is a slip), picked from the options, or done on the card (a key, a day, a tile, a room, a dish, a bar, the people
+// getting off and on the bus, the pairs of one off and one on) or with the lift. A slip says how to work it out, never the answer. step(k), when given, hears of every new round (the dots of the Piscina);
 // good() of every round done right at the first go
 function play({ t, rounds, set, stage, tip, slip, win, step, good, exam = false }) {
   const n = rounds.length, kind = set === 'restaurant' ? 'table' : 'room';
@@ -304,6 +308,26 @@ function play({ t, rounds, set, stage, tip, slip, win, step, good, exam = false 
     else if (ty === 'fill') { S.left = R.card.n; S.seated = Array(R.card.rooms).fill(0); ans.innerHTML = `<p class="how">👆 Toca ${R.card.table ? 'una taula' : 'una habitació'}. Queden <b id="left">${S.left}</b>.</p>`; }
     else if (ty === 'combo') { S.made = new Set(); S.sel = [null, null]; S.all = R.card.cols[0].length * R.card.cols[1].length; ans.innerHTML = `<p class="how">👆 Un primer i un segon. Menús fets: <b id="left">0</b></p>`; }
     else if (ty === 'bars') { S.v = R.card.values.map(() => 0); ans.innerHTML = '<p class="how">👆 Toca cada columna a la seva altura.</p>'; }
+    else if (ty === 'flow') { S.st = flowStart(R.card); paintFlow(); }
+    else if (ty === 'pairs') { S.m = 0; ans.innerHTML = `<p class="how">👆 Toca una persona: fa parella amb una de l'altra fila. Parelles: <b id="left">0</b></p>`; }
+    // the bus of the hotel in 3D has as many people in it as the bus of the card
+    if (R.card.k === 'flow') W.bus(ty === 'flow' ? R.card.n : R.card.n - R.card.o + R.card.i);
+  }
+
+  // the bus while people get off and on, drawn again at every touch, with what is left to do under it
+  function paintFlow() {
+    const c = R.card, st = S.st, out = st.off < c.o;
+    box.innerHTML = card({ ...c, st });
+    if (st.last >= 0) box.querySelectorAll('.seat2')[st.last]?.classList.add('pop');
+    ans.innerHTML = `<p class="how">${st.done ? '✓ Fet!' : out ? `👆 Toca ${c.o === 1 ? 'la persona del bus que baixa' : `les ${c.o} persones del bus que baixen`}. Han baixat: <b>${st.off} de ${c.o}</b>`
+      : `👆 Ara toca les persones de la parada: ${c.i === 1 ? 'en puja 1' : `en pugen ${c.i}`}. Han pujat: <b>${c.i - st.wait} de ${c.i}</b>`}</p>`;
+  }
+  // a touch on the bus that does nothing yet says why
+  function nudge(el) {
+    if (R.type === 'flow') {
+      if (el.closest('.qp') && S.st.off < R.card.o) tip('Primer baixen: toca les persones del bus que baixen. Després pujaran les de la parada.');
+      else if (el.closest('.seat2') && S.st.off >= R.card.o && S.st.wait) tip(`Ja han baixat totes les que baixaven. Ara toca les persones de la parada, que pugen.`);
+    } else if (R.type === 'pairs' && el.closest('.pt') && S.m < Math.min(R.card.o, R.card.i)) tip("Aquesta encara no: primer fes parella amb les que en tenen a l'altra fila.");
   }
 
   // the lift: buttons for every floor, or the two arrows and the doors
@@ -383,6 +407,24 @@ function play({ t, rounds, set, stage, tip, slip, win, step, good, exam = false 
       }
       return;
     }
+    if (ty === 'flow') {
+      const c = R.card;
+      if (key[0] === 'S') { S.st = flowOff(S.st, c, +key.slice(1)); snd(470 - S.st.off * 25, 0, 0.09, 0.05, 'triangle'); }
+      else if (key[0] === 'Q') { S.st = flowOn(S.st); snd(560 + (c.i - S.st.wait) * 40, 0, 0.09, 0.05, 'triangle'); }
+      else return;
+      W.bus(onBoard(S.st));
+      if (S.st.off === c.o && !S.st.wait) S.st = { ...S.st, done: true };
+      paintFlow();
+      if (S.st.done) right(null);
+      return;
+    }
+    if (ty === 'pairs') {
+      const c = R.card; if (S.m >= Math.min(c.o, c.i)) return;
+      S.m++; snd(520 + S.m * 60, 0, 0.1, 0.06, 'triangle');
+      box.innerHTML = card({ ...c, made: S.m }); $('#left').textContent = S.m;
+      if (S.m === Math.min(c.o, c.i)) right(null);
+      return;
+    }
     if (ty === 'bars') {
       const [i, v] = key.split('-').map(Number); S.v[i] = v;
       const bar = box.querySelector(`.bar[data-i="${i}"] .b`), H = 170, top = 14, sc = H / R.card.max;
@@ -391,8 +433,10 @@ function play({ t, rounds, set, stage, tip, slip, win, step, good, exam = false 
     }
   }
   box.onclick = e => {
-    const el = e.target.closest('[data-k]'); if (!el || busy || !t.on || e.timeStamp < openAt) return;
-    if (!['tap', 'mark', 'fill', 'combo', 'bars'].includes(R.type)) return;
+    const el = e.target.closest('[data-k]');
+    if (!el && !busy && t.on && R) return nudge(e.target);
+    if (!el || busy || !t.on || e.timeStamp < openAt) return;
+    if (!['tap', 'mark', 'fill', 'combo', 'bars', 'flow', 'pairs'].includes(R.type)) return;
     onCard(el.dataset.k, el);
   };
   ans.onclick = e => {

@@ -1,5 +1,5 @@
 // The hotel in 3D, with Three.js: a diorama that floats in the dusk, on a block of earth cut open on its right side, where the lift goes
-// down to the two floors of the car park. The garden in front has the pond, the pool and the lamps; the hotel has a lobby and a restaurant
+// down to the two floors of the car park. The garden in front has the pond, the pool, the lamps and the bus of the hotel; the hotel has a lobby and a restaurant
 // on the ground floor, five floors of rooms and a neon sign on the roof. It grows with the progress (state): every project validated
 // lights a part, and every exam passed lights a star of the sign.
 //
@@ -195,7 +195,7 @@ export function hotel(canvas) {
 function none() {
   const p = () => Promise.resolve();
   return { ok: false, layout() {}, go: p, state() {}, highlight() {}, guest: p, happy: p, sad() {}, leave: p, bell() {}, key() {}, lift: { go: p, at: 0, set() {} },
-    seat() {}, crowd() {}, occupancy() {}, celebrate() {}, shake() {}, openSign: p, room() {}, pause() {} };
+    seat() {}, crowd() {}, occupancy() {}, celebrate() {}, shake() {}, openSign: p, room() {}, pause() {}, bus() {} };
 }
 
 function build(canvas) {
@@ -507,6 +507,34 @@ function build(canvas) {
   const flyPts = new THREE.Points(flyGeo, new THREE.PointsMaterial({ map: GLOW, size: 0.45, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
   flyPts.frustumCulled = false; if (NFL) scene.add(flyPts);
 
+  /* ---------- the bus of the hotel ---------- */
+  // Parked on the lawn in front of the restaurant with its side to the camera: ten windows that light up from the back with someone sat
+  // in them (bus(n)), the people of «Entren i surten». Its lamps light when that project is validated
+  const BUS = { x: -2.6, z: 5.1, L: 3.3, D: 1.2 }, busG = new THREE.Group(); busG.position.set(BUS.x, 0, BUS.z); scene.add(busG);
+  const busWin = [], busPpl = [], winOff = std(0x1F3A5C, { roughness: 0.2, metalness: 0.3 }), winOn = new THREE.MeshBasicMaterial({ color: 0xFFD995 });
+  {
+    const yel = std(0xF2C14E, { roughness: 0.45 }), tyre = std(0x1F1F1F, { roughness: 0.9 }), hubM = std(0xB9B2A4, { metalness: 0.5, roughness: 0.4 }), silM = new THREE.MeshBasicMaterial({ color: 0x3A2A22 });
+    busG.add(mesh(boxG(BUS.L, 1.05, BUS.D, 0, 0.82, 0), yel));
+    busG.add(mesh(boxG(BUS.L - 0.12, 0.1, BUS.D - 0.08, 0, 1.4, 0), std(C.trim)));
+    busG.add(mesh(boxG(BUS.L + 0.02, 0.12, BUS.D + 0.02, 0, 0.55, 0), std(C.cherry)));
+    for (const x of [-1.05, 1.05]) for (const z of [-BUS.D / 2, BUS.D / 2]) {
+      busG.add(mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.14, 16).rotateX(Math.PI / 2).translate(x, 0.25, z), tyre));
+      busG.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.15, 12).rotateX(Math.PI / 2).translate(x, 0.25, z), hubM));
+    }
+    // the windscreen at the front (+x) and the door next to it
+    busG.add(mesh(new THREE.PlaneGeometry(BUS.D - 0.2, 0.5).rotateY(Math.PI / 2).translate(BUS.L / 2 + 0.006, 1.05, 0), std(0x8FC7DA, { roughness: 0.15, metalness: 0.3 }), { cast: false }));
+    busG.add(mesh(new THREE.PlaneGeometry(0.42, 0.85).translate(BUS.L / 2 - 0.42, 0.77, BUS.D / 2 + 0.006), std(0x2F4A44), { cast: false }));
+    for (let j = 0; j < 10; j++) {
+      const x = -1.33 + j * 0.237, z = BUS.D / 2 + 0.006, on = j < 3;
+      const w = mesh(new THREE.PlaneGeometry(0.19, 0.34), on ? winOn : winOff, { cast: false, at: [x, 1.08, z] }); w.userData.keep = true; busG.add(w); busWin.push(w);
+      // someone sat at the window, seen against the light: a head and the shoulders
+      const ppl = new THREE.Group(); ppl.position.set(x, 0.98, z + 0.004);
+      ppl.add(new THREE.Mesh(new THREE.CircleGeometry(0.055, 16).translate(0, 0.1, 0), silM), new THREE.Mesh(new THREE.CircleGeometry(0.085, 16, 0, Math.PI), silM));
+      ppl.visible = on; ppl.userData.keep = true; busG.add(ppl); busPpl.push(ppl);
+    }
+  }
+  const busLamps = [-0.35, 0.35].map(z => glow(BUS.x + BUS.L / 2 + 0.06, 0.6, BUS.z + z, 0.7, 0xFFF1C8, false));
+
   /* ---------- the party: confetti and sparkles ---------- */
   const N = 260, confetti = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.14, 0.22), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }), N);
   confetti.frustumCulled = false; confetti.count = 0; scene.add(confetti);
@@ -525,7 +553,7 @@ function build(canvas) {
   }
 
   /* ---------- everything that never moves, baked into a few meshes ---------- */
-  bake(fore); bake(garden); bake(park); bake(shell); bake(lift);
+  bake(fore); bake(garden); bake(park); bake(shell); bake(lift); bake(busG);
   for (const F of floors) { if (!CUTS.includes(F.k)) bake(F.front); bake(F.inside); }
   clouds.forEach(bake);
 
@@ -543,6 +571,7 @@ function build(canvas) {
     garden: { t: [-1.2, 0, 5.8], dir: [0, 1.5, 1], R: 7.6 },
     facade: { t: [0, ROOF / 2 + 0.6, 0], dir: [0, 0.12, 1], R: 10.2 },
     lift: { t: [SX, 2, 0], dir: [1, 0.22, 0.42], R: 4.8, follow: true },
+    bus: { t: [-2.1, 0.9, 5.5], dir: [0.22, 0.72, 1], R: 3.0 },
     roof: { t: [0, ROOF + 1.6, 0], dir: [-0.2, 0.5, 1], R: 6.2 }
   };
   const cam = { t: V(0, 5, 0), p: V(-14, 13, 34), ox: 0, oy: 0, name: 'map', R: 14 };
@@ -588,6 +617,8 @@ function build(canvas) {
     rooms: { door: [-5.2, Y2, 2.0], to: [[-3.0, Y2, 2.0]], out: [[5.3, Y2, 2.0]], s: 0.8, pop: true },
     clean: { door: [-5.2, Y3, 2.0], to: [[-3.0, Y3, 1.9]], out: [[5.3, Y3, 2.0]], s: 0.8, pop: true }
   };
+  // at the bus: out of its door to the lawn in front of it, and back in
+  SPOTS.bus = { door: [-1.8, 0.05, 5.85], to: [[-1.8, 0.05, 6.35], [-0.9, 0.05, 6.75]], out: [[-1.8, 0.05, 6.2], [-1.8, 0.05, 5.8]], s: 0.8, pop: true };
   SPOTS.desk = SPOTS.lobby;
   const actors = [];
   let guestNow = null;
@@ -670,7 +701,8 @@ function build(canvas) {
     glows.filter(g => g.userData.door).forEach(g => { g.userData.on = piscina; g.material.opacity = piscina ? floors[0].fade : 0; });
     cabinLight.color.setHex(has(1) ? 0xFFF1C8 : 0x8A8170); cabinGlow.material.opacity = has(1) ? 0.8 : 0;
     [[1, 2], [2, 3], [3, 4], [4, 7], [5, 8]].forEach(([k, p]) => floors[k].glass.forEach((_, i) => setWindow(k, i, has(p) && LITMAP[k][i])));
-    lampGlows.forEach(g => { g.material.opacity = has(5) ? 1 : 0; }); lampHeads.forEach(h => h.material.color.setHex(has(5) ? 0xFFE6A0 : 0x8A8170));
+    lampGlows.forEach(g => { g.material.opacity = has(5) ? 1 : 0; });
+    busLamps.forEach(g => { g.material.opacity = has(9) ? 1 : 0; }); lampHeads.forEach(h => h.material.color.setHex(has(5) ? 0xFFE6A0 : 0x8A8170));
     for (let i = 0; i <= 16; i++) bulbs.setColorAt(i, new THREE.Color(has(8) ? [0xFFD36B, 0xFF8AC2, 0x7CF5B0, 0x6FE3FF][i % 4] : 0x6B5F50)); bulbs.instanceColor.needsUpdate = true;
     stars.forEach((s, i) => { const on = i < n; s.on = on; s.m.material.color.setHex(on ? 0xFFD36B : 0x6A5A3A); s.m.material.emissive?.setHex(on ? 0xB07A10 : 0); s.gl.material.opacity = on ? 0.9 : 0; });
     wake();
@@ -694,7 +726,8 @@ function build(canvas) {
   const hlEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0xFFE08A, transparent: true, opacity: 0, toneMapped: false }));
   scene.add(hl); scene.add(hlEdge);
   const HL = [[3, H0 / 2, 0, 6, H0, D], [SX, (ROOF + yOf(-2)) / 2, 0, SW, ROOF - yOf(-2), SW], [0, yOf(1) + FH / 2, 0, W, FH, D], [0, yOf(2) + FH / 2, 0, W, FH, D], [0, yOf(3) + FH / 2, 0, W, FH, D],
-    [-1.5, 0.3, 6.5, 19, 0.6, 7], [-3, H0 / 2, 0, 6, H0, D], [0, yOf(4) + FH / 2, 0, W, FH, D], [0, yOf(5) + FH / 2 + 0.8, 0, W, FH + 1.6, D]];
+    [-1.5, 0.3, 6.5, 19, 0.6, 7], [-3, H0 / 2, 0, 6, H0, D], [0, yOf(4) + FH / 2, 0, W, FH, D], [0, yOf(5) + FH / 2 + 0.8, 0, W, FH + 1.6, D],
+    [BUS.x, 0.75, BUS.z, BUS.L, 1.5, BUS.D]];
   let hlOn = -1;
   function highlight(i) { hlOn = i ?? -1; if (hlOn >= 0) { const [x, y, z, w, h, d] = HL[hlOn]; for (const b of [hl, hlEdge]) { b.position.set(x, y, z); b.scale.set(w + 0.3, h + 0.2, d + 0.3); } } wake(); }
 
@@ -713,6 +746,16 @@ function build(canvas) {
   };
   // the doors of the cabin: 1 open, 0 shut
   function doorsTo(o) { const z0 = doors[1].position.z, z1 = o ? 0.82 : 0.42; return tween(RM ? 0 : 240, k => { const z = z0 + (z1 - z0) * k; doors[1].position.z = z; doors[0].position.z = -z; }); }
+  // n people on the bus, as many windows lit; the ones that get on come with a pop
+  let busN = 3;
+  function bus(n) {
+    n = Math.max(0, Math.min(10, Math.round(n) || 0)); if (n === busN) return; busN = n;
+    busPpl.forEach((p, j) => {
+      const on = j < n; busWin[j].material = on ? winOn : winOff;
+      if (on && !p.visible && !RM) { p.visible = true; p.scale.setScalar(0.01); tween(320, k => p.scale.setScalar(Math.max(0.01, k)), easeOut); } else p.visible = on;
+    });
+    wake();
+  }
   function key(f, d) { if (f < 1 || f > 5 || d < 1 || d > 8) { keyLit.material.opacity = 0; return; } keyLit.position.copy(keyAt(f, d)).add(V(0, -0.1, 0.08)); keyLit.material.opacity = 1; wake(); }
   function ding() { tween(220, k => { bellBtn.position.y = -Math.sin(k * Math.PI) * 0.05; }); }
   // the camera shakes for a heavy moment
@@ -808,6 +851,6 @@ function build(canvas) {
   document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) wake(); });
   resize(); go('map', { instant: true }); wake();
 
-  return { ok: true, layout, go, state, highlight, guest, happy, sad, leave, bell: ding, key, lift: L, seat, crowd, occupancy, celebrate, shake, openSign,
+  return { ok: true, layout, go, state, highlight, guest, happy, sad, leave, bell: ding, key, lift: L, seat, crowd, occupancy, celebrate, shake, openSign, bus,
     room: (k, i, on) => setRoom(k, i, on), pause(on) { paused = on; if (!on) wake(); } };
 }
