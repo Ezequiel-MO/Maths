@@ -20,6 +20,55 @@ h1, h2, .btn, .chip, .status, .key, .ask, .tool, .cap, .lbl, .think, .combo, .ce
 .top { flex-wrap: nowrap; }
 .top > span { flex: none; }
 
+/* With WebGL the pond is the 3D picture behind the page (#world, world.js) and the page is a panel of glass over it, as in El mercat de
+   l'estany: on a wide screen the panel stands on the right and the pond fills the rest; on a phone or a tablet held upright the pond is
+   on top (.view keeps its place free) and the panel under it. The figures live in the pond (the field keeps only what it says and the
+   scissors); the papers (a quantity in parts, a hundred squares, the sheet of «Caça l'errada») stay in the panel. */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+/* the page lets the taps through to the pond wherever it has nothing of its own */
+body:not(.nogl) #app, body:not(.nogl) #app.wide { width: min(100%, 640px); max-width: none; padding: 10px 16px 28px; gap: 10px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) #game > :not(.view) { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl) h1 { font-size: clamp(1.7rem, 5.4vw, 2.5rem); }
+body:not(.nogl).playing header { display: none; }
+.view { flex: none; pointer-events: none; }
+body.nogl .view { display: none; }
+.pane { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+body:not(.nogl) .pane { position: relative; padding: 14px 12px 18px; border-radius: 26px; background: rgb(7 28 40 / 0.82); border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+.grow { margin: 0; font-weight: 700; font-size: 0.95rem; color: var(--muted); text-align: center; }
+.grow b { color: var(--mint); }
+/* in the panel the field and the desk go one under the other; the field of a figure in the pond is only its caption and its scissors */
+body:not(.nogl) .split { flex-direction: column; align-items: center; gap: 10px; }
+body:not(.nogl) .split:has(.panel) > :not(.panel) { display: none; }
+body:not(.nogl) .split .panel { position: relative; left: auto; top: auto; transform: none; width: 100%; max-width: 420px; animation: none; }
+body:not(.nogl) .field { flex: none; min-height: 0; }
+body:not(.nogl) .desk { max-width: none; }
+/* the run of right answers goes to the corner: in the middle it would hide what the field says */
+body:not(.nogl) .combo { top: -14px; left: auto; right: 6px; transform: none; }
+.field.in3d { min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; gap: 8px; }
+.field.in3d:empty { display: none; }
+body:not(.nogl) .coach .frog, body:not(.nogl) .coach .status.tip::before { display: none; }
+body:not(.nogl) .stage { min-height: 0; }
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app, body:not(.nogl) #app.wide { width: 520px; margin: 0 0 0 auto; padding: 14px 20px 28px 0; }
+  .view { display: none; }
+}
+@media (max-width: 599px), (max-width: 759px) and (orientation: portrait) {
+  body:not(.nogl) .pane { padding: 10px 8px 12px; gap: 8px; }
+  body:not(.nogl).playing #app { padding-bottom: 6px; gap: 6px; }
+  body:not(.nogl) .pane .levels button { width: 38px; height: 38px; }
+  body:not(.nogl) #board .status.tip { min-height: 0; padding: 6px 12px; font-size: 0.95rem; }
+  body:not(.nogl) .lane { height: 38px; }
+  body:not(.nogl) .ask { min-height: 64px; font-size: 1.45rem; }
+  body:not(.nogl) .key { height: 46px; font-size: 1.45rem; }
+  body:not(.nogl) .keys { gap: 6px; padding-top: 8px; }
+  body:not(.nogl) .desk { padding: 8px; gap: 6px; }
+}
+
 #game, #board { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 #game { margin-bottom: auto; }
 .hud { width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
