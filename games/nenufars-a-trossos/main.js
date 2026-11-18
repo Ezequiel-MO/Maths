@@ -8,6 +8,7 @@ import { PROJECTS, CIRCLES, POOL, POINTS, VALID, EXAM_PASS, RAPID, ROOM, want, r
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, soundButton, list, news, starRow, curtain } from '../../shared/shell.js';
 import { lineBoard, roundBoard, loadJsx } from './drag.js';
+import { pond3d } from './world.js';
 
 const KEY = 'nenufars-a-trossos';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out; without it a circle opens
@@ -25,7 +26,22 @@ const paintXp = () => xpBar(levelText(prog));
 const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so);
-const FX = pond(tone);
+// The pond in 3D behind the panel (world.js): the map is its lily pads, and the figures of a question are on its table, its water, its
+// stump, its pool and its river. Without WebGL its calls do nothing, and everything is drawn in the page as before
+const W = pond3d($('#world'));
+document.body.classList.toggle('nogl', !W.ok);
+// for the checks in the browser: the pond, to ask it where things are, and what is on screen
+window.__estany = W;
+const DBG = window.__nenufars = { what: '', q: null, k: 0 };
+// the sparks and the confetti: the pond's with WebGL, the canvas of the page without it
+const FX = W.ok ? { burst() {}, ring() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1), mood() {} } : pond(tone);
+W.hear({ tone, chime });
+// The pond as the progress has it: a piece on the pad of a project for each level with stars, the flower of each project validated,
+// the lantern of each exam passed, and the party lit after the Piscina
+function worldState() {
+  const open = PROJECTS.map((_, i) => OPEN || isOpen(prog, circleOf(i))), valid = PROJECTS.map((_, i) => noteOf(prog, i) >= VALID);
+  W.state({ piscina: prog.piscina || OPEN, lv: prog.lv, valid, open, exams: prog.exams, names: PROJECTS.map(p => p.name), next: PROJECTS.findIndex((_, i) => open[i] && !valid[i]) });
+}
 const buzz = () => tone(150, 0, 0.45, 0.16, 'triangle');
 // right answers in a row at the first try, and the longest run since the page opened
 let streak = 0, top = 0;
@@ -143,10 +159,12 @@ function sumHtml(q, lv) {
 }
 // A fraction of a quantity. An hour is a clock; anything else is a strip split in d equal parts with the quantity over it:
 // at help 1 every part says what it holds (as dots while they fit), at help 2 the chosen parts are counted
+// an hour is a clock, and what it says under it
+const isClock = q => q.unit === 'min' && q.T === 60 && [2, 3, 4, 6, 12].includes(q.d);
+const clockCap = (q, lv) => { const each = q.T / q.d; return `<p class="cap${lv > 1 ? ' ok' : ''}">${lv > 1 ? `${q.n} × ${each} = ${each * q.n} minuts` : lv ? `Cada part del rellotge són ${each} minuts` : '1 hora = 60 minuts'}</p>`; };
 function ofHtml(q, lv) {
   const each = q.T / q.d;
-  if (q.unit === 'min' && q.T === 60 && [2, 3, 4, 6, 12].includes(q.d)) return `${roundSvg('clock', q.d, i => i < q.n, { hand: q.n / q.d })}
-    <p class="cap${lv > 1 ? ' ok' : ''}">${lv > 1 ? `${q.n} × ${each} = ${each * q.n} minuts` : lv ? `Cada part del rellotge són ${each} minuts` : '1 hora = 60 minuts'}</p>`;
+  if (isClock(q)) return `${roundSvg('clock', q.d, i => i < q.n, { hand: q.n / q.d })}${clockCap(q, lv)}`;
   return `<div class="model"><p class="brace"><b>${q.T} ${q.unit}</b></p><div class="cells">${Array.from({ length: q.d }, (_, i) => `<span class="cell${i < q.n ? ' on' : ''}">${lv ? (q.T <= 24 ? '<i></i>'.repeat(each) : `<b>${each}</b>`) : '<b>?</b>'}</span>`).join('')}</div>
     <p class="cap${lv > 1 ? ' ok' : ''}">${lv > 1 ? `${q.n} ${q.n > 1 ? 'parts' : 'part'}: ${each * q.n} ${q.unit}` : lv ? `Cada part: ${each} ${q.unit}` : `${q.d} parts iguals`}</p></div>`;
 }
@@ -191,9 +209,33 @@ function said(q) {
 
 // the link to the page of all games only exists where this page is served under its own file name, next to the others
 const HUB = ownPage('nenufars-a-trossos');
+const root = $('#game');
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+// the pond is framed in the part of the screen the panel leaves free: on the left of it when the screen is wide, above it otherwise
+function frame3d() {
+  if (WIDE.matches) W.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('.view'); W.layout('bottom', v ? Math.max(0.3, 1 - v.getBoundingClientRect().bottom / innerHeight) : 0.55); }
+}
+WIDE.addEventListener?.('change', () => frame3d());
+{ let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
+// a screen: the room the pond is seen through (h tall on a narrow screen) and the panel of glass under it
+function panel3d(h, html) { root.innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="pane" id="pane">${html}</div>`; frame3d(); }
+// On a narrow screen the pond takes all the room the panel leaves: the view grows down to the panel when the panel is short, and is
+// never less than 30 % of the screen
+function fitView() {
+  const v = $('.view'), sh = $('#pane'); if (!v || !sh || !W.ok || WIDE.matches) return;
+  const top = v.getBoundingClientRect().top + scrollY, free = innerHeight - sh.getBoundingClientRect().height - top - 30;
+  // a figure drawn on paper in the panel leaves the pond only the frog to show: then the panel may take more room
+  const least = $('#field:not(.in3d):not(:empty)') ? 0.14 : 0.3;
+  v.style.height = Math.round(Math.max(innerHeight * least, Math.min(innerHeight * 0.6, free))) + 'px'; frame3d();
+}
+const MAP_VIEW = '42vh', LEVEL_VIEW = '36vh';
+// the end of a board: with the pond, the panel takes the place of the field and the keys, and the pond gets the room that is left
+const endPanel = html => { curtain(html); fitView(); };
 function show(kicker, playing, hue) {
-  $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
-  $('#game').onclick = null; keyFn = null; FX.mood(hue);
+  document.body.classList.toggle('playing', playing); $('#app').classList.toggle('wide', playing);
+  $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
+  root.onclick = null; keyFn = null; FX.mood(hue); W.onPick = null; W.highlight(null); W.rest();
 }
 $('#toM').onclick = () => mapa();
 const soBtn = soundButton(() => prog, () => save(), () => tone(660, 0, 0.2));
@@ -216,14 +258,28 @@ const rings = c => `<svg viewBox="-15 -15 30 30" aria-hidden="true">${[14, 9, 4]
 const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, isOpen, examOpen, reached, badges }, OPEN });
 let here = -1;   // the project just left: the map puts the focus back on its button
 function mapa() {
-  fresh(); show('El mapa', false, 165);
-  const any = OPEN || validated(prog).length > 0;
-  M.screen({ root: $('#game'), here, rings, ringAttr: c => ` style="--rh:${RING[c]}"`, pp: true,
+  fresh(); show('El mapa', false, 165); DBG.what = 'mapa';
+  worldState(); W.go('map');
+  panel3d(MAP_VIEW, '');
+  const any = OPEN || validated(prog).length > 0, pane = $('#pane');
+  M.screen({ root: pane, here, rings, ringAttr: c => ` style="--rh:${RING[c]}"`, pp: true,
+    before: W.ok ? `<p class="grow">${growLine()}</p>` : '',
     foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${any ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
       <button class="btn soft" id="rapid"${any ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Repte llampec${prog.rapid ? ` · rècord ${prog.rapid}` : ''}</button>
       ${badgeList(BADGES, got)}</div>`,
     open: i => level(i, M.nextLevel(i)), exam: examen, on: [['#full:not(:disabled)', full], ['#rapid:not(:disabled)', llampec]] });
+  // a project under the finger, or with the focus, lights its lily pad and says its name there; a pad of the pond opens its project
+  const lit = e => { const b = e.target.closest?.('.proj[data-p]'); W.highlight(b ? +b.dataset.p : null); };
+  pane.onpointerover = lit; pane.onfocusin = lit; pane.onpointerleave = () => W.highlight(null);
+  W.onPick = (kind, key) => { if (kind === 'proj' && (OPEN || isOpen(prog, circleOf(+key)))) level(+key, M.nextLevel(+key)); };
+  fitView();
   here = -1;
+}
+// what the pond says over the map: how many pieces of the pads are in their place, as a fraction of all of them
+function growLine() {
+  const got = prog.lv.filter(s => s > 0).length, all = prog.lv.length;
+  return got === all ? 'Tots els nenúfars són sencers i florits!' : got ? `Peces dels nenúfars: <b>${got} de ${all}</b>. Cada nivell que acabes hi posa la seva peça.`
+    : 'Cada nenúfar està a trossos: cada nivell que acabes hi posa una peça.';
 }
 
 /* ---------- the board: a run of questions, one at a time. A level, the Piscina, an exam and a lightning round all play on it ---------- */
@@ -239,7 +295,7 @@ function board(o) {
   // the figure being dragged (drag.js) while a question waits for its answer: live.set(v) moves it; null with the drawing of before
   host.style.setProperty('--n', qs.length); host.style.setProperty('--k', 0);
   // JSXGraph starts loading as soon as a board has a figure to drag, so it is there when that question comes up
-  if (qs.some(q => q.mode === 'line' && q.ask === 'put' || q.mode === 'paint' && ROUND.has(q.shape))) loadJsx();
+  if (!W.ok && qs.some(q => q.mode === 'line' && q.ask === 'put' || q.mode === 'paint' && ROUND.has(q.shape))) loadJsx();
   host.innerHTML = `${o.secs ? '<div class="fuse" role="img" aria-label="El temps que queda"><i id="fuse"></i></div>'
     : `<div class="lane" id="lane" aria-hidden="true">${qs.map(() => '<i class="lp"></i>').join('')}<span class="fg" id="fg"><svg viewBox="-34 -40 68 58">${FROG}</svg></span></div>`}
     <p class="status tip${o.secs ? ' flat' : ''}" id="tip" role="status" aria-live="polite"></p>
@@ -249,9 +305,48 @@ function board(o) {
   const shake = e => { e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); };
   const typed = () => kindOf(q) === 'frac' || kindOf(q) === 'num';
 
+  // What the pond shows for the question on screen, and what stays in the field of the panel under it (the caption, the scissors):
+  // [scene, html], or null when the page draws it (the papers: a quantity in parts, a hundred squares; no figure; too many parts)
+  const set = (D, f) => Array.from({ length: D }, (_, i) => !!f(i));
+  const row = (n, D, lab, o) => ({ D, on: set(D, i => i < n), lab, ...o });
+  const manyFigs = (w, n, d) => [...Array.from({ length: w }, () => ({ D: d, on: set(d, () => true) })), ...(n ? [{ D: d, on: set(d, i => i < n) }] : [])];
+  function field3d(lv) {
+    switch (q.mode) {
+      case 'equal': return [{ s: 'fig', shape: q.shape, figs: [0, 1, 2].map(i => ({ D: q.d, on: set(q.d, () => false), w: i === q.at ? null : UNEVEN[i < q.at ? i : i - 1].slice(0, q.d) })), tap: busy ? null : 'pick', good: lab ? q.at : null }, ''];
+      case 'paint': return [{ s: 'fig', shape: q.shape, figs: [{ D: q.d, on: set(q.d, i => lit.has(i)), hand: lit.size / q.d }], tap: busy ? null : 'part', lab }, ''];
+      case 'name': return [{ s: 'fig', shape: q.shape, figs: [{ D: q.d, on: set(q.d, i => i < q.n), hand: q.n / q.d }], lab }, ''];
+      case 'line': return [{ s: 'line', d: q.d, max: q.max, pos: q.ask === 'put' ? pos : q.n, from, tap: q.ask === 'put' && !busy, lab }, ''];
+    }
+    if (!shown) return null;
+    switch (q.mode) {
+      case 'cmp': case 'same': return q.b > 24 || q.d > 24 ? null : [{ s: 'bars', rows: [row(q.a, q.b, `${q.a}/${q.b}`), row(q.c, q.d, `${q.c}/${q.d}`)] }, ''];
+      case 'fill': return q.d > 24 || q.D > 24 ? null : [{ s: 'bars', rows: [row(q.n, q.d, `${q.n}/${q.d}`), row(q.N, q.D, q.miss === 'N' ? `?/${q.D}` : `${q.N}/?`)] }, ''];
+      case 'imp': return [{ s: 'fig', shape: q.shape, figs: manyFigs(q.w, q.n, q.d) }, ''];
+      case 'mix': return [{ s: 'fig', shape: q.shape, figs: manyFigs(Math.floor(q.a / q.d), q.a % q.d, q.d) }, ''];
+      case 'add': {
+        const [s, L, A, C] = sumOf(q), deep = lv > 1; if (L > 24) return null;
+        const rows = [row(deep ? A : q.a, deep ? L : q.b, `${q.a}/${q.b}`), row(deep ? C : q.c, deep ? L : q.d, `${q.op} ${q.c}/${q.d}`)];
+        if (deep) rows.push(row(s, L * Math.max(1, Math.ceil(s / L)), `= ${s}/${L}`, { res: true }));
+        return [{ s: 'bars', rows }, ''];
+      }
+      case 'times': return [{ s: 'bars', rows: Array.from({ length: q.k }, () => row(q.n, q.d)) }, ''];
+      case 'of': return isClock(q) ? [{ s: 'fig', shape: 'clock', figs: [{ D: q.d, on: set(q.d, i => i < q.n), hand: q.n / q.d }] }, clockCap(q, lv)] : null;
+      case 'pct': case 'dec': return null;
+    }
+    // cutting and joining: the figure is in the pond, the count of its parts and the scissors in the panel
+    if (q.d > ROOM[q.shape]) return null;
+    const cut = q.mode === 'cut', goal = cut ? q.d * q.k : 0;
+    const f = cut && q.shape === 'choc' ? { D: q.d, on: set(q.d, i => i < q.n), rows: cur.d / q.d, tall: true } : { D: cur.d, on: set(cur.d, i => i < cur.n) };
+    return [{ s: 'fig', shape: q.shape, figs: [f], was }, `<p class="cap${cur.d === goal ? ' ok' : ''}">${cur.d === 1 ? 'Una sola part' : `${cur.d} parts`}${cut && cur.d > goal ? ': massa! Prem ↺' : ''}</p>` + toolsHtml(cut)];
+  }
+  const toolsHtml = cut => busy ? '' : `<div class="tools">${[2, 3, 5].map(x => `<button class="tool" data-t="${x}">${cut ? `✂ en ${x}` : `De ${x} en ${x}`}</button>`).join('')}<button class="tool" data-t="0" aria-label="Torna a començar">↺</button></div>`;
   function drawField() {
     const lv = lab ? 2 : help ? 1 : 0;
     let h;
+    const w3 = W.ok ? field3d(lv) : null;
+    field.classList.toggle('in3d', !!w3);
+    if (W.ok) W.show(w3 && w3[0], { dur: how === 'rapid' ? 600 : 1000 });
+    if (w3) { field.innerHTML = w3[1]; live = null; fitView(); return; }
     switch (q.mode) {
       // once the answer has been told (lab), the right figure is marked
       case 'equal': h = `<div class="trio${q.shape === 'bar' || q.shape === 'choc' ? ' tall' : ''}">${[0, 1, 2].map(i => `<button class="opt${lab && i === q.at ? ' good' : ''}" data-pick="${i}" aria-label="Figura ${i + 1}">${fig(q.shape, q.d, () => false, { w: i === q.at ? null : UNEVEN[i < q.at ? i : i - 1].slice(0, q.d) })}</button>`).join('')}</div>`; break;
@@ -273,10 +368,10 @@ function board(o) {
         // the tablet is cut across, in rows: its columns stay as they were
         h = (cut && q.shape === 'choc' ? barSvg('choc', q.d, i => i < q.n, { rows: cur.d / q.d, wasRows: was ? was / q.d : 0, tall: true }) : fig(q.shape, cur.d, i => i < cur.n, { was }))
           + `<p class="cap${cur.d === goal ? ' ok' : ''}">${cur.d === 1 ? 'Una sola part' : `${cur.d} parts`}${cut && cur.d > goal ? ': massa! Prem ↺' : ''}</p>`
-          + (busy ? '' : `<div class="tools">${[2, 3, 5].map(x => `<button class="tool" data-t="${x}">${cut ? `✂ en ${x}` : `De ${x} en ${x}`}</button>`).join('')}<button class="tool" data-t="0" aria-label="Torna a començar">↺</button></div>`);
+          + toolsHtml(cut);
       }
     }
-    field.innerHTML = h; live = null;
+    field.innerHTML = h; live = null; fitView();
     // where the answer is dragged, the drawing above gives its place to a board a finger moves (drag.js) once JSXGraph is there
     if (busy) return;
     if (q.mode === 'line' && q.ask === 'put') upgrade(lineBoard, 'jline', { d: q.d, max: q.max, pos, lab }, i => { from = pos; pos = i; tone(500 + 40 * i, 0, 0.1, 0.06); });
@@ -295,7 +390,8 @@ function board(o) {
   }
   // one more or one less: the frog one pad on, or one slice more chosen
   function nudge(s) {
-    if (q.mode === 'line') { from = pos; pos = Math.max(0, Math.min(q.d * q.max, pos + s)); tone(500 + 40 * pos, 0, 0.1, 0.06); if (live) return live.set(pos); }
+    // in the pond the frog's hop has its own sound
+    if (q.mode === 'line') { from = pos; pos = Math.max(0, Math.min(q.d * q.max, pos + s)); if (!W.ok) tone(500 + 40 * pos, 0, 0.1, 0.06); if (live) return live.set(pos); }
     else { lit = upTo(Math.max(0, Math.min(q.d, lit.size + s))); tone(s > 0 ? 740 : 440, 0, 0.1, 0.06); if (live) return live.set(lit.size); }
     drawField();
   }
@@ -331,7 +427,8 @@ function board(o) {
   function arm() {
     q = qs[k]; buf = ['', '']; slot = 0; lit = new Set(); pos = 0; from = undefined; cur = { n: q.n, d: q.d }; was = 0; shown = !q.hide; lab = false; help = 0; busy = false;
     openAt = k ? performance.now() + SETTLE : 0;
-    drawLane(); drawField(); drawAsk(); drawCtl(); tip(tipFor(q)); o.chip?.(st);
+    DBG.q = q; DBG.k = k; DBG.what = how;
+    drawLane(); drawField(); drawAsk(); drawCtl(); tip(tipFor(q)); o.chip?.(st); fitView();
     // on a phone the figure can be off screen after the last answer: bring the tip and the field back
     if ($('#tip').getBoundingClientRect().top < 0) $('#tip').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
   }
@@ -360,7 +457,7 @@ function board(o) {
     if (busy || over || !t.on || performance.now() < openAt) return;
     const ok = right(q, ans), last = k === qs.length - 1;
     if (!ok && !once) {   // try again, with what went wrong said and drawn
-      buzz(); shake(typed() ? $('#ask') : field);
+      buzz(); shake(typed() ? $('#ask') : field); W.oops();
       st.slips++; help++; streak = 0; drawCombo(); o.chip?.(st); tip('Ui! ' + explain(q, help > 1, ans), 'oops'); uncover(help > 1);
       buf = ['', '']; slot = 0; drawAsk();
       return;
@@ -370,7 +467,7 @@ function board(o) {
     if (last) o.onLast?.(st);
     drawLane(); drawCombo(); o.chip?.(st); uncover(true); drawAsk();
     if (!ok) {   // one try only: show the right answer, and in an exam wait for the child to go on
-      buzz(); shake(typed() ? $('#ask') : field); tip('No. ' + explain(q, true), 'oops');
+      buzz(); shake(typed() ? $('#ask') : field); W.oops(); tip('No. ' + explain(q, true), 'oops');
       if (how === 'rapid') { await sleep(1900); if (t.on && !over) next(); return; }
       ctl.innerHTML = '<button class="btn" id="go">Segueix</button>'; $('#go').focus({ preventScroll: true });
       return;
@@ -378,7 +475,8 @@ function board(o) {
     // the notes climb with the run
     { const f = 784 * 2 ** (Math.min(streak, 8) / 12); tone(f, 0, 0.14, 0.08); tone(f * 4 / 3, 0.1, 0.2, 0.08); }
     tip(streak && streak % 5 === 0 ? `${streak} seguides! ${said(q)}` : said(q), 'go');
-    { const p = mid(field); FX.burst(p.x, p.y, 48, 22 + 4 * Math.min(streak, 8), 190); FX.ring(p.x, p.y, 48, 10, 90); if (streak && streak % 5 === 0) FX.celebrate(4); }
+    if (W.ok) W.cheer(); else { const p = mid(field); FX.burst(p.x, p.y, 48, 22 + 4 * Math.min(streak, 8), 190); FX.ring(p.x, p.y, 48, 10, 90); }
+    if (streak && streak % 5 === 0) FX.celebrate(4);
     await sleep(how === 'rapid' ? 700 : once ? 1100 : 1500); if (t.on && !over) next();
   }
   async function next() {
@@ -402,6 +500,10 @@ function board(o) {
     }
     buf[slot] = key === 'del' ? buf[slot].slice(0, -1) : (buf[slot] + key).slice(0, 4);
     tone(key === 'del' ? 392 : 660, 0, 0.08, 0.05);
+    // a number written right is taken at once, without ✓, and so is a sum written right; a wrong one waits for ✓, for it may still grow
+    // into the right one («1» can end as «12»)
+    if (key !== 'del' && kind === 'num' && right(q, +buf[0])) { drawAsk(); return submit(+buf[0]); }
+    if (key !== 'del' && q.mode === 'add' && kind === 'frac' && buf[0] && buf[1] && right(q, [+buf[0], +buf[1]])) { drawAsk(); return submit([+buf[0], +buf[1]]); }
     // a box of a fraction is full when it has as many digits as its answer: the typing moves on to the other box, and with both full
     // the fraction is checked without ✓. A sum can be written in more than one way, so it always waits for ✓
     if (kind === 'frac' && key !== 'del' && q.mode !== 'add') {
@@ -425,13 +527,21 @@ function board(o) {
     if (opt) return submit(opt.dataset.pick);
     if (!part) return;
     const i = +part.dataset.i;
-    if (q.mode === 'paint') {
-      // a jug fills from the bottom up to the mark touched; anything else is chosen part by part
-      if (q.shape === 'jug') lit = new Set(Array.from({ length: lit.size === i + 1 ? i : i + 1 }, (_, j) => j));
-      else lit.has(i) ? lit.delete(i) : lit.add(i);
-      tone(lit.has(i) ? 740 : 440, 0, 0.1, 0.06); drawField();
-    }
+    if (q.mode === 'paint') tapPart(i);
     else if (q.mode === 'line' && q.ask === 'put') { from = pos; pos = i; tone(500 + 40 * i, 0, 0.1, 0.06); drawField(); }
+  };
+  // a part of the figure touched: a jug fills from the bottom up to the mark touched; anything else is chosen part by part
+  function tapPart(i) {
+    if (q.shape === 'jug') lit = new Set(Array.from({ length: lit.size === i + 1 ? i : i + 1 }, (_, j) => j));
+    else lit.has(i) ? lit.delete(i) : lit.add(i);
+    tone(lit.has(i) ? 740 : 440, 0, 0.1, 0.06); drawField();
+  }
+  // the same touches on the pond: a part, a figure to choose, a lily pad of the river
+  W.onPick = (kind, key) => {
+    if (busy || over || !t.on || performance.now() < openAt) return;
+    if (kind === 'pick' && q.mode === 'equal') return submit(key);
+    if (kind === 'part' && q.mode === 'paint') return tapPart(+key);
+    if (kind === 'pad' && q.mode === 'line' && q.ask === 'put') { from = pos; pos = +key; drawField(); }
   };
   $('#ask').onclick = e => { const b = e.target.closest('[data-slot]'); if (b && !busy) { slot = +b.dataset.slot; drawAsk(); } };
   // the fuse of a lightning round: when it burns out the board is over, whatever was going on
@@ -456,12 +566,15 @@ function run() { const r = streakIn(prog, top); prog = r.prog; return r.news; }
 function piscina() {
   const t = fresh(); show('La Piscina', true, 165); $('#toM').hidden = true; $('#toG').hidden = !HUB;
   let got = [];
-  $('#game').innerHTML = '<div class="hud mid"><span class="chip">Tres reptes per entrar a l\'estany</span></div><div id="board"></div>';
+  worldState();
+  panel3d(LEVEL_VIEW, '<div class="hud mid"><span class="chip">Tres reptes per entrar a l\'estany</span></div><div id="board"></div>');
   board({ t, qs: POOL, how: 'pool',
     onLast: () => { const was = badges(prog); prog = { ...prog, piscina: true }; got = BADGES.filter((_, j) => badges(prog)[j] && !was[j]).map(b => b.name); save(); },
     onEnd: () => {
       chime([523, 659, 784, 1047, 1319]); FX.celebrate(16);
-      curtain(`<h2>Piscina acabada!</h2><p class="lead go">+50 XP · ja ets dins del cursus de les fraccions</p>${news(got)}
+      // the party of the pond lights up
+      if (W.ok) { W.rest(); worldState(); W.go('map'); W.festa(); }
+      endPanel(`<h2>Piscina acabada!</h2><p class="lead go">+50 XP · ja ets dins del cursus de les fraccions</p>${news(got)}
         <p class="lead">Al mapa hi ha cinc cercles. Valida els projectes d'un cercle i supera'n l'examen per obrir el següent.</p><button class="btn" id="nx">Obre el mapa</button>`);
       $('#nx').onclick = () => mapa();
     } });
@@ -470,20 +583,22 @@ function piscina() {
 /* ---------- one level of a project: five questions, with hints ---------- */
 function level(sec, idx) {
   const c = circleOf(sec), P = PROJECTS[sec], L = P.levels[idx], t = fresh(); show(`Cercle ${c} · ${P.name}`, true, HUES[sec]); here = sec;
-  const root = $('#game');
   let r;
-  root.innerHTML = `${levelRow(P.levels, OPEN ? 10 : reached(prog, sec), idx)}
-    <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.name}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div><div id="board"></div>`;
+  worldState();
+  panel3d(LEVEL_VIEW, `${levelRow(P.levels, OPEN ? 10 : reached(prog, sec), idx)}
+    <div class="hud"><span class="chip">ex0${exOf(idx)} · ${L.name}</span><span class="chip" id="st"></span><button class="link" id="hintb">Dona'm una pista</button></div><div id="board"></div>`);
   // a level is marked done when it has a star
   root.querySelectorAll('.levels button').forEach((b, i) => b.classList.toggle('done', prog.lv[sec * 10 + i] > 0));
   wireLevels(root, i => level(sec, i));
   const B = board({ t, qs: L.qs, how: 'level', chip: st => { $('#st').textContent = starRow(starsFor(st.slips)); },
     // the level is handed in with its last answer: its stars go to the mark of the project, and the mark to the XP once the project is validated
-    onLast: st => { const got = run(); r = levelIn(prog, sec, idx, st.slips); r.news = [...got, ...r.news]; prog = r.prog; save(); },
+    onLast: st => { const got = run(), had = prog.lv[sec * 10 + idx]; r = levelIn(prog, sec, idx, st.slips); r.news = [...got, ...r.news]; prog = r.prog; save(); r.fresh = !had && prog.lv[sec * 10 + idx] > 0; },
     onEnd: () => {
       const n = r.n, end = idx === 9;
       chime([523, 659, 784, 1047, 1319]); FX.celebrate(end || r.valid ? 16 : 8);
-      curtain(`<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
+      // the camera flies to the lily pad of the project: the piece of this level falls into place, and a project just validated flowers
+      if (W.ok) { worldState(); W.piece(sec, idx, { fresh: r.fresh, bloom: r.valid }); }
+      endPanel(`<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2><p class="won" role="img" aria-label="${n} de 3 estrelles">${starRow(n)}</p>
         <p class="lead${r.valid ? ' go' : ''}">Nota del projecte: ${r.note} de 100${r.valid ? ' · validat ✓' : ''}${r.gain ? ` · +${r.gain} XP` : ''}</p>
         ${r.exam ? `<p class="lead go">S'ha obert l'examen del cercle ${c}.</p>` : ''}${news(r.news)}
         ${r.exam || r.news.length ? '' : `<p class="lead">${n === 3 ? 'Ni un sol error: 10 punts!' : `Aquest nivell dona ${POINTS[n]} punts. Sense errors ni pistes en dona 10.`}</p>`}
@@ -499,12 +614,15 @@ function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]);
   const qs = exam(c, Math.random);
   let r;
-  $('#game').innerHTML = '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>';
+  worldState();
+  panel3d(LEVEL_VIEW, '<div class="hud"><span class="chip">Sis preguntes · un sol intent</span><span class="chip" id="st"></span></div><div id="board"></div>');
   board({ t, qs, how: 'exam', chip: st => { $('#st').textContent = `${st.hits} de ${qs.length}`; },
     onLast: st => { const got = run(), first = !prog.exams[c]; r = examIn(prog, c, qs, qs.map((_, i) => st.marks[i] === 'ok')); r.news = [...got, ...r.news]; r.first = r.good && first; prog = r.prog; save(); },
     onEnd: () => {
       r.good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(16)) : tone(196, 0, 0.5, 0.12, 'triangle');
-      curtain(`<h2>${r.good ? 'Examen superat!' : 'Encara no!'}</h2><p class="score">${r.score} de ${qs.length}</p>
+      // an exam passed for the first time lights its lantern on the far shore of the pond
+      if (W.ok) { if (r.first) W.lantern(c); else { W.rest(); worldState(); W.go('map'); } }
+      endPanel(`<h2>${r.good ? 'Examen superat!' : 'Encara no!'}</h2><p class="score">${r.score} de ${qs.length}</p>
         <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? "Molt bé! Però l'examen només compta amb tots els projectes del cercle validats." : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
         ${r.first ? `<p class="lead go">${c < CIRCLES.length - 1 ? `S'ha obert el cercle ${c + 1}: ${CIRCLES[c + 1].name}.` : 'Has acabat el cursus de les fraccions!'}</p>` : ''}
         ${r.redo.length ? `<p class="lead">Per repassar: ${list(r.redo.map(i => PROJECTS[i].name))}.</p>` : ''}${news(r.news)}
@@ -515,18 +633,21 @@ function examen(c) {
 
 /* ---------- the lightning round: as many right answers as fit in a minute, one try each; only the record is kept ---------- */
 function llampec() {
-  const t = fresh(); show('Repte llampec', true, 48);
-  $('#game').innerHTML = `<div class="intro"><h2>Repte llampec</h2><p class="lead">${RAPID} segons. Preguntes dels projectes que ja has validat, un sol intent per a cada una. Quantes n'encertaràs?</p>
-    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button></div>`;
+  const t = fresh(); show('Repte llampec', true, 48); DBG.what = 'llampec';
+  worldState(); W.home();
+  panel3d(LEVEL_VIEW, `<div class="intro"><h2>Repte llampec</h2><p class="lead">${RAPID} segons. Preguntes dels projectes que ja has validat, un sol intent per a cada una. Quantes n'encertaràs?</p>
+    ${prog.rapid ? `<p class="lead sun">El teu rècord: ${prog.rapid}</p>` : ''}<button class="btn" id="go">Comença!</button></div>`);
+  fitView();
   $('#go').focus({ preventScroll: true });
   $('#go').onclick = () => {
     if (!t.on) return;
-    $('#game').innerHTML = '<div class="hud"><span class="chip">Repte llampec</span><span class="chip" id="st"></span></div><div id="board"></div>';
+    panel3d(LEVEL_VIEW, '<div class="hud"><span class="chip">Repte llampec</span><span class="chip" id="st"></span></div><div id="board"></div>');
     board({ t, qs: sprint(prog, Math.random), how: 'rapid', secs: RAPID, chip: st => { $('#st').textContent = `${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}`; },
       onEnd: st => {
         const got = run(), r = rapidIn(prog, st.hits); prog = r.prog; save();
         chime([523, 659, 784, 1047, 1319]); if (r.best) FX.celebrate(16);
-        curtain(`<h2>Temps!</h2><p class="score">${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}</p><p class="lead${r.best ? ' go' : ''}">${r.best ? 'Rècord nou!' : `El teu rècord: ${prog.rapid}`}</p>${news([...got, ...r.news])}
+        W.home();
+        endPanel(`<h2>Temps!</h2><p class="score">${st.hits} ${st.hits === 1 ? 'encert' : 'encerts'}</p><p class="lead${r.best ? ' go' : ''}">${r.best ? 'Rècord nou!' : `El teu rècord: ${prog.rapid}`}</p>${news([...got, ...r.news])}
           <button class="btn" id="rp">Torna-hi</button><button class="link" id="bk">Torna al mapa</button>`);
         $('#bk').onclick = () => mapa(); $('#rp').onclick = () => llampec();
       } });
@@ -545,13 +666,14 @@ const CLAIMS = {
 // «És correcte» of a wrong one, or «No és correcte» of a right one, is a miss; «No és correcte» of a wrong one asks for the value that makes it true,
 // with one choice. The third is handed in at once (sheetIn), before any wait; leaving earlier keeps nothing.
 function full() {
-  const t = fresh(); show("Caça l'errada", true, 40);
+  const t = fresh(); show("Caça l'errada", true, 40); DBG.what = 'full';
   const cs = sheet(Math.random), marks = [];
-  $('#game').innerHTML = `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
+  worldState(); W.home();
+  panel3d(LEVEL_VIEW, `<div class="hud mid"><span class="steps" id="dots" role="img" aria-label="Tres fulls">${'<i></i>'.repeat(cs.length)}</span></div>
     <div class="coach" id="coach"><svg class="frog" viewBox="-34 -40 68 58" aria-hidden="true">${FROG}</svg><p class="status tip" id="tip" role="status" aria-live="polite"></p></div>
-    <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`;
+    <div class="stage" id="stage"></div><div class="tail" id="tail"></div>`);
   const stage = $('#stage'), tail = $('#tail'), dots = [...$('#dots').children];
-  const say = (txt, cls = '') => { $('#tip').className = 'status tip ' + cls; $('#tip').textContent = txt; const c = $('#coach'); c.className = 'coach'; void c.offsetWidth; c.className = 'coach ' + cls; };
+  const say = (txt, cls = '') => { $('#tip').className = 'status tip ' + cls; $('#tip').textContent = txt; const c = $('#coach'); c.className = 'coach'; void c.offsetWidth; c.className = 'coach ' + cls; W.frogSay(cls); };
   let k = -1, C, D, busy, openAt = 0, res = null;
   function arm() {
     k++; C = cs[k]; D = CLAIMS[C.kind](C); busy = false; openAt = performance.now() + SETTLE;
@@ -592,7 +714,7 @@ function full() {
     }
     else if ('v' in b.dataset) { const ok = b.dataset.v === C.real; answer(ok, ok ? `Arreglat: ${D.truth}.` : `No era aquest: ${D.truth}.`); }
   };
-  arm();
+  arm(); fitView();
 }
 
 soBtn(); paintXp();
