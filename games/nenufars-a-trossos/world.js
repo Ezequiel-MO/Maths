@@ -451,7 +451,9 @@ function build(canvas) {
     const where = placeOf(sc.shape), P = PLACE[where], n = sc.figs.length;
     const make = f => sc.shape === 'choc' ? chocFig(f) : sc.shape === 'jug' ? jugFig(f, sc.lab) : sc.shape === 'eggs' ? eggsFig(f) : sc.shape === 'bugs' ? bugsFig(f) : roundFig(sc.shape, f);
     const gs = sc.figs.map(make), gap = where === 'pond' ? 0.25 : 0.3, sumW = gs.reduce((s, g) => s + g.userData.w, 0) + gap * (n - 1);
-    const k = Math.min(where === 'stump' ? 1.7 : where === 'pond' ? 0.95 : 1.05, P.room / sumW), wAll = sumW * k;
+    // a small figure grows to fill its place: a carton of four eggs is as wide as a pizza
+    const most = where === 'stump' ? 1.7 : where === 'pond' ? 0.95 : sc.shape === 'eggs' ? 1.6 : sc.shape === 'choc' ? 1.3 : 1.05;
+    const k = Math.min(most, P.room / sumW), wAll = sumW * k;
     let x = P.at.x - wAll / 2, zMax = 0;
     gs.forEach((g, j) => {
       const w = g.userData.w * k; g.scale.setScalar(k); g.position.set(x + w / 2, P.at.y, P.at.z + (where === 'stump' ? -0.15 : 0)); x += w + gap * k; stageG.add(g);
