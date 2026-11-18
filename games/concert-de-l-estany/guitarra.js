@@ -122,16 +122,26 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
     };
     at > 0.01 ? setTimeout(go, at * 1000) : go();
   }
-  const onTap = fn => { el.onclick = e => { const c = e.target.closest('.gcell'); if (c) fn(+c.dataset.s, +c.dataset.f); }; };
+  let tapFn = null;
+  const onTap = fn => { tapFn = fn; el.onclick = e => { const c = e.target.closest('.gcell'); if (c) fn(+c.dataset.s, +c.dataset.f); }; };
+  // a letter of a real keyboard, played as a tap: at want, the place the level waits for, when it is the note pc; else at the place of pc
+  // on these strings that sounds nearest to the note wanted, and so it is a wrong note, as a wrong tap would be
+  function letter(pc, want) {
+    if (!tapFn || !want) return;
+    const w = noteAt(...want);
+    const p = pcOf(w) === pc ? want : placesOf(pc, strs, upto).sort((a, b) => Math.abs(noteAt(...a) - w) - Math.abs(noteAt(...b) - w))[0];
+    if (p) tapFn(...p);
+  }
   const clear = () => { for (const [k, m] of marks) if (!k.startsWith('map@')) { m.remove(); marks.delete(k); } };
-  return { wrap, put, get, unput, drop, map, flash, sound, onTap, clear };
+  return { wrap, put, get, unput, drop, map, flash, sound, onTap, letter, clear };
 }
 
 // the keyboard of colours: the seven notes in a row, and, with sharps, each sharp over the gap between the two notes it lives between.
 // Mi and Fa, and Si and Do, have no gap: there is no sharp between them
 const NAT = [0, 2, 4, 5, 7, 9, 11];
-// A real keyboard plays the notes without a sharp: the first letter of each name, and the o of Sol, as the s is the Si's. Each key
-// underlines its letter, and the page shows the line only where there is a mouse, so most likely a keyboard too
+// A real keyboard plays the notes without a sharp: the first letter of each name, and the o of Sol, as the s is the Si's. It works on the
+// keyboard of colours and on the neck. Each key underlines its letter, and the page shows the line only where there is a mouse, so most
+// likely a keyboard too
 const LETTER = { d: 0, r: 2, m: 4, f: 5, o: 7, l: 9, s: 11 };
 const keyName = pc => { const n = PCS[pc], i = pc === 7 ? 1 : 0; return isSharp(pc) ? n : `${n.slice(0, i)}<u>${n[i]}</u>${n.slice(i + 1)}`; };
 function keyboard(sharps) {
@@ -165,9 +175,11 @@ function clue(s, f, sharps) {
 // The kinds, made with what they need of the page: pluck sounds a string and FX draws the rings
 export function guitar(deps) {
   const neck = (host, o) => board(host, o, deps);
+  // the letters of a real keyboard on the neck B: want gives the place the level waits for now, or null when it waits for nothing
+  const lettersOn = (keys, B, want) => keys?.(e => { const pc = LETTER[e.key.toLowerCase()]; if (pc == null) return; e.preventDefault(); B.letter(pc, want()); });
 
   /* walk: press the places one after the other; each one sounds and shows its note. A tap somewhere else only sounds */
-  function walk({ t, L, stage, tip, spark, win }) {
+  function walk({ t, L, stage, tip, spark, win, keys }) {
     stage.innerHTML = '<p class="goal" id="goal"></p>';
     const B = neck(stage, { frets: L.frets, strs: L.strs, names: L.names !== false }), heard = [];
     if (L.map) B.map(L.map === 'faint');
@@ -193,12 +205,13 @@ export function guitar(deps) {
       await sleep(1400); if (!t.on) return;
       win(L.path.map(p => nameAt(...p)).join(' · '));
     });
+    lettersOn(keys, B, () => busy ? null : L.path[k]);
     next(); tip(L.say);
     return () => '';
   }
 
   /* fret: a note's name, to find on the strings. Once found, its other places show too; with all, every place has to be found */
-  function fret({ t, L, stage, tip, slip, spark, win }) {
+  function fret({ t, L, stage, tip, slip, spark, win, keys }) {
     const seq = drill(L.set, L.n, Math.random);
     stage.innerHTML = '<p class="goal" id="goal"></p>';
     const B = neck(stage, { frets: L.frets, strs: L.strs, upto: L.upto, names: L.names !== false });
@@ -228,6 +241,8 @@ export function guitar(deps) {
       if (++k < seq.length) return ask();
       win(`${seq.length} notes trobades al mànec`);
     });
+    // a letter finds the places of its note one by one, the ones not found yet
+    lettersOn(keys, B, () => busy ? null : all.find(([a, b]) => !found.has(a + ':' + b)));
     ask(); tip(L.say);
     return () => { if (busy) return ''; const p = all.find(([a, b]) => !found.has(a + ':' + b)); B.put(...p, 'hint'); return `El ${PCS[seq[k]]} és ${aPlace(...p)}. El seu lloc fa pampallugues.`; };
   }
@@ -270,7 +285,7 @@ export function guitar(deps) {
      order of chance, so a shadow once gone stays gone; in a round with every shadow, the one of the note to play glows. A rest is in the
      tune as the sign of the scores (the one like a lightning), before the note it waits for: it is heard in «Escolta la cançó», and when
      the child plays it passes on its own */
-  function riff({ t, L, stage, tip, slip, spark, win, exam }) {
+  function riff({ t, L, stage, tip, slip, spark, win, exam, keys }) {
     const tune = L.tune, rounds = L.rounds || [null], order = shuffle([...new Map(tune.map(p => [p.join(':'), p])).values()]);
     const rest = i => L.rests[i] ? `<i class="grest" data-i="${i}" role="img" aria-label="silenci">${glyph('sn')}</i>` : '';
     stage.innerHTML = `${rounds.length > 1 ? '<p class="cap" id="vlt"></p>' : ''}<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${rest(i)}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
@@ -339,6 +354,7 @@ export function guitar(deps) {
       if (!t.on) return;
       playing = false; $('#hear').disabled = false; mark();
     };
+    lettersOn(keys, B, () => busy || playing || k >= tune.length ? null : tune[k]);
     shades(); mark(); tip(L.say);
     return () => { if (busy || playing) return ''; B.put(...tune[k], 'hint'); return `El ${nameAt(...tune[k])} és ${aPlace(...tune[k])}. El seu lloc fa pampallugues.`; };
   }
