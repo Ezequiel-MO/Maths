@@ -95,9 +95,28 @@ export const huesOf = pc => isSharp(pc) ? [NOTES[STEP[pc - 1]].hue, NOTES[STEP[p
 // every place [string, fret] of the strings strs, from fret 0 to upto, that sounds the note pc
 export const placesOf = (pc, strs, upto) => strs.flatMap(s => Array.from({ length: upto + 1 }, (_, f) => f).filter(f => pcOf(noteAt(s, f)) === pc).map(f => [s, f]));
 const ALLS = [1, 2, 3, 4, 5, 6];
-// '6:3 5:0': places as string:fret; a '|' only parts the phrases of a tune, and cuts keeps where
+// '6:3 5:0': places as string:fret
 const places = s => s.split(' ').filter(x => x !== '|').map(x => x.split(':').map(Number));
-const phrases = s => { const cuts = []; let n = 0; for (const x of s.split(' ')) x === '|' ? cuts.push(n) : n++; return cuts; };
+// The beats of each figure of a tune on the guitar: rodona, blanca, negra, corxera, semicorxera, and t, a corxera of a treset (three to a
+// beat); a '.' after it is the dot, half as long again
+const LONG = { r: 4, b: 2, n: 1, c: 0.5, s: 0.25, t: 1 / 3 };
+const lasts = x => LONG[x[0]] * (x[1] === '.' ? 1.5 : 1);
+// '3:0b 2:1 sn | 2:1c.': a tune as places, each with its figure after it (a negra when it has none), and rests as s and their figure. A '|'
+// parts the phrases. beats keeps how long each note lasts, rests the silence before it, and cuts the notes a phrase starts on
+const NOTE = /^([1-6]):(\d+)([rbncst]\.?)?$/, REST = /^s([rbncst]\.?)$/;
+function score(s) {
+  const tune = [], beats = [], rests = [], cuts = [];
+  let rest = 0;
+  for (const x of s.split(' ')) {
+    if (x === '|') { cuts.push(tune.length); continue; }
+    const r = REST.exec(x);
+    if (r) { rest += lasts(r[1]); continue; }
+    const m = NOTE.exec(x);
+    if (!m) throw new Error(`a tune on the guitar with a sign it does not know: ${x}`);
+    tune.push([+m[1], +m[2]]); beats.push(lasts(m[3] || 'n')); rests.push(rest); rest = 0;
+  }
+  return { tune, beats, rests, cuts };
+}
 const pcs = s => s.split(' ').map(n => PCS.indexOf(n));
 // walk: places to press one after the other, each one sounding and showing its note. There is nothing to get wrong: it is the warm-up of
 // what comes after, and it is never asked in an exam. done is what the frog says at the end; bar shows how much of the string vibrates
@@ -107,17 +126,17 @@ const fret = (title, set, n, strs, upto, say, more = {}) => ({ kind: 'fret', tit
 // which: a place of from lights up and sounds, and its name is chosen on a keyboard of colours; sharps puts the sharps on it too
 const which = (title, from, n, frets, say, more = {}) => ({ kind: 'which', title, from: places(from), n, frets, say, ...more });
 // riff: a tune on the strings it uses, at the child's own pace. help 2 shows the name of each note in colour and lights its place,
-// 1 only the name in colour, 0 the name in white
+// 1 only the name in colour, 0 the name in white. Its rhythm is only for listening to it, at bpm beats a minute (more can change it)
 const riff = (title, tune, help, frets, say, more = {}) => {
-  const t = places(tune);
-  return { kind: 'riff', title, tune: t, cuts: phrases(tune), strs: [...new Set(t.map(([s]) => s))].sort(), help, frets, say, ...more };
+  const t = score(tune);
+  return { kind: 'riff', title, ...t, strs: [...new Set(t.tune.map(([s]) => s))].sort(), help, frets, say, bpm: 100, ...more };
 };
 // Any of these on a neck can take map: 'all' writes every note of its strings and frets on it, as a chart, and 'faint' the same, pale.
 // ladder: the notes on the keyboard of colours, one after the other, as a staircase: each step is as high as the half steps it climbs, so
 // Mi to Fa and Si to Do are half as high as the others. 'Do↑' is the Do an octave higher. A warm-up like walk, never asked in an exam
 // shade: a tune played three times. In the first round the shadow of each of its notes is on the neck, pale, and the one to play glows;
 // before the second half of the shadows go, and in the third there are none: only the names over the neck are left
-const shade = (title, tune, frets, say) => riff(title, tune, 1, frets, say, { rounds: [0, 0.5, 1] });
+const shade = (title, tune, frets, say, more = {}) => riff(title, tune, 1, frets, say, { rounds: [0, 0.5, 1], ...more });
 const ladder = (title, steps, sharps, say, done) => ({ kind: 'ladder', title, steps: steps.split(' ').map(n => n === 'Do↑' ? 12 : PCS.indexOf(n)), sharps, say, done });
 // The answer of a question and the values to choose from, smallest first. The wrong ones are the mistakes that teach: adding what
 // the other note gained instead of multiplying, and, for a tube, the fraction turned over (the tube of a higher note is shorter)
@@ -319,8 +338,8 @@ export const SECTIONS = [
       'Si a l\'aire, Do al trast 1 i Re al trast 3. Ja en saps sis: Mi, Fa i Sol a la primera corda, i Si, Do i Re a la segona.'),
     fret('Si, Do i Re', 'Si Do Re', 6, [2], 3, 'Troba cada nota a la segona corda. Si a l\'aire, Do al trast 1 i Re al trast 3.'),
     which('Primera o segona', '1:0 1:1 1:3 2:0 2:1 2:3', 8, 3, 'Una nota s\'encén a la primera o a la segona corda. Com es diu? Mira primer quina corda és, i després el trast.'),
-    riff('Hot Cross Buns', '1:0 2:3 2:1 | 1:0 2:3 2:1 | 2:1 2:1 2:1 2:1 2:3 2:3 2:3 2:3 | 1:0 2:3 2:1', 2, 3, 'La cançó dels tubs, ara a la guitarra: Mi, Re i Do. On has de prémer, s\'hi encén un cercle.'),
-    riff('Oda a l\'alegria', '1:0 1:0 1:1 1:3 | 1:3 1:1 1:0 2:3 | 2:1 2:1 2:3 1:0 | 1:0 2:3 2:3', 1, 3, 'La melodia de Beethoven amb les dues cordes de dalt. Ara no s\'encén on és: mira el nom i el color, i busca-la tu.')
+    riff('Hot Cross Buns', '1:0 2:3 2:1b | 1:0 2:3 2:1b | 2:1c 2:1c 2:1c 2:1c 2:3c 2:3c 2:3c 2:3c | 1:0 2:3 2:1b', 2, 3, 'La cançó dels tubs, ara a la guitarra: Mi, Re i Do. On has de prémer, s\'hi encén un cercle.'),
+    riff('Oda a l\'alegria', '1:0 1:0 1:1 1:3 | 1:3 1:1 1:0 2:3 | 2:1 2:1 2:3 1:0 | 1:0n. 2:3c 2:3b', 1, 3, 'La melodia de Beethoven amb les dues cordes de dalt. Ara no s\'encén on és: mira el nom i el color, i busca-la tu.')
   ] },
   // the first three frets of all six strings: the first position, where every note without a sharp has a place
   { name: 'La primera posició', sub: 'Totes les notes dels tres primers trastos, a les sis cordes.', levels: [
@@ -331,11 +350,11 @@ export const SECTIONS = [
       'Mi, Fa, Sol, La, Si, Do, Re, Mi, Fa, Sol. Les cordes gruixudes sonen greu, però les notes es diuen igual que a dalt.'),
     which('Notes greus', '6:0 6:1 6:3 5:0 5:2 5:3 4:0 4:2 4:3', 8, 3, 'Una nota s\'encén a les cordes gruixudes. Com es diu? La sisena corda és com la primera: Mi, Fa i Sol, als mateixos trastos.'),
     fret('A les cordes de baix', 'Mi Fa Sol La Si Do Re', 8, [4, 5, 6], 3, 'Troba cada nota a les tres cordes gruixudes. El Mi i el Fa hi són dues vegades: qualsevol de les dues val.'),
-    riff('Seven Nation Army', '4:2 4:2 3:0 4:2 4:0 5:3 5:2', 2, 3, 'La cançó que es canta als estadis: po, po-po-po-po, po, po! Amb les cordes gruixudes. On has de prémer, s\'hi encén un cercle.'),
+    riff('Seven Nation Army', '4:2n. 4:2c 3:0c. 4:2c. 4:0c 5:3b 5:2b', 2, 3, 'La cançó que es canta als estadis: po, po-po-po-po, po, po! Amb les cordes gruixudes. On has de prémer, s\'hi encén un cercle.', { bpm: 120 }),
     which('Totes les cordes', '6:0 6:1 6:3 5:0 5:2 5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 2:3 1:0 1:1 1:3', 10, 3, 'Una nota s\'encén a qualsevol corda. Si dubtes, mira la corda a l\'aire de l\'esquerra i compta els trastos.'),
     fret('On és el Do?', 'Do Re Mi Fa Sol La Si', 8, ALLS, 3, 'Moltes notes hi són dues vegades: el Do és al trast 3 de la cinquena corda i al trast 1 de la segona. Qualsevol lloc val!'),
-    riff('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 1, 3, 'Aquesta la saps! Comença a la tercera corda a l\'aire. Mira el nom i el color de cada nota i busca on és.'),
-    riff('Oda a l\'alegria, greu', '4:2 4:2 4:3 3:0 | 3:0 4:3 4:2 4:0 | 5:3 5:3 4:0 4:2 | 4:2 4:0 4:0', 0, 3, 'L\'última! L\'Oda a les cordes gruixudes, una octava més greu. Les notes ja no tenen color: només el nom.')
+    riff('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3b | 2:1 2:1 2:0 2:0 3:2 3:2 3:0b', 1, 3, 'Aquesta la saps! Comença a la tercera corda a l\'aire. Mira el nom i el color de cada nota i busca on és.'),
+    riff('Oda a l\'alegria, greu', '4:2 4:2 4:3 3:0 | 3:0 4:3 4:2 4:0 | 5:3 5:3 4:0 4:2 | 4:2n. 4:0c 4:0b', 0, 3, 'L\'última! L\'Oda a les cordes gruixudes, una octava més greu. Les notes ja no tenen color: només el nom.')
   ] },
   // fret by fret: each fret is half a step, and so the sharps between the notes; the 5th fret sounds as the next string open (the way
   // a guitar is tuned), and the 12th, at half the string, is the octave: the same fractions as the tubes
@@ -352,9 +371,9 @@ export const SECTIONS = [
     walk('Mitja corda', '5:0 5:5 5:7 5:12', 12, 'La cinquena corda a l\'aire, i després als trastos 5, 7 i 12. Mira la barra de sota: quin tros de corda vibra?',
       'Al trast 5 vibren 3/4 de la corda, al 7 uns 2/3, i al 12 la meitat: és el La una octava més agut. Les mateixes fraccions que els tubs!', { bar: true }),
     which('Més amunt del mànec', '6:5 6:7 6:8 6:10 6:12 5:5 5:7 5:8 5:10 5:12', 8, 12, 'Notes més amunt, a les cordes gruixudes. Ajuda\'t dels punts del mànec: el trast 12 és com la corda a l\'aire.', { sharps: true }),
-    riff('Smoke on the Water', '3:0 3:3 3:5 | 3:0 3:3 3:6 3:5 | 3:0 3:3 3:5 3:3 3:0', 2, 6, 'Un riff de rock molt famós, tot a la tercera corda. Té dos sostinguts: el La♯ i el Do♯.'),
-    riff('Per a Elisa', '1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 3:1 2:0 2:1 | 1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 2:1 2:0 3:2', 1, 5,
-      'L\'última! La melodia de Beethoven per a piano, a la guitarra. Comença amb un Mi i un Re♯ que van i vénen.')
+    riff('Smoke on the Water', '3:0 3:3 3:5n. sc | 3:0 3:3 3:6c 3:5 sc | 3:0 3:3 3:5n. sc 3:3 3:0b.', 2, 6, 'Un riff de rock molt famós, tot a la tercera corda. Té dos sostinguts: el La♯ i el Do♯.'),
+    riff('Per a Elisa', '1:0s 2:4s 1:0s 2:4s 1:0s 2:0s 2:3s 2:1s 3:2c ss | 5:3s 4:2s 3:2s 2:0c ss | 4:2s 3:1s 2:0s 2:1c sc | 1:0s 2:4s 1:0s 2:4s 1:0s 2:0s 2:3s 2:1s 3:2c ss | 5:3s 4:2s 3:2s 2:0c ss | 4:2s 2:1s 2:0s 3:2n', 1, 5,
+      'L\'última! La melodia de Beethoven per a piano, a la guitarra. Comença amb un Mi i un Re♯ que van i vénen.', { bpm: 60 })
   ] },
   // The warm-up of the guitar, the first project of its circle though it came after the others: the notes on a keyboard as a staircase,
   // then the neck with every note written on it (pure notes in colour, sharps dark), and the scale of Do led by the hand, then less and less
@@ -376,36 +395,36 @@ export const SECTIONS = [
       'Do, Re, Mi, Fa, Sol, La, Si, Do: les set notes pures i el Do agut. Has tocat una escala a la guitarra!', { strs: [2, 3, 4, 5], map: 'all' }),
     walk('L\'escala de Do, sense mapa', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1', 3, 'La mateixa escala, però ara el mapa no hi és. El cercle que fa pampallugues encara et guia, i cada nota diu el seu nom quan la toques.',
       'Do, Re, Mi, Fa, Sol, La, Si, Do. Ja te la saps!', { strs: [2, 3, 4, 5] }),
-    riff('L\'escala de Do, amunt i avall', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1 | 2:1 2:0 3:2 3:0 4:3 4:2 4:0 5:3', 1, 3,
+    riff('L\'escala de Do, amunt i avall', '5:3 4:0 4:2 4:3 3:0 3:2 2:0 2:1b | 2:1 2:0 3:2 3:0 4:3 4:2 4:0 5:3b', 1, 3,
       'L\'últim! Ara sense el cercle que et guia: a dalt hi ha el nom de cada nota, i al mànec les notes es veuen fluixes, per si et cal mirar-les.', { map: 'faint' })
   ] },
   // Tunes to practise with their shadows, three times each, fewer shadows every time: the tunes of the guitar circle, others the child
   // knows from the tubes and a Christmas carol (in the place of the Oda, which the circle already has twice). First the ones of the three
   // thin strings, then the thick strings, the films and the sharps
   { name: 'Cançons amb ombra', sub: 'Cada cançó tres cops: primer amb l\'ombra de les notes al mànec, i a cada volta en queden menys.', levels: [
-    shade('Hot Cross Buns', '1:0 2:3 2:1 | 1:0 2:3 2:1 | 2:1 2:1 2:1 2:1 2:3 2:3 2:3 2:3 | 1:0 2:3 2:1', 3, 'Cada cançó es toca tres cops. A la primera volta, l\'ombra de cada nota és al mànec i la que toca brilla. A cada volta, les ombres van marxant.'),
-    shade('A la clara lluna', '2:1 2:1 2:1 2:3 | 1:0 2:3 | 2:1 1:0 2:3 2:3 | 2:1', 3, 'Una cançó francesa molt tranquil·la, amb Do, Re i Mi. Mira les ombres: totes són a les dues cordes de dalt.'),
-    shade('Super Mario', '1:0 1:0 1:0 2:1 1:0 1:3 | 3:0', 3, 'La música d\'en Mario! Acaba amb un Sol greu: la tercera corda a l\'aire.'),
-    shade('Mary tenia un xai', '1:0 2:3 2:1 2:3 1:0 1:0 1:0 | 2:3 2:3 2:3 | 1:0 1:3 1:3 | 1:0 2:3 2:1 2:3 1:0 1:0 1:0 1:0 | 2:3 2:3 1:0 2:3 2:1', 3, 'Molts Mi i molts Re seguits. Quan una nota es repeteix, tornes a tocar el mateix lloc.'),
-    shade('Frère Jacques', '3:0 3:2 2:0 3:0 | 3:0 3:2 2:0 3:0 | 2:0 2:1 2:3 | 2:0 2:1 2:3', 3, 'Comença a la tercera corda a l\'aire, un Sol. Sol, La, Si, Sol, dues vegades, i després Si, Do, Re.'),
-    shade('We Wish You a Merry Christmas', '3:0 2:1 2:1 2:3 2:1 2:0 3:2 3:2 | 3:2 2:3 2:3 1:0 2:3 2:1 2:0 3:0 | 3:0 1:0 1:0 1:1 1:0 2:3 2:1 3:2 | 3:0 3:0 3:2 2:3 2:0 2:1 | 3:0 2:1 2:1 2:1 2:0 | 2:0 2:1 2:0 3:2 3:0 | 2:3 1:0 2:3 2:1 1:3 3:0 | 3:0 3:0 3:2 2:3 2:0 2:1', 3,
+    shade('Hot Cross Buns', '1:0 2:3 2:1b | 1:0 2:3 2:1b | 2:1c 2:1c 2:1c 2:1c 2:3c 2:3c 2:3c 2:3c | 1:0 2:3 2:1b', 3, 'Cada cançó es toca tres cops. A la primera volta, l\'ombra de cada nota és al mànec i la que toca brilla. A cada volta, les ombres van marxant.'),
+    shade('A la clara lluna', '2:1 2:1 2:1 2:3 | 1:0b 2:3b | 2:1 1:0 2:3 2:3 | 2:1r', 3, 'Una cançó francesa molt tranquil·la, amb Do, Re i Mi. Mira les ombres: totes són a les dues cordes de dalt.'),
+    shade('Super Mario', '1:0c 1:0c sc 1:0c sc 2:1c 1:0c sc 1:3c sc sn | 3:0n', 3, 'La música d\'en Mario! Acaba amb un Sol greu: la tercera corda a l\'aire.', { bpm: 150 }),
+    shade('Mary tenia un xai', '1:0 2:3 2:1 2:3 1:0 1:0 1:0b | 2:3 2:3 2:3b | 1:0 1:3 1:3b | 1:0 2:3 2:1 2:3 1:0 1:0 1:0 1:0 | 2:3 2:3 1:0 2:3 2:1r', 3, 'Molts Mi i molts Re seguits. Quan una nota es repeteix, tornes a tocar el mateix lloc.'),
+    shade('Frère Jacques', '3:0 3:2 2:0 3:0 | 3:0 3:2 2:0 3:0 | 2:0 2:1 2:3b | 2:0 2:1 2:3b', 3, 'Comença a la tercera corda a l\'aire, un Sol. Sol, La, Si, Sol, dues vegades, i després Si, Do, Re.'),
+    shade('We Wish You a Merry Christmas', '3:0 2:1 2:1c 2:3c 2:1c 2:0c 3:2 3:2 | 3:2 2:3 2:3c 1:0c 2:3c 2:1c 2:0 3:0 | 3:0 1:0 1:0c 1:1c 1:0c 2:3c 2:1 3:2 | 3:0c 3:0c 3:2 2:3 2:0 2:1b | 3:0 2:1 2:1 2:1 2:0b | 2:0 2:1 2:0 3:2 3:0b | 2:3 1:0 2:3 2:1 1:3 3:0 | 3:0c 3:0c 3:2 2:3 2:0 2:1b.', 3,
       'Una cançó de Nadal, i llarga! Cada «We wish you a merry Christmas» arriba una nota més amunt que l\'anterior: al Re, al Mi i al Fa. A la tornada hi ha un salt del Sol de la primera corda al de la tercera.'),
-    shade('Jingle Bells', '1:0 1:0 1:0 | 1:0 1:0 1:0 | 1:0 1:3 2:1 2:3 | 1:0 | 1:1 1:1 1:1 1:1 | 1:1 1:0 1:0 1:0 1:0 | 1:0 2:3 2:3 1:0 | 2:3 1:3', 3, 'Molts Mi seguits, a la primera corda a l\'aire. Compta\'ls bé!'),
-    shade('Per molts anys', '3:0 3:0 3:2 3:0 2:1 2:0 | 3:0 3:0 3:2 3:0 2:3 2:1 | 3:0 3:0 1:3 1:0 2:1 2:0 3:2 | 1:1 1:1 1:0 2:1 2:3 2:1', 3, 'La cançó dels aniversaris. Té un salt gran: del Sol greu de la tercera corda al Sol agut de la primera.'),
-    shade('When the Saints', '2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 | 2:1 1:0 1:1 1:3 1:0 2:1 1:0 2:3', 3, 'Do, Mi, Fa, Sol, tres vegades. La tercera continua i acaba en un Re.'),
-    shade('El pont de Londres', '2:3 1:0 2:3 2:1 2:0 2:1 2:3 | 3:2 2:0 2:1 | 2:0 2:1 2:3 | 2:3 1:0 2:3 2:1 2:0 2:1 2:3 | 3:2 2:3 2:0 3:0', 3, 'L\'última! Va per graons, amunt i avall, i acaba al Sol de la tercera corda.')
+    shade('Jingle Bells', '1:0 1:0 1:0b | 1:0 1:0 1:0b | 1:0 1:3 2:1n. 2:3c | 1:0r | 1:1 1:1 1:1n. 1:1c | 1:1 1:0 1:0 1:0c 1:0c | 1:0 2:3 2:3 1:0 | 2:3b 1:3b', 3, 'Molts Mi seguits, a la primera corda a l\'aire. Compta\'ls bé!'),
+    shade('Per molts anys', '3:0c. 3:0s 3:2 3:0 2:1 2:0b | 3:0c. 3:0s 3:2 3:0 2:3 2:1b | 3:0c. 3:0s 1:3 1:0 2:1 2:0 3:2b | 1:1c. 1:1s 1:0 2:1 2:3 2:1b.', 3, 'La cançó dels aniversaris. Té un salt gran: del Sol greu de la tercera corda al Sol agut de la primera.'),
+    shade('When the Saints', 'sn 2:1 1:0 1:1 1:3r | sn 2:1 1:0 1:1 1:3r | sn 2:1 1:0 1:1 1:3b 1:0b 2:1b 1:0b 2:3r', 3, 'Do, Mi, Fa, Sol, tres vegades. La tercera continua i acaba en un Re.'),
+    shade('El pont de Londres', '2:3n. 1:0c 2:3 2:1 2:0 2:1 2:3b | 3:2 2:0 2:1b | 2:0 2:1 2:3b | 2:3n. 1:0c 2:3 2:1 2:0 2:1 2:3b | 3:2b 2:3b 2:0 3:0b.', 3, 'L\'última! Va per graons, amunt i avall, i acaba al Sol de la tercera corda.')
   ] },
   { name: 'Més cançons amb ombra', sub: 'Cordes gruixudes, pel·lícules, jocs i sostinguts. Primer amb ombres; a la tercera volta, sense.', levels: [
-    shade('Bella ciao', '4:2 3:2 2:0 2:1 3:2 | 4:2 3:2 2:0 2:1 3:2', 3, 'Comença a la quarta corda, amb un Mi greu, i puja: Mi, La, Si, Do, La. Dues vegades.'),
-    shade('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 3, 'La de «La primera posició», ara amb ombres per practicar-la.'),
-    shade('Seven Nation Army', '4:2 4:2 3:0 4:2 4:0 5:3 5:2', 3, 'El riff dels estadis, amb ombres. Tot a les cordes gruixudes.'),
-    shade('Star Wars', '5:3 3:0 | 4:3 4:2 4:0 2:1 3:0 | 4:3 4:2 4:0 2:1 3:0 | 4:3 4:2 4:3 4:0', 3, 'Comença amb un Do greu, al trast 3 de la cinquena corda, i salta al Sol. Que la Força t\'acompanyi!'),
-    shade('La cucaracha', '3:0 3:0 3:0 2:1 1:0 | 3:0 3:0 3:0 2:1 1:0 | 2:1 2:1 2:0 2:0 3:2 3:2 3:0', 3, 'Tres Sol ràpids i un salt amunt, dues vegades. Després baixa de dos en dos fins al Sol.'),
-    shade('Tetris', '1:0 2:0 2:1 2:3 2:1 2:0 | 3:2 3:2 2:1 1:0 2:3 2:1 | 2:0 2:1 2:3 1:0 | 2:1 3:2 3:2', 3, 'La música del Tetris, a les tres cordes de dalt. Va per graons, amunt i avall.'),
-    shade('Rema, rema', '3:0 3:0 3:0 3:2 2:0 | 2:0 3:2 2:0 2:1 2:3 | 1:3 1:3 2:3 2:3 2:0 2:0 3:0 3:0 | 2:3 2:1 2:0 3:2 3:0', 3, 'Puja a poc a poc, fa un salt fins al Sol de la primera corda i baixa de pressa.'),
-    shade('La marxa imperial', '3:2 3:2 3:2 4:3 2:1 | 3:2 4:3 2:1 3:2 | 1:0 1:0 1:0 1:1 2:1 | 3:1 4:3 2:1 3:2', 3, 'La música d\'en Darth Vader, amb un sostingut: el Sol♯, al trast 1 de la tercera corda.'),
-    shade('Smoke on the Water', '3:0 3:3 3:5 | 3:0 3:3 3:6 3:5 | 3:0 3:3 3:5 3:3 3:0', 6, 'El riff de rock, ara amb ombres. Tot a la tercera corda: el La♯ i el Do♯ són els sostinguts.'),
-    shade('Per a Elisa, el començament', '1:0 2:4 1:0 2:4 1:0 2:0 2:3 2:1 3:2 | 5:3 4:2 3:2 2:0 | 4:2 3:1 2:0 2:1', 5, 'L\'última! El començament de Per a Elisa, amb ombres. El Mi i el Re♯ van i vénen.')
+    shade('Bella ciao', '4:2c 3:2c 2:0c 2:1c 3:2b sn | 4:2c 3:2c 2:0c 2:1c 3:2b', 3, 'Comença a la quarta corda, amb un Mi greu, i puja: Mi, La, Si, Do, La. Dues vegades.'),
+    shade('Brilla, brilla, estrelleta', '3:0 3:0 2:3 2:3 1:0 1:0 2:3b | 2:1 2:1 2:0 2:0 3:2 3:2 3:0b', 3, 'La de «La primera posició», ara amb ombres per practicar-la.'),
+    shade('Seven Nation Army', '4:2n. 4:2c 3:0c. 4:2c. 4:0c 5:3b 5:2b', 3, 'El riff dels estadis, amb ombres. Tot a les cordes gruixudes.', { bpm: 120 }),
+    shade('Star Wars', '5:3b 3:0b | 4:3t 4:2t 4:0t 2:1b 3:0 | 4:3t 4:2t 4:0t 2:1b 3:0 | 4:3t 4:2t 4:3t 4:0b.', 3, 'Comença amb un Do greu, al trast 3 de la cinquena corda, i salta al Sol. Que la Força t\'acompanyi!'),
+    shade('La cucaracha', '3:0c 3:0c 3:0c 2:1 1:0b | sc 3:0c 3:0c 3:0c 2:1 1:0b | sn 2:1c 2:1c 2:0c 2:0c 3:2c 3:2c 3:0b', 3, 'Tres Sol ràpids i un salt amunt, dues vegades. Després baixa de dos en dos fins al Sol.'),
+    shade('Tetris', '1:0 2:0c 2:1c 2:3 2:1c 2:0c | 3:2 3:2c 2:1c 1:0 2:3c 2:1c | 2:0n. 2:1c 2:3 1:0 | 2:1 3:2 3:2b', 3, 'La música del Tetris, a les tres cordes de dalt. Va per graons, amunt i avall.', { bpm: 120 }),
+    shade('Rema, rema', '3:0n. 3:0n. 3:0 3:2c 2:0n. | 2:0 3:2c 2:0 2:1c 2:3b. | 1:3 1:3c 2:3 2:3c 2:0 2:0c 3:0 3:0c | 2:3 2:1c 2:0 3:2c 3:0b.', 3, 'Puja a poc a poc, fa un salt fins al Sol de la primera corda i baixa de pressa.', { bpm: 120 }),
+    shade('La marxa imperial', '3:2 3:2 3:2 4:3c. 2:1s | 3:2 4:3c. 2:1s 3:2b | 1:0 1:0 1:0 1:1c. 2:1s | 3:1 4:3c. 2:1s 3:2b', 3, 'La música d\'en Darth Vader, amb un sostingut: el Sol♯, al trast 1 de la tercera corda.'),
+    shade('Smoke on the Water', '3:0 3:3 3:5n. sc | 3:0 3:3 3:6c 3:5 sc | 3:0 3:3 3:5n. sc 3:3 3:0b.', 6, 'El riff de rock, ara amb ombres. Tot a la tercera corda: el La♯ i el Do♯ són els sostinguts.'),
+    shade('Per a Elisa, el començament', '1:0s 2:4s 1:0s 2:4s 1:0s 2:0s 2:3s 2:1s 3:2c ss | 5:3s 4:2s 3:2s 2:0c ss | 4:2s 3:1s 2:0s 2:1n', 5, 'L\'última! El començament de Per a Elisa, amb ombres. El Mi i el Re♯ van i vénen.', { bpm: 60 })
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -488,7 +507,7 @@ export function exam(c, rnd) {
     used.add(p * 10 + idx);
     const L = PROJECTS[p].levels[idx];
     return { ...L, ...(L.kind === 'play' && { tune: L.tune.slice(0, 6), help: 0, rounds: null }), ...((L.kind === 'spot' || L.kind === 'place' || L.kind === 'fret' || L.kind === 'which') && { n: Math.min(L.n, 4) }),
-      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), ...(L.kind === 'riff' && { tune: L.tune.slice(0, 6), cuts: L.cuts.filter(k => k < 6), help: Math.min(L.help, 1), rounds: null }), p, idx };
+      ...(L.kind === 'prop' && { qs: L.qs.slice(0, 2) }), ...(L.kind === 'riff' && { tune: L.tune.slice(0, 6), beats: L.beats.slice(0, 6), rests: L.rests.slice(0, 6), cuts: L.cuts.filter(k => k < 6), help: Math.min(L.help, 1), rounds: null }), p, idx };
   };
   const list = ps.map(draw);
   while (list.length < 6) list.push(draw(ps[at(ps.length, rnd)]));

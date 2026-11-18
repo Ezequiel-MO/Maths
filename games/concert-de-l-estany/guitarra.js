@@ -6,6 +6,7 @@ import { $, sleep } from '../../shared/util.js';
 import { list } from '../../shared/shell.js';
 import { shuffle } from '../../shared/curs.js';
 import { PCS, noteAt, pcOf, isSharp, hz, huesOf, placesOf, drill } from './logic.js';
+import { glyph } from './score.js';
 
 const SP = 44, TOP = 14, NUT = 92, RIGHT = 26;   // the gap between strings, the top margin and the nut
 // the length of the board: shorter on a phone held upright, so the neck is drawn bigger and its strings are easier to press. A neck of
@@ -106,10 +107,11 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
     const p = el.createSVGPoint(); p.x = G.cx(f); p.y = rowY(s);
     return p.matrixTransform(m);
   }
-  // a place played: the note sounds, the string shakes from the finger to the bridge, and a ring of its colour goes out. at plays it later
-  function sound(s, f, at = 0) {
+  // a place played: the note sounds, the string shakes from the finger to the bridge, and a ring of its colour goes out. at plays it later;
+  // len is how long it rings before it fades, in fade seconds
+  function sound(s, f, at = 0, len = 1.6, fade = 0.15) {
     const m = noteAt(s, f), h = fill(pcOf(m)).a;
-    pluck(hz(m), 1.6, 0.42, at);
+    pluck(hz(m), len, 0.42, at, fade);
     const go = () => {
       if (!el.isConnected) return;
       buzzes.querySelector(`[data-s="${s}"]`)?.remove();
@@ -128,10 +130,22 @@ function board(host, { frets: F, strs = ALLS, upto = F, names = true }, { pluck,
 // the keyboard of colours: the seven notes in a row, and, with sharps, each sharp over the gap between the two notes it lives between.
 // Mi and Fa, and Si and Do, have no gap: there is no sharp between them
 const NAT = [0, 2, 4, 5, 7, 9, 11];
+// A real keyboard plays the notes without a sharp: the first letter of each name, and the o of Sol, as the s is the Si's. Each key
+// underlines its letter, and the page shows the line only where there is a mouse, so most likely a keyboard too
+const LETTER = { d: 0, r: 2, m: 4, f: 5, o: 7, l: 9, s: 11 };
+const keyName = pc => { const n = PCS[pc], i = pc === 7 ? 1 : 0; return isSharp(pc) ? n : `${n.slice(0, i)}<u>${n[i]}</u>${n.slice(i + 1)}`; };
 function keyboard(sharps) {
   const col = pc => isSharp(pc) ? 2 * NAT.indexOf(pc - 1) + 2 : 2 * NAT.indexOf(pc) + 1;
   const all = sharps ? [...NAT, 1, 3, 6, 8, 10] : NAT;
-  return `<div class="gkeys${sharps ? ' sh' : ''}">${all.map(pc => { const { a, b } = fill(pc); return `<button class="gkey${isSharp(pc) ? ' blk' : ''}" data-pc="${pc}" style="grid-column:${col(pc)} / span 2;--a:${a};--b:${b}">${PCS[pc]}</button>`; }).join('')}</div>`;
+  return `<div class="gkeys${sharps ? ' sh' : ''}">${all.map(pc => { const { a, b } = fill(pc); return `<button class="gkey${isSharp(pc) ? ' blk' : ''}" data-pc="${pc}" style="grid-column:${col(pc)} / span 2;--a:${a};--b:${b}">${keyName(pc)}</button>`; }).join('')}</div>`;
+}
+// the letters of a real keyboard press the key of their note on the pad, as a tap would
+function typing(keys, pad) {
+  keys?.(e => {
+    const pc = LETTER[e.key.toLowerCase()], b = pc == null ? null : pad.querySelector(`.gkey[data-pc="${pc}"]`);
+    if (!b) return;
+    e.preventDefault(); b.classList.add('down'); setTimeout(() => b.classList.remove('down'), 130); b.click();
+  });
 }
 // the name of a note in colour, as a word of the frog's goal
 const pill = pc => { const { a, b } = fill(pc); return `<span class="gn${isSharp(pc) ? ' sh' : ''}" style="--a:${a};--b:${b}">${PCS[pc]}</span>`; };
@@ -219,7 +233,7 @@ export function guitar(deps) {
   }
 
   /* which: a place lights up and sounds; its name is chosen on the keyboard of colours */
-  function which({ t, L, stage, tip, slip, spark, win }) {
+  function which({ t, L, stage, tip, slip, spark, win, keys }) {
     const seq = drill(L.from.map((_, i) => i), L.n, Math.random);
     stage.innerHTML = '<p class="goal">Quina nota és? <span class="cap" id="cnt"></span></p>';
     const B = neck(stage, { frets: L.frets, strs: L.strs, names: L.names !== false });
@@ -246,20 +260,24 @@ export function guitar(deps) {
       if (++k < seq.length) return ask();
       win(`${seq.length} notes llegides al mànec`);
     };
+    typing(keys, pad);
     ask(); tip(L.say);
     return () => { if (busy) return ''; const [s, f] = cur(); pad.querySelector(`[data-pc="${pcOf(noteAt(s, f))}"]`).classList.add('hint'); return `${clue(s, f, L.sharps)} La seva tecla fa pampallugues.`; };
   }
 
   /* riff: a tune on the strings, note after note. Any place that sounds the very note is good, in any string of the tune. With rounds it is
      played once for each, and the shadows of its notes on the neck go: rounds[r] is the share of them gone before round r. They go in one
-     order of chance, so a shadow once gone stays gone; in a round with every shadow, the one of the note to play glows */
+     order of chance, so a shadow once gone stays gone; in a round with every shadow, the one of the note to play glows. A rest is in the
+     tune as the sign of the scores (the one like a lightning), before the note it waits for: it is heard in «Escolta la cançó», and when
+     the child plays it passes on its own */
   function riff({ t, L, stage, tip, slip, spark, win, exam }) {
     const tune = L.tune, rounds = L.rounds || [null], order = shuffle([...new Map(tune.map(p => [p.join(':'), p])).values()]);
-    stage.innerHTML = `${rounds.length > 1 ? '<p class="cap" id="vlt"></p>' : ''}<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
+    const rest = i => L.rests[i] ? `<i class="grest" data-i="${i}" role="img" aria-label="silenci">${glyph('sn')}</i>` : '';
+    stage.innerHTML = `${rounds.length > 1 ? '<p class="cap" id="vlt"></p>' : ''}<div class="gtune${L.help ? '' : ' plain'}" id="gtune">${tune.map(([s, f], i) => `${L.cuts.includes(i) ? '<i class="gcut"></i>' : ''}${rest(i)}${pill(pcOf(noteAt(s, f)))}`).join('')}</div>`;
     const B = neck(stage, { frets: L.frets, strs: L.strs, upto: L.frets });
     if (L.map) B.map(L.map === 'faint');
     if (!exam) stage.insertAdjacentHTML('beforeend', '<button class="link" id="hear">Escolta la cançó</button>');
-    const notes = [...stage.querySelectorAll('#gtune .gn')];
+    const notes = [...stage.querySelectorAll('#gtune .gn')], rests = [...stage.querySelectorAll('#gtune .grest')];
     let k = 0, r = 0, busy = false, playing = false;
     const shades = () => {
       B.drop('shade'); if (rounds[r] == null) return;
@@ -268,6 +286,7 @@ export function guitar(deps) {
     };
     const mark = () => {
       notes.forEach((e, i) => { e.classList.toggle('cur', i === k); e.classList.toggle('done', i < k); });
+      rests.forEach(e => { e.classList.remove('cur'); e.classList.toggle('done', +e.dataset.i < k); });
       B.drop('next'); if (L.help === 2 && k < tune.length) B.put(...tune[k], 'next');
       stage.querySelectorAll('.gdot.shade.cur').forEach(e => e.classList.remove('cur'));
       if (rounds[r] === 0 && k < tune.length) B.get(...tune[k], 'shade')?.classList.add('cur');
@@ -294,15 +313,28 @@ export function guitar(deps) {
       await sleep(900); if (!t.on) return;
       win(`${L.title}<br><small>${rounds.length > 1 ? `${rounds.length} voltes, cada cop amb menys ombres` : `${tune.length} notes`}</small>`);
     });
-    // the whole tune, at an even pace, the notes lighting up one after the other; nothing can be played meanwhile
+    // the whole tune in its rhythm, at L.bpm beats a minute: each note lights up for as long as it lasts and then stops, as a hand damps
+    // the string, and in a rest the strings are silent and its sign lights up. The last note rings on. Nothing can be played meanwhile.
+    // Every note waits for its own moment counted from the first one, so the time a screen takes to draw a note never piles up
     if (!exam) $('#hear').onclick = async () => {
       if (playing || busy || !t.on) return;
       playing = true; $('#hear').disabled = true; B.drop('next');
+      const beat = 60 / L.bpm, t0 = performance.now();
+      let at = 0;   // beats from the start
+      const until = async b => { const w = t0 + b * beat * 1000 - performance.now(); if (w > 0) await sleep(w); };
       for (let i = 0; i < tune.length; i++) {
         if (!t.on) return;
-        B.sound(...tune[i]); B.flash(...tune[i], L.help ? 'note' : 'plain');
+        const r = L.rests[i] ? stage.querySelector(`.grest[data-i="${i}"]`) : null;
+        if (r) {
+          notes.forEach(e => e.classList.remove('cur')); r.classList.add('cur');
+          at += L.rests[i]; await until(at); if (!t.on) return;
+          r.classList.remove('cur');
+        }
+        const len = L.beats[i] * beat, last = i === tune.length - 1, hush = !last && L.rests[i + 1] > 0;
+        B.sound(...tune[i], 0, last ? Math.max(len, 1) : hush ? len * 0.85 : len, last ? 0.3 : hush ? 0.04 : 0.08);
+        B.flash(...tune[i], L.help ? 'note' : 'plain');
         notes.forEach((e, j) => e.classList.toggle('cur', j === i));
-        await sleep(i < tune.length - 1 ? 430 : 900);
+        at += last ? Math.max(L.beats[i], 1 / beat) : L.beats[i]; await until(at);
       }
       if (!t.on) return;
       playing = false; $('#hear').disabled = false; mark();
@@ -313,7 +345,7 @@ export function guitar(deps) {
 
   /* ladder: the keys of the keyboard of colours one after the other, while a staircase grows over it, each step as high as the half
      steps it climbs. A tap on another key only sounds. At the end the steps between two pure notes side by side (Mi-Fa, Si-Do) light up */
-  function ladder({ t, L, stage, tip, spark, win }) {
+  function ladder({ t, L, stage, tip, spark, win, keys }) {
     const steps = L.steps, nameOf = u => u === 12 ? 'Do agut' : PCS[u % 12];
     stage.innerHTML = `<p class="goal" id="goal"></p>
       <div class="gstairs" aria-hidden="true">${steps.map(u => { const { a, b } = fill(u % 12); return `<span class="gstep${isSharp(u % 12) ? ' sh' : ''}" style="--u:${u};--a:${a};--b:${b}">${PCS[u % 12]}</span>`; }).join('')}</div>
@@ -343,6 +375,7 @@ export function guitar(deps) {
       await sleep(steps.length * 280 + 1200); if (!t.on) return;
       win(steps.map(u => PCS[u % 12]).join(' · '));
     };
+    typing(keys, pad);
     next(); tip(L.say);
     return () => '';
   }
