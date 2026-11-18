@@ -95,6 +95,8 @@ const soBtn = soundButton(() => prog, () => save(), () => blow(NOTES[4].freq, 0.
 // a real keyboard: the level on screen says what its keys do
 let keyFn = null;
 addEventListener('keydown', e => { if (keyFn && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat) keyFn(e); });
+// what a level of the guitar uses to say what its keys do
+const keys = fn => { keyFn = fn; };
 // a tap that comes less than SETTLE after a screen or a question came up was meant for what was there before: the buttons that answer ignore it
 let openAt = 0;
 const spark = (el, h = 48) => { if (el) { const p = mid(el); FX.burst(p.x, p.y, h, 14, 120); } };
@@ -191,7 +193,7 @@ function level(sec, idx) {
     if (n < 3) $('#ag').onclick = () => level(sec, idx);
   }
 
-  const help = KIND[L.kind]({ t, L, stage, tip, slip, spark, win });
+  const help = KIND[L.kind]({ t, L, stage, tip, slip, spark, win, keys });
   $('#hintb').hidden = L.kind === 'walk' || L.kind === 'ladder';   // a warm-up has nothing to get wrong, and no hint
   $('#hintb').onclick = () => { if (over) return; const txt = help(); if (txt) { slip(); tip(txt); } };
   stars();
@@ -230,7 +232,7 @@ function examen(c) {
     stage.inert = false; tail.innerHTML = ''; dots.forEach((d, j) => d.classList.toggle('cur', j === k));
     $('#qn').hidden = false; $('#qn').textContent = `${k + 1} de ${qs.length} · ${PROJECTS[L.p].name}`;
     say(L.kind === 'kit' && L.live ? `${ASK.drum} ${keysSay(L.rows)}` : ASK[L.kind]);
-    KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), spark, win: () => end(true), exam: true });
+    KIND[L.kind]({ t: qt, L, stage, tip, slip: () => end(false), spark, win: () => end(true), exam: true, keys });
     if (stage.getBoundingClientRect().bottom > innerHeight) $('#coach').scrollIntoView({ block: 'start', behavior: 'auto' });
   }
   // the end: how many were right, whether the exam is passed and what that gives and opens, and what to go over

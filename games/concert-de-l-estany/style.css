@@ -345,7 +345,10 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .gkeys.sh .gkey { grid-row: 2; }
 .gkeys.sh .gkey.blk { grid-row: 1; height: 48px; font-size: 0.95rem; color: #fff; box-shadow: 0 4px 0 #0B0F1C;
   background: linear-gradient(90deg, hsl(var(--a) 85% 60%) 0 7px, #1E2438 7px calc(100% - 7px), hsl(var(--b) 85% 60%) calc(100% - 7px)); }
-.gkey:active { transform: translateY(3px); }
+.gkey:active, .gkey.down { transform: translateY(3px); }
+/* the letter of each key on a real keyboard, underlined only where there is a mouse */
+.gkey u { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .gkey u { text-decoration: underline 2px; text-underline-offset: 3px; } }
 .gkey.ok { outline: 4px solid #fff; outline-offset: 2px; }
 .gkey.shake { animation: shake 0.4s; }
 .gkey.hint { outline: 3px solid var(--sun); outline-offset: 3px; animation: beacon 0.8s ease-in-out infinite; }
@@ -359,6 +362,11 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 .gtune .gn.done { opacity: 0.35; }
 .gtune .gn.shake { animation: shake 0.4s; }
 .gcut { width: 2px; height: 26px; margin: 0 4px; background: var(--edge); }
+/* a rest in a tune of the guitar: the sign of a silenci de negra, lit while it is heard */
+.grest { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 30px; color: var(--ink); transition: opacity 0.2s, color 0.2s; }
+.grest .glyph { flex: none; width: 30px; height: 54px; color: inherit; transform: translateY(-3px); }
+.grest.cur { color: var(--sun); }
+.grest.done { opacity: 0.35; }
 .glen { width: 100%; max-width: 560px; height: 16px; display: flex; justify-content: flex-end; border-radius: 999px; background: repeating-linear-gradient(90deg, rgb(160 230 220 / 0.2) 0 6px, transparent 6px 10px); }
 .glen i { --h: 50; width: 100%; height: 100%; border-radius: 999px; background: hsl(var(--h) 85% 60%); box-shadow: 0 0 12px hsl(var(--h) 90% 55% / 0.6); transition: width 0.5s; }
 .gdot.map { transform: scale(0.82); opacity: 0.92; }

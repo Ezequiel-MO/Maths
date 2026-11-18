@@ -94,13 +94,14 @@ export function band(on) {
     }
     return { b: strung.get(N), rate: f * (N + 0.5) / sr };
   }
-  function pluck(f, dur = 1.6, vol = 0.42, at = 0) {
+  // dur is how long the string rings before it is damped, and fade how fast it then goes quiet (a short one is a hand on the string)
+  function pluck(f, dur = 1.6, vol = 0.42, at = 0, fade = 0.15) {
     if (!on()) return;
     try {
       const a = ctx(), t = a.currentTime + at, { b, rate } = string(a, f), src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
       src.buffer = b; src.playbackRate.value = rate;
       lp.type = 'lowpass'; lp.frequency.value = Math.min(8000, f * 12); lp.Q.value = 0.5;   // a nylon string sounds round, not bright
-      g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(0.0001, t + dur, 0.15);
+      g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(0.0001, t + dur, fade);
       src.connect(lp).connect(g).connect(out); src.start(t); src.stop(t + dur + 1);
     } catch (e) {}
   }
