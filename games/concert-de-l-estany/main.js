@@ -8,6 +8,7 @@ import { PROJECTS, CIRCLES, POOL, NOTES, WHERE, FIGS, INTERVALS, POINTS, VALID, 
 import { staff, glyph, board } from './score.js';
 import { band } from './sound.js';
 import { guitar } from './guitarra.js';
+import { bateria } from './bateria.js';
 import { BPM, AHEAD, clock, until, metroStrip, metronome } from './metro.js';
 import { cursusMap, badgeList } from '../../shared/mapa.js';
 import { SETTLE, ownPage, tokens, xpBar, list, news, starRow, soundButton } from '../../shared/shell.js';
@@ -57,7 +58,7 @@ const WAVE = '<svg class="wave" id="wave" viewBox="0 0 300 40" preserveAspectRat
 const TUBES = `<div class="tubes">${NOTES.map((n, i) => `<button class="tube" data-n="${i}" style="--h:${n.hue};--l:${n.len / 180}" aria-label="${n.name}"><span>${n.short}</span></button>`).join('')}</div>`;
 
 const HURRAY = ['Bravo!', 'Molt bé!', 'Perfecte!', 'Genial!', 'Quin concert!'];
-const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85, 232, 108, 290, 12, 160, 32, 20, 44, 56, 330, 196];
+const HUES = [175, 262, 28, 205, 318, 48, 140, 350, 85, 232, 108, 290, 12, 160, 32, 20, 44, 56, 330, 196, 38];
 const frac = (n, d) => `<span class="fr"><b>${n}</b><i>${d}</i></span>`;
 // takes the one-shot classes off an element and gives its class list back, so the same animation can start again
 const again = e => { e.classList.remove('ring', 'shake', 'hit', 'on', 'ok'); void e.getBoundingClientRect(); return e.classList; };
@@ -101,7 +102,7 @@ const keys = fn => { keyFn = fn; };
 let openAt = 0;
 const spark = (el, h = 48) => { if (el) { const p = mid(el); FX.burst(p.x, p.y, h, 14, 120); } };
 // each kind of level draws its stage and gives back its hint: a function that shows the help and returns what the tip says
-const KIND = { play, cut, cm, beat, step, fit, drum: tapping, chord, pair, spot, place, kit: drums, prop, ...guitar({ pluck, FX }) };
+const KIND = { play, cut, cm, beat, step, fit, drum: tapping, chord, pair, spot, place, kit: drums, prop, ...guitar({ pluck, FX }), ...bateria({ hit, click }) };
 
 /* ---------- the map: four bands, one button for each project and the exam of the circle at the end ---------- */
 const RING = [140, 195, 262, 32];   // the colour of each circle
@@ -194,7 +195,7 @@ function level(sec, idx) {
   }
 
   const help = KIND[L.kind]({ t, L, stage, tip, slip, spark, win, keys });
-  $('#hintb').hidden = L.kind === 'walk' || L.kind === 'ladder';   // a warm-up has nothing to get wrong, and no hint
+  $('#hintb').hidden = L.kind === 'walk' || L.kind === 'ladder' || L.mode === 'coneix';   // a warm-up has nothing to get wrong, and no hint
   $('#hintb').onclick = () => { if (over) return; const txt = help(); if (txt) { slip(); tip(txt); } };
   stars();
   // on a short screen the end of the stage can be under the fold, and a child does not know there is more: start from the frog's tip
@@ -206,7 +207,7 @@ function level(sec, idx) {
 const ASK = { play: 'Toca la partitura amb els tubs.', cut: 'Talla el tub de Do perquè soni la nota.', cm: 'Tria quants centímetres fa el tub.', beat: 'Tria la figura que falta al compàs.',
   step: 'Toca el tub on arriba el salt.', fit: 'Tria quantes n\'hi caben.', drum: 'Prem «1 · Escolta» i després «2 · Ara jo!».', chord: 'Tria els tubs de l\'acord.', pair: 'Escolta els dos grups i tria\'n un.',
   spot: 'Toca el tub de cada nota.', place: 'Posa cada nota al seu lloc i prem «Aquí!».', kit: 'Fes el ritme a la bateria.', prop: 'Tria el número bo.',
-  fret: 'Toca cada nota a la guitarra.', which: 'Tria el nom de cada nota.', riff: 'Toca la melodia a la guitarra.' };
+  fret: 'Toca cada nota a la guitarra.', which: 'Tria el nom de cada nota.', riff: 'Toca la melodia a la guitarra.', bat: 'Toca la teva bateria.' };
 // Each question is a level played as ever, but its first slip ends it as missed and there is no hint button: the level gets a token of its own
 // that goes off with the answer, so nothing of it moves afterwards. Nothing is saved before the sixth answer, which is handed in at once (examIn).
 function examen(c) {

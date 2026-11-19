@@ -1,9 +1,9 @@
 import { curs, whole, within, slots, at, shuffle, POINTS, VALID, EXAM_PASS, starsFor, exOf } from '../../shared/curs.js';
-// The rules and the data of the concert, with no page in it. Twenty projects of ten levels: reading a score and playing it on tubes,
+// The rules and the data of the concert, with no page in it. Twenty-one projects of ten levels: reading a score and playing it on tubes,
 // cutting the Do tube to a fraction of its length, filling a bar of the drum, counting intervals, the figures that fit in one another
 // (and tapping a bar in time), whole songs, chords, more scores in colour, the place of each note on the staff, and scores that lose
 // their colours little by little (three times: easy tunes by steps, Star Wars, and tunes played over while they fade), the drum kit, and the
-// proportions of the notes of a chord, and at the end the guitar: a map of its notes to start with, its strings, the notes of its frets and tunes to play on it, with their shadows first. They are laid out as the cursus of 42 Barcelona, like the abacus and the
+// proportions of the notes of a chord, and at the end the guitar: a map of its notes to start with, its strings, the notes of its frets and tunes to play on it, with their shadows first; and «Hakuna Matata» on the child's own drums, heard through the microphone. They are laid out as the cursus of 42 Barcelona, like the abacus and the
 // division game: a Piscina to get in, a map of four circles, a mark for each project, an exam for each circle, XP and badges
 // (the second half of this file). It must keep importing from Node: nothing of the page, and chance comes in through rnd.
 
@@ -68,7 +68,46 @@ const ALL = [0, 1, 2, 3, 4, 5, 6, 7];
 // how is 'given' (drawn already), 'say' (to fill from the words over the grid) or 'ear' (to fill by listening). With live the whole bar
 // is drawn and the player plays it on the pads, in time; goal puts words of its own over the grid instead of the ones made from the rows
 export const KIT = { bombo: { name: 'Bombo', el: 'el bombo' }, caixa: { name: 'Caixa', el: 'la caixa' }, charles: { name: 'Charles', el: 'el charles' },
-  tom1: { name: 'Timbal agut', el: 'el timbal agut' }, tom2: { name: 'Timbal greu', el: 'el timbal greu' } };
+  tom1: { name: 'Timbal agut', el: 'el timbal agut' }, tom2: { name: 'Timbal greu', el: 'el timbal greu' },
+  tom3: { name: 'Timbal de terra', el: 'el timbal de terra' }, plat: { name: 'Plat', el: 'el plat' }, ride: { name: 'Ride', el: 'el ride' } };
+
+// The child's own electronic drums: nine pads on a rubber mat, drawn as he sees them sitting at it, with the speakers at the back. Each
+// has what it is (its two cymbals are both a plat), the word printed on it, its colour, where it is in words, and its middle and size on
+// the mat (out of 1400 × 1120). The bombo is the pad shaped like a Y in the middle
+export const PADS = [
+  { id: 'plat1', is: 'plat', on: 'Cymbal', color: '#3CB4C2', look: 'el blau de dalt a l\'esquerra', x: 160, y: 365, r: 130 },
+  { id: 'plat2', is: 'plat', on: 'Cymbal', color: '#3CB4C2', look: 'el blau de dalt a la dreta', x: 1170, y: 285, r: 130 },
+  { id: 'charles', is: 'charles', on: 'Hi-hat', color: '#3CB4C2', look: 'el blau de l\'esquerra, al costat del bombo', x: 355, y: 645, r: 140 },
+  { id: 'bombo', is: 'bombo', on: 'Bass Drum', color: '#3CB4C2', look: 'el blau del mig, el que té forma de Y', x: 700, y: 620, r: 105 },
+  { id: 'ride', is: 'ride', on: 'Ride Cymbal', color: '#3CB4C2', look: 'el blau de la dreta, al costat del bombo', x: 1040, y: 595, r: 140 },
+  { id: 'caixa', is: 'caixa', on: 'Snare Drum', color: '#F2DE1F', look: 'el groc, a baix a l\'esquerra', x: 190, y: 965, r: 140 },
+  { id: 'tom1', is: 'tom1', on: 'High Tom', color: '#33BC4C', look: 'el verd', x: 540, y: 935, r: 140 },
+  { id: 'tom2', is: 'tom2', on: 'Low Tom', color: '#F47B6C', look: 'el vermell', x: 895, y: 905, r: 140 },
+  { id: 'tom3', is: 'tom3', on: 'Floor Tom', color: '#C43C94', look: 'el lila, a baix a la dreta', x: 1240, y: 870, r: 140 }
+];
+// The bars of «Hakuna Matata» on the kit, eight boxes each: a box is half a beat, counted 1 i 2 i 3 i 4 i. A is the beat of the song
+// (the charles on every beat, the bombo on 1 and 3, the caixa on 2 and 4), F the fill that says its name on the three toms, two
+// syllables on each (Ha-ku, na-Ma, ta-ta), P the plat that comes after it, with the bombo, and C a bar of A that starts with the plat.
+// B and H are A in parts, to learn it
+export const BARS = {
+  B: { name: 'Bum i pam', rows: { caixa: '..x...x.', bombo: 'x...x...' } },
+  H: { name: 'Charles i bombo', rows: { charles: 'x.x.x.x.', bombo: 'x...x...' } },
+  A: { name: 'El ritme', rows: { charles: 'x.x.x.x.', caixa: '..x...x.', bombo: 'x...x...' } },
+  F: { name: 'Ha-ku-na Ma-ta-ta', rows: { tom1: 'xx......', tom2: '..xx....', tom3: '....xx..' } },
+  P: { name: 'Plat!', rows: { plat: 'x.......', bombo: 'x.......' } },
+  C: { name: 'Plat i ritme', rows: { plat: 'x.......', charles: '..x.x.x.', caixa: '..x...x.', bombo: 'x...x...' } }
+};
+// the rows of the grid, top to bottom as in a drum score: cymbals, toms, caixa and bombo
+const ROWS = ['plat', 'charles', 'tom1', 'tom2', 'tom3', 'caixa', 'bombo'];
+const song = s => { const bars = s.split(' '); return { bars, rows: ROWS.filter(d => bars.some(b => BARS[b].rows[d])) }; };
+// bat: a level on the child's real drums, heard through the microphone (oida.js). mode is one of
+//   coneix  each pad is hit three times, so the game learns how it sounds; then anything can be hit to see what the game hears
+//   qui     n things of set, one at a time, lit on the drawing of the kit: hit that one
+//   pas     the bars at the child's own pace: each box waits for its hits, the ones of a box all at once
+//   temps   the bars in time at bpm, after a bar of clicks
+const bat = (title, mode, say, more = {}) => ({ kind: 'bat', title, mode, say, ...more });
+const apas = (title, bars, say) => bat(title, 'pas', say, song(bars));
+const ensemps = (title, bars, bpm, say) => bat(title, 'temps', say, { ...song(bars), bpm });
 const kit = (title, rows, say, more = {}) => ({ kind: 'kit', title, steps: rows[0][1].length, rows: rows.map(([drum, pat, how = 'say']) => ({ drum, hits: [...pat].map(c => c === 'x'), how })), say, ...more });
 
 // Proportions between notes that sound together. A question is one of three: x, the notes of steps vibrating k times their smallest
@@ -425,6 +464,20 @@ export const SECTIONS = [
     shade('La marxa imperial', '3:2 3:2 3:2 4:3c. 2:1s | 3:2 4:3c. 2:1s 3:2b | 1:0 1:0 1:0 1:1c. 2:1s | 3:1 4:3c. 2:1s 3:2b', 3, 'La música d\'en Darth Vader, amb un sostingut: el Sol♯, al trast 1 de la tercera corda.'),
     shade('Smoke on the Water', '3:0 3:3 3:5n. sc | 3:0 3:3 3:6c 3:5 sc | 3:0 3:3 3:5n. sc 3:3 3:0b.', 6, 'El riff de rock, ara amb ombres. Tot a la tercera corda: el La♯ i el Do♯ són els sostinguts.'),
     shade('Per a Elisa, el començament', '1:0s 2:4s 1:0s 2:4s 1:0s 2:0s 2:3s 2:1s 3:2c ss | 5:3s 4:2s 3:2s 2:0c ss | 4:2s 3:1s 2:0s 2:1n', 5, 'L\'última! El començament de Per a Elisa, amb ombres. El Mi i el Re♯ van i vénen.', { bpm: 60 })
+  ] },
+  // «Hakuna Matata» on the child's own drums, heard through the microphone. It needs the kit, so it is never asked in an exam and
+  // the exam of its circle does not wait for it (extra). The song is learnt in parts at his own pace first, then in time, faster and faster
+  { name: 'Hakuna Matata', sub: 'Aprèn-la a tocar a la teva bateria. La tauleta t\'escolta i et diu si toques el tambor bo.', extra: true, levels: [
+    bat('La teva bateria', 'coneix', 'Aquesta és la teva bateria! Abans de tocar, l\'he d\'aprendre a escoltar. Posa la tauleta a prop, apuja el volum de la bateria i toca cada tambor tres cops quan faci pampallugues.'),
+    bat('Qui sona?', 'qui', 'Toca el tambor que fa pampallugues al dibuix. Jo t\'escolto i et dic si és el bo.', { set: ['bombo', 'caixa', 'charles', 'plat', 'tom1', 'tom2', 'tom3'], n: 10 }),
+    apas('Bum i pam', 'B B', 'El cor de la cançó: bombo, caixa, bombo, caixa. Al teu ritme: la columna t\'espera fins que toques.'),
+    apas('Charles i bombo', 'H H', 'El charles marca tots els temps. Als temps 1 i 3 el bombo toca amb ell, tots dos alhora: una mà a cada un.'),
+    apas('Tot el ritme', 'A A', 'El ritme sencer de Hakuna Matata: el charles a tots els temps i, a sota, bombo, caixa, bombo, caixa. La mà dreta al charles; l\'esquerra va del bombo a la caixa.'),
+    ensemps('El ritme, a temps', 'A A', 60, 'Ara a temps! Primer escolta\'l. Després sona un compàs de clics i la columna avança sola: toca quan hi arribi.'),
+    apas('Ha-ku-na Ma-ta-ta', 'F P', 'Un redoble que diu el nom de la cançó: Ha-ku al timbal agut, na-Ma al greu, ta-ta al de terra… i PLAT!, amb el bombo.'),
+    ensemps('El redoble, a temps', 'A F P', 60, 'El ritme, el redoble i el plat, a temps. Al redoble, pensa Ha-ku-na Ma-ta-ta!'),
+    ensemps('Més de pressa', 'C A A F', 80, 'Una tornada sencera: plat, ritme, ritme i redoble. Més de pressa!'),
+    ensemps('Hakuna Matata!', 'C A A F C A A F', 100, 'La cançó sencera, dues tornades. A la pel·lícula va encara més de pressa: quan et surti, toca-la amb la cançó!')
   ] }
 ];
 export const LEVELS = SECTIONS.flatMap(s => s.levels);
@@ -434,7 +487,8 @@ export const LEVELS = SECTIONS.flatMap(s => s.levels);
 export const PROJECTS = SECTIONS;
 export const CIRCLES = [
   { name: 'Notes i tubs', projects: [0, 7, 8, 10, 9, 11, 1] },
-  { name: 'Ritme i salts', projects: [2, 12, 3, 4] },
+  // the drums of «Hakuna Matata» come after the drum kit on the screen
+  { name: 'Ritme i salts', projects: [2, 12, 20, 3, 4] },
   { name: 'El gran concert', projects: [5, 6, 13] },
   // the guitar does not wait for the other exams: it opens with the Piscina, like circle 0
   { name: 'La guitarra', projects: [17, 14, 18, 15, 19, 16], free: true }
@@ -447,7 +501,7 @@ export { POINTS, VALID, EXAM_PASS, starsFor, exOf };
 // the three notes of the Piscina, the first challenges: Do, Mi and Sol
 export const POOL = [0, 2, 4];
 
-// What is saved is facts only: { so, secs[20], stars[200], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
+// What is saved is facts only: { so, secs[21], stars[210], piscina, exams[4], fulls }. secs and stars are the ones the game always kept
 // (levels done in each project, best stars of each level), so a save from before the cursus is already a progress: its marks come out
 // of its stars. Marks, XP, level and badges are worked out, never stored, so they cannot drift apart.
 // A complete progress inside its limits from any value at all; a new object, sharing no list with d. It only ever raises:
@@ -497,9 +551,10 @@ export function darks(tune, n, rnd, near) {
 // its project, and idx added. A score to play is cut to its first six signs and loses its colours and names, and a drill of notes
 // is cut to four and a level of proportions to two questions: in an exam there is one try and no help. A tune on the guitar is cut to its
 // first six notes and keeps their names but lights no place and shows no shadow, and a walk on the strings is never asked, nor a warm-up project (it only
-// prepares, though it has to be validated to open the exam). A circle that does not exist gives the first.
+// prepares, though it has to be validated to open the exam), nor a project of the real drums (extra: it needs the kit and a microphone).
+// A circle that does not exist gives the first.
 export function exam(c, rnd) {
-  const ps = (CIRCLES[c] || CIRCLES[0]).projects.filter(p => !PROJECTS[p].warm), used = new Set();
+  const ps = (CIRCLES[c] || CIRCLES[0]).projects.filter(p => !PROJECTS[p].warm && !PROJECTS[p].extra), used = new Set();
   const draw = p => {
     const asked = idx => !used.has(p * 10 + idx) && PROJECTS[p].levels[idx].kind !== 'walk';
     let idx = at(10, rnd);

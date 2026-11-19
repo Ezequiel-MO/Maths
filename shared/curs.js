@@ -65,7 +65,8 @@ export function curs(cfg) {
   const isOpen = (p, c) => c === 0 ? p.piscina === true : c > 0 && c < CIRCLES.length
     && (isOpen(p, c - 1) && p.exams[slot(c - 1)] === true || !!alsoOpen && alsoOpen(p, c));
   // the exam of a circle opens when the circle is open and all its projects are validated
-  const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => noteOf(p, i) >= VALID);
+  // a project marked extra (one that needs something besides the screen, like the drums of the concert) is not waited for
+  const examOpen = (p, c) => isOpen(p, c) && CIRCLES[c].projects.every(i => PROJECTS[i].extra === true || noteOf(p, i) >= VALID);
   // the names of the badges next has and p had not
   const earned = (p, next) => { const had = cfg.badges(p), now = cfg.badges(next); return cfg.BADGES().filter((_, j) => now[j] && !had[j]).map(b => b.name); };
 

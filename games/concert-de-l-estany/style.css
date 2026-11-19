@@ -269,6 +269,48 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
   border: 2px solid #C9D6DB; border-bottom-width: 4px; font: 800 1.15rem/1 var(--display); text-align: center; }
 .kkeys { margin: 4px 0 0; text-align: center; font-weight: 800; color: var(--sun); }
 
+/* the child's own drums (bateria.js): the mat seen from above with its nine pads in their colours, the speakers at the back. The pad
+   to hit glows and pulses; one heard flashes white, a right one green and a wrong one red. Over it, the grid of the bar being played */
+.bmic { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--muted); text-align: center; }
+.bmic .link { font-size: 0.85rem; }
+.bwrap { width: 100%; max-width: 560px; }
+.bplay { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px 16px; }
+.bgridw { flex: 1 1 300px; max-width: 520px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bgridw .kit { max-width: none; }
+.bplay .bgridw + .bwrap { flex: 1 1 340px; max-width: 460px; }
+.bkit { display: block; width: 100%; height: auto; overflow: visible; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.bmat { fill: #101417; stroke: #2A3439; stroke-width: 6; }
+.bbox { fill: #1D2327; stroke: #3C474D; stroke-width: 6; }
+.bgrill { fill: #0A0D0F; stroke: #59656B; stroke-width: 4; stroke-dasharray: 3 9; }
+.bpad .bin { transform-box: fill-box; transform-origin: center; }
+.bpad .by { fill: none; stroke: var(--c); stroke-width: 54; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
+.bpad .bring { fill: var(--c); stroke: #101417; stroke-width: 8; transition: stroke 0.2s; }
+.bpad .bhole { fill: #14191C; }
+.bpad .bline { fill: none; stroke: var(--c); stroke-width: 7; opacity: 0.55; }
+.bpad .bname { fill: #F3FBF8; font: 800 50px/1 var(--display); text-anchor: middle; dominant-baseline: middle; }
+.bpad .bon { fill: var(--c); font: 700 30px/1 var(--display); text-anchor: middle; dominant-baseline: middle; }
+.btouch .bpad { cursor: pointer; }
+.bpad.next .bring { stroke: #FFF6D6; stroke-width: 22; }
+.bpad.next .bin { animation: bpulse 0.8s ease-in-out infinite alternate; }
+.bpad.heard .bring { stroke: #fff; stroke-width: 24; }
+.bpad.heard .bin, .bpad.ok .bin { animation: hit 0.25s ease-out; }
+.bpad.ok .bring { stroke: var(--mint); stroke-width: 28; }
+.bpad.bad .bring { stroke: #FF5D6C; stroke-width: 28; }
+.bpad.bad .bin { animation: shake 0.4s; }
+@keyframes bpulse { to { transform: scale(1.07); filter: drop-shadow(0 0 30px #FFF6D6); } }
+.bsaw { min-height: 1.4em; margin: 0; font-weight: 700; text-align: center; }
+.bsaw b { color: var(--sun); }
+.bctl { align-items: center; }
+.bcal { display: inline-flex; gap: 5px; margin-left: 6px; vertical-align: middle; }
+.bcal i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--sun); }
+.bcal i.ok { background: var(--sun); }
+.bbar { margin: 0; font-weight: 700; color: var(--muted); }
+.bbar b { color: var(--ink); font-family: var(--display); }
+.bgrid .cell { height: 34px; cursor: default; }
+.bgrid .kname { font-size: 0.62rem; }
+.bdot { width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px #101417, 0 0 0 4px var(--c); }
+.bsteps { flex-wrap: wrap; justify-content: center; }
+
 /* the metronome under a score: the metronome that swings and lands on each click, a numbered dot for each beat (the first one starts
    the bar and lights up in gold), the tempo with − and +, and the buttons of a tune in time */
 .metro { width: 100%; max-width: 640px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; padding: 8px 12px; border-radius: 20px; background: var(--glass); border: 1px solid var(--edge); }
@@ -386,4 +428,4 @@ h1, h2, .btn, .chip, .status, .key, .ask, .goal, .tube, .seg, .blk, .figb b, .fi
 @keyframes gnext { 50% { transform: scale(1.18); opacity: 0.55; } }
 @keyframes gask { 50% { transform: scale(1.1); } }
 
-@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on, .gdot.next, .gdot.hint, .gdot.ask, .gvib, .gkey.hint, .gstep.next, .gdot.shade.cur { animation: none; } .xp-bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cell.hint, .blk.gap, .tube.hint, .frog .baton, .snip svg, .mbeats i.on, .gdot.next, .gdot.hint, .gdot.ask, .gvib, .gkey.hint, .gstep.next, .gdot.shade.cur, .bpad.next .bin { animation: none; } .xp-bar i { transition: none; } }
