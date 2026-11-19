@@ -20,11 +20,11 @@ export function cursusMap(o) {
   const openC = c => OPEN || L.isOpen(P(), c), openX = c => OPEN || L.examOpen(P(), c);
   const noteText = i => { const n = L.noteOf(P(), i), d = done(i); return n >= L.VALID ? `Nota ${n} · validat ✓` : d ? `Nota ${n} · ${d} de 10 nivells` : 'Per fer'; };
   const examBtn = c => `<button class="proj exam${passed(P(), c) ? ' ok' : ''}" data-x="${c}" aria-label="Examen del cercle ${c}"${openX(c) ? '' : ' disabled'}><b>Examen</b><span class="mk">${passed(P(), c) ? 'Superat ✓' : openX(c) ? what : openC(c) ? 'Valida els projectes' : 'Tancat'}</span></button>`;
-  // the first project of an open circle still to validate, or the exam after them
+  // the first project of an open circle still to validate (one marked extra is not needed for the exam), or the exam after them
   function advice() {
     for (let c = 0; c < L.CIRCLES.length && (o.skipShut || L.isOpen(P(), c)); c++) {
       if (!L.isOpen(P(), c)) continue;
-      const i = L.CIRCLES[c].projects.find(i => L.noteOf(P(), i) < L.VALID);
+      const i = L.CIRCLES[c].projects.find(i => !L.PROJECTS[i].extra && L.noteOf(P(), i) < L.VALID);
       if (i !== undefined) return `Ara toca: ${L.PROJECTS[i].name}`;
       if (!passed(P(), c)) return `Ara toca: l'examen del cercle ${c}`;
     }

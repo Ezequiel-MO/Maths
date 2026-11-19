@@ -54,7 +54,8 @@ export function band(on) {
     } catch (e) {}
   }
   // The drum kit, by name: the bombo is a deep thump, the caixa a short tone under a burst of noise (its wires), the charles a tick
-  // of high noise, and the two timbals a thump in the middle, the agut higher than the greu
+  // of high noise, the plat a long wash of it, the ride a bell over a softer one, and the three timbals a thump in the middle, the
+  // agut higher than the greu and the greu higher than the one of terra
   function kit(name, vol = 0.8) {
     if (!on()) return;
     try {
@@ -74,7 +75,9 @@ export function band(on) {
       if (name === 'bombo') { tone(140, 42, 0.42, vol * 1.2); hiss('lowpass', 900, 0.7, 0.03, vol * 0.4); }
       else if (name === 'caixa') { tone(230, 160, 0.12, vol * 0.5, 'triangle'); hiss('bandpass', 2600, 0.7, 0.2, vol * 0.9); }
       else if (name === 'charles') hiss('highpass', 7500, 0.8, 0.06, vol * 0.55);
-      else { const f = name === 'tom1' ? 240 : 130; tone(f * 1.4, f, 0.38, vol); hiss('bandpass', 1200, 0.8, 0.05, vol * 0.3); }
+      else if (name === 'plat') { hiss('highpass', 5000, 0.7, 1.4, vol * 0.5); hiss('bandpass', 3200, 0.9, 0.5, vol * 0.25); }
+      else if (name === 'ride') { [3150, 4700, 5900].forEach(f => tone(f, f, 0.9, vol * 0.06)); hiss('highpass', 6000, 0.7, 0.6, vol * 0.2); }
+      else { const f = { tom1: 240, tom2: 130, tom3: 92 }[name] || 130; tone(f * 1.4, f, name === 'tom3' ? 0.5 : 0.38, vol); hiss('bandpass', 1200, 0.8, 0.05, vol * 0.3); }
     } catch (e) {}
   }
   // A plucked string (Karplus-Strong): a soft burst of noise goes round a loop as long as one wave of the note, and every turn two
