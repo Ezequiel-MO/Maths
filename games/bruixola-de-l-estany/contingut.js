@@ -305,5 +305,7 @@ export const PRIMER = [
   'Les paraules exactes importen. Tria què diries tu.',
   'La pregunta del projecte diu què busques. Troba la frase del text que ho respon.',
   'Una bona fitxa té poques paraules i la dada exacta.',
-  "Abans de buscar, pensa: on ho trobaré? I després: què ens falta encara?"
+  "Abans de buscar, pensa: on ho trobaré? I després: què ens falta encara?",
+  "Ara ho fas tot tu: un projecte sencer, de la primera pregunta fins a mirar enrere.",
+  "Els projectes de debò es compliquen. Quan passi un imprevist, pensa a quina etapa has de tornar."
 ];
