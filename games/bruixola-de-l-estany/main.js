@@ -10,6 +10,8 @@ import { ETAPES, PROJECTS, CIRCLES, POOL, POINTS, EXAM_PASS, VALID, starsFor, cl
 import { PRIMER } from './contingut.js';
 import { speak, hush, canSpeak, catalan } from './speech.js';
 import { FROG, ROSE } from './draw.js';
+import { island3d, RING as WRING } from './world.js';
+import { playNew, sceneOf } from './proves.js';
 
 const KEY = 'bruixola-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and every level, to try the game out
@@ -24,15 +26,19 @@ let keyFn = null;
 const fresh = tokens(() => { hush(); keyFn = null; });
 
 const { tone, chime } = voice(() => prog.so), { tone: click } = voice(() => prog.so, false);
-const FX = pond(tone);
+// the island in 3D is the picture behind the page; without WebGL its calls do nothing and the page draws as before
+const W = island3d($('#world'));
+document.body.classList.toggle('nogl', !W.ok);
+window.__illa = W;
+const FX = W.ok ? { burst() {}, ring() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1), mood() {} } : pond(tone);
 const blip = (f = 660) => click(f, 0, 0.08, 0.06);
 const buzz = () => click(150, 0, 0.3, 0.12, 'triangle');
 const fanfare = () => chime([523, 659, 784, 1047, 1319]);
 const up = pentatonic(523);
 
 const HURRAY = ['Molt bé!', 'Genial!', 'Perfecte!', 'Fantàstic!', 'Ben vist!', 'Exacte!', 'Així es fa!', 'Bravo!'];
-const HUES = [45, 200, 15, 40, 190, 300, 330, 280, 120, 260];
-const RING = [45, 200, 330, 280];
+const HUES = [45, 200, 15, 40, 190, 300, 330, 280, 120, 260, 150, 30];
+const RING = WRING;
 const again = e => { e.classList.remove('shake', 'pop', 'glow', 'flash'); void e.getBoundingClientRect(); return e.classList; };
 const spark = (e, h = 48) => { if (e) { const p = mid(e); FX.burst(p.x, p.y, h, 16, 130); } };
 const H = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -40,7 +46,23 @@ const LETTERS = ['a', 'b', 'c', 'd'];
 const voiced = () => canSpeak && catalan();
 
 const HUB = ownPage(KEY);
+// the island is framed in the part of the screen the panel leaves free: on its left when the screen is wide, above it otherwise
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+function frame3d() {
+  if (!W.ok) return;
+  if (WIDE.matches) W.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('.view'); W.layout('bottom', v ? Math.max(0.3, 1 - v.getBoundingClientRect().bottom / innerHeight) : 0.55); }
+}
+WIDE.addEventListener?.('change', () => frame3d());
+{ let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
+// a screen: the room the island is seen through (h tall on a narrow screen) and the panel of glass under it
+function pane3d(h) { $('#game').innerHTML = `<div class="view" style="height:${h}" aria-hidden="true"></div><div class="pane" id="pane"></div>`; frame3d(); return $('#pane'); }
+function worldState() {
+  const open = PROJECTS.map((_, i) => OPEN || isOpen(prog, circleOf(i))), valid = validated(prog);
+  W.state({ lv: prog.lv, valid, open, exams: prog.exams, next: PROJECTS.findIndex((_, i) => open[i] && !valid.includes(i)) });
+}
 function show(kicker, playing, hue) {
+  document.body.classList.toggle('playing', playing); W.onPick = null; W.highlight(null);
   $('#app').classList.toggle('wide', playing); $('#toG').hidden = playing || !HUB; $('#toM').hidden = !playing; $('#kick').textContent = kicker;
   $('#game').onclick = null; keyFn = null; FX.mood(hue);
 }
@@ -63,9 +85,9 @@ function streakBreak() { streak = 0; combo(0); }
 
 /* ---------- the compass: the six stages around a ring, like the hours of a clock, and a needle that points at one ---------- */
 const PX = [50, 86, 86, 50, 14, 14], PY = [8, 29, 71, 92, 71, 29];
-function compassHtml(sel = -1, { tap = true, small = false } = {}) {
+function compassHtml(sel = -1, { tap = true, small = false, grid = false } = {}) {
   const pts = ETAPES.map((E, e) => `<button class="pt${sel === e ? ' on' : ''}" data-e="${e}" style="--x:${PX[e]}%;--y:${PY[e]}%;--h:${E.hue}"${tap ? '' : ' tabindex="-1"'} aria-label="${H(E.nom)}"><span class="pi" aria-hidden="true">${E.icona}</span><b>${H(E.nom)}</b></button>`).join('');
-  return `<div class="compass${small ? ' small' : ''}${tap ? ' tap' : ''}" style="--a:${sel < 0 ? 0 : sel * 60}deg">${ROSE}${pts}<div class="needle" aria-hidden="true"><i></i></div></div>`;
+  return `<div class="compass${small ? ' small' : ''}${tap ? ' tap' : ''}${grid ? ' grid' : ''}" style="--a:${sel < 0 ? 0 : sel * 60}deg">${ROSE}${pts}<div class="needle" aria-hidden="true"><i></i></div></div>`;
 }
 // the needle turns to stage e, and that point lights up
 function point(box, e) {
@@ -114,6 +136,9 @@ function ask(it, env) {
     const ans = $('#ans', q), openAt = performance.now() + SETTLE;
     // what is on screen, for the browser tests
     window.__bruixola = { it, mode: env.mode };
+    W.scene(sceneOf(it));
+    let onStage = null;
+    W.onPick = (kind, key) => { if (kind === 'stage') onStage?.(+key); };
     if (it.s !== undefined && it.ctx) markEv([it.s], 'glow');
     if (!it.ctx) q.scrollIntoView?.({ block: 'nearest', behavior: RM ? 'auto' : 'smooth' });
 
@@ -121,7 +146,7 @@ function ask(it, env) {
     async function good(el) {
       if (done) return; done = true; keyFn = null;
       $('.qcard', q).classList.add('solved');
-      spark(el || ans, 140);
+      spark(el || ans, 140); W.cheer();
       if (it.marks?.length) markEv(it.marks);
       env.right(it, slips);
       await sleep(it.per && learn ? 2300 : 1300);
@@ -135,6 +160,7 @@ function ask(it, env) {
     // a wrong answer: in a level a slip and try again (false); in an exam the end of the question (true)
     async function bad(msg, reveal) {
       if (done) return true;
+      W.oops();
       if (learn) { slips++; env.slip(msg); return false; }
       done = true; keyFn = null;
       reveal?.(); env.tip(msg, 'oops'); buzz(); await next();
@@ -147,13 +173,13 @@ function ask(it, env) {
 
     /* --- watch the path: the six stages light up in order --- */
     if (it.k === 'mira') {
-      ans.innerHTML = `${compassHtml(-1, { tap: false })}<p class="walk" id="walk" aria-live="polite"></p><button class="btn" id="go" disabled>Ara ordena-les tu</button><button class="link" id="re" hidden>Torna-ho a veure</button>`;
+      ans.innerHTML = `${compassHtml(-1, { tap: false, grid: W.ok })}<p class="walk" id="walk" aria-live="polite"></p><button class="btn" id="go" disabled>Ara ordena-les tu</button><button class="link" id="re" hidden>Torna-ho a veure</button>`;
       const box = $('.compass', ans), walk = $('#walk', ans), go = $('#go', ans), re = $('#re', ans);
       let my = 0;
       async function walkIt() {
         const mine = ++my; go.disabled = true; re.hidden = true;
         for (let e = 0; e < 6 && t.on && mine === my; e++) {
-          point(box, e); const E = ETAPES[e];
+          point(box, e); W.visit(e, 1000); const E = ETAPES[e];
           walk.innerHTML = `<b>${e + 1}. ${H(E.nom)}</b> · ${H(E.que)}`; again(walk).add('pop'); blip(up(e + 3));
           if (prog.so && voiced()) { await speak(`${e + 1}. ${E.nom}. ${E.que}`); await sleep(300); } else await sleep(2600);
         }
@@ -176,7 +202,7 @@ function ask(it, env) {
         const i = +b.dataset.e;
         if (i === n) {
           const slot = ans.querySelectorAll('.slot')[n]; slot.innerHTML = `<b>${n + 1}</b> <span class="pi" aria-hidden="true">${ETAPES[i].icona}</span> ${H(ETAPES[i].nom)}`; slot.classList.add('ok'); slot.style.setProperty('--h', ETAPES[i].hue);
-          n++; b.disabled = true; b.classList.add('used'); blip(up(n + 3));
+          W.needle(i); n++; b.disabled = true; b.classList.add('used'); blip(up(n + 3));
           if (n === 6) return good(slot);
           return;
         }
@@ -190,12 +216,13 @@ function ask(it, env) {
 
     /* --- which stage: tap it on the compass --- */
     else if (it.k === 'etapa') {
-      ans.innerHTML = compassHtml(-1, { tap: true });
+      ans.innerHTML = compassHtml(-1, { tap: true, grid: W.ok });
       const box = $('.compass', ans);
+      onStage = e => choose($(`[data-e="${e}"]`, ans));
       const choose = async b => {
         if (!b || b.disabled || done) return;
         const i = +b.dataset.e;
-        if (i === it.ok) { point(box, i); b.classList.add('ok'); return good(b); }
+        if (i === it.ok) { point(box, i); W.needle(i); b.classList.add('ok'); return good(b); }
         b.classList.add('no'); b.disabled = true; again(b).add('shake');
         await bad(learn ? 'No és aquesta etapa. Rellegeix què passa: què estan fent?' : `No! Era «${ETAPES[it.ok].nom}».`, () => { point(box, it.ok); $(`[data-e="${it.ok}"]`, ans).classList.add('ok'); });
       };
@@ -226,7 +253,7 @@ function ask(it, env) {
       env.hint = () => {
         if (it.hint && !hinted) { hinted = true; return it.hint; }
         if (it.ctx && it.marks?.length && !hinted) { hinted = true; markEv(it.marks, 'glow'); return 'Les frases que brillen responen dues de les preguntes. Quina queda sense resposta?'; }
-        if (dropOne('[data-o]')) return 'He tret una opció que no és.';
+        if (dropOne(`[data-o]:not([data-o="${it.ok}"])`)) return 'He tret una opció que no és.';
         return 'Només en queden dues: rellegeix la pregunta amb calma.';
       };
     }
@@ -264,6 +291,16 @@ function ask(it, env) {
       };
       env.hint = () => { const k = it.oks.find(k => !got.has(k)); glow($(`[data-o="${k}"]`, ans)); return it.ctx && it.s !== undefined ? 'La que brilla és una de les paraules clau: és a la frase que brilla al text.' : 'La que brilla és una de les bones.'; };
     }
+
+    /* --- the new trials (proves.js) --- */
+    else {
+      const c = { ans, q, t, learn, openAt, W, H, good, bad, again, spark, blip, up, point, tip: env.tip, streakBreak, isDone: () => done,
+        stages: () => compassHtml(-1, { tap: true, grid: W.ok }), key: f => { keyFn = f; }, hint: f => { env.hint = f; }, mark: (ev, cls) => markEv(ev, cls),
+        clearMarks: () => document.querySelectorAll('#ctx .mark, #ctx .glow').forEach(e => e.classList.remove('mark', 'glow')),
+        say: text => { if (prog.so && voiced()) speak(text); },
+        set onStage(f) { onStage = f; } };
+      playNew(it, c);
+    }
   });
 }
 
@@ -290,9 +327,14 @@ const M = cursusMap({ prog: () => prog, L: { PROJECTS, CIRCLES, VALID, noteOf, i
 let here = -1;
 function mapa() {
   fresh(); show('El mapa de la brúixola', false, 200);
-  const m = meuOf(prog), lit = validated(prog).length;
-  M.screen({ root: $('#game'), here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${PROJECTS[i].icon}</span>`, pp: true,
-    before: `<div class="hero">${FROG}<p class="bubble">${lit >= 10 ? 'Tens la brúixola d’or: saps on ets a cada projecte!' : 'Un projecte de classe és un camí de <b>sis etapes</b>. Aquí aprens a saber <b>on sou</b>, <b>què toca fer</b> i <b>què dir</b>.'}</p></div>
+  const m = meuOf(prog), lit = validated(prog).length, mapRoot = pane3d('44vh');
+  worldState(); W.go('map'); W.home();
+  W.onPick = (kind, key) => {
+    if (kind === 'proj' && (OPEN || isOpen(prog, circleOf(+key)))) level(+key, M.nextLevel(+key));
+    else if (kind === 'stage') { const E = ETAPES[+key]; W.needle(+key); blip(up(+key + 3)); toast(`<span aria-hidden="true">${E.icona}</span> <b>${H(E.nom)}</b>`); }
+  };
+  M.screen({ root: mapRoot, here, rings, ringCls: c => ` r${c}`, icon: i => `<span class="pi" aria-hidden="true">${PROJECTS[i].icon}</span>`, pp: true,
+    before: `<div class="hero">${FROG}<p class="bubble">${lit >= PROJECTS.length ? 'Tens la brúixola d’or: saps on ets a cada projecte!' : 'Un projecte de classe és un camí de <b>sis etapes</b>. Aquí aprens a saber <b>on sou</b>, <b>què toca fer</b> i <b>què dir</b>.'}</p></div>
       <button class="card meuc" id="meub"><span class="ci" aria-hidden="true">🧭</span><b>El meu projecte</b>${m.nom ? `<span class="mk">${H(m.nom)}</span><span class="mstage" style="--h:${ETAPES[m.etapa].hue}">${ETAPES[m.etapa].icona} ${H(ETAPES[m.etapa].nom)}</span>` : '<span>Posa-hi el projecte de la teva classe i marca on sou</span>'}</button>
       ${prog.ratxa ? `<p class="grow">🔥 Rècord de ratxa: ${prog.ratxa} encerts seguits</p>` : ''}`,
     foot: got => `\n    <div class="extra"><button class="btn soft" id="full"${OPEN || validated(prog).length ? '' : ' disabled title="Valida un projecte per obrir-lo"'}>Caça l'errada</button>
@@ -307,8 +349,8 @@ const POOL_TIP = [
   'Ara, la brúixola: llegeix què passa a classe i toca l’etapa. Si t’equivoques, hi pots tornar.',
   'I la lupa: llegeix què vol saber el projecte i toca la frase del text que ho diu.'];
 function piscina() {
-  const t = fresh(); show('La Piscina', true, 200); $('#toM').hidden = true; $('#toG').hidden = !HUB;
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(POOL.length, 'Tres jocs')}<span class="combo" id="cb" hidden></span></div>${coachHtml()}${stageHtml()}`;
+  const t = fresh(); show('La Piscina', true, 200); $('#toM').hidden = true; $('#toG').hidden = !HUB; worldState();
+  pane3d('30vh').innerHTML = `<div class="hud mid">${dotsHtml(POOL.length, 'Tres jocs')}<span class="combo" id="cb" hidden></span></div>${coachHtml()}${stageHtml()}`;
   const tip = tipper(), run = [];
   shown = null;
   (async () => {
@@ -334,7 +376,8 @@ function piscina() {
 /* ---------- one level of a project ---------- */
 function level(sec, idx) {
   const c = circleOf(sec), t = fresh(); show(`Cercle ${c} · ${PROJECTS[sec].name}`, true, HUES[sec]); here = sec;
-  const root = $('#game'), Lv = PROJECTS[sec].levels[idx], R = round(sec, idx, Math.random);
+  const root = pane3d('30vh'), Lv = PROJECTS[sec].levels[idx], R = round(sec, idx, Math.random);
+  worldState();
   let slips = 0, over = false;
   root.innerHTML = `${levelRow(PROJECTS[sec].levels, OPEN ? 10 : reached(prog, sec), idx)}
     <div class="hud"><span class="chip">ex0${exOf(idx)} · ${H(Lv.title)}</span><span class="chip" id="st"></span><span class="combo" id="cb" hidden></span><span class="tools"><button class="link" id="hintb">Dona'm una pista</button></span></div>
@@ -364,6 +407,7 @@ function level(sec, idx) {
     const r = levelIn(prog, sec, idx, slips), n = r.n, end = idx === 9;
     over = true; keyFn = null; prog = r.prog; save();
     fanfare(); FX.celebrate(end || r.valid ? 16 : 8);
+    worldState(); W.reward(sec, { valid: r.valid });
     await sleep(500); if (!t.on) return;
     const stage = $('#stage');
     panel(stage, `<h2>${r.valid ? 'Projecte validat!' : end ? 'Projecte acabat!' : pick(HURRAY)}</h2>
@@ -382,7 +426,8 @@ function level(sec, idx) {
 function examen(c) {
   const t = fresh(); show(`Examen del cercle ${c}`, true, RING[c]); streakBreak();
   const qs = exam(c, Math.random), run = [];
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(qs.length, 'Sis preguntes')}<span class="chip" id="qn"></span></div>${coachHtml()}${stageHtml()}`;
+  worldState();
+  pane3d('30vh').innerHTML = `<div class="hud mid">${dotsHtml(qs.length, 'Sis preguntes')}<span class="chip" id="qn"></span></div>${coachHtml()}${stageHtml()}`;
   const tip = tipper();
   const env = { t, mode: 'exam', tip, slip: () => {}, right: () => { chime([523, 659, 784]); FX.celebrate(4); tip('Correcte!', 'go'); } };
   shown = null;
@@ -400,6 +445,7 @@ function examen(c) {
     r.good ? fanfare() : click(196, 0, 0.5, 0.12, 'triangle');
     tip(r.good ? 'Examen superat!' : 'Examen acabat. Mira què cal repassar.', r.good ? 'go' : '');
     if (r.good) FX.celebrate(16);
+    worldState(); if (first) W.flag(c); else W.go('map');
     panel($('#stage'), `<h2>${r.score} de ${qs.length}</h2>
       <p class="lead${r.good ? ' go' : ''}">${r.good ? `Superat ✓${r.gain ? ` · +${r.gain} XP` : ' · 0 XP: ja el tenies superat.'}` : r.score >= EXAM_PASS ? "Molt bé! Però l'examen només compta amb tots els projectes del cercle validats." : `Per superar l'examen calen ${EXAM_PASS} de ${qs.length}.`}</p>
       ${first && c < CIRCLES.length - 1 ? `<p class="lead go">S'ha obert el cercle ${c + 1}.</p>` : ''}
@@ -413,7 +459,8 @@ function examen(c) {
 function full() {
   const t = fresh(); show("Caça l'errada", true, 40); streakBreak();
   const S = sheet(Math.random), cs = S.claims, run = [];
-  $('#game').innerHTML = `<div class="hud mid">${dotsHtml(cs.length, 'Tres notes')}</div>${coachHtml()}${stageHtml()}`;
+  W.scene(2);
+  pane3d('26vh').innerHTML = `<div class="hud mid">${dotsHtml(cs.length, 'Tres notes')}</div>${coachHtml()}${stageHtml()}`;
   shown = null; setCtx(S.text);
   const tip = tipper();
   let k = -1, C, busy = true, res = null, openAt = 0;
@@ -463,7 +510,8 @@ function full() {
 /* ---------- «El meu projecte»: the compass of the real class project, to know where we are and what I can do today ---------- */
 function meu() {
   const t = fresh(); show('El meu projecte', true, 190);
-  const root = $('#game');
+  const root = pane3d('26vh');
+  { const e = meuOf(prog).etapa; W.visit(e); }
   let m = meuOf(prog);
   const keep = (next, say) => { const r = meuIn(prog, next); prog = r.prog; m = meuOf(prog); save(); if (r.news.length) toast(`★ <b>${H(list(r.news))}</b>`); if (say) tip(say, 'go'); };
   root.innerHTML = `${coachHtml()}<div class="meu" id="meu"></div>`;
@@ -493,7 +541,7 @@ function meu() {
   root.onclick = e => {
     if (!t.on) return;
     const pt = e.target.closest('.compass .pt');
-    if (pt) { const en = +pt.dataset.e; if (en !== m.etapa) { keep({ ...m, etapa: en }, `Som a «${ETAPES[en].nom}». ${ETAPES[en].que}`); paint(); blip(up(en + 3)); spark($('.compass .pt.on', root), ETAPES[en].hue); } return; }
+    if (pt) { const en = +pt.dataset.e; if (en !== m.etapa) { W.visit(en); keep({ ...m, etapa: en }, `Som a «${ETAPES[en].nom}». ${ETAPES[en].que}`); paint(); blip(up(en + 3)); spark($('.compass .pt.on', root), ETAPES[en].hue); } return; }
     if (e.target.closest('#desa')) { const nom = $('#nom').value.trim().slice(0, 40); keep({ ...m, nom }, nom ? `Desat: «${H(nom)}». Ara toca l'etapa on sou.` : 'Nom esborrat.'); paint(); return; }
     if (e.target.closest('#nou')) { $('#confirm').hidden = false; $('#si').focus(); return; }
     if (e.target.closest('#cancel')) { $('#confirm').hidden = true; return; }
