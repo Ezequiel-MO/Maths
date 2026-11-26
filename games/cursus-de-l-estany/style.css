@@ -279,3 +279,56 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 @keyframes plIn { from { transform: scaleY(0); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes ringIn { from { transform: scale(1.35); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ploose.grow .pl, .pg.new { animation: none; } .ploose { transition: none; } }
+
+/* With WebGL the pond is the 3D picture behind the page (#world, world.js) and the page is a panel of glass over it, as in Nenúfars a trossos:
+   on a wide screen the panel stands on the right and the pond fills the rest; on a phone or a tablet held upright the pond is on top (#view
+   keeps its place free) and the panel under it. Fireflies, pads, rings and tiles live in the pond (the panel keeps their button and caption);
+   the papers (tens, pieces, the sticks in columns) stay in the panel (body.paper) and the pond then gives it most of the screen. */
+html { background: #0B1636; }
+#world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
+body.nogl #world, body:not(.nogl) #sky, body:not(.nogl) #fx { display: none; }
+body.nogl .view { display: none; }
+body.nogl .pane { display: contents; }
+.view { flex: none; height: 40vh; pointer-events: none; }
+body:not(.nogl) { padding: 0; overflow-x: hidden; background: linear-gradient(180deg, #0B1636 0%, #1A2B5E 36%, #45558A 62%, #B98A90 84%, #EDB089 100%) fixed; }
+body:not(.nogl) #app, body:not(.nogl) #app.wide { width: min(100%, 640px); max-width: none; padding: 10px 14px 24px; gap: 8px; align-items: stretch; pointer-events: none; min-height: 100dvh; }
+body:not(.nogl) .top, body:not(.nogl) .pane { pointer-events: auto; }
+body:not(.nogl) .top .link, body:not(.nogl) header .kicker { color: var(--ink); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
+body:not(.nogl) header { pointer-events: none; }
+body:not(.nogl) h1 { font-size: clamp(1.6rem, 5.4vw, 2.4rem); text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
+body:not(.nogl) #app.wide header { display: none; }
+body:not(.nogl) .pane { position: relative; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px 10px 16px; border-radius: 26px;
+  background: rgb(7 28 40 / 0.84); border: 1px solid var(--edge); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgb(0 0 0 / 0.5); }
+body:not(.nogl) .stage.pool { min-height: 0; }
+/* the figures drawn in the pond: only their caption and their button stay in the panel */
+.f3d { display: none; margin: 0; font-weight: 700; color: var(--mint); text-align: center; }
+.fly.w3 .f3d { display: block; }
+.fly.w3 .fsrc, .fly.w3 .fpads, .fly.w3 .fgroups, .fly.w3 .gfig { display: none; }
+.fly.w3 { padding: 10px; gap: 8px; background: none; border: 0; box-shadow: none; }
+.fly.w3 .gbody { min-height: 0; }
+/* a question on a phone: the pond takes what the panel leaves (body.work), at least a fifth of the screen; with a paper the pond is a strip */
+@media not ((min-width: 900px) and (min-aspect-ratio: 5/4)) {
+  body:not(.nogl).work #app { height: 100vh; height: 100dvh; min-height: 0; padding-block: 8px; gap: 6px; }
+  body:not(.nogl).work .view { flex: 1 1 0; height: auto; min-height: 20vh; }
+  body:not(.nogl).work .pane { flex: none; min-height: 0; max-height: 72vh; padding: 8px 8px 10px; gap: 6px; }
+  body:not(.nogl).work #app #game { flex: none; }
+  body:not(.nogl).work:not(.paper) .stage.work, body:not(.nogl).work:not(.paper) .mat { flex: none; container-type: normal; overflow: visible; }
+  body:not(.nogl).work.paper .view { flex: 0 0 9vh; min-height: 0; }
+  body:not(.nogl).work.paper .pane { flex: 1 1 0; max-height: none; }
+  body:not(.nogl).work.paper #app #game { flex: 1 1 0; min-height: 0; }
+  body:not(.nogl).work header { display: none; }
+}
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  body:not(.nogl) #app, body:not(.nogl) #app.wide { width: 560px; margin: 0 0 0 auto; padding: 14px 20px 24px 0; }
+  .view { display: none; }
+  body:not(.nogl).work #app { height: 100vh; height: 100dvh; min-height: 0; }
+  body:not(.nogl).work .pane { flex: 1 1 0; min-height: 0; }
+  body:not(.nogl).work #app #game { flex: 1 1 0; min-height: 0; }
+  body:not(.nogl) .stage.work { flex-direction: column; align-items: center; }
+  body:not(.nogl) .desk { flex: none; max-width: 440px; }
+  body:not(.nogl).work:not(.paper) .mat { flex: none; container-type: normal; overflow: visible; }
+  body:not(.nogl).work:not(.paper) .pane, body:not(.nogl).work:not(.paper) #app #game, body:not(.nogl).work:not(.paper) .stage.work { flex: none; }
+}
+/* a question of the pond on a tablet or a laptop: the caption over the keys, never beside them (the side by side is for the papers) */
+body:not(.nogl).work:not(.paper) .stage.work { flex-direction: column; align-items: center; }
+body:not(.nogl).work:not(.paper) .desk { flex: none; width: 100%; max-width: 440px; align-self: center; }

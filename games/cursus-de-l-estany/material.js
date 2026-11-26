@@ -40,7 +40,9 @@ const LIVE = new WeakMap();   // host -> the figure now on it
 // "Fes un grup de d", that moves d fireflies into a new ring. They are done when fewer than d are left; a remainder stays apart in the source
 // ('rem', and the figure counts as done in that state). Returns { counts(), stop(), solve() }: how many fireflies each pad holds now
 // (landed or not; the groups made, for the two modes with groups), and the cancel and the solved state of this instance.
-export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+// w3 (optional) is the pond in 3D (world.js): the figure then draws itself there too (the jar, the pads, the rings) and the page keeps only its button
+// and its caption; a tap on a pad of the pond comes back as tap(i), a tap on the jar as make().
+export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {}, w3 = null } = {}) {
   if (!t) throw new Error('fireflies needs the token of the screen (t)');
   LIVE.get(host)?.stop();
   const { D, d } = q, size = D <= 12 ? 24 : D <= 24 ? 18 : 13, small = Math.max(11, Math.round(size * 0.7)), groups = q.mode === 'group' || q.mode === 'rem';
@@ -50,9 +52,11 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   // --s sizes the fireflies at rest, --ps the ones on a pad or in a ring; --pc is the pads per row (two rows at most on a phone), --gw the fireflies per row of a ring
   host.innerHTML = `<div class="fly" style="--s:${size}px;--ps:${small}px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--pr:${d > 5 ? 2 : 1};--gw:${d > 5 ? Math.ceil(d / 2) : d}">
     <div class="fsrc" role="img" aria-label="Les cuques de llum"></div>
+    ${w3 ? `<p class="f3d">${groups ? `Toca el pot o el botó: ${d} cuques volen a un cercle.` : 'Toca un nenúfar de la bassa: hi vola una cuca.'}</p>` : ''}
     ${groups ? `<p class="fcap" hidden></p><button class="btn soft fmk">Fes un grup de ${d}</button><div class="fgroups"></div>`
       : `<div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div>`}</div>`;
   const wrap = $('.fly', host), src = $('.fsrc', wrap), pads = [...wrap.querySelectorAll('.fpad')], mk = $('.fmk', wrap), ring = $('.fgroups', wrap), cap = $('.fcap', wrap);
+  if (w3) { wrap.classList.add('w3'); groups ? w3.groups(D, d) : w3.share(D, d); }
   const bug = () => '<i class="ff"></i>', bugs = k => Array.from({ length: k }, bug).join('');
   const padLabel = i => pads[i].setAttribute('aria-label', n[i] ? `Nenúfar ${i + 1}: ${n[i]} ${n[i] === 1 ? 'cuca' : 'cuques'}` : `Nenúfar ${i + 1}`);
   const ringHtml = m => `<div class="fgrp" role="img" aria-label="Grup ${m}: ${d} cuques">${bugs(d)}</div>`;
@@ -75,13 +79,13 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     locked = true;
     if (n.every(x => x === n[0])) return onDone();
     onMiss(); wrap.classList.add('shake'); await sleep(RM ? 0 : 700); if (!live()) return;
-    wrap.classList.remove('shake'); wrap.classList.add('leave'); await sleep(RM ? 0 : 400); if (!live()) return;
+    wrap.classList.remove('shake'); wrap.classList.add('leave'); w3?.back(); await sleep(RM ? 0 : 400); if (!live()) return;
     reset(true);
   }
   async function send(i) {
     if (locked || !left) return;
     const from = src.querySelector('.ff:last-child'), w = wrap.getBoundingClientRect(), a = from.getBoundingClientRect(), p = pads[i].getBoundingClientRect();
-    left--; flying++; n[i]++;
+    left--; flying++; n[i]++; w3?.send(i);
     const fl = document.createElement('i');
     fl.className = 'ff flier'; fl.style.cssText = `left:${a.left - w.left}px;top:${a.top - w.top}px;width:${a.width}px;height:${a.height}px`;
     wrap.append(fl); from.remove(); void fl.offsetWidth;
@@ -94,7 +98,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   function group() {
     if (locked || left < d) return;
     [...src.querySelectorAll('.ff')].slice(-d).forEach(f => f.remove());
-    left -= d; made++; n[0] = made; ring.insertAdjacentHTML('beforeend', ringHtml(made)); groupsEnd();
+    left -= d; made++; n[0] = made; ring.insertAdjacentHTML('beforeend', ringHtml(made)); groupsEnd(); w3?.group();
     if (left < d) { locked = true; onDone(); }
   }
   function solve() {
@@ -102,9 +106,11 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     src.classList.remove('arrive'); src.style.removeProperty('--sr');
     if (groups) {
       left = D % d; made = Math.floor(D / d); n[0] = made; src.innerHTML = bugs(left); ring.innerHTML = Array.from({ length: made }, (_, m) => ringHtml(m + 1)).join(''); groupsEnd();
+      w3?.solveGroups(made);
     } else {
       left = 0; n = Array.from({ length: d }, (_, i) => Math.floor(D / d) + (i < D % d ? 1 : 0)); src.innerHTML = ''; src.hidden = true;
       pads.forEach((p, i) => { $('.fbugs', p).innerHTML = bugs(n[i]); padLabel(i); });
+      w3?.solveShare(n);
     }
   }
   wrap.onclick = e => {
@@ -115,7 +121,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   reset(false);
   const u = fitter(host, wrap);
   if (groups && D < d) { locked = true; groupsEnd(); sleep(0).then(() => live() && onDone()); }   // not even one group to make: nothing to wait for (said once the caller has the figure in hand)
-  return { counts: () => n.slice(), stop, solve };
+  return { counts: () => n.slice(), stop, solve, tap: i => { if (live() && i >= 0 && i < d) send(i); }, make: () => { if (live()) group(); } };
 }
 
 // A grid of cells in d columns. 'fact' (D ÷ d): D cells, the rows are the quotient; with `hands` the child adds the rows one by one with a button
@@ -124,7 +130,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
 // (no total is ever shown, it is the answer). Without `hands` the grid is whole; onDone only fires after the last press. The button comes before the
 // grid so it stays put while the grid grows. Cells are sized by the card (container units in the CSS), so 10 × 10 fits 360 px. Solved: the whole grid
 // and `d × q` (+ r) beside it. Returns { stop(), solve() }.
-export function grid(host, q, { t, onDone = () => {} } = {}) {
+export function grid(host, q, { t, onDone = () => {}, w3 = null } = {}) {
   if (!t) throw new Error('grid needs the token of the screen (t)');
   LIVE.get(host)?.stop();
   const { D, d } = q, proof = q.mode === 'proof', R = proof ? q.q : Math.ceil(D / d), left = proof ? q.r : 0, hands = !!q.hands;
@@ -137,6 +143,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
     <div class="gbar"><span class="gcount" role="status"></span>${hands ? '<button class="btn soft gadd">Afegeix una fila</button>' : ''}</div>
     <div class="gbody"><div class="gfig" role="img"><div class="gcells"></div><div class="gspare" hidden><div class="gcells"></div><p class="gcap"></p></div></div><p class="geq" hidden></p></div></div>`;
   const wrap = $('.grid', host), cells = $('.gcells', wrap), sp = $('.gspare', wrap), spCells = $('.gcells', sp), count = $('.gcount', wrap), add = $('.gadd', wrap), eq = $('.geq', wrap), fig = $('.gfig', wrap);
+  if (w3) { wrap.classList.add('w3'); w3.grid(d, R, proof); }
   const cell = n => '<i class="gc"></i>'.repeat(n);
   const shown = () => proof ? rows * d : Math.min(D, rows * d);
   // the text alternative says what the grid shows now; the count line is the visible one
@@ -151,11 +158,11 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   function press() {
     if (stopped || !t.on || solved) return;
     if (rows < R) {
-      cells.insertAdjacentHTML('beforeend', cell(proof ? d : Math.min(d, D - shown()))); rows++;
+      const k = proof ? d : Math.min(d, D - shown()); cells.insertAdjacentHTML('beforeend', cell(k)); rows++; w3?.row(k);
       add.textContent = proof && rows === R && left ? (left === 1 ? 'Afegeix la que sobra' : 'Afegeix les que sobren') : 'Afegeix una fila';
       paint(); if (rows === R && !(proof && left)) finish();
     } else if (proof && left && !spare) {
-      spCells.innerHTML = cell(left); spare = true; paint(); finish();
+      spCells.innerHTML = cell(left); spare = true; w3?.spare(left); paint(); finish();
     }
   }
   function solve() {
@@ -163,12 +170,13 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
     cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left);
     if (add) add.hidden = true;
     eq.hidden = false; eq.innerHTML = `${d} × ${proof ? q.q : D / d}${proof && left ? ` <span class="gplus">+ ${left}</span>` : ''}`;
+    w3?.solveGrid(R, proof ? d : D - (R - 1) * d, left);
     paint();
   }
   if (add) add.onclick = press;
   fitter(host, wrap, 0.2);
-  if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); }
-  return { stop, solve };
+  if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); w3?.solveGrid(R, proof ? d : D - (R - 1) * d, left); }
+  return { stop, solve, tap: () => press() };
 }
 
 // Tens (D a multiple of 10): D as plates of a hundred and bars of ten to share between d lily pads. A tap on a pad sends it a plate, or a bar once no plate is left;
