@@ -6,6 +6,7 @@ import { curs, whole, slots, at, shuffle, VALID, EXAM_PASS } from '../../shared/
 //   'rem'    quotient and remainder [q, r]    'proof'  the dividend D, from d, q and r (D = d × q + r)
 //   'split'  parts: [p1, p2]; the quotient of each part, then the total [a, b, q]
 //   'long'   parts: [p1, p2(, p3)]; each part but the last divides exactly; [...partials, q, r]
+//   'pal'    the quotient, column by column as on paper: sticks for each digit, rings of d, what is left over goes on to the next column as tens
 //   'story'  a problem in words (raco.js): it carries its answer (w) and its own texts (text, hint, why, and fb: what a given wrong answer means)
 // bare (exam and sheets): no material, no parts and no partials, so split wants q and long wants [q, r]; the rules of parts do not apply.
 const FIT = { hands: true };
@@ -36,10 +37,16 @@ export const PROJECTS = [
   { name: 'Tres xifres', sub: 'Tres xifres entre una xifra, amb residu', circle: 2, mode: 'long', ex: trio('long',
     [[126, 2, [100, 26]], [156, 3, [150, 6]], [168, 4, [160, 8]], [205, 5, [200, 5]], [189, 3, [90, 90, 9]]],
     [[235, 5, [200, 35]], [157, 4, [80, 40, 37]], [346, 3, [300, 30, 16]], [187, 8, [160, 27]], [275, 6, [240, 35]]],
-    [[458, 7, [420, 38]], [723, 9, [630, 93]], [777, 5, [500, 250, 27]], [596, 8, [480, 80, 36]], [839, 6, [600, 180, 59]]]) }
+    [[458, 7, [420, 38]], [723, 9, [630, 93]], [777, 5, [500, 250, 27]], [596, 8, [480, 80, 36]], [839, 6, [600, 180, 59]]]) },
+  // the first project of all, though it is the ninth in the list (the saves keep the marks by place): the division of the video, sticks in columns.
+  // ex00 and ex01 wait for the sticks to be ringed; ex02 has them in view. No column ever holds more than 20 sticks.
+  { name: 'Palets i columnes', sub: 'Divideix xifra a xifra amb palets', circle: 0, mode: 'pal', ex: [
+    mk('pal', FIT, [[8, 4], [69, 3], [84, 4], [52, 4], [34, 2]]),
+    mk('pal', FIT, [[45, 3], [56, 4], [70, 5], [246, 2], [936, 4]]),
+    mk('pal', {}, [[38, 2], [372, 3], [852, 4], [128, 4], [515, 5]])] }
 ];
 export const CIRCLES = [
-  { name: 'Repartir i agrupar', projects: [0, 1] },
+  { name: 'Repartir i agrupar', projects: [8, 0, 1] },
   { name: 'Residu i comprovació', projects: [2, 3, 4] },
   { name: 'Números grans', projects: [5, 6, 7] }
 ];
@@ -50,6 +57,12 @@ export { VALID, EXAM_PASS, at, shuffle };
 
 // the quotient and the remainder, worked out from D and d
 const qr = q => [Math.floor(q.D / q.d), q.D % q.d];
+// the columns of a 'pal' question, as on paper: for each digit of D, the sticks it holds (the digit, plus ten for each one left in the column before),
+// the rings of d made and the sticks left over (which go on to the next column)
+export function palCols(D, d) {
+  let carry = 0;
+  return String(D).split('').map(x => { const v = carry * 10 + +x, g = Math.floor(v / d), r = v % d; carry = r; return { x: +x, carry: v - +x, v, g, r }; });
+}
 // the pieces of a split or long question; a bare one has none (its parts are not looked at), so one is made: the biggest multiple of 10 × d below D, then the rest
 function piecesOf(q) {
   if (q.parts && !q.bare) return q.parts;
@@ -60,7 +73,7 @@ function piecesOf(q) {
 export function want(q) {
   const [Q, R] = qr(q);
   switch (q.mode) {
-    case 'share': case 'group': case 'fact': case 'tens': return Q;
+    case 'share': case 'group': case 'fact': case 'tens': case 'pal': return Q;
     case 'proof': return q.D;
     case 'story': return q.w;
     case 'rem': return [Q, R];
@@ -91,6 +104,8 @@ export function inLimits(q, p) {
     case 5: return D % 10 === 0 && D >= 10 && D <= 990 && d >= 2 && d <= 9 && (D / 10) % d === 0;
     case 6: return D >= 20 && D <= 99 && d >= 2 && d <= 9 && R === 0 && cut([2], false);
     case 7: return D >= 100 && D <= 999 && d >= 2 && d <= 9 && cut([2, 3], true);
+    // an exam or a sheet keeps to two digits; every column 20 sticks at most
+    case 8: return D >= 2 && D <= (q.bare ? 99 : 999) && d >= 2 && d <= 5 && R === 0 && palCols(D, d).every(c => c.v <= 20);
   }
   return false;
 }
@@ -130,6 +145,7 @@ export function tipFor(q) {
     case 'group': return `Fes grups de ${d} amb les ${D} cuques. Quants grups surten?`;
     case 'fact': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
     case 'story': return 'Llegeix el problema i escriu la resposta. Pots fer servir el material.';
+    case 'pal': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `Divideix ${D} entre ${d} columna per columna: a cada columna fes grups de ${d} amb els palets.`;
     case 'rem': return `Fes grups de ${d} amb les ${D} cuques. Escriu quants grups surten i quantes en sobren.`;
     case 'proof': return `S'han fet grups de ${d}: ${q.q === 1 ? 'ha' : 'han'} sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
     case 'tens': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
@@ -152,6 +168,9 @@ export function explain(q, deep, ans) {
   const { D, d } = q, [Q, R] = qr(q);
   switch (q.mode) {
     case 'story': return (fin(ans) && q.fb?.[+ans] ? q.fb[+ans] + ' ' : q.kind === 'exact' ? back(q, ans) : '') + (deep ? q.why : q.hint);
+    case 'pal': { const cs = palCols(D, d);
+      return back(q, ans) + (deep ? `Columna a columna: ${cs.map(c => `${c.v} ${c.v === 1 ? 'palet dona' : 'palets donen'} ${grups(c.g)} de ${d}${c.r ? `, i ${c.r === 1 ? 'queda 1 palet, que passa' : `queden ${c.r} palets, que passen`} a la columna següent` : ''}`).join('; ')}. Els grups de cada columna, en ordre, són el quocient: ${Q}.`
+        : `Columna per columna: quants grups de ${d} pots fer? Els palets que sobren passen a la columna següent i valen deu cada un. Els grups de cada columna, en ordre, són les xifres del quocient.`); }
     case 'share': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${d} nenúfars amb ${Q} cuques cada un fan ${d} × ${Q} = ${D}.` : `Reparteix-les d'una en una entre els ${d} nenúfars, fins que no en quedi cap. Tots n'han de tenir les mateixes.`);
     case 'group': return back(q, ans) + (deep ? `${D} ÷ ${d} = ${Q}: ${Q} grups de ${d} fan ${Q} × ${d} = ${D}.` : `Encercla ${d} cuques i torna-ho a fer, fins que no en quedi cap. Quants cercles has fet?`);
     case 'fact': return back(q, ans) + (deep ? `${d} × ${Q} = ${D}, per tant ${D} ÷ ${d} = ${Q}.` : `Pensa en la taula del ${d}: quin número multiplicat per ${d} fa ${D}?`);
@@ -182,6 +201,7 @@ export function said(q) {
     case 'story': return q.why;
     case 'share': return `${D} ÷ ${d} = ${Q}: a cada nenúfar en toquen ${Q}.`;
     case 'group': return `${D} ÷ ${d} = ${Q}: surten ${Q} grups de ${d}.`;
+    case 'pal': { const cs = palCols(D, d); return `${D} ÷ ${d} = ${Q}${cs.length > 1 ? `: ${list(cs.map(c => `${c.g} ${c.g === 1 ? 'grup' : 'grups'} a la columna del ${c.v}`))}` : `: amb ${D} palets surten ${grups(Q)} de ${d}`}.`; }
     case 'fact': case 'tens': return `${D} ÷ ${d} = ${Q}, perquè ${d} × ${Q} = ${D}.`;
     case 'rem': return `${D} ÷ ${d} = ${Q} i ${sobra(R)}.`;
     case 'proof': return `${d} × ${q.q}${q.r ? ` + ${q.r}` : ''} = ${D}, i per això ${D} ÷ ${d} = ${q.q} i ${sobra(q.r)}.`;
@@ -261,7 +281,7 @@ export function clean(d) {
     so: o.so !== false,
     piscina: o.piscina === true,
     equip: Number.isInteger(o.equip) && o.equip >= -1 && o.equip <= 2 ? o.equip + 0 : -1,   // + 0 turns -0 into 0
-    notes: slots(o.notes, 8).map(n => Math.min(100, Math.max(0, whole(n)))),
+    notes: slots(o.notes, PROJECTS.length).map(n => Math.min(100, Math.max(0, whole(n)))),
     exams: slots(o.exams, 3).map(e => e === true),
     fulls: Math.max(0, whole(o.fulls)),
     // the corner of thinking: rounds of stories solved, rounds of sentences judged well, the record of the lightning round

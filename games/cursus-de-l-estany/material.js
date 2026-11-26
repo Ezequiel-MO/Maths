@@ -8,7 +8,7 @@
 //   solve() the figure shows itself solved, whatever the child did: stops it first (nothing fires afterwards), then draws the whole arrangement
 // FIGURES says which figure a mode has. A mode that is not here has no material: the screen opens the keypad on its own, also under `hands`.
 import { $, RM, sleep } from '../../shared/util.js';
-import { want } from './logic.js';
+import { want, palCols } from './logic.js';
 
 // On a phone the box of the material (.mat) has a height of its own, the remainder of the screen once the head and the desk have taken theirs, and a figure must fit in it. The card
 // of a figure has a size factor --u (1 = the sizes of the stylesheet: its cells, pads, fireflies, plates, boxes) and this finds the biggest factor from 1 down to lo for which the box
@@ -40,7 +40,9 @@ const LIVE = new WeakMap();   // host -> the figure now on it
 // "Fes un grup de d", that moves d fireflies into a new ring. They are done when fewer than d are left; a remainder stays apart in the source
 // ('rem', and the figure counts as done in that state). Returns { counts(), stop(), solve() }: how many fireflies each pad holds now
 // (landed or not; the groups made, for the two modes with groups), and the cancel and the solved state of this instance.
-export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+// w3 (optional) is the pond in 3D (world.js): the figure then draws itself there too (the jar, the pads, the rings) and the page keeps only its button
+// and its caption; a tap on a pad of the pond comes back as tap(i), a tap on the jar as make().
+export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {}, w3 = null } = {}) {
   if (!t) throw new Error('fireflies needs the token of the screen (t)');
   LIVE.get(host)?.stop();
   const { D, d } = q, size = D <= 12 ? 24 : D <= 24 ? 18 : 13, small = Math.max(11, Math.round(size * 0.7)), groups = q.mode === 'group' || q.mode === 'rem';
@@ -50,9 +52,11 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   // --s sizes the fireflies at rest, --ps the ones on a pad or in a ring; --pc is the pads per row (two rows at most on a phone), --gw the fireflies per row of a ring
   host.innerHTML = `<div class="fly" style="--s:${size}px;--ps:${small}px;--pc:${d > 5 ? Math.ceil(d / 2) : d};--pr:${d > 5 ? 2 : 1};--gw:${d > 5 ? Math.ceil(d / 2) : d}">
     <div class="fsrc" role="img" aria-label="Les cuques de llum"></div>
+    ${w3 ? `<p class="f3d">${groups ? `Toca el pot o el botó: ${d} cuques volen a un cercle.` : 'Toca un nenúfar de la bassa: hi vola una cuca.'}</p>` : ''}
     ${groups ? `<p class="fcap" hidden></p><button class="btn soft fmk">Fes un grup de ${d}</button><div class="fgroups"></div>`
       : `<div class="fpads">${Array.from({ length: d }, (_, i) => `<button class="fpad" data-i="${i}" aria-label="Nenúfar ${i + 1}"><span class="fbugs"></span></button>`).join('')}</div>`}</div>`;
   const wrap = $('.fly', host), src = $('.fsrc', wrap), pads = [...wrap.querySelectorAll('.fpad')], mk = $('.fmk', wrap), ring = $('.fgroups', wrap), cap = $('.fcap', wrap);
+  if (w3) { wrap.classList.add('w3'); groups ? w3.groups(D, d) : w3.share(D, d); }
   const bug = () => '<i class="ff"></i>', bugs = k => Array.from({ length: k }, bug).join('');
   const padLabel = i => pads[i].setAttribute('aria-label', n[i] ? `Nenúfar ${i + 1}: ${n[i]} ${n[i] === 1 ? 'cuca' : 'cuques'}` : `Nenúfar ${i + 1}`);
   const ringHtml = m => `<div class="fgrp" role="img" aria-label="Grup ${m}: ${d} cuques">${bugs(d)}</div>`;
@@ -75,13 +79,13 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     locked = true;
     if (n.every(x => x === n[0])) return onDone();
     onMiss(); wrap.classList.add('shake'); await sleep(RM ? 0 : 700); if (!live()) return;
-    wrap.classList.remove('shake'); wrap.classList.add('leave'); await sleep(RM ? 0 : 400); if (!live()) return;
+    wrap.classList.remove('shake'); wrap.classList.add('leave'); w3?.back(); await sleep(RM ? 0 : 400); if (!live()) return;
     reset(true);
   }
   async function send(i) {
     if (locked || !left) return;
     const from = src.querySelector('.ff:last-child'), w = wrap.getBoundingClientRect(), a = from.getBoundingClientRect(), p = pads[i].getBoundingClientRect();
-    left--; flying++; n[i]++;
+    left--; flying++; n[i]++; w3?.send(i);
     const fl = document.createElement('i');
     fl.className = 'ff flier'; fl.style.cssText = `left:${a.left - w.left}px;top:${a.top - w.top}px;width:${a.width}px;height:${a.height}px`;
     wrap.append(fl); from.remove(); void fl.offsetWidth;
@@ -94,7 +98,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   function group() {
     if (locked || left < d) return;
     [...src.querySelectorAll('.ff')].slice(-d).forEach(f => f.remove());
-    left -= d; made++; n[0] = made; ring.insertAdjacentHTML('beforeend', ringHtml(made)); groupsEnd();
+    left -= d; made++; n[0] = made; ring.insertAdjacentHTML('beforeend', ringHtml(made)); groupsEnd(); w3?.group();
     if (left < d) { locked = true; onDone(); }
   }
   function solve() {
@@ -102,9 +106,11 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
     src.classList.remove('arrive'); src.style.removeProperty('--sr');
     if (groups) {
       left = D % d; made = Math.floor(D / d); n[0] = made; src.innerHTML = bugs(left); ring.innerHTML = Array.from({ length: made }, (_, m) => ringHtml(m + 1)).join(''); groupsEnd();
+      w3?.solveGroups(made);
     } else {
       left = 0; n = Array.from({ length: d }, (_, i) => Math.floor(D / d) + (i < D % d ? 1 : 0)); src.innerHTML = ''; src.hidden = true;
       pads.forEach((p, i) => { $('.fbugs', p).innerHTML = bugs(n[i]); padLabel(i); });
+      w3?.solveShare(n);
     }
   }
   wrap.onclick = e => {
@@ -115,7 +121,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
   reset(false);
   const u = fitter(host, wrap);
   if (groups && D < d) { locked = true; groupsEnd(); sleep(0).then(() => live() && onDone()); }   // not even one group to make: nothing to wait for (said once the caller has the figure in hand)
-  return { counts: () => n.slice(), stop, solve };
+  return { counts: () => n.slice(), stop, solve, tap: i => { if (live() && i >= 0 && i < d) send(i); }, make: () => { if (live()) group(); } };
 }
 
 // A grid of cells in d columns. 'fact' (D ÷ d): D cells, the rows are the quotient; with `hands` the child adds the rows one by one with a button
@@ -124,7 +130,7 @@ export function fireflies(host, q, { t, onDone = () => {}, onMiss = () => {} } =
 // (no total is ever shown, it is the answer). Without `hands` the grid is whole; onDone only fires after the last press. The button comes before the
 // grid so it stays put while the grid grows. Cells are sized by the card (container units in the CSS), so 10 × 10 fits 360 px. Solved: the whole grid
 // and `d × q` (+ r) beside it. Returns { stop(), solve() }.
-export function grid(host, q, { t, onDone = () => {} } = {}) {
+export function grid(host, q, { t, onDone = () => {}, w3 = null } = {}) {
   if (!t) throw new Error('grid needs the token of the screen (t)');
   LIVE.get(host)?.stop();
   const { D, d } = q, proof = q.mode === 'proof', R = proof ? q.q : Math.ceil(D / d), left = proof ? q.r : 0, hands = !!q.hands;
@@ -137,6 +143,7 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
     <div class="gbar"><span class="gcount" role="status"></span>${hands ? '<button class="btn soft gadd">Afegeix una fila</button>' : ''}</div>
     <div class="gbody"><div class="gfig" role="img"><div class="gcells"></div><div class="gspare" hidden><div class="gcells"></div><p class="gcap"></p></div></div><p class="geq" hidden></p></div></div>`;
   const wrap = $('.grid', host), cells = $('.gcells', wrap), sp = $('.gspare', wrap), spCells = $('.gcells', sp), count = $('.gcount', wrap), add = $('.gadd', wrap), eq = $('.geq', wrap), fig = $('.gfig', wrap);
+  if (w3) { wrap.classList.add('w3'); w3.grid(d, R, proof); }
   const cell = n => '<i class="gc"></i>'.repeat(n);
   const shown = () => proof ? rows * d : Math.min(D, rows * d);
   // the text alternative says what the grid shows now; the count line is the visible one
@@ -151,11 +158,11 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
   function press() {
     if (stopped || !t.on || solved) return;
     if (rows < R) {
-      cells.insertAdjacentHTML('beforeend', cell(proof ? d : Math.min(d, D - shown()))); rows++;
+      const k = proof ? d : Math.min(d, D - shown()); cells.insertAdjacentHTML('beforeend', cell(k)); rows++; w3?.row(k);
       add.textContent = proof && rows === R && left ? (left === 1 ? 'Afegeix la que sobra' : 'Afegeix les que sobren') : 'Afegeix una fila';
       paint(); if (rows === R && !(proof && left)) finish();
     } else if (proof && left && !spare) {
-      spCells.innerHTML = cell(left); spare = true; paint(); finish();
+      spCells.innerHTML = cell(left); spare = true; w3?.spare(left); paint(); finish();
     }
   }
   function solve() {
@@ -163,12 +170,13 @@ export function grid(host, q, { t, onDone = () => {} } = {}) {
     cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left);
     if (add) add.hidden = true;
     eq.hidden = false; eq.innerHTML = `${d} × ${proof ? q.q : D / d}${proof && left ? ` <span class="gplus">+ ${left}</span>` : ''}`;
+    w3?.solveGrid(R, proof ? d : D - (R - 1) * d, left);
     paint();
   }
   if (add) add.onclick = press;
   fitter(host, wrap, 0.2);
-  if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); }
-  return { stop, solve };
+  if (hands) paint(); else { rows = R; spare = proof && left > 0; cells.innerHTML = cell(proof ? R * d : D); spCells.innerHTML = cell(left); paint(); w3?.solveGrid(R, proof ? d : D - (R - 1) * d, left); }
+  return { stop, solve, tap: () => press() };
 }
 
 // Tens (D a multiple of 10): D as plates of a hundred and bars of ten to share between d lily pads. A tap on a pad sends it a plate, or a bar once no plate is left;
@@ -243,11 +251,80 @@ export function chunks(host, q, { t } = {}) {
 }
 chunks.still = true;
 
-export const FIGURES = { share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks,
+// The division of the video, on paper: a column for each digit of D under a pink line, the digit on top. The column being worked holds its sticks
+// (the ones carried in from the column before in amber, its own in green). «Encercla» (or a tap on a loose stick) puts d of them in a ring;
+// «Passa'ls» sends what is left to the next column, where each stick is worth ten (the next digit gets a 1 in front: 9 | 3 becomes 9 | 13).
+// A ring with fewer than d sticks, or passing while a ring still fits, is a miss (onMiss) and nothing moves. Under each column done, its rings
+// as a digit: the quotient read from left to right. onDone when the last column has its rings. Returns { stop(), solve() }.
+export function palets(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+  if (!t) throw new Error('palets needs the token of the screen (t)');
+  LIVE.get(host)?.stop();
+  const { D, d } = q, cs = palCols(D, d), n = cs.length;
+  let c, g, stopped = false, done = false;
+  const live = () => t.on && !stopped, stop = () => { stopped = true; };
+  LIVE.set(host, { stop });
+  const pals = (k, cls = '') => Array.from({ length: k }, (_, i) => `<i class="pl${cls}" style="--i:${i}"></i>`).join('');
+  const sw = k => k === 1 ? 'palet' : 'palets';
+  host.innerHTML = `<div class="fly pals" style="--pn:${n}">
+    <div class="ptab">${cs.map((_, i) => `<div class="pcol" data-c="${i}"><p class="phd"><span class="pcar"></span><b>${cs[i].x}</b></p><div class="pbody" role="img"></div><p class="pq" aria-live="polite"></p></div>`).join('')}</div>
+    <div class="pbar"><button class="btn soft pring">Encercla ${d}</button><button class="btn soft ppass">Passa'ls →</button></div></div>`;
+  const wrap = $('.pals', host), cols = [...wrap.querySelectorAll('.pcol')], ring = $('.pring', wrap), pass = $('.ppass', wrap);
+  // the sticks of column i: its rings, then the loose ones (the carried ones first, as the video writes the 1 before the digit)
+  function paint(i, rings, animate) {
+    const C = cs[i], loose = C.v - rings * d, carried = Math.max(0, C.carry - rings * d);
+    const body = $('.pbody', cols[i]);
+    body.innerHTML = Array.from({ length: rings }, () => `<span class="pg">${pals(d)}</span>`).join('')
+      + `<span class="ploose${animate ? ' grow' : ''}">${pals(carried, ' c')}${pals(loose - carried)}</span>`;
+    body.setAttribute('aria-label', `${C.v} ${sw(C.v)}: ${rings} ${rings === 1 ? 'grup' : 'grups'} de ${d}${loose ? ` i ${loose} sols` : ''}`);
+    $('.pcar', cols[i]).textContent = C.carry ? C.carry / 10 : '';
+  }
+  function bar() {
+    const C = cs[c], loose = C.v - g * d;
+    ring.hidden = pass.hidden = done;
+    pass.textContent = c === n - 1 ? 'Ja està' : loose ? `Passa'${loose === 1 ? 'l' : 'ls'} a la columna següent →` : 'Columna següent →';
+  }
+  function enter(i, animate) {
+    c = i; g = 0;
+    cols.forEach((e, j) => e.classList.toggle('on', j === i));
+    paint(i, 0, animate); bar();
+  }
+  function close(i) { cols[i].classList.remove('on'); cols[i].classList.add('done'); $('.pq', cols[i]).textContent = cs[i].g; }
+  function circle() {
+    if (done) return;
+    const loose = cs[c].v - g * d;
+    if (loose < d) return onMiss(loose ? `Amb ${loose} ${sw(loose)} no es pot fer un grup de ${d}. ${c === n - 1 ? 'Prem «Ja està».' : 'Passa\'ls a la columna següent.'}` : `Aquí ja no queda cap palet. ${c === n - 1 ? 'Prem «Ja està».' : 'Passa a la columna següent.'}`);
+    g++; paint(c, g, false); $('.pbody .pg:last-of-type', cols[c])?.classList.add('new'); bar();  }
+  async function next() {
+    if (done) return;
+    const loose = cs[c].v - g * d;
+    if (loose >= d) return onMiss(`Encara pots fer un grup de ${d} en aquesta columna: encercla'l abans de passar.`);
+    close(c);
+    if (c === n - 1) { done = true; bar(); return onDone(); }
+    if (loose) {   // the sticks left slide into the next column, where each one is worth ten
+      $('.ploose', cols[c]).classList.add('away'); await sleep(RM ? 0 : 420); if (!live()) return;
+      paint(c, g, false); $('.ploose', cols[c]).innerHTML = '';
+    }
+    enter(c + 1, true);
+  }
+  function solve() {
+    stop(); done = true;
+    cs.forEach((C, i) => { paint(i, C.g, false); if (i < n - 1) $('.ploose', cols[i]).innerHTML = ''; close(i); });
+    bar();
+  }
+  wrap.onclick = e => {
+    if (!live()) return;
+    if (e.target.closest('.pring') || e.target.closest('.pcol.on .ploose .pl')) circle(); else if (e.target.closest('.ppass')) next();
+  };
+  enter(0, true); fitter(host, wrap, 0.45);
+  return { stop, solve };
+}
+
+export const FIGURES = { pal: palets, share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks,
   // a story has the material of its division: the lily pads of a sharing, or the rings of groups with what is left over apart
   story: (host, q, o) => fireflies(host, { ...q, mode: q.fig }, o) };
 // what to do with the material of a `hands` question, in the words of its figure
-export const how = q => q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
+export const how = q => q.mode === 'pal' ? `Prem «Encercla ${q.d}» o toca un palet: ${q.d} palets fan un grup. Quan no en puguis fer més, passa els que sobren a la columna següent. Quan acabis, escriu la resposta.`
+  : q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
   : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila és un grup de ${q.d} caselles. Fes ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
   : q.mode === 'tens' ? `Toca un nenúfar: hi va ${q.D < 100 ? 'una barra de deu' : 'una placa de cent, o una barra de deu quan no en queden'}.${q.D < 100 ? '' : ' Si una placa no es pot repartir, toca-la i es trenca en deu barres.'} Quan ho hagis repartit tot, escriu la resposta.`

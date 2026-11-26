@@ -7,6 +7,7 @@ import { PROJECTS, CIRCLES, clean, xpOf, levelText, isOpen, examOpen, BADGES, ba
 import { problems, statements, fact, SVM, ROUND, ROUND_PASS } from './raco.js';
 import { fireflies, FIGURES, how, KEYS, boxes, labelsOf } from './material.js';
 import { SETTLE, ownPage, tokens, soundButton } from '../../shared/shell.js';
+import { cursus3d } from './world.js';
 
 const KEY = 'cursus-de-l-estany';
 // ?obert at the end of the address (shared/util.js) opens every circle, every exam and the corner of thinking, to look at any of it; what is done there is judged and kept by the same rules as ever
@@ -21,7 +22,32 @@ function save() { const { so, piscina, equip, notes, exams, fulls, probs, savi, 
 const fresh = tokens();
 
 const { tone, chime } = voice(() => prog.so);
-const FX = pond(tone);
+// The pond in 3D behind the panel (world.js): the map is its rings of lily pads, and the fireflies and the tiles of a question are on its little
+// pond, its meadow and its jetty. Without WebGL its calls do nothing, and everything is drawn in the page as before
+const W = cursus3d($('#world'), CIRCLES.map(c => c.projects));
+document.body.classList.toggle('nogl', !W.ok);
+window.__cursus = W;   // for the checks in the browser: where(kind, key) is the point of the screen of a thing of the pond
+W.hear({ tone, chime });
+// the sparks and the confetti: the pond's with WebGL, the canvas of the page without it
+const FX = W.ok ? { burst() {}, ring() {}, celebrate: n => W.celebrate(n >= 16 ? 3 : n >= 8 ? 2 : 1), mood() {} } : pond(tone);
+// The pond as the progress has it: a flower on the pad of each project validated, the lantern of each exam passed, the frog on what is next
+function worldState() {
+  const open = PROJECTS.map((_, i) => OPEN || isOpen(prog, CIRCLES.findIndex(c => c.projects.includes(i))));
+  const valid = PROJECTS.map((_, i) => prog.notes[i] >= VALID);
+  const order = CIRCLES.flatMap(c => c.projects);
+  W.state({ piscina: prog.piscina, open, valid, exams: prog.exams, names: PROJECTS.map(p => p.name), next: order.find(i => open[i] && !valid[i]) ?? -1 });
+}
+// the pond is framed in the part of the screen the panel leaves free: on the left of it when the screen is wide, above it otherwise
+const WIDE = matchMedia('(min-width: 900px) and (min-aspect-ratio: 5/4)');
+function frame3d() {
+  if (!W.ok) return;
+  if (WIDE.matches) W.layout('right', $('#app').getBoundingClientRect().width + 24);
+  else { const v = $('#view'); W.layout('bottom', Math.max(0.25, Math.min(0.9, 1 - v.getBoundingClientRect().bottom / innerHeight))); }
+}
+WIDE.addEventListener?.('change', frame3d);
+if (W.ok) new ResizeObserver(() => frame3d()).observe($('#view'));
+{ let t = 0; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(frame3d, 150); }); }
+addEventListener('scroll', () => { if (W.ok && !WIDE.matches && !document.body.classList.contains('work')) frame3d(); }, { passive: true });
 
 let openAt = 0, keyFn = null, tight = false;
 const ready = () => performance.now() >= openAt;
@@ -38,6 +64,7 @@ function enter(kicker, inner) {
   const t = fresh(); keyFn = null; tight = false; openAt = performance.now() + SETTLE;
   $('#app').classList.toggle('wide', inner); document.body.classList.remove('work'); $('#toG').hidden = inner || !HUB; $('#toM').hidden = !inner; $('#kick').textContent = kicker;
   $('#game').onclick = null; FX.mood(TEAMS[prog.equip]?.hue ?? 165); paintXp();
+  document.body.classList.remove('paper'); W.onPick = null; W.rest(); scrollTo(0, 0); requestAnimationFrame(frame3d);
   return t;
 }
 $('#toM').onclick = () => mapa();
@@ -84,12 +111,14 @@ function piscina() {
   $('#game').innerHTML = `<div class="hud"><span class="steps" role="img" aria-label="Tres reptes">${POOL.map(() => '<i></i>').join('')}</span></div>
     <p class="status tip" id="tip" role="status" aria-live="polite"></p><div class="stage pool" id="stage"></div>`;
   const stage = $('#stage'), dots = [...document.querySelectorAll('.steps i')];
+  let fig = null;
+  W.onPick = (kind, key) => { if (kind === 'pad') fig?.tap(+key); };
   function step(k) {
-    tip('Toca un nenúfar: hi vola una cuca. Que a tots els nenúfars els en toquin les mateixes.');
-    fireflies(stage, POOL[k], { t,
+    tip(W.ok ? 'Reparteix les cuques del pot: que a tots els nenúfars els en toquin les mateixes.' : 'Toca un nenúfar: hi vola una cuca. Que a tots els nenúfars els en toquin les mateixes.');
+    fig = fireflies(stage, POOL[k], { t, w3: W.ok ? W : null,
       onMiss: () => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(MISS, 'oops'); },
       onDone: async () => {
-        dots[k].classList.add('ok'); tip('Sí! Tots els nenúfars en tenen les mateixes.', 'go'); tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08);
+        dots[k].classList.add('ok'); tip('Sí! Tots els nenúfars en tenen les mateixes.', 'go'); tone(784, 0, 0.14, 0.08); tone(1047, 0.1, 0.2, 0.08); W.cheer(3);
         const p = mid(stage); FX.burst(p.x, p.y, 48, 30, 190); FX.ring(p.x, p.y, 48, 10, 90);
         await sleep(1100); if (!t.on) return;
         k < POOL.length - 1 ? step(k + 1) : team(t, stage);
@@ -100,14 +129,14 @@ function piscina() {
 // The panel is built once the last tap has long passed, so a second tap on the last pad cannot choose a team. Choosing ends the Piscina: it is saved
 // there and then, and only the walk to the map waits.
 async function team(t, stage) {
-  stage.innerHTML = ''; tip('Quin equip vols ser?'); await sleep(SETTLE); if (!t.on) return;
+  stage.innerHTML = ''; W.onPick = null; W.rest(); W.go('pool'); tip('Quin equip vols ser?'); await sleep(SETTLE); if (!t.on) return;
   chime([523, 659, 784]);
   panel(stage, `<h2>Tria el teu equip</h2><p class="lead">Serà el teu equip durant tot el cursus.</p><div class="teams">${TEAMS.map((m, i) =>
     `<button class="team" data-t="${i}" style="--tc:${hsl(m.hue)}"><span>${emblem(i)}</span><b>${m.name}</b></button>`).join('')}</div>`);
   let chosen = false;
   stage.onclick = async e => {
     const b = e.target.closest('.team'); if (!b || chosen) return;
-    chosen = true; prog.piscina = true; prog.equip = +b.dataset.t; save(); FX.mood(TEAMS[prog.equip].hue);
+    chosen = true; prog.piscina = true; prog.equip = +b.dataset.t; save(); FX.mood(TEAMS[prog.equip].hue); W.poolDone();
     chime([523, 659, 784, 1047, 1319]); FX.celebrate(8); tip(`Ja ets de l'equip ${TEAMS[prog.equip].name}!`, 'go');
     await sleep(1400); if (t.on) mapa();
   };
@@ -160,6 +189,18 @@ function mapa() {
     if (!b || b.disabled || !ready()) return;
     if (b.dataset.p) projecte(+b.dataset.p); else if (b.dataset.x) examen(+b.dataset.x); else if (b.dataset.a) ({ prob: problemes, savi: raona, rapid: llampec })[b.dataset.a](); else if (b.id === 'cor') corregir(); else if (b.id === 'pool') piscina();
   };
+  // the pond: the pad of a project shines while the finger is on its button, and a tap on a pad, a lantern, the Piscina or the hut goes there
+  worldState(); W.home();
+  const lit = e => { const b = e.target.closest?.('.proj[data-p]'); W.highlight(b && !b.disabled ? +b.dataset.p : null); };
+  $('#game').onpointerover = lit; $('#game').onfocusin = lit; $('#game').onpointerleave = () => W.highlight(null);
+  W.onPick = (kind, key) => {
+    if (!ready()) return;
+    const c = +key;
+    if (kind === 'proj' && (OPEN || (prog.piscina && isOpen(prog, CIRCLES.findIndex(x => x.projects.includes(c)))))) projecte(c);
+    else if (kind === 'exam' && openX(c)) examen(c);
+    else if (kind === 'pool' && !prog.piscina) piscina();
+    else if (kind === 'raco') $('.ring.raco')?.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'center' });
+  };
   ($(`#game [data-p="${here}"]:not(:disabled)`) || $('#game button:not(:disabled)'))?.focus({ preventScroll: true }); here = -1;
 }
 
@@ -167,11 +208,17 @@ function mapa() {
 // The keys of the pad and of the keyboard write into the boxes B; ✓ on a filled box goes to the next empty one, and hands the whole answer to go(ans) when none is
 // left. On an empty box, or before the question has settled, it does nothing at all. off() says when the keys are dead (keyFn then says false). A screen that asks
 // for numbers (a project, the exam, correcting) uses these two and boxes().
-function typing(B, go, off) {
+// auto(a): a whole answer that is right goes at once, with no ✓ (the ✓ is for sending one that is not)
+function typing(B, go, off, auto) {
   typed = false;
   keyFn = k => {
     if (off()) return false;
-    if (k !== 'ok') { B.key(k); tone(k === 'del' ? 392 : 660, 0, 0.08, 0.05); return true; }
+    if (k !== 'ok') {
+      B.key(k); tone(k === 'del' ? 392 : 660, 0, 0.08, 0.05);
+      const a = k === 'del' || !auto ? null : B.ans();
+      if (a !== null && ready() && auto(a)) go(a);
+      return true;
+    }
     const a = B.ans();
     if (a !== null) { if (ready()) go(a); } else if (B.skip()) tone(660, 0, 0.08, 0.05);
     return true;
@@ -205,12 +252,15 @@ function quiz(t, qs, o) {
   const desk = $('.desk', stage), open = on => { desk.hidden = $('#ask').hidden = $('#keys').hidden = !on; };
   let k = 0, q, B, fig, tries, helped, busy, it, verd, go, streak = 0;   // it: the sheet item being judged; verd: its choice is still to be made; go: what «Segueix» resolves
   // the figure of the mode, built when the question is asked, or later (hint, second mistake) for a hidden one; solved on request
+  // the modes whose material lives in the pond when there is one; the others are papers, read in the panel while the frog waits at the hut
+  const IN3D = q => W.ok && (['share', 'group', 'rem', 'fact', 'proof'].includes(q.mode) || q.mode === 'story');
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
     if (!fig) {
-      fig = FIGURES[q.mode](mat, q, { t, onDone: () => { if (q.hands) { open(true); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
+      fig = FIGURES[q.mode](mat, q, { t, w3: IN3D(q) ? W : null, onDone: () => { if (q.hands) { open(true); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
         onMiss: m => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(m || MISS, 'oops'); } });
       if (fig.hosts) { B.move(fig.hosts); $('#ask').classList.add('far'); }   // a figure with a place for each box (chunks) takes the boxes, whatever was typed in them stays
+      if (IN3D(q)) { document.body.classList.remove('paper'); requestAnimationFrame(frame3d); }   // a hidden figure of the pond, shown by the hint: the pond takes its room back
     }
     if (solved) fig.solve();
   }
@@ -221,15 +271,19 @@ function quiz(t, qs, o) {
     $('#ask').innerHTML = `<span class="eq${it ? ' sh' : q.mode === 'story' ? ' story' : ''}">${eq(q)}${it ? ' ' + told(q, it.shown) : ''}</span><span class="bxs"${it ? ' hidden' : ''}></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
     $('#keys').innerHTML = it ? CHOICE : KEYS;
     $('#ask').classList.remove('far');
+    // the pond: a figure of the pond is drawn there by the figure itself; a paper, an exam or a sheet leave the frog at the hut
+    W.onPick = (kind, key) => { if (!fig || busy || !ready()) return; if (kind === 'pad') fig.tap?.(+key); else if (kind === 'jar') fig.make?.(); else if (kind === 'grid') fig.tap?.(); };
+    const in3d = o.help && FIGURES[q.mode] && IN3D(q) && !q.hide;
+    document.body.classList.toggle('paper', !in3d); if (!in3d) W.desk(); requestAnimationFrame(frame3d);
     const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
     open(!wait);
     tip(it ? `Mira bé ${q.mode === 'proof' ? 'l\'operació' : 'la divisió'}. És correcta?` : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
-    typing(B, submit, () => busy || verd || $('#ask').hidden); showTip(); $('.verd', stage)?.focus({ preventScroll: true });
+    typing(B, submit, () => busy || verd || $('#ask').hidden, a => right(q, a)); showTip(); $('.verd', stage)?.focus({ preventScroll: true });
   }
   async function submit(ans, yes) {
     const ok = it ? judge(it, !!yes, ans) : right(q, ans), once = o.once || it;
     if (!ok) {
-      tries++; tone(150, 0, 0.45, 0.16, 'triangle'); shake(fig ? mat : $('#ask'));
+      tries++; tone(150, 0, 0.45, 0.16, 'triangle'); shake(fig ? mat : $('#ask')); W.oops();
       if (!once) { tip(`Ui! ${explain(q, tries > 1, ans)}`, 'oops'); fig?.mark?.(ans); if (tries > 1) figure(true); B.clear(); showTip(); return; }
     }
     busy = true; fig?.stop(); res[k] = { tries, helped }; dots[k].classList.add(firstTry(res[k]) ? 'ok' : once ? 'miss' : 'late');
@@ -239,7 +293,7 @@ function quiz(t, qs, o) {
     const rx = $('#ratxa'); rx.hidden = streak < 2; rx.textContent = `Ratxa ${streak}`;
     if (streak > 1) { shake(rx); if (streak % 5 === 0) { chime([659, 784, 988, 1319]); FX.celebrate(3); } }
     tip(it ? `${ok ? 'Ben vist.' : it.ok ? 'Aquesta ja era bona.' : 'Aquesta tenia una errada.'} ${said(q)}` : ok ? said(q) : `Ui! ${explain(q, true, ans)}`, ok ? 'go' : 'oops'); showTip();
-    if (ok) { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); }
+    if (ok) { if (W.ok) W.cheer(streak); else { const p = mid($('#ask')); FX.burst(p.x, p.y, 48, 22, 190); FX.ring(p.x, p.y, 48, 10, 90); } }
     const last = k === qs.length - 1, out = last ? o.settle(res) : null;
     if (once) { $('#keys').innerHTML = '<button class="btn" id="go">Segueix</button>'; $('#keys').hidden = false; openAt = performance.now() + SETTLE; $('#go').focus({ preventScroll: true }); await new Promise(r => { go = r; }); }
     else await sleep(1500);
@@ -267,7 +321,7 @@ function quiz(t, qs, o) {
 // The end panel of a project, a sheet and an exam. The stage is cleared and the panel comes up once a second tap on the last button has passed (SETTLE), so its buttons
 // work only from then; good (true, or a number of bursts for a bigger party) says how it sounds; again is the restart that «label» offers next to «Torna al mapa».
 async function finish(t, stage, good, said, html, label, again) {
-  keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(said);
+  keyFn = null; stage.innerHTML = ''; stage.classList.add('pool'); tip(said); W.onPick = null; document.body.classList.remove('work', 'paper'); worldState(); W.home();
   await sleep(SETTLE); if (!t.on) return;
   openAt = performance.now() + SETTLE;   // the buttons of the panel ignore a tap that was meant for what was here before
   good ? (chime([523, 659, 784, 1047, 1319]), FX.celebrate(good === true ? 8 : good)) : tone(196, 0, 0.5, 0.12, 'triangle');
@@ -285,9 +339,12 @@ function projecte(i) {
   quiz(t, P.ex.flat(), { help: true, per: 5, labels: ['ex00', 'ex01', 'ex02'],
     // prog is replaced here and nowhere else (handIn works the mark out, keeps the better one and never touches prog): leaving in the middle saves nothing, and the sound button's save() never writes a mark that was not earned
     settle(res) { const r = handIn(prog, i, res); prog = r.prog; save(); return r; },
-    end: (r, stage) => finish(t, stage, r.n >= VALID, r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.', `<h2>Nota ${r.n}</h2>
+    end(r, stage) {
+      if (r.n >= VALID && !(r.best >= VALID)) setTimeout(() => W.bloom(i), 900);   // validated now for the first time: its flower opens on the pond
+      return finish(t, stage, r.n >= VALID, r.n >= VALID ? 'Projecte acabat!' : 'Projecte acabat. Mira què cal repassar.', `<h2>Nota ${r.n}</h2>
         ${r.n >= VALID ? `<p class="lead go">Validat ✓${r.gain ? ` · +${r.gain} XP` : ''}</p>` : `<p class="lead">${r.best >= VALID ? `Aquesta vegada no arriba a ${VALID}, però ja el tens validat.` : `Per validar cal una nota de ${VALID}.`} Repassa ${llista(r.redo)}.</p>`}
-        ${r.best && r.best >= r.n ? `<p class="lead">La teva millor nota continua sent ${r.best}.</p>` : ''}${nova(r)}`, 'Torna-hi', () => projecte(i)) });
+        ${r.best && r.best >= r.n ? `<p class="lead">La teva millor nota continua sent ${r.best}.</p>` : ''}${nova(r)}`, 'Torna-hi', () => projecte(i));
+    } });
 }
 // Caça l'errada: a sheet of three divisions, each judged once; fulls + 1 only when all three are right, and nothing is kept before the last one is judged
 function corregir() {
@@ -305,6 +362,7 @@ function examen(c) {
     settle(res) { const r = examIn(prog, c, qs, res.map(firstTry)); prog = r.prog; save(); return r; },
     end(r, stage) {
       const first = r.good && r.gain > 0, all = first && r.prog.exams.every(Boolean);
+      if (first) setTimeout(() => W.lantern(c), 900);
       return finish(t, stage, r.good && (all ? 24 : true), r.good ? 'Examen superat!' : 'Examen per repassar.', `<h2>${r.good ? 'Examen superat' : 'Examen per repassar'}</h2>
         <p class="${r.good ? 'lead go' : 'lead'}">${r.score} de 6${r.good ? ` · ${first ? `+${r.gain} XP` : '0 XP: ja el tenies superat.'}` : `: en calen ${EXAM_PASS}.${r.prog.exams[c] ? ' El teu examen superat continua superat.' : ''}`}${redo(r)}</p>
         ${first && c < 2 ? `<p class="lead go">S'ha obert el cercle ${c + 1}: ${CIRCLES[c + 1].name}.</p>` : ''}${all ? '<p class="lead go">Has superat els tres exàmens: el cursus és complet!</p>' : ''}${nova(r)}`, 'Un altre examen', () => examen(c));
