@@ -252,9 +252,20 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
   .flier, .fly.leave .fbugs .ff, .xp-bar i, .steps i, .clock i { transition: none; }
 }
 
-/* Palets i columnes: the paper of the video. A column per digit between pink lines, the digit on top (with what was carried in before it), the sticks
-   below in rings of d, and under each column done its rings as a digit of the quotient. --u shrinks it all to fit (fitter). */
-.pals { gap: 10px; }
+/* Palets i columnes: the paper of the video. On top the operation, big (the dividend and the divisor in blue, ÷ and = in pink, the quotient in green,
+   a dot under each digit once it is divided); under it a column per digit between pink lines, the digit on top (with what was carried in
+   before it, in amber) and the sticks in rows of d, each full row ringed in green. --u shrinks it all to fit (fitter). */
+.pals { gap: 8px; }
+.peq { margin: 0; display: flex; align-items: baseline; justify-content: center; gap: calc(6px * var(--u, 1)); padding: 4px 14px 8px; border-radius: 16px; background: #F4F1E6;
+  font-family: var(--display); font-weight: 800; font-size: calc(2.6rem * var(--u, 1)); line-height: 1.1; color: #1E4FA0; font-variant-numeric: tabular-nums; }
+.peq .pdg { position: relative; }
+.peq .pdg.dot::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #23935B; animation: land 0.3s ease-out; }
+.peq .pdv { margin-left: 2px; }
+.peq .pop { font-style: normal; color: #E8467C; }
+.pqt { display: inline-flex; align-items: baseline; min-width: 0.6em; color: #1E7F4E; }
+.pqt b { animation: land 0.3s ease-out; }
+.pslot { display: inline-block; width: 0.62em; height: 0.9em; margin-left: 2px; border-radius: 8px; border: 3px dashed #E8467C; animation: slotBlink 1s ease-in-out infinite; }
+@keyframes slotBlink { 50% { border-color: rgb(232 70 124 / 0.25); } }
 .ptab { display: grid; grid-template-columns: repeat(var(--pn), minmax(0, 1fr)); border-radius: 16px; background: #F4F1E6; color: #1B3550; overflow: hidden;
   background-image: repeating-linear-gradient(transparent 0 calc(27px * var(--u, 1)), rgb(80 140 200 / 0.28) calc(27px * var(--u, 1)) calc(28px * var(--u, 1))); }
 .pcol { display: flex; flex-direction: column; min-width: 0; border-left: 3px solid #E8467C; transition: background 0.25s; }
@@ -262,23 +273,23 @@ h1, h2, .btn, .chip, .status, .key, .ask, .lab, .exrow, .fcap, .xp-n, .proj b, .
 .pcol.on { background: rgb(124 245 176 / 0.22); }
 .phd { margin: 0; padding: 4px 0; text-align: center; font-family: var(--display); font-weight: 800; font-size: calc(2rem * var(--u, 1)); line-height: 1.1; border-bottom: 3px solid #E8467C; color: #1E7F4E; }
 .pcar { color: #C9781A; }
-.pbody { flex: 1; min-height: calc(120px * var(--u, 1)); display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center; gap: calc(6px * var(--u, 1)); padding: calc(8px * var(--u, 1)) 4px; }
-.pg, .ploose { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: calc(3px * var(--u, 1)); }
-.pg { padding: calc(5px * var(--u, 1)) calc(7px * var(--u, 1)); border: 2.5px solid #1E7F4E; border-radius: 50%; }
-.pg.new { animation: ringIn 0.3s ease-out; }
-.ploose { max-width: 100%; transition: transform 0.4s ease-in, opacity 0.4s; }
-.ploose.away { transform: translateX(70%); opacity: 0; }
+.pbody { flex: 1; min-height: calc(110px * var(--u, 1)); display: flex; flex-direction: column; align-items: center; gap: calc(5px * var(--u, 1)); padding: calc(8px * var(--u, 1)) 4px; }
+.prow { display: inline-flex; gap: calc(4px * var(--u, 1)); padding: calc(4px * var(--u, 1)) calc(9px * var(--u, 1)); border: 2.5px solid transparent; border-radius: 50%; touch-action: manipulation; }
+.pcol.on .prow.pfull { cursor: pointer; }
+.pcol.on .prow.pfull:hover { background: rgb(35 147 91 / 0.12); }
+.prow.pg { border-color: #1E7F4E; }
+.prow.pg.new { animation: ringIn 0.3s ease-out; }
+.prow.part { transition: transform 0.45s ease-in, opacity 0.45s; }
+.pcol.done .prow.part { opacity: 0.35; }
+.prow.part.away { transform: translateX(60%); opacity: 0.35; }
 .pl { display: block; width: calc(5px * var(--u, 1)); height: calc(24px * var(--u, 1)); border-radius: 3px; background: #23935B; }
-.pcol.on .ploose .pl { cursor: pointer; }
 .pl.c { background: #E08A1E; }
-.ploose.grow .pl { animation: plIn 0.25s calc(var(--i) * 35ms) both; }
-.pq { margin: 0; min-height: calc(2.4rem * var(--u, 1)); text-align: center; font-family: var(--display); font-weight: 800; font-size: calc(2rem * var(--u, 1)); color: #1E7F4E; border-top: 2px dashed rgb(232 70 124 / 0.5); }
-.pcol.done .pq { animation: land 0.3s ease-out; }
+.pbody.grow .pl { animation: plIn 0.25s calc(var(--i) * 35ms) both; }
 .pbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .pbar .btn { font-size: 1rem; padding: 8px 14px; }
 @keyframes plIn { from { transform: scaleY(0); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes ringIn { from { transform: scale(1.35); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .ploose.grow .pl, .pg.new { animation: none; } .ploose { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pbody.grow .pl, .prow.pg.new, .pslot { animation: none; } .prow.part { transition: none; } }
 
 /* With WebGL the pond is the 3D picture behind the page (#world, world.js) and the page is a panel of glass over it, as in Nenúfars a trossos:
    on a wide screen the panel stands on the right and the pond fills the rest; on a phone or a tablet held upright the pond is on top (#view
@@ -313,7 +324,7 @@ body:not(.nogl) .stage.pool { min-height: 0; }
   body:not(.nogl).work .pane { flex: none; min-height: 0; max-height: 72vh; padding: 8px 8px 10px; gap: 6px; }
   body:not(.nogl).work #app #game { flex: none; }
   body:not(.nogl).work:not(.paper) .stage.work, body:not(.nogl).work:not(.paper) .mat { flex: none; container-type: normal; overflow: visible; }
-  body:not(.nogl).work.paper .view { flex: 0 0 9vh; min-height: 0; }
+  body:not(.nogl).work.paper .view { flex: 0 0 5vh; min-height: 0; }
   body:not(.nogl).work.paper .pane { flex: 1 1 0; max-height: none; }
   body:not(.nogl).work.paper #app #game { flex: 1 1 0; min-height: 0; }
   body:not(.nogl).work header { display: none; }

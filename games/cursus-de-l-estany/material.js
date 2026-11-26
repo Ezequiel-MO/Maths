@@ -251,79 +251,112 @@ export function chunks(host, q, { t } = {}) {
 }
 chunks.still = true;
 
-// The division of the video, on paper: a column for each digit of D under a pink line, the digit on top. The column being worked holds its sticks
-// (the ones carried in from the column before in amber, its own in green). «Encercla» (or a tap on a loose stick) puts d of them in a ring;
-// «Passa'ls» sends what is left to the next column, where each stick is worth ten (the next digit gets a 1 in front: 9 | 3 becomes 9 | 13).
-// A ring with fewer than d sticks, or passing while a ring still fits, is a miss (onMiss) and nothing moves. Under each column done, its rings
-// as a digit: the quotient read from left to right. onDone when the last column has its rings. Returns { stop(), solve() }.
-export function palets(host, q, { t, onDone = () => {}, onMiss = () => {} } = {}) {
+// The division of the video, on paper. On top, big, the operation as the video writes it («69 ÷ 4 =»), with a dot under each digit of the
+// dividend once it is being divided and the quotient written after the = a digit at a time. Under it a column for each digit between pink lines,
+// the digit on top (with what was carried in before it, in amber: 9 | 3 becomes 9 | 13). The column being worked holds its sticks in rows of d,
+// as the video draws them (IIII / IIII / I), and for each column the steps are the video's:
+//   ring   a tap on a full row (or «Encercla») rings it; a row that is not full cannot be ringed (onMiss says why)
+//   write  every full row ringed: the child types how many rings, and the digit goes after the = (a wrong digit is onMiss and a slip)
+//   pass   sticks left over: «Passa'ls» (or a tap on them) writes their number before the next digit, where each one is worth ten
+// A first column with no ring writes nothing (the quotient does not start with 0) and goes straight to pass. The keys of the pad come to the
+// figure (key(k)) until it is done; then onAnswer(quotient, slips) gives the answer as typed. onSay(text) is what to do now. { stop(), solve(), key(k), keys }
+export function palets(host, q, { t, onMiss = () => {}, onSay = () => {}, onAnswer = () => {} } = {}) {
   if (!t) throw new Error('palets needs the token of the screen (t)');
   LIVE.get(host)?.stop();
-  const { D, d } = q, cs = palCols(D, d), n = cs.length;
-  let c, g, stopped = false, done = false;
+  const { D, d } = q, cs = palCols(D, d), n = cs.length, Ds = String(D);
+  let c = 0, rings = 0, step = 'ring', said = '', slips = 0, stopped = false, done = false;
   const live = () => t.on && !stopped, stop = () => { stopped = true; };
   LIVE.set(host, { stop });
-  const pals = (k, cls = '') => Array.from({ length: k }, (_, i) => `<i class="pl${cls}" style="--i:${i}"></i>`).join('');
-  const sw = k => k === 1 ? 'palet' : 'palets';
+  const sw = k => k === 1 ? '1 palet' : `${k} palets`;
   host.innerHTML = `<div class="fly pals" style="--pn:${n}">
-    <div class="ptab">${cs.map((_, i) => `<div class="pcol" data-c="${i}"><p class="phd"><span class="pcar"></span><b>${cs[i].x}</b></p><div class="pbody" role="img"></div><p class="pq" aria-live="polite"></p></div>`).join('')}</div>
-    <div class="pbar"><button class="btn soft pring">Encercla ${d}</button><button class="btn soft ppass">Passa'ls →</button></div></div>`;
-  const wrap = $('.pals', host), cols = [...wrap.querySelectorAll('.pcol')], ring = $('.pring', wrap), pass = $('.ppass', wrap);
-  // the sticks of column i: its rings, then the loose ones (the carried ones first, as the video writes the 1 before the digit)
-  function paint(i, rings, animate) {
-    const C = cs[i], loose = C.v - rings * d, carried = Math.max(0, C.carry - rings * d);
-    const body = $('.pbody', cols[i]);
-    body.innerHTML = Array.from({ length: rings }, () => `<span class="pg">${pals(d)}</span>`).join('')
-      + `<span class="ploose${animate ? ' grow' : ''}">${pals(carried, ' c')}${pals(loose - carried)}</span>`;
-    body.setAttribute('aria-label', `${C.v} ${sw(C.v)}: ${rings} ${rings === 1 ? 'grup' : 'grups'} de ${d}${loose ? ` i ${loose} sols` : ''}`);
+    <p class="peq" aria-live="polite">${Ds.split('').map((x, i) => `<span class="pdg" data-i="${i}">${x}</span>`).join('')}<i class="pop">÷</i><span class="pdg pdv">${d}</span><i class="pop">=</i><span class="pqt"></span></p>
+    <div class="ptab">${cs.map((C, i) => `<div class="pcol" data-c="${i}"><p class="phd"><span class="pcar"></span><b>${C.x}</b></p><div class="pbody" role="img"></div></div>`).join('')}</div>
+    <div class="pbar"><button class="btn soft pring">Encercla ${d}</button><button class="btn soft ppass" hidden></button></div></div>`;
+  const wrap = $('.pals', host), cols = [...wrap.querySelectorAll('.pcol')], ringB = $('.pring', wrap), passB = $('.ppass', wrap), qt = $('.pqt', wrap);
+  const digits = [];   // the quotient written so far
+  const say = m => { said = m; onSay(m); };
+  function paintQ() { qt.innerHTML = digits.map(x => `<b>${x}</b>`).join('') + (step === 'write' && !done ? '<span class="pslot" aria-label="Escriu aquí"></span>' : ''); }
+  // the sticks of column i in rows of d: the rings first, then the full rows still to ring, then what is left over (dimmed once the column is done)
+  function paint(i, r, animate) {
+    const C = cs[i], full = Math.floor(C.v / d), rest = C.v % d, body = $('.pbody', cols[i]);
+    let k = 0;
+    const row = (m, cls) => `<span class="prow${cls}" data-r="${m}">${Array.from({ length: cls.includes('part') ? rest : d }, () => { const carried = k < C.carry; return `<i class="pl${carried ? ' c' : ''}" style="--i:${k++}"></i>`; }).join('')}</span>`;
+    body.innerHTML = Array.from({ length: full }, (_, m) => row(m, m < r ? ' pg' : ' pfull')).join('') + (rest ? row(full, ' part') : '');
+    body.classList.toggle('grow', !!animate);
+    body.setAttribute('aria-label', `${sw(C.v)} en files de ${d}: ${r} ${r === 1 ? 'fila encerclada' : 'files encerclades'}`);
     $('.pcar', cols[i]).textContent = C.carry ? C.carry / 10 : '';
   }
   function bar() {
-    const C = cs[c], loose = C.v - g * d;
-    ring.hidden = pass.hidden = done;
-    pass.textContent = c === n - 1 ? 'Ja està' : loose ? `Passa'${loose === 1 ? 'l' : 'ls'} a la columna següent →` : 'Columna següent →';
+    const C = cs[c];
+    ringB.hidden = done || step !== 'ring'; passB.hidden = done || step !== 'pass';
+    passB.textContent = `Passa${C.r === 1 ? "'l" : "'ls"} davant del ${cs[c + 1]?.x ?? ''} →`;
+    paintQ();
   }
-  function enter(i, animate) {
-    c = i; g = 0;
+  function enter(i) {
+    c = i; rings = 0; step = 'ring';
     cols.forEach((e, j) => e.classList.toggle('on', j === i));
-    paint(i, 0, animate); bar();
+    wrap.querySelector(`.pdg[data-i="${i}"]`)?.classList.add('dot');
+    paint(i, 0, true);
+    const C = cs[i];
+    if (C.v < d) { step = digits.length ? 'write' : 'pass'; bar(); return say(digits.length ? `Amb ${sw(C.v)} no es pot fer cap grup de ${d}: escriu 0 darrere del =.` : `Amb ${sw(C.v)} no es pot fer cap grup de ${d}: al quocient encara no s'escriu res. Passa'${C.v === 1 ? 'l' : 'ls'} davant del ${cs[i + 1].x}.`); }
+    bar(); say(`${i ? `Ara la columna del ${C.v}` : `Comença pel ${C.v}`}: toca cada fila de ${d} palets per encerclar-la.`);
   }
-  function close(i) { cols[i].classList.remove('on'); cols[i].classList.add('done'); $('.pq', cols[i]).textContent = cs[i].g; }
-  function circle() {
-    if (done) return;
-    const loose = cs[c].v - g * d;
-    if (loose < d) return onMiss(loose ? `Amb ${loose} ${sw(loose)} no es pot fer un grup de ${d}. ${c === n - 1 ? 'Prem «Ja està».' : 'Passa\'ls a la columna següent.'}` : `Aquí ja no queda cap palet. ${c === n - 1 ? 'Prem «Ja està».' : 'Passa a la columna següent.'}`);
-    g++; paint(c, g, false); $('.pbody .pg:last-of-type', cols[c])?.classList.add('new'); bar();  }
+  function circle(m) {
+    if (done || step !== 'ring') return;
+    const C = cs[c];
+    if (m != null && m !== rings && m < C.g) m = rings;   // any full row: the rings fill from the top
+    if (m === C.g || (m == null && rings >= C.g)) return onMiss(`Aquesta fila no té ${d} palets: no es pot encerclar.`);
+    rings++; paint(c, rings, false); cols[c].querySelectorAll('.pg')[rings - 1]?.classList.add('new');
+    if (rings === C.g) { step = 'write'; bar(); say(`Quants grups de ${d} has encerclat al ${C.v}? Escriu-ho darrere del =.`); }
+  }
   async function next() {
-    if (done) return;
-    const loose = cs[c].v - g * d;
-    if (loose >= d) return onMiss(`Encara pots fer un grup de ${d} en aquesta columna: encercla'l abans de passar.`);
-    close(c);
-    if (c === n - 1) { done = true; bar(); return onDone(); }
-    if (loose) {   // the sticks left slide into the next column, where each one is worth ten
-      $('.ploose', cols[c]).classList.add('away'); await sleep(RM ? 0 : 420); if (!live()) return;
-      paint(c, g, false); $('.ploose', cols[c]).innerHTML = '';
-    }
-    enter(c + 1, true);
+    if (done || step !== 'pass') return;
+    const C = cs[c];
+    cols[c].classList.remove('on'); cols[c].classList.add('done');
+    const left = cols[c].querySelector('.part'); left?.classList.add('away');
+    await sleep(RM ? 0 : 450); if (!live()) return;
+    enter(c + 1);
+  }
+  async function finish() {
+    done = true; cols[c].classList.remove('on'); cols[c].classList.add('done'); bar();
+    say(`${D} ÷ ${d} = ${digits.join('')}`); await sleep(RM ? 0 : 700); if (!live()) return;
+    onAnswer(+digits.join(''), slips);
+  }
+  // a key of the pad: a digit is the number of rings of the column, written after the =
+  function key(k) {
+    if (done || !live()) return false;
+    if (!/^\d$/.test(k)) return true;
+    if (step !== 'write') { onMiss(step === 'ring' ? `Primer encercla les files de ${d} palets.` : said); return true; }
+    const C = cs[c];
+    if (+k !== C.g) { slips++; return onMiss(`Compta els cercles de la columna del ${C.v}: no n'hi ha ${k}.`), true; }
+    digits.push(+k); step = C.r && c < n - 1 ? 'pass' : 'next'; paintQ();
+    if (c === n - 1) { finish(); return true; }
+    if (step === 'pass') { bar(); say(`${C.r === 1 ? 'Sobra 1 palet' : `Sobren ${C.r} palets`}: passa'${C.r === 1 ? 'l' : 'ls'} davant del ${cs[c + 1].x}, i cada un hi valdrà deu.`); }
+    else { cols[c].classList.remove('on'); cols[c].classList.add('done'); setTimeout(() => live() && !done && enter(c + 1), RM ? 0 : 500); }
+    return true;
   }
   function solve() {
-    stop(); done = true;
-    cs.forEach((C, i) => { paint(i, C.g, false); if (i < n - 1) $('.ploose', cols[i]).innerHTML = ''; close(i); });
+    stop(); done = true; digits.length = 0;
+    cs.forEach((C, i) => { paint(i, C.g, false); cols[i].classList.remove('on'); cols[i].classList.add('done'); wrap.querySelector(`.pdg[data-i="${i}"]`)?.classList.add('dot'); if (digits.length || C.g) digits.push(C.g); });
     bar();
   }
   wrap.onclick = e => {
     if (!live()) return;
-    if (e.target.closest('.pring') || e.target.closest('.pcol.on .ploose .pl')) circle(); else if (e.target.closest('.ppass')) next();
+    const r = e.target.closest('.pcol.on .prow');
+    if (e.target.closest('.pring')) circle(null);
+    else if (e.target.closest('.ppass') || (r && r.classList.contains('part') && step === 'pass')) next();
+    else if (r) circle(+r.dataset.r);
   };
-  enter(0, true); fitter(host, wrap, 0.45);
-  return { stop, solve };
+  enter(0); fitter(host, wrap, 0.4);
+  return { stop, solve, key, keys: true };
 }
+palets.keys = true;   // the pad is open from the start and its keys come to the figure
 
 export const FIGURES = { pal: palets, share: fireflies, group: fireflies, rem: fireflies, fact: grid, proof: grid, tens: bars, split: chunks, long: chunks,
   // a story has the material of its division: the lily pads of a sharing, or the rings of groups with what is left over apart
   story: (host, q, o) => fireflies(host, { ...q, mode: q.fig }, o) };
 // what to do with the material of a `hands` question, in the words of its figure
-export const how = q => q.mode === 'pal' ? `Prem «Encercla ${q.d}» o toca un palet: ${q.d} palets fan un grup. Quan no en puguis fer més, passa els que sobren a la columna següent. Quan acabis, escriu la resposta.`
+export const how = q => q.mode === 'pal' ? ''
   : q.mode === 'share' ? 'Toca un nenúfar: hi vola una cuca. Quan les hagis repartides totes, escriu la resposta.'
   : q.mode === 'fact' ? `Prem «Afegeix una fila»: cada fila té ${q.d} caselles. Quan en tinguis ${q.D}, escriu la resposta.`
   : q.mode === 'proof' ? `Prem «Afegeix una fila»: cada fila és un grup de ${q.d} caselles. Fes ${q.q} ${q.q === 1 ? 'fila' : 'files'}${q.r ? ` i afegeix després ${q.r === 1 ? 'la que sobra' : 'les que sobren'}` : ''}. Després escriu la resposta.`
