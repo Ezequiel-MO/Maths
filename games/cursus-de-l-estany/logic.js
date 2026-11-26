@@ -145,7 +145,7 @@ export function tipFor(q) {
     case 'group': return `Fes grups de ${d} amb les ${D} cuques. Quants grups surten?`;
     case 'fact': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;
     case 'story': return 'Llegeix el problema i escriu la resposta. Pots fer servir el material.';
-    case 'pal': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `Divideix ${D} entre ${d} columna per columna: a cada columna fes grups de ${d} amb els palets.`;
+    case 'pal': return q.bare ? `Quant és ${D} ÷ ${d}? Escriu el quocient.` : `${D} ÷ ${d}: xifra a xifra, com al paper.`;
     case 'rem': return `Fes grups de ${d} amb les ${D} cuques. Escriu quants grups surten i quantes en sobren.`;
     case 'proof': return `S'han fet grups de ${d}: ${q.q === 1 ? 'ha' : 'han'} sortit ${grups(q.q)} i ${sobra(q.r)}. Quantes cuques hi havia?`;
     case 'tens': return `Quant és ${D} ÷ ${d}? Escriu el quocient.`;

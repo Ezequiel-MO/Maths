@@ -257,9 +257,9 @@ function quiz(t, qs, o) {
   function figure(solved) {
     if (!o.help || !FIGURES[q.mode]) return;
     if (!fig) {
-      fig = FIGURES[q.mode](mat, q, { t, w3: IN3D(q) ? W : null, onDone: () => { if (q.hands) { open(true); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
+      fig = FIGURES[q.mode](mat, q, { t, w3: IN3D(q) ? W : null, onSay: m => { tip(m, 'hint'); showTip(); }, onAnswer: (a, slips) => { if (busy || !t.on) return; tries += slips; submit(a); }, onDone: () => { if (q.hands) { open(true); tone(784, 0, 0.14, 0.08); tip('Ja està! Ara escriu la resposta.', 'go'); } },
         onMiss: m => { tone(150, 0, 0.45, 0.16, 'triangle'); tip(m || MISS, 'oops'); } });
-      if (fig.hosts) { B.move(fig.hosts); $('#ask').classList.add('far'); }   // a figure with a place for each box (chunks) takes the boxes, whatever was typed in them stays
+      if (fig.hosts || fig.keys) { if (fig.hosts) B.move(fig.hosts); $('#ask').classList.add('far'); }   // a figure with a place for each box (chunks) takes the boxes, whatever was typed in them stays
       if (IN3D(q)) { document.body.classList.remove('paper'); requestAnimationFrame(frame3d); }   // a hidden figure of the pond, shown by the hint: the pond takes its room back
     }
     if (solved) fig.solve();
@@ -271,14 +271,17 @@ function quiz(t, qs, o) {
     $('#ask').innerHTML = `<span class="eq${it ? ' sh' : q.mode === 'story' ? ' story' : ''}">${eq(q)}${it ? ' ' + told(q, it.shown) : ''}</span><span class="bxs"${it ? ' hidden' : ''}></span>`; B = boxes($('.bxs', stage), q, labelsOf(q));
     $('#keys').innerHTML = it ? CHOICE : KEYS;
     $('#ask').classList.remove('far');
+    if (o.help && FIGURES[q.mode]?.keys && !q.hide) $('#ask').classList.add('far');   // the operation is written on the figure itself: before it is measured
     // the pond: a figure of the pond is drawn there by the figure itself; a paper, an exam or a sheet leave the frog at the hut
     W.onPick = (kind, key) => { if (!fig || busy || !ready()) return; if (kind === 'pad') fig.tap?.(+key); else if (kind === 'jar') fig.make?.(); else if (kind === 'grid') fig.tap?.(); };
     const in3d = o.help && FIGURES[q.mode] && IN3D(q) && !q.hide;
     document.body.classList.toggle('paper', !in3d); if (!in3d) W.desk(); requestAnimationFrame(frame3d);
-    const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still;   // the keys come up when the material is done
+    const wait = o.help && q.hands && FIGURES[q.mode] && !FIGURES[q.mode].still && !FIGURES[q.mode].keys;   // the keys come up when the material is done (a figure that takes the keys has them from the start)
     open(!wait);
     tip(it ? `Mira bé ${q.mode === 'proof' ? 'l\'operació' : 'la divisió'}. És correcta?` : tipFor(q) + (wait ? ' ' + how(q) : '')); if (!q.hide) figure(false);
     typing(B, submit, () => busy || verd || $('#ask').hidden, a => right(q, a)); showTip(); $('.verd', stage)?.focus({ preventScroll: true });
+    // a figure that takes the keys (the sticks in columns) has them until it is done; then they are the boxes' again
+    const base = keyFn; keyFn = k => busy || verd ? false : fig?.key && fig.key(k) ? (tone(k === 'del' ? 392 : 660, 0, 0.08, 0.05), true) : base(k);
   }
   async function submit(ans, yes) {
     const ok = it ? judge(it, !!yes, ans) : right(q, ans), once = o.once || it;
